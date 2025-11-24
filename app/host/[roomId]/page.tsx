@@ -147,7 +147,7 @@ export default function HostRoomPage() {
     const { data, error: questionError } = await supabase
       .from('questions')
       .select('text, order, difficulty, points, option_a, option_b, option_c, option_d, correct_answer')
-      .eq('order', questionIndex + 1)
+      .eq('"order"', questionIndex + 1)
       .single();
 
     if (questionError || !data) {
