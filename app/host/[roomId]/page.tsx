@@ -143,6 +143,7 @@ export default function HostRoomPage() {
   };
 
   const loadQuestion = async (questionIndex: number) => {
+    // questionIndex начинается с 0, order в БД начинается с 1
     const { data, error: questionError } = await supabase
       .from('questions')
       .select('text, order, difficulty, points, option_a, option_b, option_c, option_d, correct_answer')
@@ -150,6 +151,7 @@ export default function HostRoomPage() {
       .single();
 
     if (questionError || !data) {
+      // Если вопрос не найден, игра завершена
       setQuestion(null);
       return;
     }
