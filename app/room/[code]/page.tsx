@@ -27,6 +27,8 @@ interface Question {
   correct_answer: string;
 }
 
+type RoomStatus = 'waiting' | 'running' | 'finished';
+
 export default function RoomPage() {
   const params = useParams();
   const router = useRouter();
@@ -42,6 +44,7 @@ export default function RoomPage() {
   const [questionStartedAt, setQuestionStartedAt] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState(QUESTION_DURATION_SECONDS);
   const [showResults, setShowResults] = useState(false);
+  const [roomStatus, setRoomStatus] = useState<RoomStatus>('waiting');
 
   useEffect(() => {
     const init = async () => {
@@ -58,7 +61,7 @@ export default function RoomPage() {
       // Получаем данные комнаты
       const { data: room, error: roomError } = await supabase
         .from('rooms')
-        .select('id, current_question_index, is_active, question_started_at')
+        .select('id, current_question_index, is_active, status, question_started_at')
         .eq('code', roomCode)
         .single();
 
@@ -69,32 +72,42 @@ export default function RoomPage() {
       }
 
       setRoomId(room.id);
-      setQuestionStartedAt(room.question_started_at);
-      setTimeLeft(getRemainingSeconds(room.question_started_at));
+      setRoomStatus((room.status as RoomStatus) || (room.is_active ? 'waiting' : 'finished'));
 
-      if (!room.is_active) {
-        setShowResults(true);
+      if (room.status === 'waiting') {
+        setShowResults(false);
+        setHasAnswered(false);
+        setQuestion(null);
+        setQuestionStartedAt(null);
+        setTimeLeft(QUESTION_DURATION_SECONDS);
         setIsLoading(false);
-        return;
+      } else if (!room.is_active || room.status === 'finished') {
+        setShowResults(true);
+        setQuestion(null);
+        setQuestionStartedAt(null);
+        setIsLoading(false);
+      } else {
+        setQuestionStartedAt(room.question_started_at);
+        setTimeLeft(getRemainingSeconds(room.question_started_at));
+
+        // Загружаем текущий вопрос
+        await loadQuestion(room.current_question_index);
+
+        // Проверяем, ответил ли игрок на текущий вопрос
+        const { data: existingAnswer } = await supabase
+          .from('answers')
+          .select('id')
+          .eq('player_id', playerId)
+          .eq('room_id', room.id)
+          .eq('question_index', room.current_question_index)
+          .single();
+
+        if (existingAnswer) {
+          setHasAnswered(true);
+        }
+
+        setIsLoading(false);
       }
-
-      // Загружаем текущий вопрос
-      await loadQuestion(room.current_question_index);
-
-      // Проверяем, ответил ли игрок на текущий вопрос
-      const { data: existingAnswer } = await supabase
-        .from('answers')
-        .select('id')
-        .eq('player_id', playerId)
-        .eq('room_id', room.id)
-        .eq('question_index', room.current_question_index)
-        .single();
-
-      if (existingAnswer) {
-        setHasAnswered(true);
-      }
-
-      setIsLoading(false);
 
       // Подписка на изменения комнаты (когда ведущий переключает вопросы)
       const roomChannel = supabase
@@ -110,7 +123,25 @@ export default function RoomPage() {
           async (payload: any) => {
             const newQuestionIndex = payload.new.current_question_index;
             const startedAt = payload.new.question_started_at as string | null;
-            
+            const newStatus = (payload.new.status as RoomStatus) || (payload.new.is_active ? 'waiting' : 'finished');
+            setRoomStatus(newStatus);
+
+            if (newStatus === 'waiting') {
+              setShowResults(false);
+              setHasAnswered(false);
+              setQuestion(null);
+              setQuestionStartedAt(null);
+              setTimeLeft(QUESTION_DURATION_SECONDS);
+              return;
+            }
+
+            if (newStatus === 'finished' || payload.new.is_active === false) {
+              setShowResults(true);
+              setQuestion(null);
+              setQuestionStartedAt(null);
+              return;
+            }
+
             // Загружаем новый вопрос
             await loadQuestion(newQuestionIndex);
             setQuestionStartedAt(startedAt);
@@ -145,7 +176,7 @@ export default function RoomPage() {
   }, [roomCode, router]);
 
   useEffect(() => {
-    if (showResults) {
+    if (showResults || roomStatus !== 'running') {
       return;
     }
 
@@ -153,7 +184,7 @@ export default function RoomPage() {
     tick();
     const interval = setInterval(tick, 250);
     return () => clearInterval(interval);
-  }, [questionStartedAt, showResults]);
+  }, [questionStartedAt, showResults, roomStatus]);
 
   const loadQuestion = async (questionIndex: number) => {
     // questionIndex начинается с 0, order в БД начинается с 1
@@ -178,6 +209,12 @@ export default function RoomPage() {
     setIsSubmitting(true);
 
     try {
+      if (roomStatus !== 'running') {
+        setError('Дождитесь начала раунда, чтобы отвечать');
+        setIsSubmitting(false);
+        return;
+      }
+
       if (timeLeft <= 0) {
         setError('Время на ответ истекло');
         setIsSubmitting(false);
@@ -313,8 +350,18 @@ export default function RoomPage() {
           </div>
         </div>
 
+        {roomStatus === 'waiting' && (
+          <div className="bg-white rounded-2xl shadow-2xl p-8 mb-6 flex-1 flex flex-col items-center justify-center text-center">
+            <div className="text-6xl mb-4">⏳</div>
+            <h2 className="text-3xl font-bold text-gray-800 mb-2">Ждём ведущего</h2>
+            <p className="text-gray-600 max-w-md">
+              Игра начнётся, когда ведущий подтвердит подключение всех игроков. Оставайтесь на этой странице.
+            </p>
+          </div>
+        )}
+
         {/* Вопрос */}
-        {question && (
+        {question && roomStatus === 'running' && (
           <div className="bg-white rounded-2xl shadow-2xl p-8 mb-6 flex-1 flex flex-col">
             <div className="text-center mb-8">
               <span className="inline-block bg-purple-100 text-purple-700 px-4 py-2 rounded-full text-sm font-semibold mb-4">
@@ -354,7 +401,7 @@ export default function RoomPage() {
                       <button
                         key={option.key}
                         onClick={() => submitAnswer(option.key)}
-                        disabled={isSubmitting || timeLeft <= 0}
+                        disabled={isSubmitting || timeLeft <= 0 || roomStatus !== 'running'}
                         className="w-full text-left px-6 py-4 bg-white border-2 border-purple-300 hover:border-purple-500 hover:bg-purple-50 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
                       >
                         <div className="flex items-center gap-3">

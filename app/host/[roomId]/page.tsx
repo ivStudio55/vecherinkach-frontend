@@ -41,6 +41,8 @@ interface Player {
   total_points: number;
 }
 
+type RoomStatus = 'waiting' | 'running' | 'finished';
+
 interface RoundAnswer {
   player_id: string;
   text: string;
@@ -66,6 +68,7 @@ export default function HostRoomPage() {
   const [roundAnswers, setRoundAnswers] = useState<RoundAnswer[]>([]);
   const [summaryQuestions, setSummaryQuestions] = useState<Question[]>([]);
   const [isSummaryLoading, setIsSummaryLoading] = useState(false);
+  const [roomStatus, setRoomStatus] = useState<RoomStatus>('waiting');
 
   const syncTimerWithStart = (startedAt: string | null) => {
     setQuestionStartedAt(startedAt);
@@ -141,7 +144,7 @@ export default function HostRoomPage() {
   }, [roomId, router]);
 
   useEffect(() => {
-    if (showResults) {
+    if (showResults || roomStatus !== 'running') {
       return;
     }
 
@@ -158,7 +161,7 @@ export default function HostRoomPage() {
     // Загружаем данные комнаты
     const { data: room, error: roomError } = await supabase
       .from('rooms')
-      .select('code, current_question_index, question_started_at')
+      .select('code, current_question_index, question_started_at, status')
       .eq('id', roomId)
       .single();
 
@@ -169,16 +172,22 @@ export default function HostRoomPage() {
 
     setRoomCode(room.code);
     setCurrentQuestionIndex(room.current_question_index);
-    syncTimerWithStart(room.question_started_at);
+    setRoomStatus((room.status as RoomStatus) || 'waiting');
 
-    // Загружаем вопрос
-    await loadQuestion(room.current_question_index);
+    if (room.status === 'running') {
+      syncTimerWithStart(room.question_started_at);
+      await loadQuestion(room.current_question_index);
+      await loadAnswerCount(room.current_question_index);
+    } else if (room.status === 'finished') {
+      setShowResults(true);
+      await fetchSummaryData();
+    } else {
+      setQuestion(null);
+      setAnswerCount(0);
+    }
 
     // Загружаем игроков
     await loadPlayers();
-
-    // Считаем ответы на текущий вопрос
-    await loadAnswerCount(room.current_question_index);
 
     // Получаем общее количество вопросов
     const { count } = await supabase
@@ -255,7 +264,7 @@ export default function HostRoomPage() {
     setIsSummaryLoading(true);
     const { error: updateError } = await supabase
       .from('rooms')
-      .update({ is_active: false })
+      .update({ is_active: false, status: 'finished' })
       .eq('id', roomId);
 
     if (updateError) {
@@ -263,11 +272,31 @@ export default function HostRoomPage() {
       setIsSummaryLoading(false);
       return;
     }
-
     await fetchSummaryData();
     await loadPlayers();
+    setRoomStatus('finished');
     setShowResults(true);
     setIsSummaryLoading(false);
+  };
+
+  const startRound = async () => {
+    const startedAt = new Date().toISOString();
+    const { error: updateError } = await supabase
+      .from('rooms')
+      .update({ status: 'running', question_started_at: startedAt, current_question_index: 0 })
+      .eq('id', roomId);
+
+    if (updateError) {
+      setError('Не удалось начать раунд, попробуйте ещё раз');
+      return;
+    }
+
+    setRoomStatus('running');
+    setShowResults(false);
+    syncTimerWithStart(startedAt);
+    setAnswerCount(0);
+    await loadQuestion(0);
+    await loadAnswerCount(0);
   };
 
   const nextQuestion = async () => {
@@ -294,7 +323,7 @@ export default function HostRoomPage() {
   const endGame = async () => {
     const { error: updateError } = await supabase
       .from('rooms')
-      .update({ is_active: false })
+      .update({ is_active: false, status: 'finished' })
       .eq('id', roomId);
 
     if (updateError) {
@@ -318,9 +347,10 @@ export default function HostRoomPage() {
   const answeredCount = answerCount;
   const totalPlayers = players.length;
   const isLastQuestion = currentQuestionIndex >= totalQuestions - 1;
-  const canAdvance = timeLeft === 0;
+  const canAdvance = roomStatus === 'running' && timeLeft === 0;
   const progressPercent = Math.max(0, Math.min(100, (timeLeft / QUESTION_DURATION_SECONDS) * 100));
   const questionsForSummary = summaryQuestions.length ? summaryQuestions : question ? [question] : [];
+  const isWaiting = roomStatus === 'waiting' && !showResults;
 
   const getOptionText = (q: Question, key: string) => {
     const options: Record<string, string> = {
@@ -418,6 +448,38 @@ export default function HostRoomPage() {
                   })}
                 </div>
               </div>
+            ) : isWaiting ? (
+              <div className="bg-white rounded-2xl shadow-2xl p-8">
+                <h2 className="text-3xl font-bold text-gray-800 mb-4">⌛ Ожидание игроков</h2>
+                <p className="text-gray-600 mb-6">
+                  Комната открыта. Поделитесь кодом <span className="font-mono font-semibold text-purple-600 text-lg">{roomCode}</span> и дождитесь, пока все подключатся.
+                </p>
+                <ul className="space-y-3 mb-6">
+                  <li className="flex items-center gap-3 text-gray-700">
+                    <span className="w-8 h-8 rounded-full bg-purple-100 text-purple-700 font-semibold flex items-center justify-center">1</span>
+                    Игроки вводят код комнаты на своих устройствах.
+                  </li>
+                  <li className="flex items-center gap-3 text-gray-700">
+                    <span className="w-8 h-8 rounded-full bg-purple-100 text-purple-700 font-semibold flex items-center justify-center">2</span>
+                    Вы видите всех подключившихся справа в списке игроков.
+                  </li>
+                  <li className="flex items-center gap-3 text-gray-700">
+                    <span className="w-8 h-8 rounded-full bg-purple-100 text-purple-700 font-semibold flex items-center justify-center">3</span>
+                    Как только все готовы, нажмите кнопку ниже, чтобы запустить таймер и показать первый вопрос.
+                  </li>
+                </ul>
+
+                <button
+                  onClick={startRound}
+                  disabled={players.length === 0}
+                  className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-bold py-4 px-6 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed text-lg"
+                >
+                  Начать игру →
+                </button>
+                {players.length === 0 && (
+                  <p className="text-sm text-gray-500 text-center mt-3">Нужно как минимум 1 игрок, чтобы начать.</p>
+                )}
+              </div>
             ) : question ? (
               <div className="bg-white rounded-2xl shadow-2xl p-8">
                 <div className="flex justify-between items-center mb-4">
@@ -484,12 +546,18 @@ export default function HostRoomPage() {
             ) : (
               <div className="bg-white rounded-2xl shadow-2xl p-6">
                 <h3 className="text-xl font-bold text-gray-800 mb-2">💬 Ответы игроков</h3>
-                <p className="text-gray-600">
-                  Ответы скрыты до окончания раунда. Ведущий увидит их автоматически после таймера.
-                </p>
-                <p className="text-sm text-gray-500 mt-4">
-                  Успели ответить: <span className="font-semibold text-purple-600">{answeredCount}/{totalPlayers}</span>
-                </p>
+                {isWaiting ? (
+                  <p className="text-gray-600">Ответы появятся, когда вы запустите игру. Пока можно следить за списком подключившихся.</p>
+                ) : (
+                  <>
+                    <p className="text-gray-600">
+                      Ответы скрыты до окончания раунда. Ведущий увидит их автоматически после таймера.
+                    </p>
+                    <p className="text-sm text-gray-500 mt-4">
+                      Успели ответить: <span className="font-semibold text-purple-600">{answeredCount}/{totalPlayers}</span>
+                    </p>
+                  </>
+                )}
               </div>
             )}
           </div>
