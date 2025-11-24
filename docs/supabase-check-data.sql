@@ -16,12 +16,13 @@ SELECT
     option_b,
     option_c,
     option_d,
-    correct_answer
+    correct_answer,
+    explanation
 FROM questions
 ORDER BY "order";
 
 -- 3. Проверяем активные комнаты
-SELECT id, code, current_question_index, is_active, created_at
+SELECT id, code, current_question_index, is_active, question_started_at, created_at
 FROM rooms
 WHERE is_active = true
 ORDER BY created_at DESC;

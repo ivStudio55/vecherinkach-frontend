@@ -4,6 +4,24 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
+const QUESTION_DURATION_SECONDS = 30;
+
+const OPTION_LABELS: Record<string, string> = {
+  a: 'А',
+  b: 'Б',
+  c: 'В',
+  d: 'Г',
+};
+
+const getRemainingSeconds = (startedAt: string | null) => {
+  if (!startedAt) {
+    return QUESTION_DURATION_SECONDS;
+  }
+  const diffMs = Date.now() - new Date(startedAt).getTime();
+  const elapsedSeconds = Math.floor(diffMs / 1000);
+  return Math.max(0, QUESTION_DURATION_SECONDS - elapsedSeconds);
+};
+
 interface Question {
   text: string;
   order: number;
@@ -14,6 +32,7 @@ interface Question {
   option_c: string;
   option_d: string;
   correct_answer: string;
+  explanation?: string;
 }
 
 interface Player {
@@ -22,12 +41,13 @@ interface Player {
   total_points: number;
 }
 
-interface Answer {
+interface RoundAnswer {
   player_id: string;
   text: string;
   submitted_at: string;
   is_correct: boolean;
   points_earned: number;
+  question_index: number;
 }
 
 export default function HostRoomPage() {
@@ -39,7 +59,18 @@ export default function HostRoomPage() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [question, setQuestion] = useState<Question | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
-  const [answers, setAnswers] = useState<Answer[]>([]);
+  const [answerCount, setAnswerCount] = useState(0);
+  const [questionStartedAt, setQuestionStartedAt] = useState<string | null>(null);
+  const [timeLeft, setTimeLeft] = useState(QUESTION_DURATION_SECONDS);
+  const [showResults, setShowResults] = useState(false);
+  const [roundAnswers, setRoundAnswers] = useState<RoundAnswer[]>([]);
+  const [summaryQuestions, setSummaryQuestions] = useState<Question[]>([]);
+  const [isSummaryLoading, setIsSummaryLoading] = useState(false);
+
+  const syncTimerWithStart = (startedAt: string | null) => {
+    setQuestionStartedAt(startedAt);
+    setTimeLeft(getRemainingSeconds(startedAt));
+  };
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [totalQuestions, setTotalQuestions] = useState(0);
@@ -93,7 +124,7 @@ export default function HostRoomPage() {
               .single();
 
             if (room && payload.new.question_index === room.current_question_index) {
-              await loadAnswers(room.current_question_index);
+              await loadAnswerCount(room.current_question_index);
             }
           }
         )
@@ -109,11 +140,25 @@ export default function HostRoomPage() {
     init();
   }, [roomId, router]);
 
+  useEffect(() => {
+    if (showResults) {
+      return;
+    }
+
+    const tick = () => {
+      setTimeLeft(getRemainingSeconds(questionStartedAt));
+    };
+
+    tick();
+    const interval = setInterval(tick, 250);
+    return () => clearInterval(interval);
+  }, [questionStartedAt, showResults]);
+
   const loadRoomData = async () => {
     // Загружаем данные комнаты
     const { data: room, error: roomError } = await supabase
       .from('rooms')
-      .select('code, current_question_index')
+      .select('code, current_question_index, question_started_at')
       .eq('id', roomId)
       .single();
 
@@ -124,6 +169,7 @@ export default function HostRoomPage() {
 
     setRoomCode(room.code);
     setCurrentQuestionIndex(room.current_question_index);
+    syncTimerWithStart(room.question_started_at);
 
     // Загружаем вопрос
     await loadQuestion(room.current_question_index);
@@ -131,8 +177,8 @@ export default function HostRoomPage() {
     // Загружаем игроков
     await loadPlayers();
 
-    // Загружаем ответы на текущий вопрос
-    await loadAnswers(room.current_question_index);
+    // Считаем ответы на текущий вопрос
+    await loadAnswerCount(room.current_question_index);
 
     // Получаем общее количество вопросов
     const { count } = await supabase
@@ -146,7 +192,7 @@ export default function HostRoomPage() {
     // questionIndex начинается с 0, order в БД начинается с 1
     const { data, error: questionError } = await supabase
       .from('questions')
-      .select('text, order, difficulty, points, option_a, option_b, option_c, option_d, correct_answer')
+      .select('text, order, difficulty, points, option_a, option_b, option_c, option_d, correct_answer, explanation')
       .eq('"order"', questionIndex + 1)
       .single();
 
@@ -171,24 +217,66 @@ export default function HostRoomPage() {
     setPlayers(data || []);
   };
 
-  const loadAnswers = async (questionIndex: number) => {
-    const { data, error: answersError } = await supabase
+  const loadAnswerCount = async (questionIndex: number) => {
+    const { count, error: answersError } = await supabase
       .from('answers')
-      .select('player_id, text, submitted_at, is_correct, points_earned')
+      .select('*', { count: 'exact', head: true })
       .eq('room_id', roomId)
-      .eq('question_index', questionIndex)
-      .order('submitted_at', { ascending: true });
+      .eq('question_index', questionIndex);
 
     if (answersError) return;
-    setAnswers(data || []);
+    setAnswerCount(count || 0);
+  };
+
+  const fetchSummaryData = async () => {
+    const [questionsResult, answersResult] = await Promise.all([
+      supabase
+        .from('questions')
+        .select('text, order, difficulty, points, option_a, option_b, option_c, option_d, correct_answer, explanation')
+        .order('order', { ascending: true }),
+      supabase
+        .from('answers')
+        .select('player_id, text, submitted_at, is_correct, points_earned, question_index')
+        .eq('room_id', roomId)
+        .order('question_index', { ascending: true }),
+    ]);
+
+    if (!questionsResult.error) {
+      setSummaryQuestions(questionsResult.data || []);
+    }
+
+    if (!answersResult.error) {
+      setRoundAnswers(answersResult.data || []);
+    }
+  };
+
+  const finishRound = async () => {
+    if (isSummaryLoading) return;
+    setIsSummaryLoading(true);
+    const { error: updateError } = await supabase
+      .from('rooms')
+      .update({ is_active: false })
+      .eq('id', roomId);
+
+    if (updateError) {
+      setError('Не удалось завершить раунд, попробуйте ещё раз');
+      setIsSummaryLoading(false);
+      return;
+    }
+
+    await fetchSummaryData();
+    await loadPlayers();
+    setShowResults(true);
+    setIsSummaryLoading(false);
   };
 
   const nextQuestion = async () => {
     const newIndex = currentQuestionIndex + 1;
+    const questionStartedAt = new Date().toISOString();
 
     const { error: updateError } = await supabase
       .from('rooms')
-      .update({ current_question_index: newIndex })
+      .update({ current_question_index: newIndex, question_started_at: questionStartedAt })
       .eq('id', roomId);
 
     if (updateError) {
@@ -197,8 +285,10 @@ export default function HostRoomPage() {
     }
 
     setCurrentQuestionIndex(newIndex);
+    syncTimerWithStart(questionStartedAt);
+    setAnswerCount(0);
     await loadQuestion(newIndex);
-    await loadAnswers(newIndex);
+    await loadAnswerCount(newIndex);
   };
 
   const endGame = async () => {
@@ -225,9 +315,25 @@ export default function HostRoomPage() {
     );
   }
 
-  const answeredCount = answers.length;
+  const answeredCount = answerCount;
   const totalPlayers = players.length;
   const isLastQuestion = currentQuestionIndex >= totalQuestions - 1;
+  const canAdvance = timeLeft === 0;
+  const progressPercent = Math.max(0, Math.min(100, (timeLeft / QUESTION_DURATION_SECONDS) * 100));
+  const questionsForSummary = summaryQuestions.length ? summaryQuestions : question ? [question] : [];
+
+  const getOptionText = (q: Question, key: string) => {
+    const options: Record<string, string> = {
+      a: q.option_a,
+      b: q.option_b,
+      c: q.option_c,
+      d: q.option_d,
+    };
+    return options[key] || '';
+  };
+
+  const getPlayerName = (playerId: string) =>
+    players.find((player) => player.id === playerId)?.name || 'Неизвестный игрок';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 p-6">
@@ -257,10 +363,64 @@ export default function HostRoomPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Вопрос и управление */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Текущий вопрос */}
-            {question ? (
+            {/* Текущий вопрос или сводка */}
+            {showResults ? (
               <div className="bg-white rounded-2xl shadow-2xl p-8">
-                <div className="flex justify-between items-center mb-6">
+                <h2 className="text-3xl font-bold text-gray-800 mb-4">🏆 Результаты разминочного раунда</h2>
+                <p className="text-gray-600 mb-8">
+                  Ведущий видит все ответы только после завершения таймера. Очки уже начислены игрокам автоматически.
+                </p>
+                <div className="space-y-6">
+                  {questionsForSummary.map((summaryQuestion) => {
+                    const answersForQuestion = roundAnswers.filter(
+                      (answer) => answer.question_index === summaryQuestion.order - 1
+                    );
+
+                    return (
+                      <div key={summaryQuestion.order} className="border border-gray-200 rounded-xl p-6">
+                        <div className="flex justify-between items-center text-sm text-gray-500 mb-2">
+                          <span>Вопрос {summaryQuestion.order} · {summaryQuestion.difficulty}</span>
+                          <span className="font-semibold text-purple-600">{summaryQuestion.points} 💎</span>
+                        </div>
+                        <p className="text-xl font-semibold text-gray-900 mb-3">{summaryQuestion.text}</p>
+                        <p className="text-green-700 font-medium mb-2">
+                          Правильный ответ: {OPTION_LABELS[summaryQuestion.correct_answer]} — {getOptionText(summaryQuestion, summaryQuestion.correct_answer)}
+                        </p>
+                        {summaryQuestion.explanation && (
+                          <p className="text-gray-600 text-sm mb-4">💡 {summaryQuestion.explanation}</p>
+                        )}
+                        <div className="space-y-3">
+                          {answersForQuestion.length === 0 ? (
+                            <p className="text-gray-500 text-sm">Никто не ответил на этот вопрос.</p>
+                          ) : (
+                            answersForQuestion.map((answer) => (
+                              <div
+                                key={`${answer.player_id}-${answer.question_index}`}
+                                className={`p-3 rounded-lg border ${
+                                  answer.is_correct ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'
+                                }`}
+                              >
+                                <div className="flex justify-between items-center">
+                                  <span className="font-semibold text-gray-800">{getPlayerName(answer.player_id)}</span>
+                                  <span className={`text-sm font-bold ${answer.is_correct ? 'text-green-700' : 'text-red-700'}`}>
+                                    {answer.is_correct ? `+${answer.points_earned} 💎` : '0 💎'}
+                                  </span>
+                                </div>
+                                <p className="text-sm text-gray-600">
+                                  Ответ: {OPTION_LABELS[answer.text] || answer.text}
+                                </p>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : question ? (
+              <div className="bg-white rounded-2xl shadow-2xl p-8">
+                <div className="flex justify-between items-center mb-4">
                   <span className="bg-purple-100 text-purple-700 px-4 py-2 rounded-full text-sm font-semibold">
                     Вопрос {question.order} из {totalQuestions}
                   </span>
@@ -269,82 +429,69 @@ export default function HostRoomPage() {
                   </span>
                 </div>
 
+                <div className="mb-6">
+                  <div className="flex justify-between text-sm text-gray-500 mb-2">
+                    <span>Таймер · 30 секунд</span>
+                    <span className="font-semibold text-gray-800">{timeLeft} c</span>
+                  </div>
+                  <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full ${timeLeft > 5 ? 'bg-gradient-to-r from-green-400 to-emerald-500' : 'bg-gradient-to-r from-red-400 to-rose-500'}`}
+                      style={{ width: `${progressPercent}%` }}
+                    ></div>
+                  </div>
+                </div>
+
                 <h2 className="text-3xl font-bold text-gray-800 mb-8">
                   {question.text}
                 </h2>
 
                 <button
-                  onClick={nextQuestion}
-                  disabled={isLastQuestion}
+                  onClick={isLastQuestion ? finishRound : nextQuestion}
+                  disabled={!canAdvance || (isLastQuestion && isSummaryLoading)}
                   className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-bold py-4 px-6 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed text-lg"
                 >
-                  {isLastQuestion ? '✅ Это последний вопрос' : 'Следующий вопрос →'}
+                  {isLastQuestion ? 'Показать результаты' : 'Следующий вопрос →'}
                 </button>
+
+                <p className="text-center text-sm text-gray-500 mt-3">
+                  {canAdvance
+                    ? isLastQuestion
+                      ? 'Можно завершать раунд и показывать ответы.'
+                      : 'Таймер завершён, можно перейти к следующему вопросу.'
+                    : 'Ответы будут скрыты до окончания таймера.'}
+                </p>
               </div>
             ) : (
               <div className="bg-white rounded-2xl shadow-2xl p-8 text-center">
                 <h2 className="text-2xl font-bold text-gray-800 mb-4">
-                  🎉 Игра завершена!
+                  🎉 Раунд завершён
                 </h2>
-                <p className="text-gray-600">Все вопросы были показаны</p>
+                <p className="text-gray-600">Все вопросы были показаны.</p>
               </div>
             )}
 
-            {/* Ответы */}
-            <div className="bg-white rounded-2xl shadow-2xl p-6">
-              <h3 className="text-xl font-bold text-gray-800 mb-4">
-                💬 Ответы игроков ({answers.length})
-              </h3>
-
-              {answers.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">
-                  Пока никто не ответил на этот вопрос
+            {/* Блок ответов */}
+            {showResults ? (
+              <div className="bg-white rounded-2xl shadow-2xl p-6">
+                <h3 className="text-xl font-bold text-gray-800 mb-4">💬 Итоги по ответам</h3>
+                {roundAnswers.length === 0 ? (
+                  <p className="text-gray-500">Пока нет данных по ответам.</p>
+                ) : (
+                  <p className="text-gray-600">Каждый ответ отображён в карточках выше — объявите очки и объяснения игрокам.</p>
+                )}
+              </div>
+            ) : (
+              <div className="bg-white rounded-2xl shadow-2xl p-6">
+                <h3 className="text-xl font-bold text-gray-800 mb-2">💬 Ответы игроков</h3>
+                <p className="text-gray-600">
+                  Ответы скрыты до окончания раунда. Ведущий увидит их автоматически после таймера.
                 </p>
-              ) : (
-                <div className="space-y-4">
-                  {answers.map((answer, index) => {
-                    const player = players.find((p) => p.id === answer.player_id);
-                    const optionLabels: { [key: string]: string } = {
-                      a: 'А', b: 'Б', c: 'В', d: 'Г'
-                    };
-                    return (
-                      <div
-                        key={index}
-                        className={`p-4 rounded-lg border-l-4 ${
-                          answer.is_correct
-                            ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-500'
-                            : 'bg-gradient-to-r from-red-50 to-pink-50 border-red-500'
-                        }`}
-                      >
-                        <div className="flex justify-between items-start mb-2">
-                          <div className="flex items-center gap-2">
-                            <span className={`font-semibold ${answer.is_correct ? 'text-green-700' : 'text-red-700'}`}>
-                              {player?.name || 'Неизвестный игрок'}
-                            </span>
-                            <span className={`text-lg ${answer.is_correct ? 'text-green-600' : 'text-red-600'}`}>
-                              {answer.is_correct ? '✓' : '✗'}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {answer.is_correct && (
-                              <span className="font-bold text-green-600">
-                                +{answer.points_earned} 💎
-                              </span>
-                            )}
-                            <span className="text-xs text-gray-500">
-                              {new Date(answer.submitted_at).toLocaleTimeString('ru-RU')}
-                            </span>
-                          </div>
-                        </div>
-                        <p className="text-gray-700 font-medium">
-                          Ответ: {optionLabels[answer.text] || answer.text}
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+                <p className="text-sm text-gray-500 mt-4">
+                  Успели ответить: <span className="font-semibold text-purple-600">{answeredCount}/{totalPlayers}</span>
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Боковая панель - игроки */}
@@ -359,48 +506,24 @@ export default function HostRoomPage() {
               </p>
             ) : (
               <div className="space-y-2">
-                {players.map((player, index) => {
-                  const hasAnswered = answers.some((a) => a.player_id === player.id);
-                  const playerAnswer = answers.find((a) => a.player_id === player.id);
-                  return (
-                    <div
-                      key={player.id}
-                      className={`p-3 rounded-lg ${
-                        hasAnswered
-                          ? playerAnswer?.is_correct
-                            ? 'bg-green-50 border-2 border-green-300'
-                            : 'bg-red-50 border-2 border-red-300'
-                          : 'bg-gray-50 border border-gray-200'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-2">
-                          {index < 3 && (
-                            <span className="text-lg">
-                              {index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}
-                            </span>
-                          )}
-                          <span className="font-medium text-gray-700">{player.name}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-purple-600 text-sm">
-                            {player.total_points} 💎
-                          </span>
-                          {hasAnswered && (
-                            <span className={playerAnswer?.is_correct ? 'text-green-600' : 'text-red-600'}>
-                              {playerAnswer?.is_correct ? '✓' : '✗'}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      {hasAnswered && playerAnswer?.is_correct && (
-                        <div className="text-xs text-green-600 font-semibold">
-                          +{playerAnswer.points_earned} баллов
-                        </div>
+                {players.map((player, index) => (
+                  <div
+                    key={player.id}
+                    className="p-3 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-2">
+                      {index < 3 && (
+                        <span className="text-lg">
+                          {index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}
+                        </span>
                       )}
+                      <span className="font-medium text-gray-700">{player.name}</span>
                     </div>
-                  );
-                })}
+                    <span className="font-bold text-purple-600 text-sm">
+                      {player.total_points} 💎
+                    </span>
+                  </div>
+                ))}
               </div>
             )}
           </div>

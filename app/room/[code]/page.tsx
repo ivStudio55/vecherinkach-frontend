@@ -4,6 +4,17 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
+const QUESTION_DURATION_SECONDS = 30;
+
+const getRemainingSeconds = (startedAt: string | null) => {
+  if (!startedAt) {
+    return QUESTION_DURATION_SECONDS;
+  }
+  const diffMs = Date.now() - new Date(startedAt).getTime();
+  const elapsedSeconds = Math.floor(diffMs / 1000);
+  return Math.max(0, QUESTION_DURATION_SECONDS - elapsedSeconds);
+};
+
 interface Question {
   text: string;
   order: number;
@@ -22,14 +33,15 @@ export default function RoomPage() {
   const roomCode = params.code as string;
 
   const [question, setQuestion] = useState<Question | null>(null);
-  const [answer, setAnswer] = useState('');
-  const [selectedOption, setSelectedOption] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasAnswered, setHasAnswered] = useState(false);
   const [error, setError] = useState('');
   const [playerName, setPlayerName] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [roomId, setRoomId] = useState('');
+  const [questionStartedAt, setQuestionStartedAt] = useState<string | null>(null);
+  const [timeLeft, setTimeLeft] = useState(QUESTION_DURATION_SECONDS);
+  const [showResults, setShowResults] = useState(false);
 
   useEffect(() => {
     const init = async () => {
@@ -46,7 +58,7 @@ export default function RoomPage() {
       // Получаем данные комнаты
       const { data: room, error: roomError } = await supabase
         .from('rooms')
-        .select('id, current_question_index, is_active')
+        .select('id, current_question_index, is_active, question_started_at')
         .eq('code', roomCode)
         .single();
 
@@ -56,13 +68,15 @@ export default function RoomPage() {
         return;
       }
 
+      setRoomId(room.id);
+      setQuestionStartedAt(room.question_started_at);
+      setTimeLeft(getRemainingSeconds(room.question_started_at));
+
       if (!room.is_active) {
-        setError('Комната неактивна');
+        setShowResults(true);
         setIsLoading(false);
         return;
       }
-
-      setRoomId(room.id);
 
       // Загружаем текущий вопрос
       await loadQuestion(room.current_question_index);
@@ -95,9 +109,12 @@ export default function RoomPage() {
           },
           async (payload: any) => {
             const newQuestionIndex = payload.new.current_question_index;
+            const startedAt = payload.new.question_started_at as string | null;
             
             // Загружаем новый вопрос
             await loadQuestion(newQuestionIndex);
+            setQuestionStartedAt(startedAt);
+            setTimeLeft(getRemainingSeconds(startedAt));
             
             // Проверяем, ответил ли игрок на новый вопрос
             const { data: newAnswer } = await supabase
@@ -109,12 +126,10 @@ export default function RoomPage() {
               .single();
 
             setHasAnswered(!!newAnswer);
-            setAnswer('');
-            setSelectedOption('');
             
             // Если комната стала неактивной
             if (payload.new.is_active === false) {
-              setError('Игра завершена ведущим');
+              setShowResults(true);
             }
           }
         )
@@ -128,6 +143,17 @@ export default function RoomPage() {
 
     init();
   }, [roomCode, router]);
+
+  useEffect(() => {
+    if (showResults) {
+      return;
+    }
+
+    const tick = () => setTimeLeft(getRemainingSeconds(questionStartedAt));
+    tick();
+    const interval = setInterval(tick, 250);
+    return () => clearInterval(interval);
+  }, [questionStartedAt, showResults]);
 
   const loadQuestion = async (questionIndex: number) => {
     // questionIndex начинается с 0, order в БД начинается с 1
@@ -152,6 +178,12 @@ export default function RoomPage() {
     setIsSubmitting(true);
 
     try {
+      if (timeLeft <= 0) {
+        setError('Время на ответ истекло');
+        setIsSubmitting(false);
+        return;
+      }
+
       const playerId = localStorage.getItem('playerId');
 
       if (!playerId || !roomId || !question) {
@@ -211,7 +243,6 @@ export default function RoomPage() {
       }
 
       setHasAnswered(true);
-      setSelectedOption(optionKey);
       setIsSubmitting(false);
     } catch (err: any) {
       setError(`Ошибка: ${err.message}`);
@@ -223,6 +254,27 @@ export default function RoomPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-500 via-pink-500 to-red-500">
         <div className="text-white text-2xl font-bold">Загрузка...</div>
+      </div>
+    );
+  }
+
+  const progressPercent = Math.max(0, Math.min(100, (timeLeft / QUESTION_DURATION_SECONDS) * 100));
+
+  if (showResults) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-500 via-pink-500 to-red-500 p-6">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full text-center">
+          <h2 className="text-3xl font-bold text-gray-800 mb-4">🎉 Раунд завершён</h2>
+          <p className="text-gray-600 mb-6">
+            Ведущий объявит правильные ответы и очки после завершения таймера. Оставайтесь на связи!
+          </p>
+          <button
+            onClick={() => router.push('/')}
+            className="bg-purple-500 hover:bg-purple-600 text-white font-bold py-3 px-6 rounded-lg"
+          >
+            Выйти в лобби
+          </button>
+        </div>
       </div>
     );
   }
@@ -273,6 +325,19 @@ export default function RoomPage() {
               </h2>
             </div>
 
+            <div className="mb-6">
+              <div className="flex justify-between text-sm text-gray-600 mb-2">
+                <span>Осталось времени</span>
+                <span className="font-semibold text-gray-800">{timeLeft} c</span>
+              </div>
+              <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
+                <div
+                  className={`h-full ${timeLeft > 5 ? 'bg-gradient-to-r from-green-400 to-emerald-500' : 'bg-gradient-to-r from-red-400 to-rose-500'}`}
+                  style={{ width: `${progressPercent}%` }}
+                ></div>
+              </div>
+            </div>
+
             {!hasAnswered ? (
               <div className="space-y-6 mt-auto">
                 <div>
@@ -289,7 +354,7 @@ export default function RoomPage() {
                       <button
                         key={option.key}
                         onClick={() => submitAnswer(option.key)}
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || timeLeft <= 0}
                         className="w-full text-left px-6 py-4 bg-white border-2 border-purple-300 hover:border-purple-500 hover:bg-purple-50 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
                       >
                         <div className="flex items-center gap-3">
@@ -316,6 +381,12 @@ export default function RoomPage() {
                   <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
                     {error}
                   </div>
+                )}
+
+                {timeLeft <= 0 && (
+                  <p className="text-center text-sm text-gray-500">
+                    ⏱ Время на ответ истекло. Дождитесь следующего вопроса.
+                  </p>
                 )}
               </div>
             ) : (

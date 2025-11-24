@@ -32,6 +32,7 @@ export default function HostPage() {
             code: roomCode,
             current_question_index: 0,
             is_active: true,
+            question_started_at: new Date().toISOString(),
           })
           .select()
           .single();
