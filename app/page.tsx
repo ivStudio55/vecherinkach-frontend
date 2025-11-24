@@ -84,7 +84,7 @@ export default function HomePage() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-purple-500 via-pink-500 to-red-500 p-6">
       <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
         <h1 className="text-4xl font-bold mb-2 text-center text-gray-800">
-          🎉 Вечеринкач
+          🎉 Вечеринкач v2
         </h1>
         <p className="text-gray-600 text-center mb-8">
           Введите код комнаты, чтобы присоединиться
