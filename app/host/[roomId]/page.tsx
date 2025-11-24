@@ -151,6 +151,7 @@ export default function HostRoomPage() {
       .single();
 
     if (questionError || !data) {
+      console.error('Не удалось загрузить вопрос (хост)', questionError);
       // Если вопрос не найден, игра завершена
       setQuestion(null);
       return;

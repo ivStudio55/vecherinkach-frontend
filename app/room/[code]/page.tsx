@@ -138,6 +138,7 @@ export default function RoomPage() {
       .single();
 
     if (questionError || !data) {
+      console.error('Не удалось загрузить вопрос (игрок)', questionError);
       // Если вопрос не найден, возможно вопросы закончились
       setQuestion(null);
       return;
