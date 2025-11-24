@@ -7,6 +7,13 @@ import { supabase } from '@/lib/supabase';
 interface Question {
   text: string;
   order: number;
+  difficulty: string;
+  points: number;
+  option_a: string;
+  option_b: string;
+  option_c: string;
+  option_d: string;
+  correct_answer: string;
 }
 
 export default function RoomPage() {
@@ -16,6 +23,7 @@ export default function RoomPage() {
 
   const [question, setQuestion] = useState<Question | null>(null);
   const [answer, setAnswer] = useState('');
+  const [selectedOption, setSelectedOption] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasAnswered, setHasAnswered] = useState(false);
   const [error, setError] = useState('');
@@ -102,6 +110,7 @@ export default function RoomPage() {
 
             setHasAnswered(!!newAnswer);
             setAnswer('');
+            setSelectedOption('');
             
             // Если комната стала неактивной
             if (payload.new.is_active === false) {
@@ -123,7 +132,7 @@ export default function RoomPage() {
   const loadQuestion = async (questionIndex: number) => {
     const { data, error: questionError } = await supabase
       .from('questions')
-      .select('text, order')
+      .select('text, order, difficulty, points, option_a, option_b, option_c, option_d, correct_answer')
       .eq('order', questionIndex + 1)
       .single();
 
@@ -135,15 +144,14 @@ export default function RoomPage() {
     setQuestion(data);
   };
 
-  const submitAnswer = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submitAnswer = async (optionKey: string) => {
     setError('');
     setIsSubmitting(true);
 
     try {
       const playerId = localStorage.getItem('playerId');
 
-      if (!playerId || !roomId) {
+      if (!playerId || !roomId || !question) {
         setError('Ошибка: данные игрока не найдены');
         setIsSubmitting(false);
         return;
@@ -161,13 +169,20 @@ export default function RoomPage() {
         return;
       }
 
+      // Проверяем правильность ответа
+      const isCorrect = optionKey === question.correct_answer;
+      const pointsEarned = isCorrect ? question.points : 0;
+
+      // Сохраняем ответ
       const { error: insertError } = await supabase
         .from('answers')
         .insert({
           player_id: playerId,
           room_id: roomId,
           question_index: room.current_question_index,
-          text: answer.trim(),
+          text: optionKey,
+          is_correct: isCorrect,
+          points_earned: pointsEarned,
         });
 
       if (insertError) {
@@ -176,8 +191,24 @@ export default function RoomPage() {
         return;
       }
 
+      // Обновляем общий счёт игрока
+      if (isCorrect) {
+        const { data: playerData } = await supabase
+          .from('players')
+          .select('total_points')
+          .eq('id', playerId)
+          .single();
+
+        if (playerData) {
+          await supabase
+            .from('players')
+            .update({ total_points: (playerData.total_points || 0) + pointsEarned })
+            .eq('id', playerId);
+        }
+      }
+
       setHasAnswered(true);
-      setAnswer('');
+      setSelectedOption(optionKey);
       setIsSubmitting(false);
     } catch (err: any) {
       setError(`Ошибка: ${err.message}`);
@@ -240,24 +271,42 @@ export default function RoomPage() {
             </div>
 
             {!hasAnswered ? (
-              <form onSubmit={submitAnswer} className="space-y-6 mt-auto">
+              <div className="space-y-6 mt-auto">
                 <div>
-                  <label htmlFor="answer" className="block text-sm font-medium text-gray-700 mb-2">
-                    Ваш ответ
-                  </label>
-                  <textarea
-                    id="answer"
-                    value={answer}
-                    onChange={(e) => setAnswer(e.target.value)}
-                    placeholder="Введите ответ..."
-                    rows={4}
-                    maxLength={200}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
-                    required
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    {answer.length}/200 символов
+                  <p className="text-sm font-medium text-gray-700 mb-4">
+                    Выберите правильный ответ:
                   </p>
+                  <div className="grid grid-cols-1 gap-3">
+                    {[
+                      { key: 'a', label: 'А', text: question.option_a },
+                      { key: 'b', label: 'Б', text: question.option_b },
+                      { key: 'c', label: 'В', text: question.option_c },
+                      { key: 'd', label: 'Г', text: question.option_d },
+                    ].map((option) => (
+                      <button
+                        key={option.key}
+                        onClick={() => submitAnswer(option.key)}
+                        disabled={isSubmitting}
+                        className="w-full text-left px-6 py-4 bg-white border-2 border-purple-300 hover:border-purple-500 hover:bg-purple-50 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="flex-shrink-0 w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center font-bold group-hover:bg-purple-600">
+                            {option.label}
+                          </span>
+                          <span className="text-gray-800 font-medium">{option.text}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-sm text-gray-600 bg-gray-50 px-4 py-3 rounded-lg">
+                  <span className="font-semibold">
+                    Сложность: {question.difficulty === 'easy' ? '🟢 Лёгкий' : question.difficulty === 'medium' ? '🟡 Средний' : '🔴 Сложный'}
+                  </span>
+                  <span className="font-bold text-purple-600">
+                    {question.points} баллов
+                  </span>
                 </div>
 
                 {error && (
@@ -265,15 +314,7 @@ export default function RoomPage() {
                     {error}
                   </div>
                 )}
-
-                <button
-                  type="submit"
-                  disabled={isSubmitting || !answer.trim()}
-                  className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold py-4 px-6 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed text-lg"
-                >
-                  {isSubmitting ? 'Отправка...' : 'Отправить ответ 📤'}
-                </button>
-              </form>
+              </div>
             ) : (
               <div className="text-center mt-auto">
                 <div className="bg-green-50 border-2 border-green-300 rounded-2xl p-8">
