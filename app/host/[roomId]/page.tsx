@@ -244,6 +244,7 @@ export default function HostRoomPage() {
   const loadPlayersRef = useRef(loadPlayers);
   const loadAnswerCountRef = useRef(loadAnswerCount);
   const loadRoomDataRef = useRef(loadRoomData);
+  const syncServerTimeRef = useRef(syncServerTime);
 
   useEffect(() => {
     loadPlayersRef.current = loadPlayers;
@@ -258,21 +259,32 @@ export default function HostRoomPage() {
   }, [loadRoomData]);
 
   useEffect(() => {
+    syncServerTimeRef.current = syncServerTime;
+  }, [syncServerTime]);
+
+  useEffect(() => {
+    let cancelled = false;
+
     const init = async () => {
-      // Проверяем авторизацию ведущего
       const hostRoomId = localStorage.getItem('hostRoomId');
       if (hostRoomId !== roomId) {
         router.push('/host');
         return;
       }
 
-      const offset = await syncServerTime();
-      await loadRoomData(offset);
-      setIsLoading(false);
+      const offset = await syncServerTimeRef.current?.();
+      await loadRoomDataRef.current?.(offset);
+      if (!cancelled) {
+        setIsLoading(false);
+      }
     };
 
     init();
-  }, [roomId, router, loadRoomData, syncServerTime]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [roomId, router]);
 
   useEffect(() => {
     if (!roomId) return undefined;
