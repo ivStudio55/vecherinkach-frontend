@@ -247,59 +247,63 @@ export default function HostRoomPage() {
       const offset = await syncServerTime();
       await loadRoomData(offset);
       setIsLoading(false);
-
-      // Подписка на новых игроков
-      const playersChannel = supabase
-        .channel(`players:${roomId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'players',
-            filter: `room_id=eq.${roomId}`,
-          },
-          () => {
-            loadPlayers();
-          }
-        )
-        .subscribe();
-
-      // Подписка на новые ответы
-      const answersChannel = supabase
-        .channel(`answers:${roomId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'answers',
-            filter: `room_id=eq.${roomId}`,
-          },
-          async (payload: AnswerInsertPayload) => {
-            // Проверяем, что ответ относится к текущему вопросу
-            const { data: room } = await supabase
-              .from('rooms')
-              .select('current_question_index')
-              .eq('id', roomId)
-              .single();
-
-            if (room && payload.new.question_index === room.current_question_index) {
-              await loadAnswerCount(room.current_question_index);
-            }
-          }
-        )
-        .subscribe();
-
-      // Очистка подписок
-      return () => {
-        supabase.removeChannel(playersChannel);
-        supabase.removeChannel(answersChannel);
-      };
     };
 
     init();
-  }, [roomId, router, loadAnswerCount, loadPlayers, loadRoomData, syncServerTime]);
+  }, [roomId, router, loadRoomData, syncServerTime]);
+
+  useEffect(() => {
+    if (!roomId) return;
+
+    // Подписка на новых игроков
+    const playersChannel = supabase
+      .channel(`players:${roomId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'players',
+          filter: `room_id=eq.${roomId}`,
+        },
+        () => {
+          loadPlayers();
+        }
+      )
+      .subscribe();
+
+    // Подписка на новые ответы
+    const answersChannel = supabase
+      .channel(`answers:${roomId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'answers',
+          filter: `room_id=eq.${roomId}`,
+        },
+        async (payload: AnswerInsertPayload) => {
+          // Проверяем, что ответ относится к текущему вопросу
+          const { data: room } = await supabase
+            .from('rooms')
+            .select('current_question_index')
+            .eq('id', roomId)
+            .single();
+
+          if (room && payload.new.question_index === room.current_question_index) {
+            await loadAnswerCount(room.current_question_index);
+          }
+        }
+      )
+      .subscribe();
+
+    // Очистка подписок
+    return () => {
+      supabase.removeChannel(playersChannel);
+      supabase.removeChannel(answersChannel);
+    };
+  }, [roomId, loadPlayers, loadAnswerCount]);
 
   const everyoneAnswered = players.length > 0 && answerCount >= players.length;
   const shouldForceZero = serverAllPlayersAnswered || everyoneAnswered;
