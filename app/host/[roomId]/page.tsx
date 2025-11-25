@@ -91,6 +91,12 @@ export default function HostRoomPage() {
     return timeOffsetMs;
   };
 
+  const getServerIsoTimestamp = async () => {
+    const offset = await syncServerTime();
+    const serverNow = new Date(Date.now() - offset).toISOString();
+    return { iso: serverNow, offset };
+  };
+
   const syncTimerWithStart = (startedAt: string | null, offsetOverride?: number) => {
     const effectiveOffset = typeof offsetOverride === 'number' ? offsetOverride : timeOffsetMs;
     setQuestionStartedAt(startedAt);
@@ -308,7 +314,7 @@ export default function HostRoomPage() {
   };
 
   const startRound = async () => {
-    const startedAt = new Date().toISOString();
+    const { iso: startedAt, offset } = await getServerIsoTimestamp();
     const { error: updateError } = await supabase
       .from('rooms')
       .update({ status: 'running', question_started_at: startedAt, current_question_index: 0 })
@@ -321,7 +327,7 @@ export default function HostRoomPage() {
 
     setRoomStatus('running');
     setShowResults(false);
-    syncTimerWithStart(startedAt);
+  syncTimerWithStart(startedAt, offset);
     setAnswerCount(0);
     await loadQuestion(0);
     await loadAnswerCount(0);
@@ -329,7 +335,7 @@ export default function HostRoomPage() {
 
   const nextQuestion = async () => {
     const newIndex = currentQuestionIndex + 1;
-    const questionStartedAt = new Date().toISOString();
+    const { iso: questionStartedAt, offset } = await getServerIsoTimestamp();
 
     const { error: updateError } = await supabase
       .from('rooms')
@@ -342,7 +348,7 @@ export default function HostRoomPage() {
     }
 
     setCurrentQuestionIndex(newIndex);
-    syncTimerWithStart(questionStartedAt);
+  syncTimerWithStart(questionStartedAt, offset);
     setAnswerCount(0);
     await loadQuestion(newIndex);
     await loadAnswerCount(newIndex);

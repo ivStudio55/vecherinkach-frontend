@@ -179,10 +179,11 @@ export default function RoomPage() {
               return;
             }
 
+            const offset = await syncServerTime();
             // Загружаем новый вопрос
             await loadQuestion(newQuestionIndex);
             setQuestionStartedAt(startedAt);
-            setTimeLeft(startedAt ? getRemainingSeconds(startedAt, timeOffsetMs) : QUESTION_DURATION_SECONDS);
+            setTimeLeft(startedAt ? getRemainingSeconds(startedAt, offset) : QUESTION_DURATION_SECONDS);
             
             // Проверяем, ответил ли игрок на новый вопрос
             const { data: newAnswer } = await supabase
