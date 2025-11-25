@@ -40,3 +40,12 @@
     UPDATE questions
     SET explanation = '7 умножить на 8 — это 56.'
     WHERE text = 'Сколько будет 7 × 8?' AND (explanation IS NULL OR explanation = '');
+
+        -- Функция для получения серверного времени (используется для синхронизации таймера)
+        CREATE OR REPLACE FUNCTION get_server_time()
+        RETURNS timestamptz
+        LANGUAGE sql
+        STABLE
+        AS $$
+            SELECT timezone('utc', now());
+        $$;

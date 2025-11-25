@@ -5,9 +5,9 @@ import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
 const QUESTION_DURATION_SECONDS = 30;
-const APP_VERSION = '1.0.1'; // Инкрементируйте при важных изменениях
+const APP_VERSION = '1.0.2'; // Инкрементируйте при важных изменениях
 
-const getRemainingSeconds = (startedAt: string | null) => {
+const getRemainingSeconds = (startedAt: string | null, offsetMs = 0) => {
   if (!startedAt) {
     return QUESTION_DURATION_SECONDS;
   }
@@ -15,7 +15,8 @@ const getRemainingSeconds = (startedAt: string | null) => {
   if (isNaN(startTime)) {
     return QUESTION_DURATION_SECONDS;
   }
-  const diffMs = Date.now() - startTime;
+  const now = Date.now() - offsetMs;
+  const diffMs = now - startTime;
   const elapsedSeconds = Math.floor(diffMs / 1000);
   const remaining = QUESTION_DURATION_SECONDS - elapsedSeconds;
   return Math.max(0, Math.min(QUESTION_DURATION_SECONDS, remaining));
@@ -51,6 +52,22 @@ export default function RoomPage() {
   const [timeLeft, setTimeLeft] = useState(QUESTION_DURATION_SECONDS);
   const [showResults, setShowResults] = useState(false);
   const [roomStatus, setRoomStatus] = useState<RoomStatus>('waiting');
+  const [timeOffsetMs, setTimeOffsetMs] = useState(0);
+
+  const syncServerTime = async () => {
+    try {
+      const { data } = await supabase.rpc('get_server_time');
+      if (data) {
+        const serverNow = new Date(data as string).getTime();
+        const offset = Date.now() - serverNow;
+        setTimeOffsetMs(offset);
+        return offset;
+      }
+    } catch (error) {
+      console.error('Не удалось синхронизировать время сервера', error);
+    }
+    return timeOffsetMs;
+  };
 
   useEffect(() => {
     const init = async () => {
@@ -72,6 +89,8 @@ export default function RoomPage() {
       }
 
       setPlayerName(name);
+
+      const offset = await syncServerTime();
 
       // Получаем данные комнаты
       const { data: room, error: roomError } = await supabase
@@ -105,7 +124,7 @@ export default function RoomPage() {
       } else {
         const startTime = room.question_started_at;
         setQuestionStartedAt(startTime);
-        setTimeLeft(getRemainingSeconds(startTime));
+        setTimeLeft(getRemainingSeconds(startTime, offset));
 
         // Загружаем текущий вопрос
         await loadQuestion(room.current_question_index);
@@ -163,7 +182,7 @@ export default function RoomPage() {
             // Загружаем новый вопрос
             await loadQuestion(newQuestionIndex);
             setQuestionStartedAt(startedAt);
-            setTimeLeft(startedAt ? getRemainingSeconds(startedAt) : QUESTION_DURATION_SECONDS);
+            setTimeLeft(startedAt ? getRemainingSeconds(startedAt, timeOffsetMs) : QUESTION_DURATION_SECONDS);
             
             // Проверяем, ответил ли игрок на новый вопрос
             const { data: newAnswer } = await supabase
@@ -199,14 +218,14 @@ export default function RoomPage() {
     }
 
     const tick = () => {
-      const remaining = getRemainingSeconds(questionStartedAt);
+      const remaining = getRemainingSeconds(questionStartedAt, timeOffsetMs);
       setTimeLeft(remaining);
     };
     
     tick();
     const interval = setInterval(tick, 250);
     return () => clearInterval(interval);
-  }, [questionStartedAt, showResults, roomStatus]);
+  }, [questionStartedAt, showResults, roomStatus, timeOffsetMs]);
 
   const loadQuestion = async (questionIndex: number) => {
     // questionIndex начинается с 0, order в БД начинается с 1

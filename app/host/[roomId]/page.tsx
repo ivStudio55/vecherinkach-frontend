@@ -13,11 +13,16 @@ const OPTION_LABELS: Record<string, string> = {
   d: 'Г',
 };
 
-const getRemainingSeconds = (startedAt: string | null) => {
+const getRemainingSeconds = (startedAt: string | null, offsetMs = 0) => {
   if (!startedAt) {
     return QUESTION_DURATION_SECONDS;
   }
-  const diffMs = Date.now() - new Date(startedAt).getTime();
+  const startTime = new Date(startedAt).getTime();
+  if (isNaN(startTime)) {
+    return QUESTION_DURATION_SECONDS;
+  }
+  const now = Date.now() - offsetMs;
+  const diffMs = now - startTime;
   const elapsedSeconds = Math.floor(diffMs / 1000);
   return Math.max(0, QUESTION_DURATION_SECONDS - elapsedSeconds);
 };
@@ -69,10 +74,27 @@ export default function HostRoomPage() {
   const [summaryQuestions, setSummaryQuestions] = useState<Question[]>([]);
   const [isSummaryLoading, setIsSummaryLoading] = useState(false);
   const [roomStatus, setRoomStatus] = useState<RoomStatus>('waiting');
+  const [timeOffsetMs, setTimeOffsetMs] = useState(0);
 
-  const syncTimerWithStart = (startedAt: string | null) => {
+  const syncServerTime = async () => {
+    try {
+      const { data } = await supabase.rpc('get_server_time');
+      if (data) {
+        const serverNow = new Date(data as string).getTime();
+        const offset = Date.now() - serverNow;
+        setTimeOffsetMs(offset);
+        return offset;
+      }
+    } catch (error) {
+      console.error('Не удалось синхронизировать время сервера (host)', error);
+    }
+    return timeOffsetMs;
+  };
+
+  const syncTimerWithStart = (startedAt: string | null, offsetOverride?: number) => {
+    const effectiveOffset = typeof offsetOverride === 'number' ? offsetOverride : timeOffsetMs;
     setQuestionStartedAt(startedAt);
-    setTimeLeft(getRemainingSeconds(startedAt));
+    setTimeLeft(getRemainingSeconds(startedAt, effectiveOffset));
   };
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -87,7 +109,8 @@ export default function HostRoomPage() {
         return;
       }
 
-      await loadRoomData();
+      const offset = await syncServerTime();
+      await loadRoomData(offset);
       setIsLoading(false);
 
       // Подписка на новых игроков
@@ -149,16 +172,17 @@ export default function HostRoomPage() {
     }
 
     const tick = () => {
-      const remaining = getRemainingSeconds(questionStartedAt);
+      const remaining = getRemainingSeconds(questionStartedAt, timeOffsetMs);
       setTimeLeft(remaining);
     };
 
     tick();
     const interval = setInterval(tick, 250);
     return () => clearInterval(interval);
-  }, [questionStartedAt, showResults, roomStatus]);
+  }, [questionStartedAt, showResults, roomStatus, timeOffsetMs]);
 
-  const loadRoomData = async () => {
+  const loadRoomData = async (offsetOverride?: number) => {
+    const effectiveOffset = typeof offsetOverride === 'number' ? offsetOverride : timeOffsetMs;
     // Загружаем данные комнаты
     const { data: room, error: roomError } = await supabase
       .from('rooms')
@@ -177,7 +201,7 @@ export default function HostRoomPage() {
     setRoomStatus(detectedStatus);
 
     if (detectedStatus === 'running') {
-      syncTimerWithStart(room.question_started_at);
+      syncTimerWithStart(room.question_started_at, effectiveOffset);
       await loadQuestion(room.current_question_index);
       await loadAnswerCount(room.current_question_index);
     } else if (detectedStatus === 'finished') {
