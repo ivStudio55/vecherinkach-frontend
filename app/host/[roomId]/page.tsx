@@ -172,18 +172,21 @@ export default function HostRoomPage() {
 
     setRoomCode(room.code);
     setCurrentQuestionIndex(room.current_question_index);
-    setRoomStatus((room.status as RoomStatus) || 'waiting');
+    const detectedStatus = (room.status as RoomStatus) || 'waiting';
+    setRoomStatus(detectedStatus);
 
-    if (room.status === 'running') {
+    if (detectedStatus === 'running') {
       syncTimerWithStart(room.question_started_at);
       await loadQuestion(room.current_question_index);
       await loadAnswerCount(room.current_question_index);
-    } else if (room.status === 'finished') {
+    } else if (detectedStatus === 'finished') {
       setShowResults(true);
       await fetchSummaryData();
     } else {
       setQuestion(null);
       setAnswerCount(0);
+      setQuestionStartedAt(null);
+      setTimeLeft(QUESTION_DURATION_SECONDS);
     }
 
     // Загружаем игроков

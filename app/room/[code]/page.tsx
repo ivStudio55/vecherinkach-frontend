@@ -10,9 +10,14 @@ const getRemainingSeconds = (startedAt: string | null) => {
   if (!startedAt) {
     return QUESTION_DURATION_SECONDS;
   }
-  const diffMs = Date.now() - new Date(startedAt).getTime();
+  const startTime = new Date(startedAt).getTime();
+  if (isNaN(startTime)) {
+    return QUESTION_DURATION_SECONDS;
+  }
+  const diffMs = Date.now() - startTime;
   const elapsedSeconds = Math.floor(diffMs / 1000);
-  return Math.max(0, QUESTION_DURATION_SECONDS - elapsedSeconds);
+  const remaining = QUESTION_DURATION_SECONDS - elapsedSeconds;
+  return Math.max(0, Math.min(QUESTION_DURATION_SECONDS, remaining));
 };
 
 interface Question {
