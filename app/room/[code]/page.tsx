@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
 const QUESTION_DURATION_SECONDS = 30;
+const APP_VERSION = '1.0.1'; // Инкрементируйте при важных изменениях
 
 const getRemainingSeconds = (startedAt: string | null) => {
   if (!startedAt) {
@@ -53,6 +54,15 @@ export default function RoomPage() {
 
   useEffect(() => {
     const init = async () => {
+      // Проверка версии и принудительное обновление
+      const storedVersion = localStorage.getItem('appVersion');
+      if (storedVersion !== APP_VERSION) {
+        console.log('New version detected, clearing cache');
+        localStorage.setItem('appVersion', APP_VERSION);
+        // Даём браузеру время обновить кеш
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
       const playerId = localStorage.getItem('playerId');
       const name = localStorage.getItem('playerName');
 
