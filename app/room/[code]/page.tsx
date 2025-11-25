@@ -117,6 +117,7 @@ export default function RoomPage() {
       }
 
       // Подписка на изменения комнаты (когда ведущий переключает вопросы)
+      console.log('[Player Realtime] Subscribing to room:', room.id);
       const roomChannel = supabase
         .channel(`room:${room.id}`)
         .on(
@@ -128,12 +129,15 @@ export default function RoomPage() {
             filter: `id=eq.${room.id}`,
           },
           async (payload: any) => {
+            console.log('[Player Realtime] Room update received:', payload.new);
             const newQuestionIndex = payload.new.current_question_index;
             const startedAt = payload.new.question_started_at as string | null;
             const newStatus = (payload.new.status as RoomStatus) || (payload.new.is_active ? 'waiting' : 'finished');
+            console.log('[Player Realtime] Parsed:', { newStatus, startedAt, newQuestionIndex });
             setRoomStatus(newStatus);
 
             if (newStatus === 'waiting') {
+              console.log('[Player Realtime] Entering waiting state');
               setShowResults(false);
               setHasAnswered(false);
               setQuestion(null);
@@ -143,6 +147,7 @@ export default function RoomPage() {
             }
 
             if (newStatus === 'finished' || payload.new.is_active === false) {
+              console.log('[Player Realtime] Entering finished state');
               setShowResults(true);
               setQuestion(null);
               setQuestionStartedAt(null);
@@ -151,6 +156,7 @@ export default function RoomPage() {
             }
 
             // Загружаем новый вопрос
+            console.log('[Player Realtime] Loading question and setting timer');
             await loadQuestion(newQuestionIndex);
             setQuestionStartedAt(startedAt);
             setTimeLeft(startedAt ? getRemainingSeconds(startedAt) : QUESTION_DURATION_SECONDS);
