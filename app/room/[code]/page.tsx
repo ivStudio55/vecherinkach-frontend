@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import {
@@ -53,6 +53,7 @@ export default function RoomPage() {
   const [hasAnswered, setHasAnswered] = useState(false);
   const [error, setError] = useState('');
   const [playerName, setPlayerName] = useState('');
+  const [playerId, setPlayerId] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [roomId, setRoomId] = useState('');
   const [questionStartedAt, setQuestionStartedAt] = useState<string | null>(null);
@@ -62,6 +63,8 @@ export default function RoomPage() {
   const [allPlayersAnswered, setAllPlayersAnswered] = useState(false);
   const [timeOffsetMs, setTimeOffsetMs] = useState(0);
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<number[]>([]);
+  const roomIdRef = useRef('');
+  const playerIdRef = useRef('');
 
   const syncServerTime = useCallback(async () => {
     try {
@@ -77,6 +80,14 @@ export default function RoomPage() {
     }
     return timeOffsetMs;
   }, [timeOffsetMs]);
+
+  useEffect(() => {
+    roomIdRef.current = roomId;
+  }, [roomId]);
+
+  useEffect(() => {
+    playerIdRef.current = playerId;
+  }, [playerId]);
 
   const loadQuestionFromSelection = useCallback(
     (questionIndex: number, selectionOverride?: number[]) => {
@@ -94,8 +105,20 @@ export default function RoomPage() {
     },
     [selectedQuestionIds]
   );
+  const loadQuestionFromSelectionRef = useRef(loadQuestionFromSelection);
+  const syncServerTimeRef = useRef(syncServerTime);
 
   useEffect(() => {
+    loadQuestionFromSelectionRef.current = loadQuestionFromSelection;
+  }, [loadQuestionFromSelection]);
+
+  useEffect(() => {
+    syncServerTimeRef.current = syncServerTime;
+  }, [syncServerTime]);
+
+  useEffect(() => {
+    let cancelled = false;
+
     const init = async () => {
       // Проверка версии и принудительное обновление
       const storedVersion = localStorage.getItem('appVersion');
@@ -106,17 +129,20 @@ export default function RoomPage() {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
 
-      const playerId = localStorage.getItem('playerId');
+      const storedPlayerId = localStorage.getItem('playerId');
       const name = localStorage.getItem('playerName');
 
-      if (!playerId || !name) {
+      if (!storedPlayerId || !name) {
         router.push('/');
         return;
       }
 
       setPlayerName(name);
 
-      const offset = await syncServerTime();
+      setPlayerId(storedPlayerId);
+      playerIdRef.current = storedPlayerId;
+
+      const offset = await syncServerTimeRef.current?.();
 
       // Получаем данные комнаты
       const { data: room, error: roomError } = await supabase
@@ -133,7 +159,8 @@ export default function RoomPage() {
         return;
       }
 
-      setRoomId(room.id);
+  setRoomId(room.id);
+  roomIdRef.current = room.id;
       const selection = (room.selected_question_ids as number[] | null) || [];
       setSelectedQuestionIds(selection);
       const detectedStatus = (room.status as RoomStatus) || (room.is_active ? 'waiting' : 'finished');
@@ -158,13 +185,13 @@ export default function RoomPage() {
         const initialTime = getRemainingSeconds(startTime, offset);
         setTimeLeft(room.all_players_answered ? 0 : initialTime);
 
-        loadQuestionFromSelection(room.current_question_index, selection);
+        loadQuestionFromSelectionRef.current?.(room.current_question_index, selection);
 
         // Проверяем, ответил ли игрок на текущий вопрос
         const { data: existingAnswer } = await supabase
           .from('answers')
           .select('id')
-          .eq('player_id', playerId)
+          .eq('player_id', storedPlayerId)
           .eq('room_id', room.id)
           .eq('question_index', room.current_question_index)
           .single();
@@ -173,84 +200,102 @@ export default function RoomPage() {
           setHasAnswered(true);
         }
 
-        setIsLoading(false);
+        if (!cancelled) {
+          setIsLoading(false);
+        }
       }
-
-      // Подписка на изменения комнаты (когда ведущий переключает вопросы)
-      const roomChannel = supabase
-        .channel(`room:${room.id}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'rooms',
-            filter: `id=eq.${room.id}`,
-          },
-          async (payload: RoomUpdatePayload) => {
-            const newQuestionIndex = payload.new.current_question_index;
-            const startedAt = payload.new.question_started_at as string | null;
-            const newStatus = (payload.new.status as RoomStatus) || (payload.new.is_active ? 'waiting' : 'finished');
-            setRoomStatus(newStatus);
-            const everyoneAnsweredFlag = newStatus === 'running' ? !!payload.new.all_players_answered : false;
-            setAllPlayersAnswered(everyoneAnsweredFlag);
-            const selection = (payload.new.selected_question_ids as number[] | null) || [];
-            setSelectedQuestionIds(selection);
-
-            if (newStatus === 'waiting') {
-              setShowResults(false);
-              setHasAnswered(false);
-              setQuestion(null);
-              setQuestionStartedAt(null);
-              setTimeLeft(QUESTION_DURATION_SECONDS);
-              return;
-            }
-
-            if (newStatus === 'finished' || !payload.new.is_active) {
-              setShowResults(true);
-              setQuestion(null);
-              setQuestionStartedAt(null);
-              setTimeLeft(QUESTION_DURATION_SECONDS);
-              return;
-            }
-
-            const offset = await syncServerTime();
-            // Загружаем новый вопрос
-            loadQuestionFromSelection(newQuestionIndex, selection);
-            setQuestionStartedAt(startedAt);
-            if (everyoneAnsweredFlag) {
-              setTimeLeft(0);
-            } else {
-              setTimeLeft(startedAt ? getRemainingSeconds(startedAt, offset) : QUESTION_DURATION_SECONDS);
-            }
-            
-            // Проверяем, ответил ли игрок на новый вопрос
-            const { data: newAnswer } = await supabase
-              .from('answers')
-              .select('id')
-              .eq('player_id', playerId)
-              .eq('room_id', room.id)
-              .eq('question_index', newQuestionIndex)
-              .single();
-
-            setHasAnswered(!!newAnswer);
-            
-            // Если комната стала неактивной
-            if (!payload.new.is_active) {
-              setShowResults(true);
-            }
-          }
-        )
-        .subscribe();
-
-      // Очистка подписки при размонтировании
-      return () => {
-        supabase.removeChannel(roomChannel);
-      };
     };
 
     init();
-  }, [roomCode, router, loadQuestionFromSelection, syncServerTime]);
+    return () => {
+      cancelled = true;
+    };
+  }, [roomCode, router]);
+
+  useEffect(() => {
+    if (!roomId) {
+      return;
+    }
+
+    let mounted = true;
+    const channelId = `${roomId}-${Date.now()}`;
+
+    const roomChannel = supabase
+      .channel(`player-room-${roomId}-${channelId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'rooms',
+          filter: `id=eq.${roomId}`,
+        },
+        async (payload: RoomUpdatePayload) => {
+          if (!mounted) {
+            return;
+          }
+
+          const newQuestionIndex = payload.new.current_question_index;
+          const startedAt = payload.new.question_started_at as string | null;
+          const newStatus = (payload.new.status as RoomStatus) || (payload.new.is_active ? 'waiting' : 'finished');
+          setRoomStatus(newStatus);
+          const everyoneAnsweredFlag = newStatus === 'running' ? !!payload.new.all_players_answered : false;
+          setAllPlayersAnswered(everyoneAnsweredFlag);
+          const selection = (payload.new.selected_question_ids as number[] | null) || [];
+          setSelectedQuestionIds(selection);
+
+          if (newStatus === 'waiting') {
+            setShowResults(false);
+            setHasAnswered(false);
+            setQuestion(null);
+            setQuestionStartedAt(null);
+            setTimeLeft(QUESTION_DURATION_SECONDS);
+            return;
+          }
+
+          if (newStatus === 'finished' || !payload.new.is_active) {
+            setShowResults(true);
+            setQuestion(null);
+            setQuestionStartedAt(null);
+            setTimeLeft(QUESTION_DURATION_SECONDS);
+            return;
+          }
+
+          const offset = await syncServerTimeRef.current?.();
+          loadQuestionFromSelectionRef.current?.(newQuestionIndex, selection);
+          setQuestionStartedAt(startedAt);
+          if (everyoneAnsweredFlag) {
+            setTimeLeft(0);
+          } else {
+            setTimeLeft(startedAt ? getRemainingSeconds(startedAt, offset || 0) : QUESTION_DURATION_SECONDS);
+          }
+
+          const currentPlayerId = playerIdRef.current;
+          const currentRoomId = roomIdRef.current;
+
+          if (currentPlayerId && currentRoomId) {
+            const { data: newAnswer } = await supabase
+              .from('answers')
+              .select('id')
+              .eq('player_id', currentPlayerId)
+              .eq('room_id', currentRoomId)
+              .eq('question_index', newQuestionIndex)
+              .single();
+            setHasAnswered(!!newAnswer);
+          } else {
+            setHasAnswered(false);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      mounted = false;
+      roomChannel.unsubscribe().then(() => {
+        supabase.removeChannel(roomChannel);
+      });
+    };
+  }, [roomId]);
 
   const effectiveTimeLeft = allPlayersAnswered ? 0 : timeLeft;
   const timerActive =
@@ -293,8 +338,6 @@ export default function RoomPage() {
         setIsSubmitting(false);
         return;
       }
-
-      const playerId = localStorage.getItem('playerId');
 
       if (!playerId || !roomId || !question) {
         setError('Ошибка: данные игрока не найдены');
