@@ -72,23 +72,25 @@ export default function RoomPage() {
       }
 
       setRoomId(room.id);
-      setRoomStatus((room.status as RoomStatus) || (room.is_active ? 'waiting' : 'finished'));
+      const detectedStatus = (room.status as RoomStatus) || (room.is_active ? 'waiting' : 'finished');
+      setRoomStatus(detectedStatus);
 
-      if (room.status === 'waiting') {
+      if (detectedStatus === 'waiting') {
         setShowResults(false);
         setHasAnswered(false);
         setQuestion(null);
         setQuestionStartedAt(null);
         setTimeLeft(QUESTION_DURATION_SECONDS);
         setIsLoading(false);
-      } else if (!room.is_active || room.status === 'finished') {
+      } else if (!room.is_active || detectedStatus === 'finished') {
         setShowResults(true);
         setQuestion(null);
         setQuestionStartedAt(null);
         setIsLoading(false);
       } else {
-        setQuestionStartedAt(room.question_started_at);
-        setTimeLeft(getRemainingSeconds(room.question_started_at));
+        const startTime = room.question_started_at;
+        setQuestionStartedAt(startTime);
+        setTimeLeft(getRemainingSeconds(startTime));
 
         // Загружаем текущий вопрос
         await loadQuestion(room.current_question_index);
@@ -139,13 +141,14 @@ export default function RoomPage() {
               setShowResults(true);
               setQuestion(null);
               setQuestionStartedAt(null);
+              setTimeLeft(QUESTION_DURATION_SECONDS);
               return;
             }
 
             // Загружаем новый вопрос
             await loadQuestion(newQuestionIndex);
             setQuestionStartedAt(startedAt);
-            setTimeLeft(getRemainingSeconds(startedAt));
+            setTimeLeft(startedAt ? getRemainingSeconds(startedAt) : QUESTION_DURATION_SECONDS);
             
             // Проверяем, ответил ли игрок на новый вопрос
             const { data: newAnswer } = await supabase
