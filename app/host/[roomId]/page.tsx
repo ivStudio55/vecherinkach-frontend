@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import {
@@ -241,6 +241,22 @@ export default function HostRoomPage() {
     ]
   );
 
+  const loadPlayersRef = useRef(loadPlayers);
+  const loadAnswerCountRef = useRef(loadAnswerCount);
+  const loadRoomDataRef = useRef(loadRoomData);
+
+  useEffect(() => {
+    loadPlayersRef.current = loadPlayers;
+  }, [loadPlayers]);
+
+  useEffect(() => {
+    loadAnswerCountRef.current = loadAnswerCount;
+  }, [loadAnswerCount]);
+
+  useEffect(() => {
+    loadRoomDataRef.current = loadRoomData;
+  }, [loadRoomData]);
+
   useEffect(() => {
     const init = async () => {
       // Проверяем авторизацию ведущего
@@ -259,12 +275,16 @@ export default function HostRoomPage() {
   }, [roomId, router, loadRoomData, syncServerTime]);
 
   useEffect(() => {
-    if (!roomId) return;
+    if (!roomId) return undefined;
 
     let mounted = true;
     const channelId = `${Date.now()}`;
 
-    // Подписка на изменения комнаты (статус, вопросы, таймер)
+    const invokeLoadRoomData = async () => {
+      if (!mounted) return;
+      await loadRoomDataRef.current?.();
+    };
+
     const roomChannel = supabase
       .channel(`host-room-${roomId}-${channelId}`)
       .on(
@@ -275,15 +295,10 @@ export default function HostRoomPage() {
           table: 'rooms',
           filter: `id=eq.${roomId}`,
         },
-        async () => {
-          if (mounted) {
-            await loadRoomData();
-          }
-        }
+        invokeLoadRoomData
       )
       .subscribe();
 
-    // Подписка на новых игроков
     const playersChannel = supabase
       .channel(`host-players-${roomId}-${channelId}`)
       .on(
@@ -296,13 +311,12 @@ export default function HostRoomPage() {
         },
         () => {
           if (mounted) {
-            loadPlayers();
+            loadPlayersRef.current?.();
           }
         }
       )
       .subscribe();
 
-    // Подписка на новые ответы
     const answersChannel = supabase
       .channel(`host-answers-${roomId}-${channelId}`)
       .on(
@@ -315,7 +329,6 @@ export default function HostRoomPage() {
         },
         async (payload: AnswerInsertPayload) => {
           if (!mounted) return;
-          // Проверяем, что ответ относится к текущему вопросу
           const { data: room } = await supabase
             .from('rooms')
             .select('current_question_index')
@@ -323,13 +336,12 @@ export default function HostRoomPage() {
             .single();
 
           if (mounted && room && payload.new.question_index === room.current_question_index) {
-            await loadAnswerCount(room.current_question_index);
+            await loadAnswerCountRef.current?.(room.current_question_index);
           }
         }
       )
       .subscribe();
 
-    // Очистка подписок
     return () => {
       mounted = false;
       roomChannel.unsubscribe().then(() => {
@@ -342,7 +354,7 @@ export default function HostRoomPage() {
         supabase.removeChannel(answersChannel);
       });
     };
-  }, [roomId, loadPlayers, loadAnswerCount, loadRoomData]);
+  }, [roomId]);
 
   const everyoneAnswered = players.length > 0 && answerCount >= players.length;
   const shouldForceZero = serverAllPlayersAnswered || everyoneAnswered;
