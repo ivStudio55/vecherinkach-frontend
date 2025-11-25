@@ -178,19 +178,21 @@ export default function HostRoomPage() {
 
   const loadRoomData = useCallback(
     async (offsetOverride?: number) => {
-      const effectiveOffset = typeof offsetOverride === 'number' ? offsetOverride : timeOffsetMs;
-      const { data: room, error: roomError } = await supabase
-        .from('rooms')
-        .select(
-          'code, current_question_index, question_started_at, status, all_players_answered, selected_question_ids'
-        )
-        .eq('id', roomId)
-        .single();
+      try {
+        const effectiveOffset = typeof offsetOverride === 'number' ? offsetOverride : timeOffsetMs;
+        const { data: room, error: roomError } = await supabase
+          .from('rooms')
+          .select(
+            'code, current_question_index, question_started_at, status, all_players_answered, selected_question_ids'
+          )
+          .eq('id', roomId)
+          .single();
 
-      if (roomError || !room) {
-        setError('Комната не найдена');
-        return;
-      }
+        if (roomError || !room) {
+          console.error('Room not found or error:', roomError);
+          setError('Комната не найдена или недоступна');
+          return;
+        }
 
       const selection = (room.selected_question_ids as number[] | null) || [];
       setSelectedQuestionIds(selection);
@@ -222,7 +224,11 @@ export default function HostRoomPage() {
         setServerAllPlayersAnswered(false);
       }
 
-      await loadPlayers();
+        await loadPlayers();
+      } catch (err) {
+        console.error('Error loading room data:', err);
+        setError('Ошибка загрузки данных комнаты');
+      }
     },
     [
       timeOffsetMs,
@@ -257,6 +263,25 @@ export default function HostRoomPage() {
 
     let mounted = true;
     const channelId = `${Date.now()}`;
+
+    // Подписка на изменения комнаты (статус, вопросы, таймер)
+    const roomChannel = supabase
+      .channel(`host-room-${roomId}-${channelId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'rooms',
+          filter: `id=eq.${roomId}`,
+        },
+        async () => {
+          if (mounted) {
+            await loadRoomData();
+          }
+        }
+      )
+      .subscribe();
 
     // Подписка на новых игроков
     const playersChannel = supabase
@@ -307,6 +332,9 @@ export default function HostRoomPage() {
     // Очистка подписок
     return () => {
       mounted = false;
+      roomChannel.unsubscribe().then(() => {
+        supabase.removeChannel(roomChannel);
+      });
       playersChannel.unsubscribe().then(() => {
         supabase.removeChannel(playersChannel);
       });
@@ -314,7 +342,7 @@ export default function HostRoomPage() {
         supabase.removeChannel(answersChannel);
       });
     };
-  }, [roomId, loadPlayers, loadAnswerCount]);
+  }, [roomId, loadPlayers, loadAnswerCount, loadRoomData]);
 
   const everyoneAnswered = players.length > 0 && answerCount >= players.length;
   const shouldForceZero = serverAllPlayersAnswered || everyoneAnswered;
