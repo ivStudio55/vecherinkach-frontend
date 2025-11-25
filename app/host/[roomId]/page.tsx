@@ -255,9 +255,12 @@ export default function HostRoomPage() {
   useEffect(() => {
     if (!roomId) return;
 
+    let mounted = true;
+    const channelId = `${Date.now()}`;
+
     // Подписка на новых игроков
     const playersChannel = supabase
-      .channel(`players:${roomId}`)
+      .channel(`host-players-${roomId}-${channelId}`)
       .on(
         'postgres_changes',
         {
@@ -267,14 +270,16 @@ export default function HostRoomPage() {
           filter: `room_id=eq.${roomId}`,
         },
         () => {
-          loadPlayers();
+          if (mounted) {
+            loadPlayers();
+          }
         }
       )
       .subscribe();
 
     // Подписка на новые ответы
     const answersChannel = supabase
-      .channel(`answers:${roomId}`)
+      .channel(`host-answers-${roomId}-${channelId}`)
       .on(
         'postgres_changes',
         {
@@ -284,6 +289,7 @@ export default function HostRoomPage() {
           filter: `room_id=eq.${roomId}`,
         },
         async (payload: AnswerInsertPayload) => {
+          if (!mounted) return;
           // Проверяем, что ответ относится к текущему вопросу
           const { data: room } = await supabase
             .from('rooms')
@@ -291,7 +297,7 @@ export default function HostRoomPage() {
             .eq('id', roomId)
             .single();
 
-          if (room && payload.new.question_index === room.current_question_index) {
+          if (mounted && room && payload.new.question_index === room.current_question_index) {
             await loadAnswerCount(room.current_question_index);
           }
         }
@@ -300,8 +306,13 @@ export default function HostRoomPage() {
 
     // Очистка подписок
     return () => {
-      supabase.removeChannel(playersChannel);
-      supabase.removeChannel(answersChannel);
+      mounted = false;
+      playersChannel.unsubscribe().then(() => {
+        supabase.removeChannel(playersChannel);
+      });
+      answersChannel.unsubscribe().then(() => {
+        supabase.removeChannel(answersChannel);
+      });
     };
   }, [roomId, loadPlayers, loadAnswerCount]);
 
