@@ -57,3 +57,7 @@
     UPDATE rooms
     SET all_players_answered = false
     WHERE all_players_answered IS NULL;
+
+    -- Храним список выбранных вопросов для раунда
+    ALTER TABLE rooms
+    ADD COLUMN IF NOT EXISTS selected_question_ids integer[];

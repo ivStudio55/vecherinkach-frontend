@@ -56,8 +56,9 @@ export default function HostPage() {
         setError('Не удалось создать комнату. Попробуйте ещё раз.');
         setIsCreating(false);
       }
-    } catch (err: any) {
-      setError(`Ошибка: ${err.message}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
+      setError(`Ошибка: ${message}`);
       setIsCreating(false);
     }
   };

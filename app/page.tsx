@@ -70,8 +70,9 @@ export default function HomePage() {
 
       // Переходим в комнату
       router.push(`/room/${roomCode}`);
-    } catch (err: any) {
-      setError(`Ошибка: ${err.message}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
+      setError(`Ошибка: ${message}`);
       setIsLoading(false);
     }
   };

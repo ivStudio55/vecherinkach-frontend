@@ -53,8 +53,9 @@ export default function TestPage() {
       } else {
         addLog(`✅ Запрос к questions успешен (найдено записей: ${questions?.length || 0})`);
       }
-    } catch (err: any) {
-      addLog(`💥 Exception при запросе к questions: ${err.message}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
+      addLog(`💥 Exception при запросе к questions: ${message}`);
     }
 
     // Тест 4: Запрос к rooms
@@ -74,8 +75,9 @@ export default function TestPage() {
           addLog(`   Код комнаты: ${rooms[0].code}`);
         }
       }
-    } catch (err: any) {
-      addLog(`💥 Exception при запросе к rooms: ${err.message}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
+      addLog(`💥 Exception при запросе к rooms: ${message}`);
     }
 
     // Тест 5: Попытка создать тестовую комнату
@@ -102,8 +104,9 @@ export default function TestPage() {
         await supabase.from('rooms').delete().eq('id', newRoom.id);
         addLog(`🗑️ Тестовая комната удалена`);
       }
-    } catch (err: any) {
-      addLog(`💥 Exception при создании комнаты: ${err.message}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
+      addLog(`💥 Exception при создании комнаты: ${message}`);
     }
 
     addLog('✅ Все тесты завершены');
