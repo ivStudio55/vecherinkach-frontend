@@ -144,18 +144,19 @@ export default function HostRoomPage() {
   }, [roomId, router]);
 
   useEffect(() => {
-    if (showResults || roomStatus !== 'running') {
+    if (showResults || roomStatus !== 'running' || !questionStartedAt) {
       return;
     }
 
     const tick = () => {
-      setTimeLeft(getRemainingSeconds(questionStartedAt));
+      const remaining = getRemainingSeconds(questionStartedAt);
+      setTimeLeft(remaining);
     };
 
     tick();
     const interval = setInterval(tick, 250);
     return () => clearInterval(interval);
-  }, [questionStartedAt, showResults]);
+  }, [questionStartedAt, showResults, roomStatus]);
 
   const loadRoomData = async () => {
     // Загружаем данные комнаты

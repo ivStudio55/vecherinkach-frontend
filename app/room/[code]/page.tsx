@@ -184,11 +184,15 @@ export default function RoomPage() {
   }, [roomCode, router]);
 
   useEffect(() => {
-    if (showResults || roomStatus !== 'running') {
+    if (showResults || roomStatus !== 'running' || !questionStartedAt) {
       return;
     }
 
-    const tick = () => setTimeLeft(getRemainingSeconds(questionStartedAt));
+    const tick = () => {
+      const remaining = getRemainingSeconds(questionStartedAt);
+      setTimeLeft(remaining);
+    };
+    
     tick();
     const interval = setInterval(tick, 250);
     return () => clearInterval(interval);
