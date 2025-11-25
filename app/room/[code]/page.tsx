@@ -184,18 +184,27 @@ export default function RoomPage() {
   }, [roomCode, router]);
 
   useEffect(() => {
+    console.log('[Player Timer] useEffect triggered:', { showResults, roomStatus, questionStartedAt });
+    
     if (showResults || roomStatus !== 'running' || !questionStartedAt) {
+      console.log('[Player Timer] Timer paused:', { showResults, roomStatus, hasStartTime: !!questionStartedAt });
       return;
     }
 
+    console.log('[Player Timer] Starting timer with:', questionStartedAt);
+    
     const tick = () => {
       const remaining = getRemainingSeconds(questionStartedAt);
+      console.log('[Player Timer] Tick:', remaining);
       setTimeLeft(remaining);
     };
     
     tick();
     const interval = setInterval(tick, 250);
-    return () => clearInterval(interval);
+    return () => {
+      console.log('[Player Timer] Cleanup');
+      clearInterval(interval);
+    };
   }, [questionStartedAt, showResults, roomStatus]);
 
   const loadQuestion = async (questionIndex: number) => {
