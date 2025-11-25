@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
 const QUESTION_DURATION_SECONDS = 30;
-const APP_VERSION = '1.0.2'; // Инкрементируйте при важных изменениях
+const APP_VERSION = '1.0.3'; // Инкрементируйте при важных изменениях
 
 const getRemainingSeconds = (startedAt: string | null, offsetMs = 0) => {
   if (!startedAt) {
@@ -52,6 +52,7 @@ export default function RoomPage() {
   const [timeLeft, setTimeLeft] = useState(QUESTION_DURATION_SECONDS);
   const [showResults, setShowResults] = useState(false);
   const [roomStatus, setRoomStatus] = useState<RoomStatus>('waiting');
+  const [allPlayersAnswered, setAllPlayersAnswered] = useState(false);
   const [timeOffsetMs, setTimeOffsetMs] = useState(0);
 
   const syncServerTime = async () => {
@@ -95,7 +96,7 @@ export default function RoomPage() {
       // Получаем данные комнаты
       const { data: room, error: roomError } = await supabase
         .from('rooms')
-        .select('id, current_question_index, is_active, status, question_started_at')
+        .select('id, current_question_index, is_active, status, question_started_at, all_players_answered')
         .eq('code', roomCode)
         .single();
 
@@ -108,6 +109,7 @@ export default function RoomPage() {
       setRoomId(room.id);
       const detectedStatus = (room.status as RoomStatus) || (room.is_active ? 'waiting' : 'finished');
       setRoomStatus(detectedStatus);
+      setAllPlayersAnswered(detectedStatus === 'running' ? !!room.all_players_answered : false);
 
       if (detectedStatus === 'waiting') {
         setShowResults(false);
@@ -124,7 +126,8 @@ export default function RoomPage() {
       } else {
         const startTime = room.question_started_at;
         setQuestionStartedAt(startTime);
-        setTimeLeft(getRemainingSeconds(startTime, offset));
+        const initialTime = getRemainingSeconds(startTime, offset);
+        setTimeLeft(room.all_players_answered ? 0 : initialTime);
 
         // Загружаем текущий вопрос
         await loadQuestion(room.current_question_index);
@@ -161,6 +164,8 @@ export default function RoomPage() {
             const startedAt = payload.new.question_started_at as string | null;
             const newStatus = (payload.new.status as RoomStatus) || (payload.new.is_active ? 'waiting' : 'finished');
             setRoomStatus(newStatus);
+            const everyoneAnsweredFlag = newStatus === 'running' ? !!payload.new.all_players_answered : false;
+            setAllPlayersAnswered(everyoneAnsweredFlag);
 
             if (newStatus === 'waiting') {
               setShowResults(false);
@@ -183,7 +188,11 @@ export default function RoomPage() {
             // Загружаем новый вопрос
             await loadQuestion(newQuestionIndex);
             setQuestionStartedAt(startedAt);
-            setTimeLeft(startedAt ? getRemainingSeconds(startedAt, offset) : QUESTION_DURATION_SECONDS);
+            if (everyoneAnsweredFlag) {
+              setTimeLeft(0);
+            } else {
+              setTimeLeft(startedAt ? getRemainingSeconds(startedAt, offset) : QUESTION_DURATION_SECONDS);
+            }
             
             // Проверяем, ответил ли игрок на новый вопрос
             const { data: newAnswer } = await supabase
@@ -214,6 +223,11 @@ export default function RoomPage() {
   }, [roomCode, router]);
 
   useEffect(() => {
+    if (allPlayersAnswered) {
+      setTimeLeft(0);
+      return;
+    }
+
     if (showResults || roomStatus !== 'running' || !questionStartedAt) {
       return;
     }
@@ -226,7 +240,7 @@ export default function RoomPage() {
     tick();
     const interval = setInterval(tick, 250);
     return () => clearInterval(interval);
-  }, [questionStartedAt, showResults, roomStatus, timeOffsetMs]);
+  }, [questionStartedAt, showResults, roomStatus, timeOffsetMs, allPlayersAnswered]);
 
   const loadQuestion = async (questionIndex: number) => {
     // questionIndex начинается с 0, order в БД начинается с 1
@@ -253,6 +267,12 @@ export default function RoomPage() {
     try {
       if (roomStatus !== 'running') {
         setError('Дождитесь начала раунда, чтобы отвечать');
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (allPlayersAnswered) {
+        setError('Этот вопрос уже закрыт — ждём следующий.');
         setIsSubmitting(false);
         return;
       }
@@ -338,6 +358,7 @@ export default function RoomPage() {
   }
 
   const progressPercent = Math.max(0, Math.min(100, (timeLeft / QUESTION_DURATION_SECONDS) * 100));
+  const timerLabel = allPlayersAnswered ? 'Все ответили' : `${timeLeft} c`;
 
   if (showResults) {
     return (
@@ -417,7 +438,9 @@ export default function RoomPage() {
             <div className="mb-6">
               <div className="flex justify-between text-sm text-gray-600 mb-2">
                 <span>Осталось времени</span>
-                <span className="font-semibold text-gray-800">{timeLeft} c</span>
+                <span className={`font-semibold ${allPlayersAnswered ? 'text-green-700' : 'text-gray-800'}`}>
+                  {timerLabel}
+                </span>
               </div>
               <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
                 <div
@@ -425,6 +448,11 @@ export default function RoomPage() {
                   style={{ width: `${progressPercent}%` }}
                 ></div>
               </div>
+              {allPlayersAnswered && (
+                <p className="text-sm text-green-100 font-semibold mt-2">
+                  Все уже ответили — ждём следующего вопроса.
+                </p>
+              )}
             </div>
 
             {!hasAnswered ? (

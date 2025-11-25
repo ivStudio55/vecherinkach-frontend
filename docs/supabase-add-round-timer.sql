@@ -49,3 +49,11 @@
         AS $$
             SELECT timezone('utc', now());
         $$;
+
+    -- Флаг, что ведущему не нужно ждать таймер (все игроки ответили)
+    ALTER TABLE rooms
+    ADD COLUMN IF NOT EXISTS all_players_answered boolean NOT NULL DEFAULT false;
+
+    UPDATE rooms
+    SET all_players_answered = false
+    WHERE all_players_answered IS NULL;

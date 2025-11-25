@@ -67,6 +67,7 @@ export default function HostRoomPage() {
   const [question, setQuestion] = useState<Question | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [answerCount, setAnswerCount] = useState(0);
+  const [answeredPlayerIds, setAnsweredPlayerIds] = useState<string[]>([]);
   const [questionStartedAt, setQuestionStartedAt] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState(QUESTION_DURATION_SECONDS);
   const [showResults, setShowResults] = useState(false);
@@ -74,6 +75,7 @@ export default function HostRoomPage() {
   const [summaryQuestions, setSummaryQuestions] = useState<Question[]>([]);
   const [isSummaryLoading, setIsSummaryLoading] = useState(false);
   const [roomStatus, setRoomStatus] = useState<RoomStatus>('waiting');
+  const [serverAllPlayersAnswered, setServerAllPlayersAnswered] = useState(false);
   const [timeOffsetMs, setTimeOffsetMs] = useState(0);
 
   const syncServerTime = async () => {
@@ -173,7 +175,16 @@ export default function HostRoomPage() {
   }, [roomId, router]);
 
   useEffect(() => {
-    if (showResults || roomStatus !== 'running' || !questionStartedAt) {
+    if (showResults || roomStatus !== 'running' || !questionStartedAt || serverAllPlayersAnswered) {
+      if (serverAllPlayersAnswered) {
+        setTimeLeft(0);
+      }
+      return;
+    }
+
+    const totalPlayers = players.length;
+    if (totalPlayers > 0 && answerCount >= totalPlayers) {
+      setTimeLeft(0);
       return;
     }
 
@@ -185,14 +196,45 @@ export default function HostRoomPage() {
     tick();
     const interval = setInterval(tick, 250);
     return () => clearInterval(interval);
-  }, [questionStartedAt, showResults, roomStatus, timeOffsetMs]);
+  }, [questionStartedAt, showResults, roomStatus, timeOffsetMs, answerCount, players.length, serverAllPlayersAnswered]);
+
+  useEffect(() => {
+    if (!roomId || roomStatus !== 'running') {
+      return;
+    }
+
+    const totalPlayers = players.length;
+    if (totalPlayers === 0) {
+      return;
+    }
+
+    const everyoneAnswered = answerCount >= totalPlayers;
+    if (everyoneAnswered === serverAllPlayersAnswered) {
+      return;
+    }
+
+    const updateFlag = async () => {
+      const { error } = await supabase
+        .from('rooms')
+        .update({ all_players_answered: everyoneAnswered })
+        .eq('id', roomId);
+
+      if (error) {
+        console.error('Не удалось обновить статус ответов игроков', error);
+        return;
+      }
+      setServerAllPlayersAnswered(everyoneAnswered);
+    };
+
+    updateFlag();
+  }, [answerCount, players.length, roomId, roomStatus, serverAllPlayersAnswered]);
 
   const loadRoomData = async (offsetOverride?: number) => {
     const effectiveOffset = typeof offsetOverride === 'number' ? offsetOverride : timeOffsetMs;
     // Загружаем данные комнаты
     const { data: room, error: roomError } = await supabase
       .from('rooms')
-      .select('code, current_question_index, question_started_at, status')
+      .select('code, current_question_index, question_started_at, status, all_players_answered')
       .eq('id', roomId)
       .single();
 
@@ -205,19 +247,28 @@ export default function HostRoomPage() {
     setCurrentQuestionIndex(room.current_question_index);
     const detectedStatus = (room.status as RoomStatus) || 'waiting';
     setRoomStatus(detectedStatus);
+    setServerAllPlayersAnswered(detectedStatus === 'running' ? !!room.all_players_answered : false);
 
     if (detectedStatus === 'running') {
       syncTimerWithStart(room.question_started_at, effectiveOffset);
+      if (room.all_players_answered) {
+        setTimeLeft(0);
+      }
       await loadQuestion(room.current_question_index);
       await loadAnswerCount(room.current_question_index);
     } else if (detectedStatus === 'finished') {
       setShowResults(true);
+      setAnswerCount(0);
+      setAnsweredPlayerIds([]);
+      setServerAllPlayersAnswered(false);
       await fetchSummaryData();
     } else {
       setQuestion(null);
       setAnswerCount(0);
+      setAnsweredPlayerIds([]);
       setQuestionStartedAt(null);
       setTimeLeft(QUESTION_DURATION_SECONDS);
+      setServerAllPlayersAnswered(false);
     }
 
     // Загружаем игроков
@@ -261,14 +312,19 @@ export default function HostRoomPage() {
   };
 
   const loadAnswerCount = async (questionIndex: number) => {
-    const { count, error: answersError } = await supabase
+    const { data, count, error: answersError } = await supabase
       .from('answers')
-      .select('*', { count: 'exact', head: true })
+      .select('player_id', { count: 'exact' })
       .eq('room_id', roomId)
       .eq('question_index', questionIndex);
 
-    if (answersError) return;
+    if (answersError) {
+      setAnsweredPlayerIds([]);
+      return;
+    }
     setAnswerCount(count || 0);
+    const answeredIds = Array.from(new Set((data || []).map((answer) => answer.player_id)));
+    setAnsweredPlayerIds(answeredIds);
   };
 
   const fetchSummaryData = async () => {
@@ -298,7 +354,7 @@ export default function HostRoomPage() {
     setIsSummaryLoading(true);
     const { error: updateError } = await supabase
       .from('rooms')
-      .update({ is_active: false, status: 'finished' })
+      .update({ is_active: false, status: 'finished', all_players_answered: false })
       .eq('id', roomId);
 
     if (updateError) {
@@ -310,6 +366,7 @@ export default function HostRoomPage() {
     await loadPlayers();
     setRoomStatus('finished');
     setShowResults(true);
+    setAnsweredPlayerIds([]);
     setIsSummaryLoading(false);
   };
 
@@ -317,7 +374,7 @@ export default function HostRoomPage() {
     const { iso: startedAt, offset } = await getServerIsoTimestamp();
     const { error: updateError } = await supabase
       .from('rooms')
-      .update({ status: 'running', question_started_at: startedAt, current_question_index: 0 })
+      .update({ status: 'running', question_started_at: startedAt, current_question_index: 0, all_players_answered: false })
       .eq('id', roomId);
 
     if (updateError) {
@@ -327,8 +384,10 @@ export default function HostRoomPage() {
 
     setRoomStatus('running');
     setShowResults(false);
-  syncTimerWithStart(startedAt, offset);
+    setServerAllPlayersAnswered(false);
+    syncTimerWithStart(startedAt, offset);
     setAnswerCount(0);
+    setAnsweredPlayerIds([]);
     await loadQuestion(0);
     await loadAnswerCount(0);
   };
@@ -339,7 +398,7 @@ export default function HostRoomPage() {
 
     const { error: updateError } = await supabase
       .from('rooms')
-      .update({ current_question_index: newIndex, question_started_at: questionStartedAt })
+      .update({ current_question_index: newIndex, question_started_at: questionStartedAt, all_players_answered: false })
       .eq('id', roomId);
 
     if (updateError) {
@@ -348,8 +407,10 @@ export default function HostRoomPage() {
     }
 
     setCurrentQuestionIndex(newIndex);
-  syncTimerWithStart(questionStartedAt, offset);
+    setServerAllPlayersAnswered(false);
+    syncTimerWithStart(questionStartedAt, offset);
     setAnswerCount(0);
+    setAnsweredPlayerIds([]);
     await loadQuestion(newIndex);
     await loadAnswerCount(newIndex);
   };
@@ -357,7 +418,7 @@ export default function HostRoomPage() {
   const endGame = async () => {
     const { error: updateError } = await supabase
       .from('rooms')
-      .update({ is_active: false, status: 'finished' })
+      .update({ is_active: false, status: 'finished', all_players_answered: false })
       .eq('id', roomId);
 
     if (updateError) {
@@ -380,8 +441,9 @@ export default function HostRoomPage() {
 
   const answeredCount = answerCount;
   const totalPlayers = players.length;
+  const allPlayersAnswered = serverAllPlayersAnswered || (totalPlayers > 0 && answeredCount >= totalPlayers);
   const isLastQuestion = currentQuestionIndex >= totalQuestions - 1;
-  const canAdvance = roomStatus === 'running' && timeLeft === 0;
+  const canAdvance = roomStatus === 'running' && (timeLeft === 0 || allPlayersAnswered);
   const progressPercent = Math.max(0, Math.min(100, (timeLeft / QUESTION_DURATION_SECONDS) * 100));
   const questionsForSummary = summaryQuestions.length ? summaryQuestions : question ? [question] : [];
   const isWaiting = roomStatus === 'waiting' && !showResults;
@@ -528,7 +590,9 @@ export default function HostRoomPage() {
                 <div className="mb-6">
                   <div className="flex justify-between text-sm text-gray-500 mb-2">
                     <span>Таймер · 30 секунд</span>
-                    <span className="font-semibold text-gray-800">{timeLeft} c</span>
+                    <span className="font-semibold text-gray-800">
+                      {allPlayersAnswered ? 'Все ответили' : `${timeLeft} c`}
+                    </span>
                   </div>
                   <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
                     <div
@@ -536,6 +600,11 @@ export default function HostRoomPage() {
                       style={{ width: `${progressPercent}%` }}
                     ></div>
                   </div>
+                  {allPlayersAnswered && (
+                    <p className="text-sm text-green-700 font-semibold mt-2">
+                      Все игроки ответили — можно двигаться дальше.
+                    </p>
+                  )}
                 </div>
 
                 <h2 className="text-3xl font-bold text-gray-800 mb-8">
@@ -553,8 +622,8 @@ export default function HostRoomPage() {
                 <p className="text-center text-sm text-gray-500 mt-3">
                   {canAdvance
                     ? isLastQuestion
-                      ? 'Можно завершать раунд и показывать ответы.'
-                      : 'Таймер завершён, можно перейти к следующему вопросу.'
+                      ? (allPlayersAnswered ? 'Все игроки ответили — можно завершать раунд и показывать ответы.' : 'Можно завершать раунд и показывать ответы.')
+                      : (allPlayersAnswered ? 'Все игроки ответили — переходите к следующему вопросу.' : 'Таймер завершён, можно перейти к следующему вопросу.')
                     : 'Ответы будут скрыты до окончания таймера.'}
                 </p>
               </div>
@@ -608,24 +677,46 @@ export default function HostRoomPage() {
               </p>
             ) : (
               <div className="space-y-2">
-                {players.map((player, index) => (
-                  <div
-                    key={player.id}
-                    className="p-3 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-between"
-                  >
-                    <div className="flex items-center gap-2">
-                      {index < 3 && (
-                        <span className="text-lg">
-                          {index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}
+                {players.map((player, index) => {
+                  const hasAnswered = answeredPlayerIds.includes(player.id);
+                  return (
+                    <div
+                      key={player.id}
+                      className={`p-3 rounded-lg border flex items-center justify-between ${
+                        hasAnswered ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        {index < 3 && (
+                          <span className="text-lg">
+                            {index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}
+                          </span>
+                        )}
+                        <span
+                          className={`w-2 h-2 rounded-full ${hasAnswered ? 'bg-green-500' : 'bg-gray-300'}`}
+                          aria-hidden="true"
+                        ></span>
+                        <div>
+                          <span className="font-medium text-gray-700 block">{player.name}</span>
+                          {roomStatus === 'running' && question && (
+                            <span
+                              className={`text-xs font-semibold ${
+                                hasAnswered ? 'text-green-700' : 'text-gray-500'
+                              }`}
+                            >
+                              {hasAnswered ? '✅ Ответ получен' : '⌛ Ждём ответ'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-bold text-purple-600 text-sm block">
+                          {player.total_points} 💎
                         </span>
-                      )}
-                      <span className="font-medium text-gray-700">{player.name}</span>
+                      </div>
                     </div>
-                    <span className="font-bold text-purple-600 text-sm">
-                      {player.total_points} 💎
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
