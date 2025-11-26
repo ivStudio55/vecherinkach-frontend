@@ -649,8 +649,13 @@ export default function HostRoomPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500" onClick={handleHostInteraction}>
-        <div className="text-white text-2xl font-bold">Загрузка...</div>
+      <div
+        className="min-h-screen flex items-center justify-center bg-[#fef4dc] text-[#142a45]"
+        onClick={handleHostInteraction}
+      >
+        <div className="rounded-3xl border-[4px] border-[#142a45] bg-white px-6 py-4 text-xl font-black">
+          Загрузка панели ведущего…
+        </div>
       </div>
     );
   }
@@ -679,42 +684,64 @@ export default function HostRoomPage() {
   const getPlayerName = (playerId: string) =>
     players.find((player) => player.id === playerId)?.name || 'Неизвестный игрок';
 
+  const statusLabel =
+    roomStatus === 'waiting'
+      ? 'Ожидание игроков'
+      : roomStatus === 'running'
+        ? 'Раунд в эфире'
+        : 'Итоги раунда';
+  const statusBadgeClass =
+    roomStatus === 'running'
+      ? 'bg-[#f1532f] text-[#ffeccd]'
+      : roomStatus === 'waiting'
+        ? 'bg-[#ffe184] text-[#142a45]'
+        : 'bg-[#1f6ac6] text-white';
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 p-6" onClick={handleHostInteraction}>
-      <div className="max-w-6xl mx-auto">
-        {/* Хедер */}
-        <div className="bg-white rounded-2xl shadow-2xl p-6 mb-6">
-          <div className="flex justify-between items-center mb-4">
+    <div className="min-h-screen bg-[#fef4dc] text-[#142a45] px-4 py-8" onClick={handleHostInteraction}>
+      <div className="max-w-6xl mx-auto space-y-6">
+        <header className="retro-panel bg-[#142a45] text-[#ffeccd] px-6 py-5 space-y-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-800">🎯 Панель ведущего</h1>
-              <p className="text-gray-600">Комната: <span className="font-mono font-bold text-2xl text-purple-600">{roomCode}</span></p>
+              <p className="retro-heading text-[11px] tracking-[0.5em] text-[#ffeccd]/70">Панель ведущего</p>
+              <h1 className="text-3xl font-black leading-tight">Комната {roomCode || '----'}</h1>
             </div>
-            <button
-              onClick={endGame}
-              className="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
-            >
-              Завершить игру
-            </button>
+            <div className="flex items-center gap-3">
+              <span className={`px-4 py-2 rounded-full text-xs font-bold tracking-[0.3em] ${statusBadgeClass}`}>
+                {statusLabel.toUpperCase()}
+              </span>
+              <button
+                type="button"
+                onClick={endGame}
+                className="px-4 py-2 rounded-2xl border-[3px] border-[#ffeccd] text-[#ffeccd] font-semibold hover:bg-[#ffeccd]/10 transition"
+              >
+                Завершить игру
+              </button>
+            </div>
           </div>
+          <p className="text-sm text-[#ffeccd]/80">
+            Управляйте раундом, запускайте таймеры и следите за списком игроков. Все действия синхронизируются через Supabase в реальном времени.
+          </p>
+        </header>
 
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-              {error}
-            </div>
-          )}
-        </div>
+        {error && (
+          <div className="rounded-3xl border-[3px] border-[#b23324] bg-[#ffd7d0] px-4 py-3 text-sm font-semibold text-[#7b1d16]">
+            {error}
+          </div>
+        )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Вопрос и управление */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Текущий вопрос или сводка */}
+        <div className="grid gap-6 lg:grid-cols-[1.45fr,0.55fr]">
+          <div className="space-y-6">
             {showResults ? (
-              <div className="bg-white rounded-2xl shadow-2xl p-8">
-                <h2 className="text-3xl font-bold text-gray-800 mb-4">🏆 Результаты разминочного раунда</h2>
-                <p className="text-gray-600 mb-8">
-                  Ведущий видит все ответы только после завершения таймера. Очки уже начислены игрокам автоматически.
-                </p>
-                <div className="space-y-6">
+              <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Итоги раунда</p>
+                    <h2 className="text-3xl font-black">🏆 Результаты</h2>
+                  </div>
+                  <span className="text-sm font-semibold text-[#1f6ac6]">Очки уже начислены игрокам</span>
+                </div>
+                <div className="space-y-4">
                   {questionsForSummary.map((summaryQuestion: Question) => {
                     const answersForQuestion = roundAnswers.filter(
                       (answer) => answer.question_index === summaryQuestion.order - 1
@@ -723,243 +750,254 @@ export default function HostRoomPage() {
                     const correctText = getOptionText(summaryQuestion, summaryQuestion.correctIndex);
 
                     return (
-                      <div key={summaryQuestion.order} className="border border-gray-200 rounded-xl p-6">
-                        <div className="flex justify-between items-center text-sm text-gray-500 mb-2">
-                          <span>Вопрос {summaryQuestion.order}</span>
-                          <span className="font-semibold text-purple-600">{summaryQuestion.points} 💎</span>
+                      <article
+                        key={summaryQuestion.order}
+                        className="rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-4 space-y-3"
+                      >
+                        <div className="flex items-center justify-between text-xs text-[#142a45]/70">
+                          <span className="font-semibold tracking-[0.3em]">Вопрос {summaryQuestion.order}</span>
+                          <span className="font-black text-[#f1532f]">+{summaryQuestion.points}💎</span>
                         </div>
-                        <p className="text-xl font-semibold text-gray-900 mb-3">{summaryQuestion.text}</p>
-                        <p className="text-green-700 font-medium mb-4">
+                        <p className="text-lg font-semibold">{summaryQuestion.text}</p>
+                        <p className="text-sm text-[#1f6ac6] font-semibold">
                           Правильный ответ: {OPTION_LABELS[correctKey]} — {correctText}
                         </p>
-                        <div className="space-y-3">
+                        <div className="space-y-2">
                           {answersForQuestion.length === 0 ? (
-                            <p className="text-gray-500 text-sm">Никто не ответил на этот вопрос.</p>
+                            <p className="text-xs text-[#142a45]/70">Никто не ответил на этот вопрос</p>
                           ) : (
                             answersForQuestion.map((answer) => (
                               <div
                                 key={`${answer.player_id}-${answer.question_index}`}
-                                className={`p-3 rounded-lg border ${
-                                  answer.is_correct ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'
+                                className={`rounded-2xl border-[3px] px-3 py-2 text-sm flex items-center justify-between ${
+                                  answer.is_correct
+                                    ? 'border-[#1f6ac6]/40 bg-white'
+                                    : 'border-[#f1532f]/30 bg-white'
                                 }`}
                               >
-                                <div className="flex justify-between items-center">
-                                  <span className="font-semibold text-gray-800">{getPlayerName(answer.player_id)}</span>
-                                  <span className={`text-sm font-bold ${answer.is_correct ? 'text-green-700' : 'text-red-700'}`}>
-                                    {answer.is_correct ? `+${answer.points_earned} 💎` : '0 💎'}
-                                  </span>
+                                <div>
+                                  <p className="font-semibold">{getPlayerName(answer.player_id)}</p>
+                                  <p className="text-xs text-[#142a45]/70">
+                                    {formatOptionLabel(answer.text)} — {getOptionText(summaryQuestion, answer.text)}
+                                  </p>
                                 </div>
-                                <p className="text-sm text-gray-600">
-                                  Ответ: {formatOptionLabel(answer.text)} — {getOptionText(summaryQuestion, answer.text)}
-                                </p>
+                                <span className={`font-black ${answer.is_correct ? 'text-[#1f6ac6]' : 'text-[#f1532f]'}`}>
+                                  {answer.is_correct ? `+${answer.points_earned}` : '+0'}
+                                </span>
                               </div>
                             ))
                           )}
                         </div>
-                      </div>
+                      </article>
                     );
                   })}
+                  {!questionsForSummary.length && (
+                    <p className="text-sm text-[#142a45]/70">Ответов пока нет — возможно, раунд завершили слишком рано.</p>
+                  )}
                 </div>
               </div>
             ) : isWaiting ? (
-              <div className="bg-white rounded-2xl shadow-2xl p-8">
-                <h2 className="text-3xl font-bold text-gray-800 mb-4">⌛ Ожидание игроков</h2>
-                <p className="text-gray-600 mb-6">
-                  Комната открыта. Поделитесь кодом <span className="font-mono font-semibold text-purple-600 text-lg">{roomCode}</span> и дождитесь, пока все подключатся.
-                </p>
-                <div className="mb-4 text-sm text-gray-600 flex flex-col items-start gap-1">
+              <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
+                <div className="flex flex-col gap-2">
+                  <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Сцена перед стартом</p>
+                  <h2 className="text-3xl font-black">⌛ Ждём подключений</h2>
+                  <p className="text-sm text-[#142a45]/80">
+                    Поделитесь кодом <span className="font-mono font-black text-lg">{roomCode}</span> и следите за списком игроков справа.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-3">
                   <button
                     type="button"
                     onClick={() => {
                       hasUserInteractedRef.current = true;
                       void (isLobbySoundOn ? stopLobby() : tryPlayLobby());
                     }}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-50 hover:bg-purple-100 text-purple-700 font-medium transition-colors"
+                    className={`px-4 py-2 rounded-2xl border-[3px] font-semibold ${
+                      isLobbySoundOn ? 'border-[#1f6ac6] bg-[#1f6ac6] text-white' : 'border-[#142a45] bg-[#ffe184]'
+                    }`}
                   >
-                    {isLobbySoundOn ? '🔊 Выключить джингл ожидания' : '🎵 Включить джингл ожидания'}
+                    {isLobbySoundOn ? '🔊 Джингл включён' : '🎵 Включить джингл'}
                   </button>
-                  {audioError && <span className="text-xs text-rose-500">{audioError}</span>}
                   <button
                     type="button"
                     onClick={() => {
                       hasUserInteractedRef.current = true;
                       setIsJoinSoundEnabled((prev) => !prev);
                     }}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium transition-colors"
+                    className={`px-4 py-2 rounded-2xl border-[3px] font-semibold ${
+                      isJoinSoundEnabled ? 'border-[#1f6ac6] bg-white text-[#1f6ac6]' : 'border-dashed border-[#142a45] bg-white'
+                    }`}
                   >
-                    {isJoinSoundEnabled ? '🔔 Звук подключения включён' : '🔕 Включить звук подключения'}
+                    {isJoinSoundEnabled ? '🔔 Звук подключения' : '🔕 Включить звук подключения'}
                   </button>
                 </div>
-                <ul className="space-y-3 mb-6">
-                  <li className="flex items-center gap-3 text-gray-700">
-                    <span className="w-8 h-8 rounded-full bg-purple-100 text-purple-700 font-semibold flex items-center justify-center">1</span>
-                    Игроки вводят код комнаты на своих устройствах.
+                {audioError && <p className="text-xs text-[#b23324] font-semibold">{audioError}</p>}
+
+                <ol className="space-y-3 text-sm font-semibold text-[#142a45]/80">
+                  <li className="flex gap-3">
+                    <span className="w-8 h-8 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">1</span>
+                    Игроки заходят на `/join` и вводят код комнаты.
                   </li>
-                  <li className="flex items-center gap-3 text-gray-700">
-                    <span className="w-8 h-8 rounded-full bg-purple-100 text-purple-700 font-semibold flex items-center justify-center">2</span>
-                    Вы видите всех подключившихся справа в списке игроков.
+                  <li className="flex gap-3">
+                    <span className="w-8 h-8 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">2</span>
+                    Их имена появляются в списке справа. Сразу видно статус подключения.
                   </li>
-                  <li className="flex items-center gap-3 text-gray-700">
-                    <span className="w-8 h-8 rounded-full bg-purple-100 text-purple-700 font-semibold flex items-center justify-center">3</span>
-                    Как только все готовы, нажмите кнопку ниже, чтобы запустить таймер и показать первый вопрос.
+                  <li className="flex gap-3">
+                    <span className="w-8 h-8 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">3</span>
+                    Когда готовы — стартуйте раунд. Таймер и вопросы синхронизируются автоматически.
                   </li>
-                </ul>
+                </ol>
 
                 <button
                   onClick={startRound}
                   disabled={players.length === 0}
-                  className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-bold py-4 px-6 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed text-lg"
+                  className="w-full py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   Начать игру →
                 </button>
-                {players.length === 0 && (
-                  <p className="text-sm text-gray-500 text-center mt-3">Нужно как минимум 1 игрок, чтобы начать.</p>
-                )}
+                {players.length === 0 && <p className="text-xs text-[#142a45]/60">Нужно как минимум 1 игрок.</p>}
               </div>
             ) : question ? (
-              <div className="bg-white rounded-2xl shadow-2xl p-8">
-                <div className="flex justify-between items-center mb-4">
-                  <span className="bg-purple-100 text-purple-700 px-4 py-2 rounded-full text-sm font-semibold">
-                    Вопрос {question.order} из {totalQuestions}
+              <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
+                    Вопрос {question.order} / {totalQuestions}
                   </span>
-                  <span className="text-gray-600">
-                    Ответили: <span className="font-bold text-purple-600">{answeredCount}/{totalPlayers}</span>
+                  <span className="text-sm font-semibold text-[#142a45]/70">
+                    Ответили: <span className="text-[#1f6ac6]">{answeredCount}/{totalPlayers}</span>
                   </span>
                 </div>
 
-                <div className="mb-6">
-                  <div className="flex justify-between text-sm text-gray-500 mb-2">
-                    <span>Таймер · 30 секунд</span>
-                    <span className="font-semibold text-gray-800">
+                <div>
+                  <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
+                    <span>Таймер · 30 сек</span>
+                    <span className="font-black text-[#142a45]">
                       {allPlayersAnswered ? 'Все ответили' : `${effectiveTimeLeft} c`}
                     </span>
                   </div>
-                  <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
+                  <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
                     <div
-                      className={`h-full ${effectiveTimeLeft > 5 ? 'bg-gradient-to-r from-green-400 to-emerald-500' : 'bg-gradient-to-r from-red-400 to-rose-500'}`}
+                      className={`h-full ${effectiveTimeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
                       style={{ width: `${progressPercent}%` }}
-                    ></div>
+                    />
                   </div>
                   {allPlayersAnswered && (
-                    <p className="text-sm text-green-700 font-semibold mt-2">
-                      Все игроки ответили — можно двигаться дальше.
-                    </p>
+                    <p className="text-xs text-[#1f6ac6] font-semibold mt-2">Все игроки уже ответили — можно переходить дальше.</p>
                   )}
                 </div>
 
-                <h2 className="text-3xl font-bold text-gray-800 mb-8">
-                  {question.text}
-                </h2>
+                <h2 className="text-3xl font-black leading-tight">{question.text}</h2>
 
                 <button
                   onClick={isLastQuestion ? finishRound : nextQuestion}
                   disabled={!canAdvance || (isLastQuestion && isSummaryLoading)}
-                  className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-bold py-4 px-6 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed text-lg"
+                  className="w-full py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#1f6ac6] text-white border-[3px] border-[#142a45] transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  {isLastQuestion ? 'Показать результаты' : 'Следующий вопрос →'}
+                  {isLastQuestion ? 'Показать итоги' : 'Следующий вопрос'}
                 </button>
 
-                <p className="text-center text-sm text-gray-500 mt-3">
+                <p className="text-xs text-[#142a45]/70">
                   {canAdvance
                     ? isLastQuestion
-                      ? (allPlayersAnswered ? 'Все игроки ответили — можно завершать раунд и показывать ответы.' : 'Можно завершать раунд и показывать ответы.')
-                      : (allPlayersAnswered ? 'Все игроки ответили — переходите к следующему вопросу.' : 'Таймер завершён, можно перейти к следующему вопросу.')
-                    : 'Ответы будут скрыты до окончания таймера.'}
+                      ? allPlayersAnswered
+                        ? 'Все ответили — показываем результаты и обсуждаем ответы.'
+                        : 'Таймер завершён, можно завершать раунд.'
+                      : allPlayersAnswered
+                        ? 'Все ответили — запускайте следующий вопрос.'
+                        : 'Таймер остановился, переходите к следующему вопросу.'
+                    : 'Ответы игроков скрыты до окончания таймера.'}
                 </p>
               </div>
             ) : (
-              <div className="bg-white rounded-2xl shadow-2xl p-8 text-center">
-                <h2 className="text-2xl font-bold text-gray-800 mb-4">
-                  🎉 Раунд завершён
-                </h2>
-                <p className="text-gray-600">Все вопросы были показаны.</p>
+              <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 text-center space-y-3">
+                <h2 className="text-2xl font-black">🎉 Раунд завершён</h2>
+                <p className="text-sm text-[#142a45]/70">Все вопросы уже прозвучали. Нажмите «Показать итоги», чтобы подвести результаты.</p>
               </div>
             )}
 
-            {/* Блок ответов */}
-            {showResults ? (
-              <div className="bg-white rounded-2xl shadow-2xl p-6">
-                <h3 className="text-xl font-bold text-gray-800 mb-4">💬 Итоги по ответам</h3>
-                {roundAnswers.length === 0 ? (
-                  <p className="text-gray-500">Пока нет данных по ответам.</p>
-                ) : (
-                  <p className="text-gray-600">Каждый ответ отображён в карточках выше — объявите очки и объяснения игрокам.</p>
-                )}
-              </div>
-            ) : (
-              <div className="bg-white rounded-2xl shadow-2xl p-6">
-                <h3 className="text-xl font-bold text-gray-800 mb-2">💬 Ответы игроков</h3>
-                {isWaiting ? (
-                  <p className="text-gray-600">Ответы появятся, когда вы запустите игру. Пока можно следить за списком подключившихся.</p>
-                ) : (
-                  <>
-                    <p className="text-gray-600">
-                      Ответы скрыты до окончания раунда. Ведущий увидит их автоматически после таймера.
-                    </p>
-                    <p className="text-sm text-gray-500 mt-4">
-                      Успели ответить: <span className="font-semibold text-purple-600">{answeredCount}/{totalPlayers}</span>
-                    </p>
-                  </>
-                )}
-              </div>
-            )}
+            <div className="rounded-3xl border-[4px] border-dashed border-[#142a45]/40 bg-[#fff6da] p-5 space-y-2">
+              <p className="retro-heading text-[11px] tracking-[0.5em] text-[#142a45]/70">Монитор ответов</p>
+              {showResults ? (
+                <p className="text-sm text-[#142a45]/80">Все ответы расшифрованы выше. Используйте карточки, чтобы обсудить вопросы и напомнить правила.</p>
+              ) : isWaiting ? (
+                <p className="text-sm text-[#142a45]/80">Ответы появятся, когда стартует раунд. Пока наблюдайте за количеством игроков.</p>
+              ) : (
+                <p className="text-sm text-[#142a45]/80">
+                  Ответы скрыты до окончания таймера. Уже ответили: <span className="font-black text-[#1f6ac6]">{answeredCount}/{totalPlayers}</span>
+                </p>
+              )}
+            </div>
           </div>
 
-          {/* Боковая панель - игроки */}
-          <div className="bg-white rounded-2xl shadow-2xl p-6">
-            <h3 className="text-xl font-bold text-gray-800 mb-4">
-              👥 Игроки ({players.length})
-            </h3>
+          <aside className="space-y-6">
+            <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Игроки</p>
+                  <h3 className="text-2xl font-black">{players.length || 0} подключено</h3>
+                </div>
+                <span className="text-sm font-semibold text-[#1f6ac6]">{roomStatus === 'running' ? 'Эфир' : 'Подготовка'}</span>
+              </div>
 
-            {players.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">
-                Пока никто не присоединился
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {players.map((player, index) => {
-                  const hasAnswered = answeredPlayerIds.includes(player.id);
-                  return (
-                    <div
-                      key={player.id}
-                      className={`p-3 rounded-lg border flex items-center justify-between ${
-                        hasAnswered ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        {index < 3 && (
-                          <span className="text-lg">
-                            {index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}
+              {players.length === 0 ? (
+                <p className="text-sm text-[#142a45]/70 text-center py-6">Пока никто не присоединился</p>
+              ) : (
+                <div className="space-y-3">
+                  {players.map((player, index) => {
+                    const hasAnswered = answeredPlayerIds.includes(player.id);
+                    return (
+                      <div
+                        key={player.id}
+                        className={`rounded-2xl border-[3px] px-3 py-3 flex items-center justify-between ${
+                          hasAnswered ? 'border-[#1f6ac6]/40 bg-[#e9f0ff]' : 'border-[#142a45]/15 bg-white'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="w-8 h-8 rounded-full border-[3px] border-[#142a45]/30 flex items-center justify-center font-black">
+                            {index + 1}
                           </span>
-                        )}
-                        <span
-                          className={`w-2 h-2 rounded-full ${hasAnswered ? 'bg-green-500' : 'bg-gray-300'}`}
-                          aria-hidden="true"
-                        ></span>
-                        <div>
-                          <span className="font-medium text-gray-700 block">{player.name}</span>
-                          {roomStatus === 'running' && question && (
-                            <span
-                              className={`text-xs font-semibold ${
-                                hasAnswered ? 'text-green-700' : 'text-gray-500'
-                              }`}
-                            >
-                              {hasAnswered ? '✅ Ответ получен' : '⌛ Ждём ответ'}
-                            </span>
-                          )}
+                          <div>
+                            <p className="font-semibold">{player.name}</p>
+                            {roomStatus === 'running' && question && (
+                              <p className={`text-xs font-semibold ${hasAnswered ? 'text-[#1f6ac6]' : 'text-[#142a45]/50'}`}>
+                                {hasAnswered ? 'Ответ получен' : 'Ждём ответ'}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-black text-[#f1532f]">{player.total_points} 💎</p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <span className="font-bold text-purple-600 text-sm block">
-                          {player.total_points} 💎
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-5 space-y-3">
+              <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Состояние раунда</p>
+              <div className="grid grid-cols-2 gap-3 text-sm font-semibold">
+                <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-[#fff6da] px-4 py-3">
+                  <p className="text-[11px] text-[#142a45]/60">Вопрос</p>
+                  <p className="text-2xl font-black">{question ? question.order : showResults ? totalQuestions : 0}</p>
+                </div>
+                <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-[#ffe184] px-4 py-3">
+                  <p className="text-[11px] text-[#142a45]/60">Игроки</p>
+                  <p className="text-2xl font-black">{players.length}</p>
+                </div>
+                <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-white px-4 py-3">
+                  <p className="text-[11px] text-[#142a45]/60">Ответы</p>
+                  <p className="text-2xl font-black text-[#1f6ac6]">{answeredCount}</p>
+                </div>
+                <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-white px-4 py-3">
+                  <p className="text-[11px] text-[#142a45]/60">Статус</p>
+                  <p className="text-base font-black">{statusLabel}</p>
+                </div>
               </div>
-            )}
-          </div>
+            </div>
+          </aside>
         </div>
       </div>
     </div>

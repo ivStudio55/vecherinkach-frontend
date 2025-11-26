@@ -9,9 +9,7 @@ export default function HostPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState('');
 
-  const generateRoomCode = (): string => {
-    return Math.floor(1000 + Math.random() * 9000).toString();
-  };
+  const generateRoomCode = (): string => Math.floor(1000 + Math.random() * 9000).toString();
 
   const createRoom = async () => {
     setError('');
@@ -19,11 +17,9 @@ export default function HostPage() {
 
     try {
       let attempts = 0;
-      let roomCreated = false;
       let roomCode = '';
 
-      // Пытаемся создать комнату с уникальным кодом (максимум 10 попыток)
-      while (!roomCreated && attempts < 10) {
+      while (attempts < 10) {
         roomCode = generateRoomCode();
 
         const { data, error: insertError } = await supabase
@@ -39,23 +35,17 @@ export default function HostPage() {
           .single();
 
         if (!insertError && data) {
-          roomCreated = true;
-          // Сохраняем ID комнаты
           localStorage.setItem('hostRoomId', data.id);
           localStorage.setItem('hostRoomCode', roomCode);
-          
-          // Переходим на экран управления
           router.push(`/host/${data.id}`);
           return;
         }
 
-        attempts++;
+        attempts += 1;
       }
 
-      if (!roomCreated) {
-        setError('Не удалось создать комнату. Попробуйте ещё раз.');
-        setIsCreating(false);
-      }
+      setError('Не удалось создать комнату. Попробуйте ещё раз.');
+      setIsCreating(false);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
       setError(`Ошибка: ${message}`);
@@ -64,55 +54,81 @@ export default function HostPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 p-6">
-      <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
-        <h1 className="text-4xl font-bold mb-2 text-center text-gray-800">
-          🎯 Панель ведущего
-        </h1>
-        <p className="text-gray-600 text-center mb-8">
-          Создайте комнату и управляйте игрой
-        </p>
+    <div className="min-h-screen bg-[#fef4dc] text-[#142a45] px-4 py-10">
+      <div className="max-w-4xl mx-auto space-y-6">
+        <header className="retro-panel bg-[#142a45] text-[#ffeccd] px-6 py-5">
+          <p className="retro-heading text-xs tracking-[0.5em] text-[#ffeccd]/70">Ведущая станция</p>
+          <h1 className="text-3xl sm:text-4xl font-black leading-tight">Создайте комнату и берите управление в свои руки</h1>
+          <p className="text-sm text-[#ffeccd]/70 mt-2">
+            После создания комнаты вы получите код из четырёх цифр. Им можно делиться на экране или голосом.
+          </p>
+        </header>
 
-        <div className="space-y-6">
-          <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-6 rounded-lg">
-            <h2 className="font-semibold text-gray-800 mb-3">Что будет дальше:</h2>
-            <ul className="space-y-2 text-sm text-gray-700">
-              <li className="flex items-start">
-                <span className="mr-2">1️⃣</span>
-                <span>Вы получите уникальный 4-значный код</span>
+        <section className="grid gap-6 lg:grid-cols-[1.1fr,0.9fr]">
+          <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
+            <div className="space-y-2">
+              <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Шаги подключения</p>
+              <h2 className="text-2xl font-black">Как проходит запуск</h2>
+            </div>
+            <ol className="space-y-3 text-sm font-semibold text-[#142a45]/80">
+              <li className="flex gap-3">
+                <span className="w-9 h-9 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">1</span>
+                Вы получаете код комнаты и выводите его на экран.
               </li>
-              <li className="flex items-start">
-                <span className="mr-2">2️⃣</span>
-                <span>Игроки присоединятся по этому коду</span>
+              <li className="flex gap-3">
+                <span className="w-9 h-9 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">2</span>
+                Игроки переходят на `/join`, вводят код и свои ники.
               </li>
-              <li className="flex items-start">
-                <span className="mr-2">3️⃣</span>
-                <span>Вы будете управлять вопросами и видеть ответы</span>
+              <li className="flex gap-3">
+                <span className="w-9 h-9 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">3</span>
+                Панель ведущего показывает таймеры, вопросы и очередь ответов.
               </li>
-            </ul>
+            </ol>
+            <div className="rounded-2xl border-[3px] border-dashed border-[#142a45]/50 bg-[#fff6da] px-4 py-3 text-sm">
+              <p className="font-semibold">Подсказка</p>
+              <p className="text-[#142a45]/70">Комната активна, пока вы не завершите раунд на панели. Повторное использование кода невозможно.</p>
+            </div>
           </div>
 
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-              {error}
+          <div className="rounded-3xl border-[4px] border-[#142a45] bg-[#ffe184] p-6 space-y-5">
+            <div className="space-y-2">
+              <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Создание комнаты</p>
+              <h2 className="text-2xl font-black">Управление запуском</h2>
+              <p className="text-sm text-[#142a45]/80">Одним нажатием вы запускаете новый сеанс игры и блокируете код за собой.</p>
             </div>
-          )}
 
-          <button
-            onClick={createRoom}
-            disabled={isCreating}
-            className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-bold py-4 px-6 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed text-lg"
-          >
-            {isCreating ? 'Создаём комнату...' : '🎮 Создать комнату'}
-          </button>
+            {error && (
+              <div className="rounded-2xl border-[3px] border-[#b23324] bg-[#ffd7d0] px-4 py-3 text-sm font-semibold text-[#7b1d16]">
+                {error}
+              </div>
+            )}
 
-          <button
-            onClick={() => router.push('/')}
-            className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 px-6 rounded-lg transition-all"
-          >
-            ← Назад
-          </button>
-        </div>
+            <button
+              onClick={createRoom}
+              disabled={isCreating}
+              className="w-full py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] transition disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {isCreating ? 'Создаём комнату…' : '🎮 Создать комнату'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => router.push('/')}
+              className="w-full py-3 rounded-2xl border-[3px] border-[#142a45] font-semibold bg-white hover:bg-[#fef4dc] transition"
+            >
+              ← На главную
+            </button>
+
+            <div className="rounded-2xl border-[3px] border-[#142a45] bg-white/70 px-4 py-3 text-sm">
+              <p className="retro-heading text-[10px] tracking-[0.4em] text-[#142a45]/60">Что подготовить</p>
+              <ul className="list-disc list-inside space-y-1 text-[#142a45]/80">
+                <li>Колонку или джингл для атмосферы</li>
+                <li>Ссылку `/join` для участников</li>
+                <li>Вопросы раунда (уже вшиты в систему)</li>
+              </ul>
+            </div>
+          </div>
+        </section>
       </div>
     </div>
   );
