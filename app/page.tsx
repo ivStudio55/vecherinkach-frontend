@@ -14,8 +14,11 @@ export default function HomePage() {
   const [error, setError] = useState('');
   const [cardsVisible, setCardsVisible] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
+  const [isSoundOn, setIsSoundOn] = useState(false);
+  const [audioError, setAudioError] = useState('');
   const exitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const appearTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const games = [
     {
@@ -114,12 +117,24 @@ export default function HomePage() {
     setPlayerName(generateRandomName());
   };
 
+  const stopAudio = () => {
+    const audio = audioRef.current;
+    if (!audio) {
+      return;
+    }
+    audio.pause();
+    audio.currentTime = 0;
+    setIsSoundOn(false);
+    setAudioError('');
+  };
+
   const navigateWithExit = (callback: () => void) => {
     if (isExiting) {
       return;
     }
     setIsExiting(true);
     setCardsVisible(false);
+    stopAudio();
     if (exitTimeoutRef.current) {
       clearTimeout(exitTimeoutRef.current);
     }
@@ -148,6 +163,39 @@ export default function HomePage() {
     };
   }, []);
 
+  useEffect(() => {
+    const audio = new Audio('/api/jingle');
+    audio.loop = true;
+    audio.volume = 0.45;
+    audioRef.current = audio;
+
+    return () => {
+      audio.pause();
+      audioRef.current = null;
+    };
+  }, []);
+
+  const handleToggleSound = async () => {
+    const audio = audioRef.current;
+    if (!audio) {
+      return;
+    }
+    setAudioError('');
+
+    if (isSoundOn) {
+      stopAudio();
+      return;
+    }
+
+    try {
+      await audio.play();
+      setIsSoundOn(true);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Нужен жест пользователя, чтобы запустить аудио';
+      setAudioError(message);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-white relative overflow-hidden">
       <div className="absolute inset-0 opacity-40">
@@ -173,6 +221,16 @@ export default function HomePage() {
             <span className="px-3 py-1 rounded-full bg-white/10">Mobile friendly</span>
             <span className="px-3 py-1 rounded-full bg-white/10">Host &amp; Player UX</span>
           </div>
+          <div className="flex flex-col items-center gap-2 text-sm text-slate-200">
+            <button
+              type="button"
+              onClick={handleToggleSound}
+              className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-white/15 hover:bg-white/25 transition-colors font-medium"
+            >
+              {isSoundOn ? '🔊 Выключить джингл' : '🎵 Включить джингл'}
+            </button>
+            {audioError && <span className="text-xs text-rose-200">{audioError}</span>}
+          </div>
         </header>
 
         <section className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
@@ -189,7 +247,7 @@ export default function HomePage() {
                 className={`rounded-3xl overflow-hidden border border-white/10 bg-gradient-to-br ${game.accent} p-6 relative group shadow-2xl transform transition duration-500 ease-out will-change-transform will-change-opacity ${animationState}`}
                 style={{ transitionDelay: `${index * 80}ms` }}
               >
-              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center justify-between mb-6">
                 <div>
                   <p className="text-xs uppercase tracking-[0.2em] text-white/80">{game.status}</p>
                   <h2 className="text-2xl font-semibold mt-1">{game.title}</h2>
