@@ -1,7 +1,7 @@
 // app/page.tsx
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { generateRandomName } from '@/lib/nameGenerator';
@@ -12,6 +12,10 @@ export default function HomePage() {
   const [playerName, setPlayerName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [cardsVisible, setCardsVisible] = useState(false);
+  const [isExiting, setIsExiting] = useState(false);
+  const exitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const appearTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const games = [
     {
@@ -98,7 +102,7 @@ export default function HomePage() {
       localStorage.setItem('playerId', player.id);
       localStorage.setItem('playerName', finalName);
 
-      router.push(`/room/${roomCode}`);
+      navigateWithExit(() => router.push(`/room/${roomCode}`));
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
       setError(`Ошибка: ${message}`);
@@ -109,6 +113,40 @@ export default function HomePage() {
   const handleGenerateName = () => {
     setPlayerName(generateRandomName());
   };
+
+  const navigateWithExit = (callback: () => void) => {
+    if (isExiting) {
+      return;
+    }
+    setIsExiting(true);
+    setCardsVisible(false);
+    if (exitTimeoutRef.current) {
+      clearTimeout(exitTimeoutRef.current);
+    }
+    exitTimeoutRef.current = setTimeout(() => {
+      callback();
+    }, 350);
+  };
+
+  useEffect(() => {
+    appearTimeoutRef.current = setTimeout(() => {
+      setCardsVisible(true);
+    }, 50);
+
+    return () => {
+      if (appearTimeoutRef.current) {
+        clearTimeout(appearTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (exitTimeoutRef.current) {
+        clearTimeout(exitTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-slate-950 text-white relative overflow-hidden">
@@ -138,11 +176,19 @@ export default function HomePage() {
         </header>
 
         <section className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
-          {games.map((game) => (
-            <article
-              key={game.id}
-              className={`rounded-3xl overflow-hidden border border-white/10 bg-gradient-to-br ${game.accent} p-6 relative group shadow-2xl`}
-            >
+          {games.map((game, index) => {
+            const animationState = isExiting
+              ? 'translate-y-6 opacity-0 scale-95'
+              : cardsVisible
+                ? 'translate-y-0 opacity-100 scale-100'
+                : 'translate-y-8 opacity-0 scale-95';
+
+            return (
+              <article
+                key={game.id}
+                className={`rounded-3xl overflow-hidden border border-white/10 bg-gradient-to-br ${game.accent} p-6 relative group shadow-2xl transform transition duration-500 ease-out will-change-transform will-change-opacity ${animationState}`}
+                style={{ transitionDelay: `${index * 80}ms` }}
+              >
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <p className="text-xs uppercase tracking-[0.2em] text-white/80">{game.status}</p>
@@ -225,7 +271,7 @@ export default function HomePage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => router.push('/host')}
+                        onClick={() => navigateWithExit(() => router.push('/host'))}
                         className="w-full py-3 rounded-xl bg-white/0 border border-white/40 text-white font-medium hover:bg-white/10 transition"
                       >
                         Стать ведущим
@@ -248,8 +294,9 @@ export default function HomePage() {
                   </button>
                 </div>
               )}
-            </article>
-          ))}
+              </article>
+            );
+          })}
         </section>
       </main>
     </div>
