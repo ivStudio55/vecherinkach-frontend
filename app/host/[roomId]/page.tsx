@@ -274,7 +274,7 @@ export default function HostRoomPage() {
   }, [syncServerTime]);
 
   useEffect(() => {
-    const lobbyAudio = new Audio('/audio/jingle (2).mp3');
+    const lobbyAudio = new Audio('/audio/jingle-lobby.mp3');
     lobbyAudio.loop = true;
     lobbyAudio.volume = 0.45;
     lobbyAudioRef.current = lobbyAudio;
