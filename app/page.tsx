@@ -3,15 +3,9 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
-import { generateRandomName } from '@/lib/nameGenerator';
 
 export default function HomePage() {
   const router = useRouter();
-  const [roomCode, setRoomCode] = useState('');
-  const [playerName, setPlayerName] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
   const [cardsVisible, setCardsVisible] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
   const [isSoundOn, setIsSoundOn] = useState(false);
@@ -57,72 +51,10 @@ export default function HomePage() {
     },
   ];
 
-  const handleJoinRoom = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setIsLoading(true);
-
-    try {
-      if (!/^\d{4}$/.test(roomCode)) {
-        setError('Код должен состоять из 4 цифр');
-        setIsLoading(false);
-        return;
-      }
-
-      const { data: room, error: roomError } = await supabase
-        .from('rooms')
-        .select('id, is_active')
-        .eq('code', roomCode)
-        .single();
-
-      if (roomError || !room) {
-        setError('Комната с таким кодом не найдена');
-        setIsLoading(false);
-        return;
-      }
-
-      if (!room.is_active) {
-        setError('Эта комната уже не активна');
-        setIsLoading(false);
-        return;
-      }
-
-      const finalName = playerName.trim() || generateRandomName();
-
-      const { data: player, error: playerError } = await supabase
-        .from('players')
-        .insert({
-          room_id: room.id,
-          name: finalName,
-        })
-        .select()
-        .single();
-
-      if (playerError || !player) {
-        setError('Ошибка при присоединении к комнате');
-        setIsLoading(false);
-        return;
-      }
-
-      localStorage.setItem('playerId', player.id);
-      localStorage.setItem('playerName', finalName);
-
-      navigateWithExit(() => router.push(`/room/${roomCode}`));
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
-      setError(`Ошибка: ${message}`);
-      setIsLoading(false);
-    }
-  };
-
   const handleUserInteraction = () => {
     if (!hasUserInteracted) {
       setHasUserInteracted(true);
     }
-  };
-
-  const handleGenerateName = () => {
-    setPlayerName(generateRandomName());
   };
 
   const stopAudio = () => {
@@ -242,6 +174,7 @@ export default function HomePage() {
   };
 
   const playersCountLabel = cardsVisible ? '4/8' : '0/8';
+  const roomCodeDisplay = cardsVisible ? 'CTRL' : '____';
 
   return (
     <div className="min-h-screen bg-[#fef4dc] text-[#142a45]" onClick={handleUserInteraction}>
@@ -296,7 +229,7 @@ export default function HomePage() {
                 <div className="space-y-2 text-sm font-mono">
                   <div className="flex justify-between border-2 border-[#142a45] rounded-xl px-3 py-2 bg-white/70">
                     <span>Комнаты</span>
-                    <span className="font-bold text-[#1f6ac6]">{roomCode || '____'}</span>
+                    <span className="font-bold text-[#1f6ac6]">{roomCodeDisplay}</span>
                   </div>
                   <div className="flex justify-between border-2 border-[#142a45] rounded-xl px-3 py-2 bg-white/70">
                     <span>Игроки</span>
@@ -325,79 +258,32 @@ export default function HomePage() {
             </div>
 
             <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Подключение игроков</p>
-                  <h2 className="text-2xl font-black text-[#142a45]">Готовы вступить?</h2>
-                </div>
-                <span className="px-3 py-1 rounded-full bg-[#ffe184] border-2 border-[#142a45] font-semibold">КОМНАТА</span>
+              <div className="space-y-2">
+                <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Подключение игроков</p>
+                <h2 className="text-2xl font-black text-[#142a45]">Пульт подключения вынесен отдельно</h2>
+                <p className="text-sm text-[#142a45]/80">
+                  Перейдите на новый экран, чтобы вводить коды комнат, подключать игроков и управлять своим ником.
+                </p>
               </div>
-
-              <form onSubmit={handleJoinRoom} className="space-y-4">
-                <div>
-                  <label htmlFor="roomCode" className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Код</label>
-                  <input
-                    id="roomCode"
-                    type="text"
-                    inputMode="numeric"
-                    pattern="\d{4}"
-                    maxLength={4}
-                    value={roomCode}
-                    onChange={(e) => setRoomCode(e.target.value.replace(/\D/g, ''))}
-                    placeholder="1234"
-                    className="w-full mt-2 px-4 py-3 text-2xl text-center font-black tracking-[0.5em] rounded-2xl border-[3px] border-[#142a45] bg-[#fff2c8] focus:outline-none focus:ring-4 focus:ring-[#1f6ac6]/30"
-                    required
-                  />
-                  <p className="text-xs text-[#142a45]/70 mt-2">Поделитесь кодом с друзьями или создайте свой.</p>
-                </div>
-
-                <div>
-                  <label htmlFor="playerName" className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Ник</label>
-                  <div className="mt-2 flex gap-2">
-                    <input
-                      id="playerName"
-                      type="text"
-                      value={playerName}
-                      onChange={(e) => setPlayerName(e.target.value)}
-                      placeholder="Плюшевый Ёж"
-                      maxLength={30}
-                      className="flex-1 px-4 py-3 rounded-2xl border-[3px] border-[#142a45] bg-white placeholder-[#142a45]/40 focus:outline-none focus:ring-4 focus:ring-[#f1532f]/20"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleGenerateName}
-                      className="px-4 py-3 rounded-2xl border-[3px] border-dashed border-[#142a45] bg-[#ffecc4] text-2xl"
-                      title="Сгенерировать имя"
-                    >
-                      🎲
-                    </button>
-                  </div>
-                  <p className="text-xs text-[#142a45]/70 mt-1">Оставьте пустым — и система подберёт вам образ.</p>
-                </div>
-
-                {error && (
-                  <div className="rounded-2xl border-[3px] border-[#b23324] bg-[#ffd7d0] px-4 py-3 text-sm font-semibold text-[#7b1d16]">
-                    {error}
-                  </div>
-                )}
-
-                <div className="space-y-3">
-                  <button
-                    type="submit"
-                    disabled={isLoading || roomCode.length !== 4}
-                    className="w-full py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] transition disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    {isLoading ? 'Подключаем...' : 'Войти в комнату'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => navigateWithExit(() => router.push('/host'))}
-                    className="w-full py-3 rounded-2xl border-[3px] border-[#142a45] font-semibold bg-[#ffe184] hover:bg-[#ffd463] transition"
-                  >
-                    Стать ведущим
-                  </button>
-                </div>
-              </form>
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  onClick={() => navigateWithExit(() => router.push('/join'))}
+                  className="w-full py-4 rounded-2xl font-black text-lg tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45]"
+                >
+                  Открыть экран подключения
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigateWithExit(() => router.push('/host'))}
+                  className="w-full py-3 rounded-2xl border-[3px] border-[#142a45] font-semibold bg-[#ffe184] hover:bg-[#ffd463] transition"
+                >
+                  Стать ведущим
+                </button>
+              </div>
+              <p className="text-xs text-[#142a45]/60">
+                Этот раздел по‑прежнему доступен с мобильных устройств — просто поделитесь ссылкой /join с игроками.
+              </p>
             </div>
           </div>
 
