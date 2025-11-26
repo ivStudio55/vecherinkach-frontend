@@ -241,167 +241,191 @@ export default function HomePage() {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-slate-950 text-white relative overflow-hidden" onClick={handleUserInteraction}>
-      <div className="absolute inset-0 opacity-40">
-        <div className="absolute -top-32 -right-20 w-96 h-96 bg-pink-500 blur-3xl" />
-        <div className="absolute top-24 -left-24 w-80 h-80 bg-purple-600 blur-3xl" />
-        <div className="absolute bottom-0 right-1/3 w-72 h-72 bg-sky-500 blur-3xl" />
-      </div>
+  const playersCountLabel = cardsVisible ? '4/8' : '0/8';
 
-      <main className="relative z-10 max-w-6xl mx-auto px-6 py-16 flex flex-col gap-12">
-        <header className="text-center space-y-6">
-          <p className="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-white/10 text-sm uppercase tracking-wide text-purple-100">
-            <span className="w-2 h-2 rounded-full bg-lime-300 animate-pulse" />
-            Party Platform 2.0
-          </p>
-          <h1 className="text-4xl md:text-6xl font-bold leading-tight">
-            Всё для стильной вечеринки в одном экране
-          </h1>
-          <p className="text-lg md:text-2xl text-slate-200 max-w-3xl mx-auto">
-            Выбирайте формат, зовите друзей, запускайте игры. Первый раунд «Вечеринкача» уже готов, ещё три концепта на подлёте.
-          </p>
-          <div className="flex flex-wrap justify-center gap-3 text-sm text-slate-200">
-            <span className="px-3 py-1 rounded-full bg-white/10">Realtime · Supabase</span>
-            <span className="px-3 py-1 rounded-full bg-white/10">Mobile friendly</span>
-            <span className="px-3 py-1 rounded-full bg-white/10">Host &amp; Player UX</span>
+  return (
+    <div className="min-h-screen bg-[#fef4dc] text-[#142a45]" onClick={handleUserInteraction}>
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 space-y-8">
+        <header className="retro-panel bg-[#f1532f] text-[#ffeccd] px-6 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <p className="retro-heading text-xs tracking-[0.5em]">Редактор квиза</p>
+            <h1 className="text-3xl sm:text-4xl font-black leading-tight">Когнитивное программирование вечеринки</h1>
           </div>
-          <div className="flex flex-col items-center gap-2 text-sm text-slate-200">
-            <button
-              type="button"
-              onClick={handleToggleSound}
-              className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-white/15 hover:bg-white/25 transition-colors font-medium"
-            >
-              {isSoundOn ? '🔊 Выключить джингл' : '🎵 Включить джингл'}
-            </button>
-            {audioError && <span className="text-xs text-rose-200">{audioError}</span>}
-          </div>
+          <div className="text-sm font-semibold uppercase tracking-[0.3em]">Reality template v3.6</div>
         </header>
 
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
-          {games.map((game, index) => {
-            const animationState = isExiting
-              ? 'translate-y-6 opacity-0 scale-95'
-              : cardsVisible
-                ? 'translate-y-0 opacity-100 scale-100'
-                : 'translate-y-8 opacity-0 scale-95';
-
-            return (
-              <article
-                key={game.id}
-                className={`rounded-3xl overflow-hidden border border-white/10 bg-gradient-to-br ${game.accent} p-6 relative group shadow-2xl transform transition duration-500 ease-out will-change-transform will-change-opacity ${animationState}`}
-                style={{ transitionDelay: `${index * 80}ms` }}
-              >
-                <div className="flex items-center justify-between mb-6">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-white/80">{game.status}</p>
-                  <h2 className="text-2xl font-semibold mt-1">{game.title}</h2>
-                </div>
-                <span className="text-4xl">
-                  {game.id === 'vecherinkach'
-                    ? '🎉'
-                    : game.id === 'music-battle'
-                      ? '🎧'
-                      : game.id === 'meme-bingo'
-                        ? '🃏'
-                        : '✨'}
-                </span>
-              </div>
-
-              <p className="text-base text-white/90 leading-relaxed mb-6">{game.description}</p>
-
-              {game.id === 'vecherinkach' ? (
-                <div className="bg-white/15 backdrop-blur rounded-2xl p-5 space-y-5 border border-white/10">
-                  <h3 className="text-lg font-semibold">Присоединяйтесь к комнате</h3>
-                  <form onSubmit={handleJoinRoom} className="space-y-4">
-                    <div>
-                      <label htmlFor="roomCode" className="block text-xs uppercase tracking-wide text-white/70 mb-2">
-                        Код комнаты
-                      </label>
-                      <input
-                        id="roomCode"
-                        type="text"
-                        inputMode="numeric"
-                        pattern="\d{4}"
-                        maxLength={4}
-                        value={roomCode}
-                        onChange={(e) => setRoomCode(e.target.value.replace(/\D/g, ''))}
-                        placeholder="1234"
-                        className="w-full px-4 py-3 text-xl text-center font-bold rounded-xl bg-white text-slate-900 focus:outline-none focus:ring-4 focus:ring-purple-200"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="playerName" className="block text-xs uppercase tracking-wide text-white/70 mb-2">
-                        Ваш ник (опционально)
-                      </label>
-                      <div className="flex gap-2">
-                        <input
-                          id="playerName"
-                          type="text"
-                          value={playerName}
-                          onChange={(e) => setPlayerName(e.target.value)}
-                          placeholder="Плюшевый Ёж"
-                          maxLength={30}
-                          className="flex-1 px-4 py-3 rounded-xl bg-white/90 text-slate-900 placeholder-slate-500 focus:outline-none focus:ring-4 focus:ring-pink-200"
-                        />
-                        <button
-                          type="button"
-                          onClick={handleGenerateName}
-                          className="px-4 py-3 rounded-xl bg-white/20 hover:bg-white/30 transition-colors text-lg"
-                          title="Сгенерировать имя"
-                        >
-                          🎲
-                        </button>
-                      </div>
-                      <p className="text-xs text-white/70 mt-1">Оставьте пустым — и мы подберём забавный ник автоматически.</p>
-                    </div>
-
-                    {error && (
-                      <div className="bg-red-500/20 border border-red-300/60 text-white px-4 py-3 rounded-xl text-sm">
-                        {error}
-                      </div>
-                    )}
-
-                    <div className="flex flex-col gap-3">
-                      <button
-                        type="submit"
-                        disabled={isLoading || roomCode.length !== 4}
-                        className="w-full py-4 rounded-xl font-semibold text-lg bg-white text-slate-900 hover:bg-lime-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {isLoading ? 'Подключаем...' : 'Войти в комнату'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => navigateWithExit(() => router.push('/host'))}
-                        className="w-full py-3 rounded-xl bg-white/0 border border-white/40 text-white font-medium hover:bg-white/10 transition"
-                      >
-                        Стать ведущим
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between text-white/80">
+        <section className="retro-panel bg-[#ffe184] border-[4px] border-[#142a45] p-6 space-y-6">
+          <div className="grid lg:grid-cols-[1.15fr,0.95fr] gap-6">
+            <div className="space-y-5">
+              <div className="rounded-3xl border-[3px] border-[#142a45] bg-[#fff2c8] p-4 space-y-4">
+                <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm">Подпишитесь, чтобы узнать о запуске</p>
-                    <p className="text-xs uppercase tracking-wider">Work in progress</p>
+                    <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Режим игры</p>
+                    <p className="text-2xl font-black text-[#142a45]">Вечеринкач · Раунд 1</p>
                   </div>
-                  <button
-                    type="button"
-                    className="px-4 py-2 rounded-full bg-white/20 text-sm font-medium cursor-not-allowed"
-                    disabled
-                  >
-                    Скоро
+                  <span className="px-3 py-1 rounded-full text-xs font-bold tracking-[0.3em] bg-[#142a45] text-[#ffeccd]">LIVE</span>
+                </div>
+                <div className="flex flex-wrap gap-3 text-sm font-semibold">
+                  <button type="button" className="px-4 py-2 rounded-full border-2 border-[#142a45] bg-white">Общее</button>
+                  <button type="button" className="px-4 py-2 rounded-full border-2 border-dashed border-[#142a45] text-[#142a45]/60" disabled>
+                    Учение
+                  </button>
+                  <button type="button" className="px-4 py-2 rounded-full border-2 border-dashed border-[#142a45] text-[#142a45]/60" disabled>
+                    Ритуал
                   </button>
                 </div>
-              )}
+              </div>
+
+              <div className="rounded-3xl border-[3px] border-[#142a45] bg-[#fdd17a] p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Эмоции</p>
+                  <span className="text-lg">🙂</span>
+                </div>
+                <div className="h-3 rounded-full bg-white/50 relative">
+                  <div className="absolute inset-y-0 left-0 bg-[#1f6ac6] rounded-full" style={{ width: '68%' }} />
+                  <div className="absolute -top-1 left-[68%] h-5 w-5 rounded-full border-2 border-[#142a45] bg-white" />
+                </div>
+                <p className="text-sm font-semibold">Уровень азарта группы стабилен. Держим темп.</p>
+              </div>
+
+              <div className="rounded-3xl border-[3px] border-[#142a45] bg-[#fff6da] p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Память</p>
+                  <span className="text-xs font-semibold px-2 py-1 rounded bg-[#142a45]/10">Supabase synced</span>
+                </div>
+                <div className="space-y-2 text-sm font-mono">
+                  <div className="flex justify-between border-2 border-[#142a45] rounded-xl px-3 py-2 bg-white/70">
+                    <span>Комнаты</span>
+                    <span className="font-bold text-[#1f6ac6]">{roomCode || '____'}</span>
+                  </div>
+                  <div className="flex justify-between border-2 border-[#142a45] rounded-xl px-3 py-2 bg-white/70">
+                    <span>Игроки</span>
+                    <span className="font-bold text-[#f1532f]">{playersCountLabel}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-3xl border-[3px] border-[#142a45] bg-[#fff2c8] p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Аудио канал</p>
+                  <span className="text-sm font-semibold text-[#1f6ac6]">Lobby loop</span>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={handleToggleSound}
+                    className={`inline-flex items-center justify-between rounded-2xl border-[3px] border-[#142a45] px-4 py-3 font-semibold ${isSoundOn ? 'bg-[#142a45] text-[#ffeccd]' : 'bg-white text-[#142a45]'}`}
+                  >
+                    {isSoundOn ? '🔊 Джингл включён' : '🎵 Включить джингл'}
+                    <span className="text-xs tracking-[0.3em]">AUTO</span>
+                  </button>
+                  {audioError && <span className="text-xs text-[#b23324] font-semibold">{audioError}</span>}
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Подключение игроков</p>
+                  <h2 className="text-2xl font-black text-[#142a45]">Готовы вступить?</h2>
+                </div>
+                <span className="px-3 py-1 rounded-full bg-[#ffe184] border-2 border-[#142a45] font-semibold">КОМНАТА</span>
+              </div>
+
+              <form onSubmit={handleJoinRoom} className="space-y-4">
+                <div>
+                  <label htmlFor="roomCode" className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Код</label>
+                  <input
+                    id="roomCode"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="\d{4}"
+                    maxLength={4}
+                    value={roomCode}
+                    onChange={(e) => setRoomCode(e.target.value.replace(/\D/g, ''))}
+                    placeholder="1234"
+                    className="w-full mt-2 px-4 py-3 text-2xl text-center font-black tracking-[0.5em] rounded-2xl border-[3px] border-[#142a45] bg-[#fff2c8] focus:outline-none focus:ring-4 focus:ring-[#1f6ac6]/30"
+                    required
+                  />
+                  <p className="text-xs text-[#142a45]/70 mt-2">Поделитесь кодом с друзьями или создайте свой.</p>
+                </div>
+
+                <div>
+                  <label htmlFor="playerName" className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Ник</label>
+                  <div className="mt-2 flex gap-2">
+                    <input
+                      id="playerName"
+                      type="text"
+                      value={playerName}
+                      onChange={(e) => setPlayerName(e.target.value)}
+                      placeholder="Плюшевый Ёж"
+                      maxLength={30}
+                      className="flex-1 px-4 py-3 rounded-2xl border-[3px] border-[#142a45] bg-white placeholder-[#142a45]/40 focus:outline-none focus:ring-4 focus:ring-[#f1532f]/20"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleGenerateName}
+                      className="px-4 py-3 rounded-2xl border-[3px] border-dashed border-[#142a45] bg-[#ffecc4] text-2xl"
+                      title="Сгенерировать имя"
+                    >
+                      🎲
+                    </button>
+                  </div>
+                  <p className="text-xs text-[#142a45]/70 mt-1">Оставьте пустым — и система подберёт вам образ.</p>
+                </div>
+
+                {error && (
+                  <div className="rounded-2xl border-[3px] border-[#b23324] bg-[#ffd7d0] px-4 py-3 text-sm font-semibold text-[#7b1d16]">
+                    {error}
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  <button
+                    type="submit"
+                    disabled={isLoading || roomCode.length !== 4}
+                    className="w-full py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] transition disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {isLoading ? 'Подключаем...' : 'Войти в комнату'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigateWithExit(() => router.push('/host'))}
+                    className="w-full py-3 rounded-2xl border-[3px] border-[#142a45] font-semibold bg-[#ffe184] hover:bg-[#ffd463] transition"
+                  >
+                    Стать ведущим
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-4">
+            {games.map((game, index) => (
+              <article
+                key={game.id}
+                className={`rounded-3xl border-[3px] border-[#142a45] bg-white/90 p-4 flex flex-col gap-3 transition transform ${isExiting ? 'scale-95 opacity-70' : cardsVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0 translate-y-3'}`}
+                style={{ transitionDelay: `${index * 70}ms` }}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">{game.status}</p>
+                    <h3 className="text-xl font-black text-[#142a45]">{game.title}</h3>
+                  </div>
+                  <span className="text-3xl">{game.id === 'vecherinkach' ? '🎉' : game.id === 'music-battle' ? '🎧' : game.id === 'meme-bingo' ? '🃏' : '✨'}</span>
+                </div>
+                <p className="text-sm text-[#142a45]/80 flex-1">{game.description}</p>
+                {game.id === 'vecherinkach' ? (
+                  <div className="text-xs font-semibold text-[#1f6ac6]">Первый раунд доступен прямо сейчас.</div>
+                ) : (
+                  <div className="text-xs font-semibold text-[#f1532f]">Скоро в эфире</div>
+                )}
               </article>
-            );
-          })}
+            ))}
+          </div>
         </section>
-      </main>
+      </div>
     </div>
   );
 }
