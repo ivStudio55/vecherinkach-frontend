@@ -164,7 +164,7 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    const audio = new Audio('/api/jingle');
+    const audio = new Audio('/audio/jingle-main.mp3');
     audio.loop = true;
     audio.volume = 0.45;
     audioRef.current = audio;
