@@ -16,6 +16,7 @@ export default function HomePage() {
   const [isExiting, setIsExiting] = useState(false);
   const [isSoundOn, setIsSoundOn] = useState(false);
   const [audioError, setAudioError] = useState('');
+  const [hasUserInteracted, setHasUserInteracted] = useState(false);
   const exitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const appearTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -114,6 +115,12 @@ export default function HomePage() {
     }
   };
 
+  const handleUserInteraction = () => {
+    if (!hasUserInteracted) {
+      setHasUserInteracted(true);
+    }
+  };
+
   const handleGenerateName = () => {
     setPlayerName(generateRandomName());
   };
@@ -195,16 +202,23 @@ export default function HomePage() {
     audio.loop = true;
     audio.volume = 0.45;
     audioRef.current = audio;
-    const autoPlayTimer = window.setTimeout(() => {
-      tryAutoPlay(audio);
-    }, 0);
+
+    if (hasUserInteracted) {
+      const autoPlayTimer = window.setTimeout(() => {
+        tryAutoPlay(audio);
+      }, 0);
+      return () => {
+        clearTimeout(autoPlayTimer);
+        audio.pause();
+        audioRef.current = null;
+      };
+    }
 
     return () => {
-      clearTimeout(autoPlayTimer);
       audio.pause();
       audioRef.current = null;
     };
-  }, [tryAutoPlay]);
+  }, [tryAutoPlay, hasUserInteracted]);
 
   const handleToggleSound = async () => {
     const audio = audioRef.current;
@@ -228,7 +242,7 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white relative overflow-hidden">
+    <div className="min-h-screen bg-slate-950 text-white relative overflow-hidden" onClick={handleUserInteraction}>
       <div className="absolute inset-0 opacity-40">
         <div className="absolute -top-32 -right-20 w-96 h-96 bg-pink-500 blur-3xl" />
         <div className="absolute top-24 -left-24 w-80 h-80 bg-purple-600 blur-3xl" />
