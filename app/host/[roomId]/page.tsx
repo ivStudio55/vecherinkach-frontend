@@ -17,6 +17,16 @@ import {
 } from '@/lib/questions';
 
 const QUESTION_DURATION_SECONDS = 30;
+const JOIN_SOUND_FILES = [
+  'The_duck_quacked_fun_#1.mp3',
+  'The_duck_quacked_fun_#2.mp3',
+  'The_duck_quacked_fun_#3.mp3',
+  'The_duck_quacked_fun_#4.mp3',
+  'The_duk_quacked_funn_#1.mp3',
+  'The_duk_quacked_funn_#2.mp3',
+  'The_duk_quacked_funn_#3.mp3',
+  'The_duk_quacked_funn_#4.mp3',
+] as const;
 
 const getRemainingSeconds = (startedAt: string | null, offsetMs = 0) => {
   if (!startedAt) {
@@ -79,10 +89,14 @@ export default function HostRoomPage() {
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<number[]>([]);
   const [isLobbySoundOn, setIsLobbySoundOn] = useState(false);
   const [audioError, setAudioError] = useState('');
+  const [isJoinSoundEnabled, setIsJoinSoundEnabled] = useState(true);
 
   const lobbyAudioRef = useRef<HTMLAudioElement | null>(null);
   const startAudioRef = useRef<HTMLAudioElement | null>(null);
   const hasUserInteractedRef = useRef(false);
+  const lastJoinAudioRef = useRef<HTMLAudioElement | null>(null);
+  const previousPlayerIdsRef = useRef<Set<string>>(new Set());
+  const hasSnapshotRef = useRef(false);
 
   const syncServerTime = useCallback(async () => {
     try {
@@ -273,6 +287,7 @@ export default function HostRoomPage() {
     syncServerTimeRef.current = syncServerTime;
   }, [syncServerTime]);
 
+
   useEffect(() => {
     const lobbyAudio = new Audio('/audio/jingle-lobby.mp3');
     lobbyAudio.loop = true;
@@ -325,6 +340,47 @@ export default function HostRoomPage() {
       console.error('Не удалось проиграть стартовый звук', err);
     }
   }, []);
+
+  const playJoinSound = useCallback(async () => {
+    if (!hasUserInteractedRef.current || !isJoinSoundEnabled) {
+      return;
+    }
+    const fileName = JOIN_SOUND_FILES[Math.floor(Math.random() * JOIN_SOUND_FILES.length)];
+    const url = `/api/jingle/audio?file=${encodeURIComponent(fileName)}&t=${Date.now()}`;
+    const audio = new Audio(url);
+    audio.volume = 0.75;
+    lastJoinAudioRef.current = audio;
+    try {
+      await audio.play();
+    } catch (err) {
+      console.error('Не удалось проиграть звук подключения', err);
+    }
+  }, [isJoinSoundEnabled]);
+
+  useEffect(() => {
+    const currentIds = new Set(players.map((player) => player.id));
+
+    if (!hasSnapshotRef.current) {
+      hasSnapshotRef.current = true;
+      previousPlayerIdsRef.current = currentIds;
+      return;
+    }
+
+    const previousIds = previousPlayerIdsRef.current;
+    let hasNewPlayer = false;
+    for (const id of currentIds) {
+      if (!previousIds.has(id)) {
+        hasNewPlayer = true;
+        break;
+      }
+    }
+
+    if (hasNewPlayer) {
+      void playJoinSound();
+    }
+
+    previousPlayerIdsRef.current = currentIds;
+  }, [players, playJoinSound]);
 
   const handleHostInteraction = useCallback(() => {
     if (!hasUserInteractedRef.current) {
@@ -723,6 +779,16 @@ export default function HostRoomPage() {
                     {isLobbySoundOn ? '🔊 Выключить джингл ожидания' : '🎵 Включить джингл ожидания'}
                   </button>
                   {audioError && <span className="text-xs text-rose-500">{audioError}</span>}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      hasUserInteractedRef.current = true;
+                      setIsJoinSoundEnabled((prev) => !prev);
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium transition-colors"
+                  >
+                    {isJoinSoundEnabled ? '🔔 Звук подключения включён' : '🔕 Включить звук подключения'}
+                  </button>
                 </div>
                 <ul className="space-y-3 mb-6">
                   <li className="flex items-center gap-3 text-gray-700">
