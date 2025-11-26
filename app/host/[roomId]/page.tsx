@@ -77,6 +77,12 @@ export default function HostRoomPage() {
   const [serverAllPlayersAnswered, setServerAllPlayersAnswered] = useState(false);
   const [timeOffsetMs, setTimeOffsetMs] = useState(0);
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<number[]>([]);
+  const [isLobbySoundOn, setIsLobbySoundOn] = useState(false);
+  const [audioError, setAudioError] = useState('');
+
+  const lobbyAudioRef = useRef<HTMLAudioElement | null>(null);
+  const startAudioRef = useRef<HTMLAudioElement | null>(null);
+  const hasUserInteractedRef = useRef(false);
 
   const syncServerTime = useCallback(async () => {
     try {
@@ -245,6 +251,11 @@ export default function HostRoomPage() {
   const loadAnswerCountRef = useRef(loadAnswerCount);
   const loadRoomDataRef = useRef(loadRoomData);
   const syncServerTimeRef = useRef(syncServerTime);
+  const roomStatusRef = useRef(roomStatus);
+
+  useEffect(() => {
+    roomStatusRef.current = roomStatus;
+  }, [roomStatus]);
 
   useEffect(() => {
     loadPlayersRef.current = loadPlayers;
@@ -261,6 +272,68 @@ export default function HostRoomPage() {
   useEffect(() => {
     syncServerTimeRef.current = syncServerTime;
   }, [syncServerTime]);
+
+  useEffect(() => {
+    const lobbyAudio = new Audio('/audio/jingle (2).mp3');
+    lobbyAudio.loop = true;
+    lobbyAudio.volume = 0.45;
+    lobbyAudioRef.current = lobbyAudio;
+
+    const startAudio = new Audio('/audio/start.mp3');
+    startAudio.loop = false;
+    startAudio.volume = 0.9;
+    startAudioRef.current = startAudio;
+
+    return () => {
+      lobbyAudio.pause();
+      startAudio.pause();
+      lobbyAudioRef.current = null;
+      startAudioRef.current = null;
+    };
+  }, []);
+
+  const tryPlayLobby = useCallback(async () => {
+    const audio = lobbyAudioRef.current;
+    if (!audio) return;
+    setAudioError('');
+    try {
+      await audio.play();
+      setIsLobbySoundOn(true);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Нужен жест пользователя, чтобы запустить аудио';
+      setAudioError(message);
+      setIsLobbySoundOn(false);
+    }
+  }, []);
+
+  const stopLobby = useCallback(() => {
+    const audio = lobbyAudioRef.current;
+    if (!audio) return;
+    audio.pause();
+    audio.currentTime = 0;
+    setIsLobbySoundOn(false);
+  }, []);
+
+  const playStartSound = useCallback(async () => {
+    const audio = startAudioRef.current;
+    if (!audio) return;
+    try {
+      audio.currentTime = 0;
+      await audio.play();
+    } catch (err) {
+      // если стартовый звук не проигрался — ничего страшного
+      console.error('Не удалось проиграть стартовый звук', err);
+    }
+  }, []);
+
+  const handleHostInteraction = useCallback(() => {
+    if (!hasUserInteractedRef.current) {
+      hasUserInteractedRef.current = true;
+      if (roomStatusRef.current === 'waiting') {
+        void tryPlayLobby();
+      }
+    }
+  }, [tryPlayLobby]);
 
   useEffect(() => {
     let cancelled = false;
@@ -447,6 +520,9 @@ export default function HostRoomPage() {
       return;
     }
 
+    stopLobby();
+    await playStartSound();
+
     const questionIds = pickRandomQuestionIds(ROUND_QUESTION_COUNT);
     const { iso: startedAt, offset } = await getServerIsoTimestamp();
     const { error: updateError } = await supabase
@@ -517,7 +593,7 @@ export default function HostRoomPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500" onClick={handleHostInteraction}>
         <div className="text-white text-2xl font-bold">Загрузка...</div>
       </div>
     );
@@ -548,7 +624,7 @@ export default function HostRoomPage() {
     players.find((player) => player.id === playerId)?.name || 'Неизвестный игрок';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 p-6" onClick={handleHostInteraction}>
       <div className="max-w-6xl mx-auto">
         {/* Хедер */}
         <div className="bg-white rounded-2xl shadow-2xl p-6 mb-6">
@@ -635,6 +711,19 @@ export default function HostRoomPage() {
                 <p className="text-gray-600 mb-6">
                   Комната открыта. Поделитесь кодом <span className="font-mono font-semibold text-purple-600 text-lg">{roomCode}</span> и дождитесь, пока все подключатся.
                 </p>
+                <div className="mb-4 text-sm text-gray-600 flex flex-col items-start gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      hasUserInteractedRef.current = true;
+                      void (isLobbySoundOn ? stopLobby() : tryPlayLobby());
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-50 hover:bg-purple-100 text-purple-700 font-medium transition-colors"
+                  >
+                    {isLobbySoundOn ? '🔊 Выключить джингл ожидания' : '🎵 Включить джингл ожидания'}
+                  </button>
+                  {audioError && <span className="text-xs text-rose-500">{audioError}</span>}
+                </div>
                 <ul className="space-y-3 mb-6">
                   <li className="flex items-center gap-3 text-gray-700">
                     <span className="w-8 h-8 rounded-full bg-purple-100 text-purple-700 font-semibold flex items-center justify-center">1</span>
