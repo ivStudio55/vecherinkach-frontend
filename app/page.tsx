@@ -1,8 +1,9 @@
 // app/page.tsx
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
+import backTexture from './img/back.png';
 
 export default function HomePage() {
   const router = useRouter();
@@ -176,8 +177,15 @@ export default function HomePage() {
   const playersCountLabel = cardsVisible ? '4/8' : '0/8';
   const roomCodeDisplay = cardsVisible ? 'CTRL' : '____';
 
+  const backgroundStyle: CSSProperties = {
+    backgroundImage: `url(${backTexture.src})`,
+    backgroundSize: 'cover',
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: 'center',
+  };
+
   return (
-    <div className="min-h-screen bg-[#fef4dc] text-[#142a45]" onClick={handleUserInteraction}>
+    <div className="min-h-screen bg-[#fef4dc] text-[#142a45]" style={backgroundStyle} onClick={handleUserInteraction}>
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 space-y-8">
         <header className="retro-panel bg-[#f1532f] text-[#ffeccd] px-6 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>

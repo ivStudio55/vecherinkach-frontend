@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import backTexture from '../img/back2.png';
 
 export default function HostPage() {
   const router = useRouter();
@@ -53,8 +54,15 @@ export default function HostPage() {
     }
   };
 
+  const backgroundStyle: CSSProperties = {
+    backgroundImage: `url(${backTexture.src})`,
+    backgroundSize: 'cover',
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: 'center',
+  };
+
   return (
-    <div className="min-h-screen bg-[#fef4dc] text-[#142a45] px-4 py-10">
+    <div className="min-h-screen bg-[#fef4dc] text-[#142a45] px-4 py-10" style={backgroundStyle}>
       <div className="max-w-4xl mx-auto space-y-6">
         <header className="retro-panel bg-[#142a45] text-[#ffeccd] px-6 py-5">
           <p className="retro-heading text-xs tracking-[0.5em] text-[#ffeccd]/70">Ведущая станция</p>
