@@ -1,7 +1,7 @@
 // app/page.tsx
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { generateRandomName } from '@/lib/nameGenerator';
@@ -19,6 +19,7 @@ export default function HomePage() {
   const exitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const appearTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const autoPlayAttemptedRef = useRef(false);
 
   const games = [
     {
@@ -128,6 +129,32 @@ export default function HomePage() {
     setAudioError('');
   };
 
+  const tryAutoPlay = useCallback(async (audio: HTMLAudioElement) => {
+    if (autoPlayAttemptedRef.current) {
+      return;
+    }
+
+    autoPlayAttemptedRef.current = true;
+    audio.muted = true;
+    const previousVolume = audio.volume;
+    audio.volume = 0;
+
+    try {
+      await audio.play();
+      audio.muted = false;
+      audio.volume = previousVolume || 0.45;
+      setIsSoundOn(true);
+      setAudioError('');
+    } catch (err) {
+      audio.pause();
+      audio.currentTime = 0;
+      audio.muted = false;
+      audio.volume = previousVolume || 0.45;
+      const message = err instanceof Error ? err.message : 'Нажмите кнопку, чтобы включить музыку';
+      setAudioError(message);
+    }
+  }, []);
+
   const navigateWithExit = (callback: () => void) => {
     if (isExiting) {
       return;
@@ -168,12 +195,16 @@ export default function HomePage() {
     audio.loop = true;
     audio.volume = 0.45;
     audioRef.current = audio;
+    const autoPlayTimer = window.setTimeout(() => {
+      tryAutoPlay(audio);
+    }, 0);
 
     return () => {
+      clearTimeout(autoPlayTimer);
       audio.pause();
       audioRef.current = null;
     };
-  }, []);
+  }, [tryAutoPlay]);
 
   const handleToggleSound = async () => {
     const audio = audioRef.current;
