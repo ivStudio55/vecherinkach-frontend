@@ -172,6 +172,7 @@ export default function HostRoomPage() {
   const countdownTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prestartEnableTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const roundEndUnlockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const roundEndDelayTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rulesAudioCompletedRef = useRef(true);
   const isLobbySoundOnRef = useRef(isLobbySoundOn);
   const countdownReadyAtRef = useRef<number | null>(null);
@@ -198,6 +199,13 @@ export default function HostRoomPage() {
     if (roundEndUnlockTimeoutRef.current) {
       clearTimeout(roundEndUnlockTimeoutRef.current);
       roundEndUnlockTimeoutRef.current = null;
+    }
+  }, []);
+
+  const clearRoundEndDelayTimeout = useCallback(() => {
+    if (roundEndDelayTimeoutRef.current) {
+      clearTimeout(roundEndDelayTimeoutRef.current);
+      roundEndDelayTimeoutRef.current = null;
     }
   }, []);
 
@@ -840,6 +848,7 @@ export default function HostRoomPage() {
       clearCountdownTimeout();
       clearPrestartEnableTimeout();
       clearRoundEndUnlockTimeout();
+      clearRoundEndDelayTimeout();
       const context = audioContextRef.current;
       if (context && context.state !== 'closed') {
         context.close().catch(() => undefined);
@@ -857,6 +866,7 @@ export default function HostRoomPage() {
     clearCountdownTimeout,
     clearPrestartEnableTimeout,
     clearRoundEndUnlockTimeout,
+    clearRoundEndDelayTimeout,
   ]);
 
   const handleHostInteraction = useCallback(() => {
@@ -1051,10 +1061,11 @@ export default function HostRoomPage() {
       stopBetweenAudio();
       stopRoundEndAudio();
       clearRoundEndUnlockTimeout();
+      clearRoundEndDelayTimeout();
       roundEndLockQuestionRef.current = null;
       setIsRoundEndButtonLocked(false);
     }
-  }, [roomStatus, stopBetweenAudio, stopRoundEndAudio, clearRoundEndUnlockTimeout]);
+  }, [roomStatus, stopBetweenAudio, stopRoundEndAudio, clearRoundEndUnlockTimeout, clearRoundEndDelayTimeout]);
 
   useEffect(() => {
     const shouldPlayRulesAudio = roomStatus === 'waiting' && !showResults && isRulesVisible;
@@ -1285,13 +1296,27 @@ export default function HostRoomPage() {
 
     roundEndLockQuestionRef.current = questionKey;
     setIsRoundEndButtonLocked(true);
-    playRoundEndAudio();
+    void playBetweenAudioForPercent(answeredPercentage);
+    clearRoundEndDelayTimeout();
     clearRoundEndUnlockTimeout();
-    roundEndUnlockTimeoutRef.current = setTimeout(() => {
-      setIsRoundEndButtonLocked(false);
-      roundEndUnlockTimeoutRef.current = null;
-    }, 5000);
-  }, [question, roomStatus, isLastQuestion, canAdvance, playRoundEndAudio, clearRoundEndUnlockTimeout]);
+    roundEndDelayTimeoutRef.current = setTimeout(() => {
+      playRoundEndAudio();
+      roundEndUnlockTimeoutRef.current = setTimeout(() => {
+        setIsRoundEndButtonLocked(false);
+        roundEndUnlockTimeoutRef.current = null;
+      }, 5000);
+    }, 7000);
+  }, [
+    question,
+    roomStatus,
+    isLastQuestion,
+    canAdvance,
+    playRoundEndAudio,
+    clearRoundEndUnlockTimeout,
+    playBetweenAudioForPercent,
+    answeredPercentage,
+    clearRoundEndDelayTimeout,
+  ]);
 
   if (isLoading) {
     return (
