@@ -17,6 +17,7 @@ import {
 } from '@/lib/questions';
 
 const QUESTION_DURATION_SECONDS = 30;
+const COUNTDOWN_STEPS = ['на старт', 'внимание', '3', '2', '1', 'старт'] as const;
 const JOIN_SOUND_FILES = [
   'The_duck_quacked_fun_#1.mp3',
   'The_duck_quacked_fun_#2.mp3',
@@ -151,7 +152,7 @@ export default function HostRoomPage() {
   const [isPrestartVisible, setIsPrestartVisible] = useState(false);
   const [isRulesVisible, setIsRulesVisible] = useState(false);
   const [isCountdownVisible, setIsCountdownVisible] = useState(false);
-  const [countdownValue, setCountdownValue] = useState(3);
+  const [countdownValue, setCountdownValue] = useState<string>(COUNTDOWN_STEPS[0]);
   const [isRoomOpened, setIsRoomOpened] = useState(false);
   const [isPrestartNextEnabled, setIsPrestartNextEnabled] = useState(true);
   const [isPlayerLimitReached, setIsPlayerLimitReached] = useState(false);
@@ -1162,11 +1163,14 @@ export default function HostRoomPage() {
     await loadAnswerCount(newIndex);
   };
 
-  const runCountdownSequence = (value: number) => {
+  const runCountdownSequence = (stepIndex: number) => {
+    const clampedIndex = Math.min(stepIndex, COUNTDOWN_STEPS.length - 1);
+    const value = COUNTDOWN_STEPS[clampedIndex];
+    const isFinal = clampedIndex === COUNTDOWN_STEPS.length - 1;
     setCountdownValue(value);
-    void playBeep(value > 0 ? 880 : 1200);
-    if (value > 0) {
-      countdownTimeoutRef.current = setTimeout(() => runCountdownSequence(value - 1), 1000);
+    void playBeep(isFinal ? 1200 : 880);
+    if (!isFinal) {
+      countdownTimeoutRef.current = setTimeout(() => runCountdownSequence(clampedIndex + 1), 1000);
       return;
     }
 
@@ -1193,7 +1197,7 @@ export default function HostRoomPage() {
     setIsRulesVisible(false);
     setIsCountdownVisible(true);
     clearCountdownTimeout();
-    runCountdownSequence(3);
+    runCountdownSequence(0);
   };
 
   const handlePrepareRound = () => {
@@ -1768,7 +1772,7 @@ export default function HostRoomPage() {
         <div className="fixed inset-0 z-50 bg-[#142a45]/90 flex flex-col items-center justify-center text-center text-[#ffeccd] px-4">
           <p className="text-sm uppercase tracking-[0.5em] text-[#ffeccd]/70 mb-4">Запуск раунда</p>
           <div className="text-7xl sm:text-8xl font-black drop-shadow-lg">
-            {countdownValue > 0 ? countdownValue : 'СТАРТ'}
+            {countdownValue.toUpperCase()}
           </div>
           <p className="mt-6 text-sm text-[#ffeccd]/80">Звук уже пошёл — готовим вопросы на экране игроков.</p>
         </div>
