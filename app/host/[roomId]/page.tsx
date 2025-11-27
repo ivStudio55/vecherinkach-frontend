@@ -126,6 +126,7 @@ export default function HostRoomPage() {
   const [isLobbySoundOn, setIsLobbySoundOn] = useState(false);
   const [audioError, setAudioError] = useState('');
   const [isJoinSoundEnabled, setIsJoinSoundEnabled] = useState(true);
+  const [isPrestartVisible, setIsPrestartVisible] = useState(false);
   const [isRulesVisible, setIsRulesVisible] = useState(false);
   const [isCountdownVisible, setIsCountdownVisible] = useState(false);
   const [countdownValue, setCountdownValue] = useState(3);
@@ -177,6 +178,7 @@ export default function HostRoomPage() {
     (nextStatus: RoomStatus) => {
       setRoomStatus(nextStatus);
       if (nextStatus !== 'waiting') {
+        setIsPrestartVisible(false);
         setIsRulesVisible(false);
         setIsCountdownVisible(false);
         clearCountdownTimeout();
@@ -815,11 +817,10 @@ export default function HostRoomPage() {
     const shouldPlayRulesAudio = roomStatus === 'waiting' && !showResults && isRulesVisible;
     if (shouldPlayRulesAudio) {
       playRulesAudio();
-    } else {
+    } else if (!isPrestartVisible) {
       stopRulesAudio();
-      stopConnectAudio();
     }
-  }, [roomStatus, showResults, isRulesVisible, playRulesAudio, stopRulesAudio, stopConnectAudio]);
+  }, [roomStatus, showResults, isRulesVisible, isPrestartVisible, playRulesAudio, stopRulesAudio]);
 
 
   const finishRound = async () => {
@@ -928,14 +929,9 @@ export default function HostRoomPage() {
       return;
     }
     stopLobby();
-    const rulesStillPlaying = !rulesAudioCompletedRef.current;
     stopRulesAudio();
     stopConnectAudio();
-    if (rulesStillPlaying) {
-      playSkipAudio();
-    } else {
-      stopSkipAudio();
-    }
+    playSkipAudio();
     hasUserInteractedRef.current = true;
     setIsRulesVisible(false);
     setIsCountdownVisible(true);
@@ -948,9 +944,22 @@ export default function HostRoomPage() {
       return;
     }
     hasUserInteractedRef.current = true;
-    void playConnectAudio(players.length);
     stopLobby();
+    void playConnectAudio(players.length);
+    setIsPrestartVisible(true);
+    setIsRulesVisible(false);
+  };
+
+  const handlePrestartCancel = () => {
+    setIsPrestartVisible(false);
+    stopConnectAudio();
+  };
+
+  const handlePrestartNext = () => {
+    setIsPrestartVisible(false);
+    stopConnectAudio();
     setIsRulesVisible(true);
+    playRulesAudio();
   };
 
   const endGame = async () => {
@@ -1340,6 +1349,51 @@ export default function HostRoomPage() {
         </div>
       </div>
     </div>
+
+      {isWaiting && isPrestartVisible && (
+        <div className="fixed inset-0 z-40 bg-[#142a45]/70 backdrop-blur-sm flex items-center justify-center px-4">
+          <div className="max-w-lg w-full rounded-3xl border-[4px] border-[#142a45] bg-[#fff6da] p-6 space-y-4 shadow-2xl">
+            <div>
+              <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Подключённые игроки</p>
+              <h3 className="text-2xl font-black text-[#142a45]">Перед стартом игры</h3>
+            </div>
+            <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
+              {players.length === 0 ? (
+                <p className="text-sm text-[#142a45]/60">Игроки ещё не подключились.</p>
+              ) : (
+                players.map((player, index) => (
+                  <div key={player.id} className="flex items-center justify-between rounded-2xl border-[3px] border-[#142a45]/15 bg-white px-3 py-2 text-sm">
+                    <div className="flex items-center gap-3">
+                      <span className="w-8 h-8 rounded-full border-[3px] border-[#142a45]/30 flex items-center justify-center font-black">
+                        {index + 1}
+                      </span>
+                      <span className="font-semibold text-[#142a45]">{player.name}</span>
+                    </div>
+                    <span className="text-xs text-[#142a45]/60">{player.total_points} 💎</span>
+                  </div>
+                ))
+              )}
+            </div>
+            <p className="text-xs text-[#142a45]/70">Убедитесь, что все готовы. После продолжения прозвучат правила раунда.</p>
+            <div className="flex gap-3 flex-col sm:flex-row">
+              <button
+                type="button"
+                onClick={handlePrestartNext}
+                className="flex-1 py-3 rounded-2xl font-black text-lg tracking-[0.25em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45]"
+              >
+                Далее →
+              </button>
+              <button
+                type="button"
+                onClick={handlePrestartCancel}
+                className="flex-1 py-3 rounded-2xl border-[3px] border-dashed border-[#142a45] bg-white font-semibold text-[#142a45]"
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {shouldShowRulesModal && (
         <div className="fixed inset-0 z-40 bg-[#142a45]/70 backdrop-blur-sm flex items-center justify-center px-4">
