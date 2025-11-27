@@ -131,6 +131,8 @@ export default function HostRoomPage() {
   const [isCountdownVisible, setIsCountdownVisible] = useState(false);
   const [countdownValue, setCountdownValue] = useState(3);
   const [isRoomOpened, setIsRoomOpened] = useState(false);
+  const [isPrestartNextEnabled, setIsPrestartNextEnabled] = useState(true);
+  const [isPlayerLimitReached, setIsPlayerLimitReached] = useState(false);
 
   const meetAudioRef = useRef<HTMLAudioElement | null>(null);
   const connectAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -143,13 +145,22 @@ export default function HostRoomPage() {
   const previousPlayerIdsRef = useRef<Set<string>>(new Set());
   const hasSnapshotRef = useRef(false);
   const countdownTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prestartEnableTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rulesAudioCompletedRef = useRef(true);
   const isLobbySoundOnRef = useRef(isLobbySoundOn);
+  const countdownReadyAtRef = useRef<number | null>(null);
 
   const clearCountdownTimeout = useCallback(() => {
     if (countdownTimeoutRef.current) {
       clearTimeout(countdownTimeoutRef.current);
       countdownTimeoutRef.current = null;
+    }
+  }, []);
+
+  const clearPrestartEnableTimeout = useCallback(() => {
+    if (prestartEnableTimeoutRef.current) {
+      clearTimeout(prestartEnableTimeoutRef.current);
+      prestartEnableTimeoutRef.current = null;
     }
   }, []);
 
@@ -182,6 +193,7 @@ export default function HostRoomPage() {
         setIsRulesVisible(false);
         setIsCountdownVisible(false);
         clearCountdownTimeout();
+        countdownReadyAtRef.current = null;
       }
     },
     [clearCountdownTimeout]
@@ -229,8 +241,15 @@ export default function HostRoomPage() {
       .eq('room_id', roomId)
       .order('total_points', { ascending: false });
 
-    if (playersError) return;
-    setPlayers(data || []);
+    if (playersError) {
+      setIsPlayerLimitReached(false);
+      return;
+    }
+
+    const list = data || [];
+    const limited = list.slice(0, 10);
+    setPlayers(limited);
+    setIsPlayerLimitReached(list.length > 10);
   }, [roomId]);
 
   const loadAnswerCount = useCallback(
@@ -473,8 +492,8 @@ export default function HostRoomPage() {
         return;
       }
 
-      const cappedCount = Math.max(1, Math.min(connectedPlayers, 10));
-      const variants = CONNECT_AUDIO_CLIPS[cappedCount];
+        const cappedCount = Math.max(1, Math.min(connectedPlayers, 10));
+        const variants = CONNECT_AUDIO_CLIPS[cappedCount];
       if (!variants || !variants.length) {
         return;
       }
@@ -579,17 +598,6 @@ export default function HostRoomPage() {
     previousPlayerIdsRef.current = currentIds;
   }, [players, playJoinSound]);
 
-  const playCountdownTick = useCallback(() => {
-    const audio = startAudioRef.current;
-    if (!audio) return;
-    try {
-      audio.currentTime = 0;
-      void audio.play();
-    } catch (err) {
-      console.error('Не удалось проиграть звук отсчёта', err);
-    }
-  }, []);
-
   const stopQuestionTrack = useCallback(() => {
     const track = questionAudioRef.current;
     if (!track) return;
@@ -623,8 +631,17 @@ export default function HostRoomPage() {
       stopRulesAudio();
       stopSkipAudio();
       clearCountdownTimeout();
+      clearPrestartEnableTimeout();
     };
-  }, [stopQuestionTrack, stopLobby, stopConnectAudio, stopRulesAudio, stopSkipAudio, clearCountdownTimeout]);
+  }, [
+    stopQuestionTrack,
+    stopLobby,
+    stopConnectAudio,
+    stopRulesAudio,
+    stopSkipAudio,
+    clearCountdownTimeout,
+    clearPrestartEnableTimeout,
+  ]);
 
   const handleHostInteraction = useCallback(() => {
     if (!hasUserInteractedRef.current) {
@@ -913,7 +930,6 @@ export default function HostRoomPage() {
   const runCountdownSequence = (value: number) => {
     setCountdownValue(value);
     if (value > 0) {
-      playCountdownTick();
       countdownTimeoutRef.current = setTimeout(() => runCountdownSequence(value - 1), 1000);
       return;
     }
@@ -931,7 +947,12 @@ export default function HostRoomPage() {
     stopLobby();
     stopRulesAudio();
     stopConnectAudio();
-    playSkipAudio();
+    const readyAt = countdownReadyAtRef.current;
+    if (!readyAt || Date.now() - readyAt <= 18000) {
+      // Skip cue should only fire when the host launches within the early 18-second window.
+      playSkipAudio();
+    }
+    countdownReadyAtRef.current = null;
     hasUserInteractedRef.current = true;
     setIsRulesVisible(false);
     setIsCountdownVisible(true);
@@ -948,18 +969,39 @@ export default function HostRoomPage() {
     void playConnectAudio(players.length);
     setIsPrestartVisible(true);
     setIsRulesVisible(false);
+    setIsPrestartNextEnabled(false);
+    clearPrestartEnableTimeout();
+    countdownReadyAtRef.current = null;
+    prestartEnableTimeoutRef.current = setTimeout(() => {
+      setIsPrestartNextEnabled(true);
+      prestartEnableTimeoutRef.current = null;
+    }, 5000);
   };
 
   const handlePrestartCancel = () => {
     setIsPrestartVisible(false);
     stopConnectAudio();
+    clearPrestartEnableTimeout();
+    setIsPrestartNextEnabled(true);
+    countdownReadyAtRef.current = null;
   };
 
   const handlePrestartNext = () => {
+    if (!isPrestartNextEnabled) {
+      return;
+    }
     setIsPrestartVisible(false);
     stopConnectAudio();
+    clearPrestartEnableTimeout();
+    setIsPrestartNextEnabled(true);
     setIsRulesVisible(true);
     playRulesAudio();
+    countdownReadyAtRef.current = Date.now();
+  };
+
+  const handleRulesCancel = () => {
+    setIsRulesVisible(false);
+    countdownReadyAtRef.current = null;
   };
 
   const endGame = async () => {
@@ -1374,12 +1416,16 @@ export default function HostRoomPage() {
                 ))
               )}
             </div>
+            {isPlayerLimitReached && (
+              <p className="text-xs font-semibold text-[#b23324]">Предел — 10 игроков. Лишние участники не смогут войти.</p>
+            )}
             <p className="text-xs text-[#142a45]/70">Убедитесь, что все готовы. После продолжения прозвучат правила раунда.</p>
             <div className="flex gap-3 flex-col sm:flex-row">
               <button
                 type="button"
                 onClick={handlePrestartNext}
-                className="flex-1 py-3 rounded-2xl font-black text-lg tracking-[0.25em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45]"
+                disabled={!isPrestartNextEnabled}
+                className="flex-1 py-3 rounded-2xl font-black text-lg tracking-[0.25em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] transition disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Далее →
               </button>
@@ -1391,6 +1437,9 @@ export default function HostRoomPage() {
                 Отмена
               </button>
             </div>
+            {!isPrestartNextEnabled && (
+              <p className="text-xs text-[#142a45]/60">Кнопка активируется через несколько секунд после сигнала подключения.</p>
+            )}
           </div>
         </div>
       )}
@@ -1417,7 +1466,7 @@ export default function HostRoomPage() {
               </button>
               <button
                 type="button"
-                onClick={() => setIsRulesVisible(false)}
+                onClick={handleRulesCancel}
                 className="w-full py-3 rounded-2xl border-[3px] border-dashed border-[#142a45] bg-white font-semibold text-[#142a45]"
               >
                 Отмена
