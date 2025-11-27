@@ -125,6 +125,10 @@ export default function HostRoomPage() {
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<number[]>([]);
   const [isLobbySoundOn, setIsLobbySoundOn] = useState(false);
   const [audioError, setAudioError] = useState('');
+  const [isJoinSoundEnabled, setIsJoinSoundEnabled] = useState(true);
+  const [isRulesVisible, setIsRulesVisible] = useState(false);
+  const [isCountdownVisible, setIsCountdownVisible] = useState(false);
+  const [countdownValue, setCountdownValue] = useState(3);
   const [isRoomOpened, setIsRoomOpened] = useState(false);
 
   const meetAudioRef = useRef<HTMLAudioElement | null>(null);
