@@ -1244,29 +1244,6 @@ export default function HostRoomPage() {
     router.push('/host');
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#fef4dc] text-[#142a45]">
-        <div className="rounded-3xl border-[4px] border-[#142a45] bg-white px-6 py-4 text-xl font-black">
-          Загрузка панели ведущего…
-        </div>
-      </div>
-    );
-  }
-
-  if (!isRoomOpened) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#fef4dc] text-[#142a45]">
-        <button
-          onClick={handleHostInteraction}
-          className="px-8 py-4 rounded-3xl border-[4px] border-[#142a45] bg-[#ffe184] text-[#142a45] font-black text-2xl tracking-[0.2em] hover:bg-[#142a45] hover:text-[#ffeccd] transition-colors"
-        >
-          ОТКРЫТЬ КОМНАТУ
-        </button>
-      </div>
-    );
-  }
-
   const effectiveTimeLeft = shouldForceZero ? 0 : timeLeft;
   const answeredCount = answerCount;
   const totalPlayers = players.length;
@@ -1315,6 +1292,29 @@ export default function HostRoomPage() {
       roundEndUnlockTimeoutRef.current = null;
     }, 5000);
   }, [question, roomStatus, isLastQuestion, canAdvance, playRoundEndAudio, clearRoundEndUnlockTimeout]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#fef4dc] text-[#142a45]">
+        <div className="rounded-3xl border-[4px] border-[#142a45] bg-white px-6 py-4 text-xl font-black">
+          Загрузка панели ведущего…
+        </div>
+      </div>
+    );
+  }
+
+  if (!isRoomOpened) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#fef4dc] text-[#142a45]">
+        <button
+          onClick={handleHostInteraction}
+          className="px-8 py-4 rounded-3xl border-[4px] border-[#142a45] bg-[#ffe184] text-[#142a45] font-black text-2xl tracking-[0.2em] hover:bg-[#142a45] hover:text-[#ffeccd] transition-colors"
+        >
+          ОТКРЫТЬ КОМНАТУ
+        </button>
+      </div>
+    );
+  }
 
   const getOptionText = (q: Question, keyOrIndex: string | number) => {
     const index = typeof keyOrIndex === 'number' ? keyOrIndex : getOptionIndexFromKey(keyOrIndex);
