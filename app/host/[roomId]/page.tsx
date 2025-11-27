@@ -173,7 +173,6 @@ export default function HostRoomPage() {
   const prestartEnableTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const roundEndUnlockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const roundEndDelayTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const roundEndDelayTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rulesAudioCompletedRef = useRef(true);
   const isLobbySoundOnRef = useRef(isLobbySoundOn);
   const countdownReadyAtRef = useRef<number | null>(null);
@@ -203,13 +202,6 @@ export default function HostRoomPage() {
     }
   }, []);
   
-  const clearRoundEndDelayTimeout = useCallback(() => {
-    if (roundEndDelayTimeoutRef.current) {
-      clearTimeout(roundEndDelayTimeoutRef.current);
-      roundEndDelayTimeoutRef.current = null;
-    }
-  }, []);
-
   const clearRoundEndDelayTimeout = useCallback(() => {
     if (roundEndDelayTimeoutRef.current) {
       clearTimeout(roundEndDelayTimeoutRef.current);
@@ -875,8 +867,6 @@ export default function HostRoomPage() {
     clearCountdownTimeout,
     clearPrestartEnableTimeout,
     clearRoundEndUnlockTimeout,
-      clearRoundEndDelayTimeout,
-      clearRoundEndDelayTimeout();
     clearRoundEndDelayTimeout,
   ]);
 
