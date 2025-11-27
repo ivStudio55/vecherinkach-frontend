@@ -64,6 +64,23 @@ const SKIP_AUDIO_FILES = [
   'skip/skip7.wav',
   'skip/skip8.wav',
 ] as const;
+const BETWEEN_AUDIO_VARIANTS = {
+  zero: ['between/0%/1.wav', 'between/0%/2.wav', 'between/0%/3.wav'],
+  low: ['between/1-49%/1.wav', 'between/1-49%/2.wav', 'between/1-49%/3.wav', 'between/1-49%/4.wav'],
+  mid: ['between/50-99%/1.wav', 'between/50-99%/2.wav', 'between/50-99%/3.wav', 'between/50-99%/4.wav'],
+  full: ['between/100%/1.wav', 'between/100%/2.wav', 'between/100%/3.wav', 'between/100%/4.wav'],
+} as const;
+const ROUND1_END_AUDIO_FILES = [
+  'round1end/1.wav',
+  'round1end/2.wav',
+  'round1end/3.wav',
+  'round1end/4.wav',
+  'round1end/5.wav',
+  'round1end/6.wav',
+  'round1end/7.wav',
+  'round1end/8.wav',
+  'round1end/9.wav',
+] as const;
 
 const buildAudioUrl = (relativePath: string) => `/api/audio?file=${encodeURIComponent(relativePath)}&t=${Date.now()}`;
 const buildJingleUrl = (fileName: string) => `/api/jingle/audio?file=${encodeURIComponent(fileName)}&t=${Date.now()}`;
@@ -138,6 +155,7 @@ export default function HostRoomPage() {
   const [isRoomOpened, setIsRoomOpened] = useState(false);
   const [isPrestartNextEnabled, setIsPrestartNextEnabled] = useState(true);
   const [isPlayerLimitReached, setIsPlayerLimitReached] = useState(false);
+  const [isRoundEndButtonLocked, setIsRoundEndButtonLocked] = useState(false);
 
   const meetAudioRef = useRef<HTMLAudioElement | null>(null);
   const connectAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -145,16 +163,21 @@ export default function HostRoomPage() {
   const skipAudioRef = useRef<HTMLAudioElement | null>(null);
   const questionJingleAudioRef = useRef<HTMLAudioElement | null>(null);
   const questionVoiceAudioRef = useRef<HTMLAudioElement | null>(null);
+  const betweenAudioRef = useRef<HTMLAudioElement | null>(null);
+  const roundEndAudioRef = useRef<HTMLAudioElement | null>(null);
   const hasUserInteractedRef = useRef(false);
   const lastJoinAudioRef = useRef<HTMLAudioElement | null>(null);
   const previousPlayerIdsRef = useRef<Set<string>>(new Set());
   const hasSnapshotRef = useRef(false);
   const countdownTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prestartEnableTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const roundEndUnlockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rulesAudioCompletedRef = useRef(true);
   const isLobbySoundOnRef = useRef(isLobbySoundOn);
   const countdownReadyAtRef = useRef<number | null>(null);
   const lastSpokenQuestionRef = useRef<number | null>(null);
+  const betweenCueQuestionRef = useRef<number | null>(null);
+  const roundEndLockQuestionRef = useRef<number | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
 
   const clearCountdownTimeout = useCallback(() => {
@@ -168,6 +191,13 @@ export default function HostRoomPage() {
     if (prestartEnableTimeoutRef.current) {
       clearTimeout(prestartEnableTimeoutRef.current);
       prestartEnableTimeoutRef.current = null;
+    }
+  }, []);
+
+  const clearRoundEndUnlockTimeout = useCallback(() => {
+    if (roundEndUnlockTimeoutRef.current) {
+      clearTimeout(roundEndUnlockTimeoutRef.current);
+      roundEndUnlockTimeoutRef.current = null;
     }
   }, []);
 
@@ -555,6 +585,78 @@ export default function HostRoomPage() {
     });
   }, [stopSkipAudio]);
 
+  const stopBetweenAudio = useCallback(() => {
+    const audio = betweenAudioRef.current;
+    if (!audio) {
+      return;
+    }
+    audio.pause();
+    audio.currentTime = 0;
+    audio.onended = null;
+    betweenAudioRef.current = null;
+  }, []);
+
+  const playBetweenAudioForPercent = useCallback(
+    async (percent: number) => {
+      if (!hasUserInteractedRef.current) {
+        return;
+      }
+
+      const normalized = Math.max(0, Math.min(100, Math.round(percent)));
+      const variants =
+        normalized === 100
+          ? BETWEEN_AUDIO_VARIANTS.full
+          : normalized >= 50
+            ? BETWEEN_AUDIO_VARIANTS.mid
+            : normalized >= 1
+              ? BETWEEN_AUDIO_VARIANTS.low
+              : BETWEEN_AUDIO_VARIANTS.zero;
+
+      if (!variants.length) {
+        return;
+      }
+
+      stopBetweenAudio();
+      const file = pickRandomItem(variants);
+      const audio = new Audio(buildAudioUrl(file));
+      audio.volume = 0.95;
+      betweenAudioRef.current = audio;
+
+      try {
+        await audio.play();
+      } catch (error) {
+        console.error('Не удалось проиграть озвучку между вопросами', error);
+      }
+    },
+    [stopBetweenAudio]
+  );
+
+  const stopRoundEndAudio = useCallback(() => {
+    const audio = roundEndAudioRef.current;
+    if (!audio) {
+      return;
+    }
+    audio.pause();
+    audio.currentTime = 0;
+    audio.onended = null;
+    roundEndAudioRef.current = null;
+  }, []);
+
+  const playRoundEndAudio = useCallback(() => {
+    if (!hasUserInteractedRef.current) {
+      return;
+    }
+
+    stopRoundEndAudio();
+    const file = pickRandomItem(ROUND1_END_AUDIO_FILES);
+    const audio = new Audio(buildAudioUrl(file));
+    audio.volume = 0.95;
+    roundEndAudioRef.current = audio;
+    audio.play().catch((error) => {
+      console.error('Не удалось проиграть финальный сигнал раунда', error);
+    });
+  }, [stopRoundEndAudio]);
+
   useEffect(() => {
     const currentIds = new Set(players.map((player) => player.id));
 
@@ -579,6 +681,18 @@ export default function HostRoomPage() {
 
     previousPlayerIdsRef.current = currentIds;
   }, [players, playJoinSound]);
+
+  useEffect(() => {
+    stopBetweenAudio();
+    betweenCueQuestionRef.current = null;
+  }, [question?.id, stopBetweenAudio]);
+
+  useEffect(() => {
+    stopRoundEndAudio();
+    clearRoundEndUnlockTimeout();
+    roundEndLockQuestionRef.current = null;
+    setIsRoundEndButtonLocked(false);
+  }, [question?.id, stopRoundEndAudio, clearRoundEndUnlockTimeout]);
 
   const ensureAudioContext = useCallback(async () => {
     if (typeof window === 'undefined') {
@@ -721,8 +835,11 @@ export default function HostRoomPage() {
       stopConnectAudio();
       stopRulesAudio();
       stopSkipAudio();
+      stopBetweenAudio();
+      stopRoundEndAudio();
       clearCountdownTimeout();
       clearPrestartEnableTimeout();
+      clearRoundEndUnlockTimeout();
       const context = audioContextRef.current;
       if (context && context.state !== 'closed') {
         context.close().catch(() => undefined);
@@ -735,8 +852,11 @@ export default function HostRoomPage() {
     stopConnectAudio,
     stopRulesAudio,
     stopSkipAudio,
+    stopBetweenAudio,
+    stopRoundEndAudio,
     clearCountdownTimeout,
     clearPrestartEnableTimeout,
+    clearRoundEndUnlockTimeout,
   ]);
 
   const handleHostInteraction = useCallback(() => {
@@ -925,6 +1045,16 @@ export default function HostRoomPage() {
       stopConnectAudio();
     }
   }, [roomStatus, stopLobby, stopRulesAudio, stopConnectAudio]);
+
+  useEffect(() => {
+    if (roomStatus !== 'running') {
+      stopBetweenAudio();
+      stopRoundEndAudio();
+      clearRoundEndUnlockTimeout();
+      roundEndLockQuestionRef.current = null;
+      setIsRoundEndButtonLocked(false);
+    }
+  }, [roomStatus, stopBetweenAudio, stopRoundEndAudio, clearRoundEndUnlockTimeout]);
 
   useEffect(() => {
     const shouldPlayRulesAudio = roomStatus === 'waiting' && !showResults && isRulesVisible;
@@ -1140,15 +1270,51 @@ export default function HostRoomPage() {
   const effectiveTimeLeft = shouldForceZero ? 0 : timeLeft;
   const answeredCount = answerCount;
   const totalPlayers = players.length;
+  const answeredPercentage = totalPlayers > 0 ? (answeredCount / totalPlayers) * 100 : 0;
   const totalQuestions = selectedQuestionIds.length || ROUND_QUESTION_COUNT;
   const allPlayersAnswered = serverAllPlayersAnswered || (totalPlayers > 0 && answeredCount >= totalPlayers);
   const isLastQuestion = totalQuestions > 0 ? currentQuestionIndex >= totalQuestions - 1 : false;
   const canAdvance = roomStatus === 'running' && (effectiveTimeLeft === 0 || allPlayersAnswered);
+  const nextButtonDisabled = !canAdvance || (isLastQuestion && (isSummaryLoading || isRoundEndButtonLocked));
   const progressPercent = Math.max(0, Math.min(100, (effectiveTimeLeft / QUESTION_DURATION_SECONDS) * 100));
   const questionsForSummary = summaryQuestions.length ? summaryQuestions : question ? [question] : [];
   const isWaiting = roomStatus === 'waiting' && !showResults;
   const shouldShowRulesModal = isWaiting && isRulesVisible;
   const shouldShowCountdownOverlay = isWaiting && isCountdownVisible;
+
+  useEffect(() => {
+    if (!question || roomStatus !== 'running' || !canAdvance || totalPlayers === 0) {
+      return;
+    }
+
+    const questionKey = typeof question.id === 'number' ? question.id : question.order;
+    if (betweenCueQuestionRef.current === questionKey) {
+      return;
+    }
+
+    betweenCueQuestionRef.current = questionKey;
+    void playBetweenAudioForPercent(answeredPercentage);
+  }, [question, roomStatus, canAdvance, totalPlayers, answeredPercentage, playBetweenAudioForPercent]);
+
+  useEffect(() => {
+    if (!question || roomStatus !== 'running' || !isLastQuestion || !canAdvance) {
+      return;
+    }
+
+    const questionKey = typeof question.id === 'number' ? question.id : question.order;
+    if (roundEndLockQuestionRef.current === questionKey) {
+      return;
+    }
+
+    roundEndLockQuestionRef.current = questionKey;
+    setIsRoundEndButtonLocked(true);
+    playRoundEndAudio();
+    clearRoundEndUnlockTimeout();
+    roundEndUnlockTimeoutRef.current = setTimeout(() => {
+      setIsRoundEndButtonLocked(false);
+      roundEndUnlockTimeoutRef.current = null;
+    }, 5000);
+  }, [question, roomStatus, isLastQuestion, canAdvance, playRoundEndAudio, clearRoundEndUnlockTimeout]);
 
   const getOptionText = (q: Question, keyOrIndex: string | number) => {
     const index = typeof keyOrIndex === 'number' ? keyOrIndex : getOptionIndexFromKey(keyOrIndex);
@@ -1375,22 +1541,24 @@ export default function HostRoomPage() {
 
                 <button
                   onClick={isLastQuestion ? finishRound : nextQuestion}
-                  disabled={!canAdvance || (isLastQuestion && isSummaryLoading)}
+                  disabled={nextButtonDisabled}
                   className="w-full py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#1f6ac6] text-white border-[3px] border-[#142a45] transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  {isLastQuestion ? 'Показать итоги' : 'Следующий вопрос'}
+                  {isLastQuestion ? 'Следующий раунд' : 'Следующий вопрос'}
                 </button>
 
                 <p className="text-xs text-[#142a45]/70">
-                  {canAdvance
-                    ? isLastQuestion
-                      ? allPlayersAnswered
-                        ? 'Все ответили — показываем результаты и обсуждаем ответы.'
-                        : 'Таймер завершён, можно завершать раунд.'
-                      : allPlayersAnswered
-                        ? 'Все ответили — запускайте следующий вопрос.'
-                        : 'Таймер остановился, переходите к следующему вопросу.'
-                    : 'Ответы игроков скрыты до окончания таймера.'}
+                  {isRoundEndButtonLocked
+                    ? 'Подождите несколько секунд — звучит финальный джингл перед стартом следующего раунда.'
+                    : canAdvance
+                      ? isLastQuestion
+                        ? allPlayersAnswered
+                          ? 'Все ответили — готовимся перейти к следующему раунду.'
+                          : 'Таймер завершён, можно завершать раунд.'
+                        : allPlayersAnswered
+                          ? 'Все ответили — запускайте следующий вопрос.'
+                          : 'Таймер остановился, переходите к следующему вопросу.'
+                      : 'Ответы игроков скрыты до окончания таймера.'}
                 </p>
               </div>
             ) : (
