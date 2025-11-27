@@ -28,7 +28,7 @@ const JOIN_SOUND_FILES = [
   'join/The_duk_quacked_funn_#4.mp3',
 ] as const;
 
-const QUESTION_TRACK_FILE = 'questions/30_sec.mp3';
+const QUESTION_JINGLE_FILE = '30_sec.mp3';
 const MEET_AUDIO_FILES = [
   'meet/meetText1.wav',
   'meet/meetText2.wav',
@@ -66,6 +66,7 @@ const SKIP_AUDIO_FILES = [
 ] as const;
 
 const buildAudioUrl = (relativePath: string) => `/api/audio?file=${encodeURIComponent(relativePath)}&t=${Date.now()}`;
+const buildJingleUrl = (fileName: string) => `/api/jingle/audio?file=${encodeURIComponent(fileName)}&t=${Date.now()}`;
 const pickRandomItem = <T,>(items: readonly T[]) => items[Math.floor(Math.random() * items.length)];
 
 const getRemainingSeconds = (startedAt: string | null, offsetMs = 0) => {
@@ -142,8 +143,8 @@ export default function HostRoomPage() {
   const connectAudioRef = useRef<HTMLAudioElement | null>(null);
   const rulesAudioRef = useRef<HTMLAudioElement | null>(null);
   const skipAudioRef = useRef<HTMLAudioElement | null>(null);
-  const startAudioRef = useRef<HTMLAudioElement | null>(null);
-  const questionAudioRef = useRef<HTMLAudioElement | null>(null);
+  const questionJingleAudioRef = useRef<HTMLAudioElement | null>(null);
+  const questionVoiceAudioRef = useRef<HTMLAudioElement | null>(null);
   const hasUserInteractedRef = useRef(false);
   const lastJoinAudioRef = useRef<HTMLAudioElement | null>(null);
   const previousPlayerIdsRef = useRef<Set<string>>(new Set());
@@ -153,6 +154,8 @@ export default function HostRoomPage() {
   const rulesAudioCompletedRef = useRef(true);
   const isLobbySoundOnRef = useRef(isLobbySoundOn);
   const countdownReadyAtRef = useRef<number | null>(null);
+  const lastSpokenQuestionRef = useRef<number | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
 
   const clearCountdownTimeout = useCallback(() => {
     if (countdownTimeoutRef.current) {
@@ -383,19 +386,6 @@ export default function HostRoomPage() {
     syncServerTimeRef.current = syncServerTime;
   }, [syncServerTime]);
 
-
-  useEffect(() => {
-    const startAudio = new Audio('/audio/start.mp3');
-    startAudio.loop = false;
-    startAudio.volume = 0.9;
-    startAudioRef.current = startAudio;
-
-    return () => {
-      startAudio.pause();
-      startAudioRef.current = null;
-    };
-  }, []);
-
   const stopLobby = useCallback(() => {
     const audio = meetAudioRef.current;
     if (audio) {
@@ -451,18 +441,6 @@ export default function HostRoomPage() {
       setIsLobbySoundOn(false);
     }
   }, [playWelcomeSpeech, playLobbyJingle]);
-
-  const playStartSound = useCallback(async () => {
-    const audio = startAudioRef.current;
-    if (!audio) return;
-    try {
-      audio.currentTime = 0;
-      await audio.play();
-    } catch (err) {
-      // если стартовый звук не проигрался — ничего страшного
-      console.error('Не удалось проиграть стартовый звук', err);
-    }
-  }, []);
 
   const playJoinSound = useCallback(async () => {
     if (!hasUserInteractedRef.current || !isJoinSoundEnabled) {
@@ -602,43 +580,153 @@ export default function HostRoomPage() {
     previousPlayerIdsRef.current = currentIds;
   }, [players, playJoinSound]);
 
-  const stopQuestionTrack = useCallback(() => {
-    const track = questionAudioRef.current;
-    if (!track) return;
-    track.pause();
-    track.currentTime = 0;
+  const ensureAudioContext = useCallback(async () => {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
+    let context = audioContextRef.current;
+    const AudioContextCtor =
+      window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+
+    if (!context) {
+      if (!AudioContextCtor) {
+        return null;
+      }
+      context = new AudioContextCtor();
+      audioContextRef.current = context;
+    }
+
+    if (context.state === 'suspended') {
+      try {
+        await context.resume();
+      } catch (error) {
+        console.error('Не удалось активировать аудиоконтекст', error);
+        return null;
+      }
+    }
+
+    return context;
   }, []);
 
-  const playQuestionTrack = useCallback(() => {
-    if (!hasUserInteractedRef.current) {
+  const playBeep = useCallback(
+    async (frequency = 880) => {
+      if (!hasUserInteractedRef.current) {
+        return;
+      }
+
+      const context = await ensureAudioContext();
+      if (!context) {
+        return;
+      }
+
+      const duration = 0.12;
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(frequency, context.currentTime);
+
+      gain.gain.setValueAtTime(0.15, context.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.00001, context.currentTime + duration);
+
+      oscillator.connect(gain);
+      gain.connect(context.destination);
+
+      oscillator.start();
+      oscillator.stop(context.currentTime + duration);
+
+      oscillator.onended = () => {
+        oscillator.disconnect();
+        gain.disconnect();
+      };
+    },
+    [ensureAudioContext]
+  );
+
+  const stopQuestionAudio = useCallback(() => {
+    const jingle = questionJingleAudioRef.current;
+    if (jingle) {
+      jingle.pause();
+      jingle.currentTime = 0;
+      questionJingleAudioRef.current = null;
+    }
+
+    const voice = questionVoiceAudioRef.current;
+    if (voice) {
+      voice.pause();
+      voice.currentTime = 0;
+      questionVoiceAudioRef.current = null;
+    }
+  }, []);
+
+  const playQuestionAudio = useCallback(
+    async (questionOrder: number) => {
+      if (!hasUserInteractedRef.current) {
+        return;
+      }
+
+      stopQuestionAudio();
+
+      const jingle = new Audio(buildJingleUrl(QUESTION_JINGLE_FILE));
+      jingle.loop = false;
+      jingle.volume = 0.45;
+      questionJingleAudioRef.current = jingle;
+
+      const voice = new Audio(buildAudioUrl(`questions/${questionOrder}.wav`));
+      voice.loop = false;
+      voice.volume = 0.95;
+      questionVoiceAudioRef.current = voice;
+
+      try {
+        await jingle.play();
+      } catch (error) {
+        console.error('Не удалось запустить 30-секундный джингл', error);
+      }
+
+      voice.play().catch((error) => {
+        console.error(`Не удалось озвучить вопрос №${questionOrder}`, error);
+      });
+    },
+    [stopQuestionAudio]
+  );
+
+  useEffect(() => {
+    if (roomStatus !== 'running') {
+      lastSpokenQuestionRef.current = null;
       return;
     }
 
-    const previousTrack = questionAudioRef.current;
-    if (previousTrack) {
-      previousTrack.pause();
+    if (!question) {
+      return;
     }
 
-    const nextTrack = new Audio(buildAudioUrl(QUESTION_TRACK_FILE));
-    nextTrack.loop = false;
-    nextTrack.volume = 0.55;
-    questionAudioRef.current = nextTrack;
+    const orderFromQuestion = typeof question.order === 'number' ? question.order : currentQuestionIndex + 1;
+    if (lastSpokenQuestionRef.current === orderFromQuestion) {
+      return;
+    }
 
-    nextTrack.play().catch((err) => console.error('Не удалось проиграть мелодию вопроса', err));
-  }, []);
+    lastSpokenQuestionRef.current = orderFromQuestion;
+    void playQuestionAudio(orderFromQuestion);
+  }, [question, roomStatus, playQuestionAudio, currentQuestionIndex]);
 
   useEffect(() => {
     return () => {
-      stopQuestionTrack();
+      stopQuestionAudio();
       stopLobby();
       stopConnectAudio();
       stopRulesAudio();
       stopSkipAudio();
       clearCountdownTimeout();
       clearPrestartEnableTimeout();
+      const context = audioContextRef.current;
+      if (context && context.state !== 'closed') {
+        context.close().catch(() => undefined);
+      }
+      audioContextRef.current = null;
     };
   }, [
-    stopQuestionTrack,
+    stopQuestionAudio,
     stopLobby,
     stopConnectAudio,
     stopRulesAudio,
@@ -770,15 +858,15 @@ export default function HostRoomPage() {
 
   useEffect(() => {
     if (roomStatus !== 'running') {
-      stopQuestionTrack();
+      stopQuestionAudio();
     }
-  }, [roomStatus, stopQuestionTrack]);
+  }, [roomStatus, stopQuestionAudio]);
 
   useEffect(() => {
     if (roomStatus === 'running' && (serverAllPlayersAnswered || everyoneAnswered)) {
-      stopQuestionTrack();
+      stopQuestionAudio();
     }
-  }, [roomStatus, serverAllPlayersAnswered, everyoneAnswered, stopQuestionTrack]);
+  }, [roomStatus, serverAllPlayersAnswered, everyoneAnswered, stopQuestionAudio]);
 
   useEffect(() => {
     if (!timerActive || !questionStartedAt) {
@@ -847,7 +935,7 @@ export default function HostRoomPage() {
   const finishRound = async () => {
     if (isSummaryLoading) return;
     setIsSummaryLoading(true);
-    stopQuestionTrack();
+    stopQuestionAudio();
     const { error: updateError } = await supabase
       .from('rooms')
       .update({ is_active: false, status: 'finished', all_players_answered: false })
@@ -872,10 +960,9 @@ export default function HostRoomPage() {
       return;
     }
 
-    stopQuestionTrack();
+    stopQuestionAudio();
     stopLobby();
     stopSkipAudio();
-    await playStartSound();
 
     const questionIds = pickRandomQuestionIds(ROUND_QUESTION_COUNT);
     const { iso: startedAt, offset } = await getServerIsoTimestamp();
@@ -903,7 +990,6 @@ export default function HostRoomPage() {
     setAnswerCount(0);
     setAnsweredPlayerIds([]);
     loadQuestionFromSelection(0, questionIds);
-    playQuestionTrack();
     await loadAnswerCount(0);
   };
 
@@ -927,12 +1013,12 @@ export default function HostRoomPage() {
     setAnswerCount(0);
     setAnsweredPlayerIds([]);
     loadQuestionFromSelection(newIndex);
-    playQuestionTrack();
     await loadAnswerCount(newIndex);
   };
 
   const runCountdownSequence = (value: number) => {
     setCountdownValue(value);
+    void playBeep(value > 0 ? 880 : 1200);
     if (value > 0) {
       countdownTimeoutRef.current = setTimeout(() => runCountdownSequence(value - 1), 1000);
       return;
