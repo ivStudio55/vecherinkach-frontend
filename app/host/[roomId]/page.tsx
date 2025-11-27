@@ -18,14 +18,14 @@ import {
 
 const QUESTION_DURATION_SECONDS = 30;
 const JOIN_SOUND_FILES = [
-  'join/The_duck_quacked_fun_#1.mp3',
-  'join/The_duck_quacked_fun_#2.mp3',
-  'join/The_duck_quacked_fun_#3.mp3',
-  'join/The_duck_quacked_fun_#4.mp3',
-  'join/The_duk_quacked_funn_#1.mp3',
-  'join/The_duk_quacked_funn_#2.mp3',
-  'join/The_duk_quacked_funn_#3.mp3',
-  'join/The_duk_quacked_funn_#4.mp3',
+  'The_duck_quacked_fun_#1.mp3',
+  'The_duck_quacked_fun_#2.mp3',
+  'The_duck_quacked_fun_#3.mp3',
+  'The_duck_quacked_fun_#4.mp3',
+  'The_duk_quacked_funn_#1.mp3',
+  'The_duk_quacked_funn_#2.mp3',
+  'The_duk_quacked_funn_#3.mp3',
+  'The_duk_quacked_funn_#4.mp3',
 ] as const;
 
 const QUESTION_JINGLE_FILE = '30_sec.mp3';
@@ -173,6 +173,7 @@ export default function HostRoomPage() {
   const prestartEnableTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const roundEndUnlockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const roundEndDelayTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const roundEndDelayTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rulesAudioCompletedRef = useRef(true);
   const isLobbySoundOnRef = useRef(isLobbySoundOn);
   const countdownReadyAtRef = useRef<number | null>(null);
@@ -199,6 +200,13 @@ export default function HostRoomPage() {
     if (roundEndUnlockTimeoutRef.current) {
       clearTimeout(roundEndUnlockTimeoutRef.current);
       roundEndUnlockTimeoutRef.current = null;
+    }
+  }, []);
+  
+  const clearRoundEndDelayTimeout = useCallback(() => {
+    if (roundEndDelayTimeoutRef.current) {
+      clearTimeout(roundEndDelayTimeoutRef.current);
+      roundEndDelayTimeoutRef.current = null;
     }
   }, []);
 
@@ -485,7 +493,7 @@ export default function HostRoomPage() {
       return;
     }
     const fileName = JOIN_SOUND_FILES[Math.floor(Math.random() * JOIN_SOUND_FILES.length)];
-    const audio = new Audio(buildAudioUrl(fileName));
+    const audio = new Audio(buildJingleUrl(fileName));
     audio.volume = 0.9;
     lastJoinAudioRef.current = audio;
     try {
@@ -698,6 +706,7 @@ export default function HostRoomPage() {
   useEffect(() => {
     stopRoundEndAudio();
     clearRoundEndUnlockTimeout();
+      clearRoundEndDelayTimeout();
     roundEndLockQuestionRef.current = null;
     setIsRoundEndButtonLocked(false);
   }, [question?.id, stopRoundEndAudio, clearRoundEndUnlockTimeout]);
@@ -866,6 +875,8 @@ export default function HostRoomPage() {
     clearCountdownTimeout,
     clearPrestartEnableTimeout,
     clearRoundEndUnlockTimeout,
+      clearRoundEndDelayTimeout,
+      clearRoundEndDelayTimeout();
     clearRoundEndDelayTimeout,
   ]);
 
