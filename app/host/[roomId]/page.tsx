@@ -39,14 +39,18 @@ const MEET_AUDIO_FILES = [
   'meet/meetText7.wav',
   'meet/meetText8.wav',
 ] as const;
-const CONNECT_AUDIO_CLIPS: Record<number, readonly string[]> = Object.fromEntries(
-  Array.from({ length: 10 }, (_, index) => {
-    const count = index + 1;
-    return [count, Array.from({ length: 3 }, (_, variant) => `connect/${count}/${count}_connected${variant + 1}.wav`)];
-  })
-) as Record<number, readonly string[]>;
+const CONNECT_AUDIO_CLIPS: Record<number, readonly string[]> = (() => {
+  const base: Record<number, readonly string[]> = {
+    1: ['connect/1/one_connected.wav', 'connect/1/one_connected2.wav', 'connect/1/one_connected3.wav'],
+  };
+
+  for (let count = 2; count <= 10; count += 1) {
+    base[count] = Array.from({ length: 3 }, (_, variant) => `connect/${count}/${count}_connected${variant + 1}.wav`);
+  }
+
+  return base;
+})();
 const RULES_ROUND1_FILES = [
-  'ruels/round1/ruelsround(1)1.wav',
   'ruels/round1/ruelsround(1)2.wav',
   'ruels/round1/ruelsround(1)3.wav',
 ] as const;
