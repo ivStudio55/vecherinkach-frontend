@@ -18,17 +18,51 @@ import {
 
 const QUESTION_DURATION_SECONDS = 30;
 const JOIN_SOUND_FILES = [
-  'The_duck_quacked_fun_#1.mp3',
-  'The_duck_quacked_fun_#2.mp3',
-  'The_duck_quacked_fun_#3.mp3',
-  'The_duck_quacked_fun_#4.mp3',
-  'The_duk_quacked_funn_#1.mp3',
-  'The_duk_quacked_funn_#2.mp3',
-  'The_duk_quacked_funn_#3.mp3',
-  'The_duk_quacked_funn_#4.mp3',
+  'join/The_duck_quacked_fun_#1.mp3',
+  'join/The_duck_quacked_fun_#2.mp3',
+  'join/The_duck_quacked_fun_#3.mp3',
+  'join/The_duck_quacked_fun_#4.mp3',
+  'join/The_duk_quacked_funn_#1.mp3',
+  'join/The_duk_quacked_funn_#2.mp3',
+  'join/The_duk_quacked_funn_#3.mp3',
+  'join/The_duk_quacked_funn_#4.mp3',
 ] as const;
 
-const QUESTION_TRACK_FILE = '30_sec.mp3';
+const QUESTION_TRACK_FILE = 'questions/30_sec.mp3';
+const MEET_AUDIO_FILES = [
+  'meet/meetText1.wav',
+  'meet/meetText2.wav',
+  'meet/meetText3.wav',
+  'meet/meetText4.wav',
+  'meet/meetText5.wav',
+  'meet/meetText6.wav',
+  'meet/meetText7.wav',
+  'meet/meetText8.wav',
+] as const;
+const CONNECT_AUDIO_CLIPS: Record<number, readonly string[]> = Object.fromEntries(
+  Array.from({ length: 10 }, (_, index) => {
+    const count = index + 1;
+    return [count, Array.from({ length: 3 }, (_, variant) => `connect/${count}/${count}_connected${variant + 1}.wav`)];
+  })
+) as Record<number, readonly string[]>;
+const RULES_ROUND1_FILES = [
+  'ruels/round1/ruelsround(1)1.wav',
+  'ruels/round1/ruelsround(1)2.wav',
+  'ruels/round1/ruelsround(1)3.wav',
+] as const;
+const SKIP_AUDIO_FILES = [
+  'skip/skip.wav',
+  'skip/skip2.wav',
+  'skip/skip3.wav',
+  'skip/skip4.wav',
+  'skip/skip5.wav',
+  'skip/skip6.wav',
+  'skip/skip7.wav',
+  'skip/skip8.wav',
+] as const;
+
+const buildAudioUrl = (relativePath: string) => `/api/audio?file=${encodeURIComponent(relativePath)}&t=${Date.now()}`;
+const pickRandomItem = <T,>(items: readonly T[]) => items[Math.floor(Math.random() * items.length)];
 
 const getRemainingSeconds = (startedAt: string | null, offsetMs = 0) => {
   if (!startedAt) {
@@ -96,7 +130,10 @@ export default function HostRoomPage() {
   const [isCountdownVisible, setIsCountdownVisible] = useState(false);
   const [countdownValue, setCountdownValue] = useState(3);
 
-  const lobbyAudioRef = useRef<HTMLAudioElement | null>(null);
+  const meetAudioRef = useRef<HTMLAudioElement | null>(null);
+  const connectAudioRef = useRef<HTMLAudioElement | null>(null);
+  const rulesAudioRef = useRef<HTMLAudioElement | null>(null);
+  const skipAudioRef = useRef<HTMLAudioElement | null>(null);
   const startAudioRef = useRef<HTMLAudioElement | null>(null);
   const questionAudioRef = useRef<HTMLAudioElement | null>(null);
   const hasUserInteractedRef = useRef(false);
@@ -104,6 +141,8 @@ export default function HostRoomPage() {
   const previousPlayerIdsRef = useRef<Set<string>>(new Set());
   const hasSnapshotRef = useRef(false);
   const countdownTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rulesAudioCompletedRef = useRef(true);
+  const isLobbySoundOnRef = useRef(isLobbySoundOn);
 
   const clearCountdownTimeout = useCallback(() => {
     if (countdownTimeoutRef.current) {
@@ -299,6 +338,10 @@ export default function HostRoomPage() {
   }, [roomStatus]);
 
   useEffect(() => {
+    isLobbySoundOnRef.current = isLobbySoundOn;
+  }, [isLobbySoundOn]);
+
+  useEffect(() => {
     loadPlayersRef.current = loadPlayers;
   }, [loadPlayers]);
 
@@ -316,45 +359,72 @@ export default function HostRoomPage() {
 
 
   useEffect(() => {
-    const lobbyAudio = new Audio('/audio/jingle-lobby.mp3');
-    lobbyAudio.loop = true;
-    lobbyAudio.volume = 0.45;
-    lobbyAudioRef.current = lobbyAudio;
-
     const startAudio = new Audio('/audio/start.mp3');
     startAudio.loop = false;
     startAudio.volume = 0.9;
     startAudioRef.current = startAudio;
 
     return () => {
-      lobbyAudio.pause();
       startAudio.pause();
-      lobbyAudioRef.current = null;
       startAudioRef.current = null;
     };
   }, []);
 
-  const tryPlayLobby = useCallback(async () => {
-    const audio = lobbyAudioRef.current;
-    if (!audio) return;
-    setAudioError('');
+  const stopLobby = useCallback(() => {
+    const audio = meetAudioRef.current;
+    if (audio) {
+      audio.pause();
+      audio.currentTime = 0;
+      audio.onended = null;
+      meetAudioRef.current = null;
+    }
+    setIsLobbySoundOn(false);
+    isLobbySoundOnRef.current = false;
+  }, []);
+
+  const playWelcomeSpeech = useCallback(async () => {
+    const file = pickRandomItem(MEET_AUDIO_FILES);
+    const audio = new Audio(buildAudioUrl(file));
+    audio.volume = 0.9;
     try {
       await audio.play();
-      setIsLobbySoundOn(true);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Нужен жест пользователя, чтобы запустить аудио';
-      setAudioError(message);
-      setIsLobbySoundOn(false);
+      console.error('Не удалось проиграть приветственную речь', err);
     }
   }, []);
 
-  const stopLobby = useCallback(() => {
-    const audio = lobbyAudioRef.current;
-    if (!audio) return;
-    audio.pause();
-    audio.currentTime = 0;
-    setIsLobbySoundOn(false);
-  }, []);
+  const playLobbyJingle = useCallback(async () => {
+    const previous = meetAudioRef.current;
+    if (previous) {
+      previous.pause();
+      previous.onended = null;
+    }
+
+    const nextAudio = new Audio('/audio/jingle-lobby.mp3');
+    nextAudio.loop = true;
+    nextAudio.volume = 0.55;
+    meetAudioRef.current = nextAudio;
+
+    isLobbySoundOnRef.current = true;
+    await nextAudio.play();
+    setIsLobbySoundOn(true);
+  }, [setIsLobbySoundOn]);
+
+  const tryPlayLobby = useCallback(async () => {
+    if (!hasUserInteractedRef.current) {
+      setAudioError('Нужен клик пользователя, чтобы запустить аудио');
+      return;
+    }
+    setAudioError('');
+    try {
+      await playWelcomeSpeech();
+      await playLobbyJingle();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Не удалось включить звук ожидания';
+      setAudioError(message);
+      setIsLobbySoundOn(false);
+    }
+  }, [playWelcomeSpeech, playLobbyJingle]);
 
   const playStartSound = useCallback(async () => {
     const audio = startAudioRef.current;
@@ -373,8 +443,7 @@ export default function HostRoomPage() {
       return;
     }
     const fileName = JOIN_SOUND_FILES[Math.floor(Math.random() * JOIN_SOUND_FILES.length)];
-    const url = `/api/jingle/audio?file=${encodeURIComponent(fileName)}&t=${Date.now()}`;
-    const audio = new Audio(url);
+    const audio = new Audio(buildAudioUrl(fileName));
     audio.volume = 0.75;
     lastJoinAudioRef.current = audio;
     try {
@@ -383,6 +452,104 @@ export default function HostRoomPage() {
       console.error('Не удалось проиграть звук подключения', err);
     }
   }, [isJoinSoundEnabled]);
+
+  const stopConnectAudio = useCallback(() => {
+    const audio = connectAudioRef.current;
+    if (!audio) {
+      return;
+    }
+    audio.pause();
+    audio.currentTime = 0;
+    audio.onended = null;
+    connectAudioRef.current = null;
+  }, []);
+
+  const playConnectAudio = useCallback(
+    async (connectedPlayers: number) => {
+      if (!hasUserInteractedRef.current || connectedPlayers <= 0) {
+        return;
+      }
+
+      const cappedCount = Math.max(1, Math.min(connectedPlayers, 10));
+      const variants = CONNECT_AUDIO_CLIPS[cappedCount];
+      if (!variants || !variants.length) {
+        return;
+      }
+
+      stopConnectAudio();
+      const file = pickRandomItem(variants);
+      const audio = new Audio(buildAudioUrl(file));
+      audio.volume = 0.9;
+      connectAudioRef.current = audio;
+
+      try {
+        await audio.play();
+      } catch (error) {
+        console.error('Не удалось проиграть озвучку подключений', error);
+      }
+    },
+    [stopConnectAudio]
+  );
+
+  const stopRulesAudio = useCallback(() => {
+    const audio = rulesAudioRef.current;
+    if (!audio) {
+      return;
+    }
+    audio.pause();
+    audio.currentTime = 0;
+    audio.onended = null;
+    rulesAudioRef.current = null;
+    rulesAudioCompletedRef.current = true;
+  }, []);
+
+  const playRulesAudio = useCallback(() => {
+    if (!hasUserInteractedRef.current) {
+      return;
+    }
+
+    stopRulesAudio();
+    rulesAudioCompletedRef.current = false;
+    const file = pickRandomItem(RULES_ROUND1_FILES);
+    const audio = new Audio(buildAudioUrl(file));
+    audio.volume = 0.95;
+    rulesAudioRef.current = audio;
+
+    audio.onended = () => {
+      rulesAudioCompletedRef.current = true;
+    };
+
+    audio.play().catch((error) => {
+      rulesAudioCompletedRef.current = true;
+      console.error('Не удалось проиграть правила раунда', error);
+    });
+  }, [stopRulesAudio]);
+
+  const stopSkipAudio = useCallback(() => {
+    const audio = skipAudioRef.current;
+    if (!audio) {
+      return;
+    }
+    audio.pause();
+    audio.currentTime = 0;
+    audio.onended = null;
+    skipAudioRef.current = null;
+  }, []);
+
+  const playSkipAudio = useCallback(() => {
+    if (!hasUserInteractedRef.current) {
+      return;
+    }
+
+    stopSkipAudio();
+    const file = pickRandomItem(SKIP_AUDIO_FILES);
+    const audio = new Audio(buildAudioUrl(file));
+    audio.volume = 0.95;
+    skipAudioRef.current = audio;
+    audio.play().catch((error) => {
+      console.error('Не удалось проиграть skip-озвучку', error);
+    });
+  }, [stopSkipAudio]);
 
   useEffect(() => {
     const currentIds = new Set(players.map((player) => player.id));
@@ -432,13 +599,12 @@ export default function HostRoomPage() {
       return;
     }
 
-    const src = `/api/jingle/audio?file=${encodeURIComponent(QUESTION_TRACK_FILE)}&t=${Date.now()}`;
     const previousTrack = questionAudioRef.current;
     if (previousTrack) {
       previousTrack.pause();
     }
 
-    const nextTrack = new Audio(src);
+    const nextTrack = new Audio(buildAudioUrl(QUESTION_TRACK_FILE));
     nextTrack.loop = false;
     nextTrack.volume = 0.55;
     questionAudioRef.current = nextTrack;
@@ -449,9 +615,13 @@ export default function HostRoomPage() {
   useEffect(() => {
     return () => {
       stopQuestionTrack();
+      stopLobby();
+      stopConnectAudio();
+      stopRulesAudio();
+      stopSkipAudio();
       clearCountdownTimeout();
     };
-  }, [stopQuestionTrack, clearCountdownTimeout]);
+  }, [stopQuestionTrack, stopLobby, stopConnectAudio, stopRulesAudio, stopSkipAudio, clearCountdownTimeout]);
 
   const handleHostInteraction = useCallback(() => {
     if (!hasUserInteractedRef.current) {
@@ -631,6 +801,24 @@ export default function HostRoomPage() {
     updateFlag();
   }, [answerCount, players.length, roomId, roomStatus, serverAllPlayersAnswered]);
 
+  useEffect(() => {
+    if (roomStatus !== 'waiting') {
+      stopLobby();
+      stopRulesAudio();
+      stopConnectAudio();
+    }
+  }, [roomStatus, stopLobby, stopRulesAudio, stopConnectAudio]);
+
+  useEffect(() => {
+    const shouldPlayRulesAudio = roomStatus === 'waiting' && !showResults && isRulesVisible;
+    if (shouldPlayRulesAudio) {
+      playRulesAudio();
+    } else {
+      stopRulesAudio();
+      stopConnectAudio();
+    }
+  }, [roomStatus, showResults, isRulesVisible, playRulesAudio, stopRulesAudio, stopConnectAudio]);
+
 
   const finishRound = async () => {
     if (isSummaryLoading) return;
@@ -662,6 +850,7 @@ export default function HostRoomPage() {
 
     stopQuestionTrack();
     stopLobby();
+    stopSkipAudio();
     await playStartSound();
 
     const questionIds = pickRandomQuestionIds(ROUND_QUESTION_COUNT);
@@ -737,6 +926,14 @@ export default function HostRoomPage() {
       return;
     }
     stopLobby();
+    const rulesStillPlaying = !rulesAudioCompletedRef.current;
+    stopRulesAudio();
+    stopConnectAudio();
+    if (rulesStillPlaying) {
+      playSkipAudio();
+    } else {
+      stopSkipAudio();
+    }
     hasUserInteractedRef.current = true;
     setIsRulesVisible(false);
     setIsCountdownVisible(true);
@@ -748,6 +945,9 @@ export default function HostRoomPage() {
     if (roomStatus !== 'waiting' || players.length === 0) {
       return;
     }
+    hasUserInteractedRef.current = true;
+    void playConnectAudio(players.length);
+    stopLobby();
     setIsRulesVisible(true);
   };
 
