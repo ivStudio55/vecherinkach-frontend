@@ -661,7 +661,7 @@ export default function HostRoomPage() {
   }, []);
 
   const playQuestionAudio = useCallback(
-    async (questionOrder: number) => {
+    async (questionId: number) => {
       if (!hasUserInteractedRef.current) {
         return;
       }
@@ -673,7 +673,7 @@ export default function HostRoomPage() {
       jingle.volume = 0.45;
       questionJingleAudioRef.current = jingle;
 
-      const voice = new Audio(buildAudioUrl(`questions/${questionOrder}.wav`));
+      const voice = new Audio(buildAudioUrl(`questions/${questionId}.wav`));
       voice.loop = false;
       voice.volume = 0.95;
       questionVoiceAudioRef.current = voice;
@@ -685,7 +685,7 @@ export default function HostRoomPage() {
       }
 
       voice.play().catch((error) => {
-        console.error(`Не удалось озвучить вопрос №${questionOrder}`, error);
+        console.error(`Не удалось озвучить вопрос с идентификатором ${questionId}`, error);
       });
     },
     [stopQuestionAudio]
@@ -701,14 +701,18 @@ export default function HostRoomPage() {
       return;
     }
 
-    const orderFromQuestion = typeof question.order === 'number' ? question.order : currentQuestionIndex + 1;
-    if (lastSpokenQuestionRef.current === orderFromQuestion) {
+    const questionId = typeof question.id === 'number' ? question.id : null;
+    if (!questionId) {
       return;
     }
 
-    lastSpokenQuestionRef.current = orderFromQuestion;
-    void playQuestionAudio(orderFromQuestion);
-  }, [question, roomStatus, playQuestionAudio, currentQuestionIndex]);
+    if (lastSpokenQuestionRef.current === questionId) {
+      return;
+    }
+
+    lastSpokenQuestionRef.current = questionId;
+    void playQuestionAudio(questionId);
+  }, [question, roomStatus, playQuestionAudio]);
 
   useEffect(() => {
     return () => {
