@@ -125,10 +125,7 @@ export default function HostRoomPage() {
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<number[]>([]);
   const [isLobbySoundOn, setIsLobbySoundOn] = useState(false);
   const [audioError, setAudioError] = useState('');
-  const [isJoinSoundEnabled, setIsJoinSoundEnabled] = useState(true);
-  const [isRulesVisible, setIsRulesVisible] = useState(false);
-  const [isCountdownVisible, setIsCountdownVisible] = useState(false);
-  const [countdownValue, setCountdownValue] = useState(3);
+  const [isRoomOpened, setIsRoomOpened] = useState(false);
 
   const meetAudioRef = useRef<HTMLAudioElement | null>(null);
   const connectAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -402,7 +399,7 @@ export default function HostRoomPage() {
 
     const nextAudio = new Audio('/audio/jingle-lobby.mp3');
     nextAudio.loop = true;
-    nextAudio.volume = 0.55;
+    nextAudio.volume = 0.3;
     meetAudioRef.current = nextAudio;
 
     isLobbySoundOnRef.current = true;
@@ -444,7 +441,7 @@ export default function HostRoomPage() {
     }
     const fileName = JOIN_SOUND_FILES[Math.floor(Math.random() * JOIN_SOUND_FILES.length)];
     const audio = new Audio(buildAudioUrl(fileName));
-    audio.volume = 0.75;
+    audio.volume = 0.9;
     lastJoinAudioRef.current = audio;
     try {
       await audio.play();
@@ -626,6 +623,7 @@ export default function HostRoomPage() {
   const handleHostInteraction = useCallback(() => {
     if (!hasUserInteractedRef.current) {
       hasUserInteractedRef.current = true;
+      setIsRoomOpened(true);
       if (roomStatusRef.current === 'waiting') {
         void tryPlayLobby();
       }
@@ -969,13 +967,23 @@ export default function HostRoomPage() {
 
   if (isLoading) {
     return (
-      <div
-        className="min-h-screen flex items-center justify-center bg-[#fef4dc] text-[#142a45]"
-        onClick={handleHostInteraction}
-      >
+      <div className="min-h-screen flex items-center justify-center bg-[#fef4dc] text-[#142a45]">
         <div className="rounded-3xl border-[4px] border-[#142a45] bg-white px-6 py-4 text-xl font-black">
           Загрузка панели ведущего…
         </div>
+      </div>
+    );
+  }
+
+  if (!isRoomOpened) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#fef4dc] text-[#142a45]">
+        <button
+          onClick={handleHostInteraction}
+          className="px-8 py-4 rounded-3xl border-[4px] border-[#142a45] bg-[#ffe184] text-[#142a45] font-black text-2xl tracking-[0.2em] hover:bg-[#142a45] hover:text-[#ffeccd] transition-colors"
+        >
+          ОТКРЫТЬ КОМНАТУ
+        </button>
       </div>
     );
   }
@@ -1021,7 +1029,7 @@ export default function HostRoomPage() {
 
   return (
     <Fragment>
-      <div className="min-h-screen bg-[#fef4dc] text-[#142a45] px-4 py-8" onClick={handleHostInteraction}>
+      <div className="min-h-screen bg-[#fef4dc] text-[#142a45] px-4 py-8 transition-opacity duration-1000 opacity-100">
         <div className="max-w-6xl mx-auto space-y-6">
           <header className="retro-panel bg-[#142a45] text-[#ffeccd] px-6 py-5 space-y-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
