@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Fragment, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import {
@@ -103,7 +103,14 @@ export default function HostRoomPage() {
   const lastJoinAudioRef = useRef<HTMLAudioElement | null>(null);
   const previousPlayerIdsRef = useRef<Set<string>>(new Set());
   const hasSnapshotRef = useRef(false);
-  const countdownTimeoutRef = useRef<number | null>(null);
+  const countdownTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearCountdownTimeout = useCallback(() => {
+    if (countdownTimeoutRef.current) {
+      clearTimeout(countdownTimeoutRef.current);
+      countdownTimeoutRef.current = null;
+    }
+  }, []);
 
   const syncServerTime = useCallback(async () => {
     try {
@@ -125,6 +132,18 @@ export default function HostRoomPage() {
     const serverNow = new Date(Date.now() - offset).toISOString();
     return { iso: serverNow, offset };
   };
+
+  const updateRoomStatus = useCallback(
+    (nextStatus: RoomStatus) => {
+      setRoomStatus(nextStatus);
+      if (nextStatus !== 'waiting') {
+        setIsRulesVisible(false);
+        setIsCountdownVisible(false);
+        clearCountdownTimeout();
+      }
+    },
+    [clearCountdownTimeout]
+  );
 
   const syncTimerWithStart = useCallback(
     (startedAt: string | null, offsetOverride?: number) => {
@@ -221,13 +240,13 @@ export default function HostRoomPage() {
           return;
         }
 
-      const selection = (room.selected_question_ids as number[] | null) || [];
-      setSelectedQuestionIds(selection);
-      setRoomCode(room.code);
-      setCurrentQuestionIndex(room.current_question_index);
-      const detectedStatus = (room.status as RoomStatus) || 'waiting';
-      setRoomStatus(detectedStatus);
-      setServerAllPlayersAnswered(detectedStatus === 'running' ? !!room.all_players_answered : false);
+        const selection = (room.selected_question_ids as number[] | null) || [];
+        setSelectedQuestionIds(selection);
+        setRoomCode(room.code);
+        setCurrentQuestionIndex(room.current_question_index);
+        const detectedStatus = (room.status as RoomStatus) || 'waiting';
+        updateRoomStatus(detectedStatus);
+        setServerAllPlayersAnswered(detectedStatus === 'running' ? !!room.all_players_answered : false);
 
       if (detectedStatus === 'running') {
         syncTimerWithStart(room.question_started_at, effectiveOffset);
@@ -265,6 +284,7 @@ export default function HostRoomPage() {
       fetchSummaryData,
       loadPlayers,
       syncTimerWithStart,
+      updateRoomStatus,
     ]
   );
 
@@ -389,13 +409,6 @@ export default function HostRoomPage() {
     previousPlayerIdsRef.current = currentIds;
   }, [players, playJoinSound]);
 
-  const clearCountdownTimeout = useCallback(() => {
-    if (countdownTimeoutRef.current) {
-      clearTimeout(countdownTimeoutRef.current);
-      countdownTimeoutRef.current = null;
-    }
-  }, []);
-
   const playCountdownTick = useCallback(() => {
     const audio = startAudioRef.current;
     if (!audio) return;
@@ -418,23 +431,19 @@ export default function HostRoomPage() {
     if (!hasUserInteractedRef.current) {
       return;
     }
+
     const src = `/api/jingle/audio?file=${encodeURIComponent(QUESTION_TRACK_FILE)}&t=${Date.now()}`;
-    let track = questionAudioRef.current;
-    if (!track) {
-      track = new Audio(src);
-      track.loop = false;
-      track.volume = 0.55;
-      questionAudioRef.current = track;
-    } else {
-      track.pause();
-      track.currentTime = 0;
-      track.src = src;
+    const previousTrack = questionAudioRef.current;
+    if (previousTrack) {
+      previousTrack.pause();
     }
-    // eslint-disable-next-line react-hooks/immutability
-    track.volume = 0.55;
-    track
-      .play()
-      .catch((err) => console.error('Не удалось проиграть мелодию вопроса', err));
+
+    const nextTrack = new Audio(src);
+    nextTrack.loop = false;
+    nextTrack.volume = 0.55;
+    questionAudioRef.current = nextTrack;
+
+    nextTrack.play().catch((err) => console.error('Не удалось проиграть мелодию вопроса', err));
   }, []);
 
   useEffect(() => {
@@ -639,7 +648,7 @@ export default function HostRoomPage() {
     }
     await fetchSummaryData();
     await loadPlayers();
-    setRoomStatus('finished');
+    updateRoomStatus('finished');
     setShowResults(true);
     setAnsweredPlayerIds([]);
     setIsSummaryLoading(false);
@@ -673,7 +682,7 @@ export default function HostRoomPage() {
       return;
     }
 
-    setRoomStatus('running');
+    updateRoomStatus('running');
     setShowResults(false);
     setServerAllPlayersAnswered(false);
     setSelectedQuestionIds(questionIds);
@@ -713,18 +722,18 @@ export default function HostRoomPage() {
     setCountdownValue(value);
     if (value > 0) {
       playCountdownTick();
-      countdownTimeoutRef.current = window.setTimeout(() => runCountdownSequence(value - 1), 1000);
+      countdownTimeoutRef.current = setTimeout(() => runCountdownSequence(value - 1), 1000);
       return;
     }
 
-    countdownTimeoutRef.current = window.setTimeout(() => {
+    countdownTimeoutRef.current = setTimeout(() => {
       setIsCountdownVisible(false);
       void startRound();
     }, 400);
   };
 
   const handleCountdownStart = () => {
-    if (players.length === 0 || isCountdownVisible) {
+    if (roomStatus !== 'waiting' || players.length === 0 || isCountdownVisible) {
       return;
     }
     stopLobby();
@@ -736,7 +745,7 @@ export default function HostRoomPage() {
   };
 
   const handlePrepareRound = () => {
-    if (players.length === 0) {
+    if (roomStatus !== 'waiting' || players.length === 0) {
       return;
     }
     setIsRulesVisible(true);
@@ -757,14 +766,6 @@ export default function HostRoomPage() {
     localStorage.removeItem('hostRoomCode');
     router.push('/host');
   };
-
-  useEffect(() => {
-    if (roomStatus !== 'waiting') {
-      setIsRulesVisible(false);
-      setIsCountdownVisible(false);
-      clearCountdownTimeout();
-    }
-  }, [roomStatus, clearCountdownTimeout]);
 
   if (isLoading) {
     return (
@@ -789,6 +790,8 @@ export default function HostRoomPage() {
   const progressPercent = Math.max(0, Math.min(100, (effectiveTimeLeft / QUESTION_DURATION_SECONDS) * 100));
   const questionsForSummary = summaryQuestions.length ? summaryQuestions : question ? [question] : [];
   const isWaiting = roomStatus === 'waiting' && !showResults;
+  const shouldShowRulesModal = isWaiting && isRulesVisible;
+  const shouldShowCountdownOverlay = isWaiting && isCountdownVisible;
 
   const getOptionText = (q: Question, keyOrIndex: string | number) => {
     const index = typeof keyOrIndex === 'number' ? keyOrIndex : getOptionIndexFromKey(keyOrIndex);
@@ -817,9 +820,10 @@ export default function HostRoomPage() {
         : 'bg-[#1f6ac6] text-white';
 
   return (
-    <div className="min-h-screen bg-[#fef4dc] text-[#142a45] px-4 py-8" onClick={handleHostInteraction}>
-      <div className="max-w-6xl mx-auto space-y-6">
-        <header className="retro-panel bg-[#142a45] text-[#ffeccd] px-6 py-5 space-y-4">
+    <Fragment>
+      <div className="min-h-screen bg-[#fef4dc] text-[#142a45] px-4 py-8" onClick={handleHostInteraction}>
+        <div className="max-w-6xl mx-auto space-y-6">
+          <header className="retro-panel bg-[#142a45] text-[#ffeccd] px-6 py-5 space-y-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="retro-heading text-[11px] tracking-[0.5em] text-[#ffeccd]/70">Панель ведущего</p>
@@ -1123,8 +1127,9 @@ export default function HostRoomPage() {
           </aside>
         </div>
       </div>
+    </div>
 
-      {isRulesVisible && (
+      {shouldShowRulesModal && (
         <div className="fixed inset-0 z-40 bg-[#142a45]/70 backdrop-blur-sm flex items-center justify-center px-4">
           <div className="max-w-md w-full rounded-3xl border-[4px] border-[#142a45] bg-[#fff6da] p-6 space-y-4 shadow-2xl">
             <div>
@@ -1156,7 +1161,7 @@ export default function HostRoomPage() {
         </div>
       )}
 
-      {isCountdownVisible && (
+      {shouldShowCountdownOverlay && (
         <div className="fixed inset-0 z-50 bg-[#142a45]/90 flex flex-col items-center justify-center text-center text-[#ffeccd] px-4">
           <p className="text-sm uppercase tracking-[0.5em] text-[#ffeccd]/70 mb-4">Запуск раунда</p>
           <div className="text-7xl sm:text-8xl font-black drop-shadow-lg">
@@ -1165,6 +1170,6 @@ export default function HostRoomPage() {
           <p className="mt-6 text-sm text-[#ffeccd]/80">Звук уже пошёл — готовим вопросы на экране игроков.</p>
         </div>
       )}
-    </div>
+    </Fragment>
   );
 }
