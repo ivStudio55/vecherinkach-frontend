@@ -165,6 +165,7 @@ export default function HostRoomPage() {
   const [isPrestartNextEnabled, setIsPrestartNextEnabled] = useState(true);
   const [isPlayerLimitReached, setIsPlayerLimitReached] = useState(false);
   const [isRoundEndButtonLocked, setIsRoundEndButtonLocked] = useState(false);
+  const [isRatingVisible, setIsRatingVisible] = useState(false);
 
   const meetAudioRef = useRef<HTMLAudioElement | null>(null);
   const connectAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -279,6 +280,10 @@ export default function HostRoomPage() {
     }
     return buildQuestionsFromSelection(selectedQuestionIds);
   }, [selectedQuestionIds]);
+
+  const playerRatings = useMemo(() => {
+    return [...players].sort((a, b) => b.total_points - a.total_points);
+  }, [players]);
 
   const loadQuestionFromSelection = useCallback(
     (questionIndex: number, selectionOverride?: number[]) => {
@@ -1104,13 +1109,15 @@ export default function HostRoomPage() {
   useEffect(() => {
     if (roomStatus !== 'running') {
       stopBetweenAudio();
-      stopRoundEndAudio();
+      if (!showResults) {
+        stopRoundEndAudio();
+      }
       clearRoundEndUnlockTimeout();
       clearRoundEndDelayTimeout();
       roundEndLockQuestionRef.current = null;
       setIsRoundEndButtonLocked(false);
     }
-  }, [roomStatus, stopBetweenAudio, stopRoundEndAudio, clearRoundEndUnlockTimeout, clearRoundEndDelayTimeout]);
+  }, [roomStatus, showResults, stopBetweenAudio, stopRoundEndAudio, clearRoundEndUnlockTimeout, clearRoundEndDelayTimeout]);
 
   useEffect(() => {
     const shouldPlayRulesAudio = roomStatus === 'waiting' && !showResults && isRulesVisible;
@@ -1140,6 +1147,7 @@ export default function HostRoomPage() {
     await loadPlayers();
     updateRoomStatus('finished');
     setShowResults(true);
+    setIsRatingVisible(false);
     setAnsweredPlayerIds([]);
     setIsSummaryLoading(false);
   };
@@ -1174,6 +1182,7 @@ export default function HostRoomPage() {
 
     updateRoomStatus('running');
     setShowResults(false);
+    setIsRatingVisible(false);
     setServerAllPlayersAnswered(false);
     setSelectedQuestionIds(questionIds);
     syncTimerWithStart(startedAt, offset);
@@ -1487,6 +1496,19 @@ export default function HostRoomPage() {
                   </div>
                   <span className="text-sm font-semibold text-[#1f6ac6]">Очки уже начислены игрокам</span>
                 </div>
+                <div className="flex flex-wrap justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsRatingVisible((prev) => !prev)}
+                    className={`px-4 py-2 rounded-2xl border-[3px] font-semibold transition ${
+                      isRatingVisible
+                        ? 'border-[#1f6ac6] bg-[#1f6ac6] text-white'
+                        : 'border-[#142a45]/40 bg-white text-[#142a45]'
+                    }`}
+                  >
+                    {isRatingVisible ? 'Скрыть рейтинг' : 'Рейтинг'}
+                  </button>
+                </div>
                 <div className="space-y-4">
                   {questionsForSummary.map((summaryQuestion: Question) => {
                     const answersForQuestion = roundAnswers.filter(
@@ -1541,6 +1563,34 @@ export default function HostRoomPage() {
                     <p className="text-sm text-[#142a45]/70">Ответов пока нет — возможно, раунд завершили слишком рано.</p>
                   )}
                 </div>
+                {isRatingVisible && (
+                  <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-white p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Рейтинг игроков</p>
+                      <span className="text-xs font-semibold text-[#1f6ac6]">По итогам раунда</span>
+                    </div>
+                    {playerRatings.length === 0 ? (
+                      <p className="text-sm text-[#142a45]/70">Рейтинг появится после завершения первого раунда.</p>
+                    ) : (
+                      <ol className="space-y-2">
+                        {playerRatings.map((player, index) => (
+                          <li
+                            key={player.id}
+                            className="flex items-center justify-between rounded-2xl border-[3px] border-[#142a45]/10 bg-[#fff6da] px-3 py-2"
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className="w-8 h-8 rounded-full border-[3px] border-[#142a45]/30 flex items-center justify-center font-black">
+                                {index + 1}
+                              </span>
+                              <span className="font-semibold text-[#142a45]">{player.name}</span>
+                            </div>
+                            <span className="font-black text-[#f1532f]">{player.total_points} 💎</span>
+                          </li>
+                        ))}
+                      </ol>
+                    )}
+                  </div>
+                )}
               </div>
             ) : isWaiting ? (
               <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
@@ -1644,7 +1694,7 @@ export default function HostRoomPage() {
                   disabled={nextButtonDisabled}
                   className="w-full py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#1f6ac6] text-white border-[3px] border-[#142a45] transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  {isLastQuestion ? 'Следующий раунд' : 'Следующий вопрос'}
+                  {isLastQuestion ? 'Итоги' : 'Следующий вопрос'}
                 </button>
 
                 <p className="text-xs text-[#142a45]/70">
@@ -1664,7 +1714,7 @@ export default function HostRoomPage() {
             ) : (
               <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 text-center space-y-3">
                 <h2 className="text-2xl font-black">🎉 Раунд завершён</h2>
-                <p className="text-sm text-[#142a45]/70">Все вопросы уже прозвучали. Нажмите «Показать итоги», чтобы подвести результаты.</p>
+                <p className="text-sm text-[#142a45]/70">Все вопросы уже прозвучали. Нажмите «Итоги», чтобы подвести результаты.</p>
               </div>
             )}
 
