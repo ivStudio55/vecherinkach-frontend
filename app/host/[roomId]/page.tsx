@@ -83,6 +83,7 @@ const ROUND1_END_AUDIO_FILES = [
   'round1end/8.wav',
   'round1end/9.wav',
 ] as const;
+const ROUND1_END_JINGLE_FILE = 'round1_end/jingle_(after_round1).mp3';
 
 const buildAudioUrl = (relativePath: string) => `/api/audio?file=${encodeURIComponent(relativePath)}&t=${Date.now()}`;
 const buildJingleUrl = (fileName: string) => `/api/jingle/audio?file=${encodeURIComponent(fileName)}&t=${Date.now()}`;
@@ -127,6 +128,11 @@ interface RoundAnswer {
   question_index: number;
 }
 
+type AnswerSummaryRow = {
+  player_id: string;
+  is_correct: boolean | null;
+};
+
 export default function HostRoomPage() {
   const params = useParams();
   const router = useRouter();
@@ -137,6 +143,7 @@ export default function HostRoomPage() {
   const [question, setQuestion] = useState<Question | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [answerCount, setAnswerCount] = useState(0);
+  const [correctAnswerCount, setCorrectAnswerCount] = useState(0);
   const [answeredPlayerIds, setAnsweredPlayerIds] = useState<string[]>([]);
   const [questionStartedAt, setQuestionStartedAt] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState(QUESTION_DURATION_SECONDS);
@@ -167,6 +174,7 @@ export default function HostRoomPage() {
   const questionVoiceAudioRef = useRef<HTMLAudioElement | null>(null);
   const betweenAudioRef = useRef<HTMLAudioElement | null>(null);
   const roundEndAudioRef = useRef<HTMLAudioElement | null>(null);
+  const roundEndJingleAudioRef = useRef<HTMLAudioElement | null>(null);
   const hasUserInteractedRef = useRef(false);
   const lastJoinAudioRef = useRef<HTMLAudioElement | null>(null);
   const previousPlayerIdsRef = useRef<Set<string>>(new Set());
@@ -311,16 +319,25 @@ export default function HostRoomPage() {
     async (questionIndex: number) => {
       const { data, count, error: answersError } = await supabase
         .from('answers')
-        .select('player_id', { count: 'exact' })
+        .select('player_id, is_correct', { count: 'exact' })
         .eq('room_id', roomId)
         .eq('question_index', questionIndex);
 
       if (answersError) {
         setAnsweredPlayerIds([]);
+        setCorrectAnswerCount(0);
         return;
       }
       setAnswerCount(count || 0);
-      const answeredIds = Array.from(new Set((data || []).map((answer) => answer.player_id)));
+      const rows = (data || []) as AnswerSummaryRow[];
+      const answeredIds = Array.from(new Set(rows.map((answer) => answer.player_id)));
+      const correctIds = new Set<string>();
+      for (const answer of rows) {
+        if (answer.is_correct) {
+          correctIds.add(answer.player_id);
+        }
+      }
+      setCorrectAnswerCount(correctIds.size);
       setAnsweredPlayerIds(answeredIds);
     },
     [roomId]
@@ -650,14 +667,21 @@ export default function HostRoomPage() {
   );
 
   const stopRoundEndAudio = useCallback(() => {
-    const audio = roundEndAudioRef.current;
-    if (!audio) {
-      return;
+    const mainCue = roundEndAudioRef.current;
+    if (mainCue) {
+      mainCue.pause();
+      mainCue.currentTime = 0;
+      mainCue.onended = null;
+      roundEndAudioRef.current = null;
     }
-    audio.pause();
-    audio.currentTime = 0;
-    audio.onended = null;
-    roundEndAudioRef.current = null;
+
+    const jingleCue = roundEndJingleAudioRef.current;
+    if (jingleCue) {
+      jingleCue.pause();
+      jingleCue.currentTime = 0;
+      jingleCue.onended = null;
+      roundEndJingleAudioRef.current = null;
+    }
   }, []);
 
   const playRoundEndAudio = useCallback(() => {
@@ -670,8 +694,16 @@ export default function HostRoomPage() {
     const audio = new Audio(buildAudioUrl(file));
     audio.volume = 0.95;
     roundEndAudioRef.current = audio;
+
+    const jingle = new Audio(buildAudioUrl(ROUND1_END_JINGLE_FILE));
+    jingle.volume = 0.95;
+    roundEndJingleAudioRef.current = jingle;
+
     audio.play().catch((error) => {
       console.error('Не удалось проиграть финальный сигнал раунда', error);
+    });
+    jingle.play().catch((error) => {
+      console.error('Не удалось проиграть джингл завершения раунда', error);
     });
   }, [stopRoundEndAudio]);
 
@@ -1146,6 +1178,7 @@ export default function HostRoomPage() {
     setSelectedQuestionIds(questionIds);
     syncTimerWithStart(startedAt, offset);
     setAnswerCount(0);
+    setCorrectAnswerCount(0);
     setAnsweredPlayerIds([]);
     loadQuestionFromSelection(0, questionIds);
     await loadAnswerCount(0);
@@ -1169,6 +1202,7 @@ export default function HostRoomPage() {
     setServerAllPlayersAnswered(false);
     syncTimerWithStart(questionStartedAt, offset);
     setAnswerCount(0);
+    setCorrectAnswerCount(0);
     setAnsweredPlayerIds([]);
     loadQuestionFromSelection(newIndex);
     await loadAnswerCount(newIndex);
@@ -1274,7 +1308,7 @@ export default function HostRoomPage() {
   const effectiveTimeLeft = shouldForceZero ? 0 : timeLeft;
   const answeredCount = answerCount;
   const totalPlayers = players.length;
-  const answeredPercentage = totalPlayers > 0 ? (answeredCount / totalPlayers) * 100 : 0;
+  const correctAnswerPercentage = totalPlayers > 0 ? (correctAnswerCount / totalPlayers) * 100 : 0;
   const totalQuestions = selectedQuestionIds.length || ROUND_QUESTION_COUNT;
   const allPlayersAnswered = serverAllPlayersAnswered || (totalPlayers > 0 && answeredCount >= totalPlayers);
   const isLastQuestion = totalQuestions > 0 ? currentQuestionIndex >= totalQuestions - 1 : false;
@@ -1297,8 +1331,8 @@ export default function HostRoomPage() {
     }
 
     betweenCueQuestionRef.current = questionKey;
-    void playBetweenAudioForPercent(answeredPercentage);
-  }, [question, roomStatus, canAdvance, totalPlayers, answeredPercentage, playBetweenAudioForPercent]);
+    void playBetweenAudioForPercent(correctAnswerPercentage);
+  }, [question, roomStatus, canAdvance, totalPlayers, correctAnswerPercentage, playBetweenAudioForPercent]);
 
   useEffect(() => {
     if (!question || roomStatus !== 'running' || !isLastQuestion || !canAdvance) {
@@ -1312,7 +1346,7 @@ export default function HostRoomPage() {
 
     roundEndLockQuestionRef.current = questionKey;
     setIsRoundEndButtonLocked(true);
-    void playBetweenAudioForPercent(answeredPercentage);
+    void playBetweenAudioForPercent(correctAnswerPercentage);
     clearRoundEndDelayTimeout();
     clearRoundEndUnlockTimeout();
     roundEndDelayTimeoutRef.current = setTimeout(() => {
@@ -1330,7 +1364,7 @@ export default function HostRoomPage() {
     playRoundEndAudio,
     clearRoundEndUnlockTimeout,
     playBetweenAudioForPercent,
-    answeredPercentage,
+    correctAnswerPercentage,
     clearRoundEndDelayTimeout,
   ]);
 
