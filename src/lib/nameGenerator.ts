@@ -21,7 +21,7 @@ const adjectives = [
 const nouns = [
   'Ёж',
   'Панда',
-  'Лама',
+  'Гугенот',
   'Единорог',
   'Кот',
   'Пёс',
@@ -33,7 +33,7 @@ const nouns = [
   'Медведь',
   'Заяц',
   'Волк',
-  'Сова',
+  'Филин',
 ];
 
 export function generateRandomName(): string {
