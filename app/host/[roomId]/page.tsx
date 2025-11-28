@@ -18,6 +18,7 @@ import {
 
 const QUESTION_DURATION_SECONDS = 30;
 const COUNTDOWN_STEPS = ['на старт', 'внимание', '3', '2', '1', 'старт'] as const;
+const AUTO_NEXT_DELAY_MS = 6000;
 const JOIN_SOUND_FILES = [
   'The_duck_quacked_fun_#1.mp3',
   'The_duck_quacked_fun_#2.mp3',
@@ -181,6 +182,7 @@ export default function HostRoomPage() {
   const betweenCueQuestionRef = useRef<number | null>(null);
   const roundEndLockQuestionRef = useRef<number | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const autoNextTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearCountdownTimeout = useCallback(() => {
     if (countdownTimeoutRef.current) {
@@ -210,6 +212,13 @@ export default function HostRoomPage() {
     }
   }, []);
 
+  const clearAutoNextTimeout = useCallback(() => {
+    if (autoNextTimeoutRef.current) {
+      clearTimeout(autoNextTimeoutRef.current);
+      autoNextTimeoutRef.current = null;
+    }
+  }, []);
+
   const syncServerTime = useCallback(async () => {
     try {
       const { data } = await supabase.rpc('get_server_time');
@@ -225,11 +234,11 @@ export default function HostRoomPage() {
     return timeOffsetMs;
   }, [timeOffsetMs]);
 
-  const getServerIsoTimestamp = async () => {
+  const getServerIsoTimestamp = useCallback(async () => {
     const offset = await syncServerTime();
     const serverNow = new Date(Date.now() - offset).toISOString();
     return { iso: serverNow, offset };
-  };
+  }, [syncServerTime]);
 
   const updateRoomStatus = useCallback(
     (nextStatus: RoomStatus) => {
@@ -851,6 +860,7 @@ export default function HostRoomPage() {
       clearPrestartEnableTimeout();
       clearRoundEndUnlockTimeout();
       clearRoundEndDelayTimeout();
+      clearAutoNextTimeout();
       const context = audioContextRef.current;
       if (context && context.state !== 'closed') {
         context.close().catch(() => undefined);
@@ -869,6 +879,7 @@ export default function HostRoomPage() {
     clearPrestartEnableTimeout,
     clearRoundEndUnlockTimeout,
     clearRoundEndDelayTimeout,
+    clearAutoNextTimeout,
   ]);
 
   const handleHostInteraction = useCallback(() => {
@@ -1140,7 +1151,7 @@ export default function HostRoomPage() {
     await loadAnswerCount(0);
   };
 
-  const nextQuestion = async () => {
+  const nextQuestion = useCallback(async () => {
     const newIndex = currentQuestionIndex + 1;
     const { iso: questionStartedAt, offset } = await getServerIsoTimestamp();
 
@@ -1161,7 +1172,7 @@ export default function HostRoomPage() {
     setAnsweredPlayerIds([]);
     loadQuestionFromSelection(newIndex);
     await loadAnswerCount(newIndex);
-  };
+  }, [currentQuestionIndex, getServerIsoTimestamp, roomId, syncTimerWithStart, loadQuestionFromSelection, loadAnswerCount]);
 
   const runCountdownSequence = (stepIndex: number) => {
     const clampedIndex = Math.min(stepIndex, COUNTDOWN_STEPS.length - 1);
@@ -1322,6 +1333,31 @@ export default function HostRoomPage() {
     answeredPercentage,
     clearRoundEndDelayTimeout,
   ]);
+
+  useEffect(() => {
+    if (roomStatus !== 'running' || showResults) {
+      clearAutoNextTimeout();
+      return;
+    }
+
+    if (!canAdvance || isLastQuestion) {
+      clearAutoNextTimeout();
+      return;
+    }
+
+    if (autoNextTimeoutRef.current) {
+      return;
+    }
+
+    autoNextTimeoutRef.current = setTimeout(() => {
+      autoNextTimeoutRef.current = null;
+      void nextQuestion();
+    }, AUTO_NEXT_DELAY_MS);
+
+    return () => {
+      clearAutoNextTimeout();
+    };
+  }, [roomStatus, showResults, canAdvance, isLastQuestion, nextQuestion, clearAutoNextTimeout]);
 
   if (isLoading) {
     return (
