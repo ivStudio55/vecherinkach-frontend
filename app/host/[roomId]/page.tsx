@@ -1543,13 +1543,6 @@ export default function HostRoomPage() {
   }, [answerCount, players.length, roomId, roomStatus, serverAllPlayersAnswered]);
 
   useEffect(() => {
-    if (roomStatus !== 'round2-running' || round2Phase !== 'fact' || !serverAllPlayersAnswered) {
-      return;
-    }
-    clearRound2Timer();
-  }, [roomStatus, round2Phase, serverAllPlayersAnswered, clearRound2Timer]);
-
-  useEffect(() => {
     if (roomStatus !== 'waiting') {
       stopLobby();
       stopRulesAudio();
@@ -1827,6 +1820,17 @@ export default function HostRoomPage() {
       stopRound2Audio,
     ]
   );
+
+  useEffect(() => {
+    if (roomStatus !== 'round2-running' || round2Phase !== 'fact' || !serverAllPlayersAnswered) {
+      return;
+    }
+    const currentIndex = round2CurrentIndexRef.current ?? round2CurrentIndex;
+    if (currentIndex === null) {
+      return;
+    }
+    void moveRound2ToExplanation(currentIndex);
+  }, [roomStatus, round2Phase, serverAllPlayersAnswered, moveRound2ToExplanation, round2CurrentIndex]);
 
   const launchRound2Question = useCallback(
     async (index: number, showingFact: boolean, questionNumber: number, options?: { resetTrackers?: boolean }) => {
