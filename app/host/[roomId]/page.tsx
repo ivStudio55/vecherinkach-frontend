@@ -197,7 +197,7 @@ export default function HostRoomPage() {
   const [isRoundEndButtonLocked, setIsRoundEndButtonLocked] = useState(false);
   const [isRatingVisible, setIsRatingVisible] = useState(false);
   const [round2Items, setRound2Items] = useState<TrueFalseItem[]>([]);
-  const [round2CurrentIndex, setRound2CurrentIndex] = useState<number | null>(null);
+  const [round2CurrentIndex, setRound2CurrentIndexState] = useState<number | null>(null);
   const [round2ShowingFact, setRound2ShowingFact] = useState<boolean>(true);
   const [round2Phase, setRound2Phase] = useState<Round2Phase>('idle');
   const [isRound2RulesVisible, setIsRound2RulesVisible] = useState(false);
@@ -245,6 +245,14 @@ export default function HostRoomPage() {
   const countdownCompleteActionRef = useRef<(() => Promise<void> | void) | null>(null);
   const round2RulesReadyAtRef = useRef<number | null>(null);
   const round2ShowingFactRef = useRef(round2ShowingFact);
+
+  const setRound2CurrentIndex = useCallback(
+    (value: number | null) => {
+      round2CurrentIndexRef.current = value;
+      setRound2CurrentIndexState(value);
+    },
+    [setRound2CurrentIndexState]
+  );
 
   const setQuestion = useCallback(
     (nextQuestion: Question | null) => {
@@ -591,6 +599,7 @@ export default function HostRoomPage() {
     [
       clearCountdownTimeout,
       clearRound2Timer,
+      setRound2CurrentIndex,
       stopRound2Audio,
       stopRound2RulesAudio,
     ]
@@ -841,6 +850,7 @@ export default function HostRoomPage() {
       syncTimerWithStart,
       updateRoomStatus,
       setQuestion,
+      setRound2CurrentIndex,
     ]
   );
 
@@ -1911,6 +1921,7 @@ export default function HostRoomPage() {
       setIsRatingVisible,
       playRound2FactAudio,
       moveRound2ToExplanation,
+      setRound2CurrentIndex,
     ]
   );
 
@@ -2012,7 +2023,7 @@ export default function HostRoomPage() {
     round2AskedIndicesRef.current = [];
     setServerAllPlayersAnswered(true);
     setQuestionStartedAt(null);
-  }, [clearRound2Timer, roomId, stopRound2Audio, stopRound2RulesAudio]);
+  }, [clearRound2Timer, roomId, setRound2CurrentIndex, stopRound2Audio, stopRound2RulesAudio]);
 
   const handleRound2NextQuestion = useCallback(async () => {
     if (roomStatus !== 'round2-running') {
