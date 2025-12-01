@@ -218,6 +218,7 @@ export default function HostRoomPage() {
   const roundEndAudioRef = useRef<HTMLAudioElement | null>(null);
   const roundEndJingleAudioRef = useRef<HTMLAudioElement | null>(null);
   const round2FactAudioRef = useRef<HTMLAudioElement | null>(null);
+  const round2TimerJingleAudioRef = useRef<HTMLAudioElement | null>(null);
   const round2ExplanationAudioRef = useRef<HTMLAudioElement | null>(null);
   const round2ExplanationBgAudioRef = useRef<HTMLAudioElement | null>(null);
   const round2RulesMusicAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -332,6 +333,11 @@ export default function HostRoomPage() {
       round2FactAudioRef.current.pause();
       round2FactAudioRef.current.currentTime = 0;
       round2FactAudioRef.current = null;
+    }
+    if (round2TimerJingleAudioRef.current) {
+      round2TimerJingleAudioRef.current.pause();
+      round2TimerJingleAudioRef.current.currentTime = 0;
+      round2TimerJingleAudioRef.current = null;
     }
     if (round2ExplanationAudioRef.current) {
       round2ExplanationAudioRef.current.pause();
@@ -464,6 +470,7 @@ export default function HostRoomPage() {
 
       const jingle = new Audio(buildJingleUrl(QUESTION_JINGLE_FILE));
       jingle.volume = 0.45;
+      round2TimerJingleAudioRef.current = jingle;
 
       try {
         await jingle.play();
@@ -1812,6 +1819,7 @@ export default function HostRoomPage() {
   const moveRound2ToExplanation = useCallback(
     async (index: number) => {
       clearRound2Timer();
+      stopRound2Audio();
       setRound2Phase('explanation');
       setServerAllPlayersAnswered(true);
       const { error } = await supabase
@@ -1846,12 +1854,12 @@ export default function HostRoomPage() {
     },
     [
       clearRound2Timer,
+      stopRound2Audio,
       playRound2ExplanationAudio,
       roomId,
       players.length,
       correctAnswerCount,
       playRound2FakeResultAudio,
-      stopRound2Audio,
     ]
   );
 
