@@ -86,7 +86,6 @@ const ROUND1_END_AUDIO_FILES = [
 ] as const;
 const ROUND1_END_JINGLE_FILE = 'round1_end/jingle_(after_round1).mp3';
 const ROUND2_RULES_JINGLE_FILE = 'round2/jingle (5).mp3';
-const ROUND2_RULES_START_FILE = 'round2/start.wav';
 const ROUND2_EXPLANATION_BG_FILE = 'round2/explanation.mp3';
 const ROUND2_RESULT_BG_FILE = 'round2/jingle (5).mp3';
 const ROUND2_FAKE_RESULT_DURATION_MS = 7000;
@@ -97,6 +96,8 @@ const ROUND2_FAKE_RESULT_VARIANTS = {
   mid: ['round2/between/50-99%/1.wav', 'round2/between/50-99%/2.wav', 'round2/between/50-99%/3.wav'],
   full: ['round2/between/100%/1.wav', 'round2/between/100%/2.wav', 'round2/between/100%/4.wav', 'round2/between/100%/5.wav'],
 } as const;
+const ROUND2_RULES_VOICE_FILES = ['round2/ruels/1.wav', 'round2/ruels/2.wav'] as const;
+const ROUND2_RULES_SKIP_WINDOW_MS = 20000;
 
 const buildAudioUrl = (relativePath: string) => `/api/audio?file=${encodeURIComponent(relativePath)}&t=${Date.now()}`;
 const buildJingleUrl = (fileName: string) => `/api/jingle/audio?file=${encodeURIComponent(fileName)}&t=${Date.now()}`;
@@ -188,6 +189,7 @@ export default function HostRoomPage() {
   const [isPrestartVisible, setIsPrestartVisible] = useState(false);
   const [isRulesVisible, setIsRulesVisible] = useState(false);
   const [isCountdownVisible, setIsCountdownVisible] = useState(false);
+  const [countdownContext, setCountdownContext] = useState<'round1' | 'round2'>('round1');
   const [countdownValue, setCountdownValue] = useState<string>(COUNTDOWN_STEPS[0]);
   const [isRoomOpened, setIsRoomOpened] = useState(false);
   const [isPrestartNextEnabled, setIsPrestartNextEnabled] = useState(true);
@@ -240,6 +242,9 @@ export default function HostRoomPage() {
   const autoNextTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const round2TimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const round2CurrentIndexRef = useRef<number | null>(round2CurrentIndex);
+  const countdownCompleteActionRef = useRef<(() => Promise<void> | void) | null>(null);
+  const round2RulesReadyAtRef = useRef<number | null>(null);
+  const round2ShowingFactRef = useRef(round2ShowingFact);
 
   const setQuestion = useCallback(
     (nextQuestion: Question | null) => {
@@ -264,11 +269,16 @@ export default function HostRoomPage() {
     round2QuestionCounterRef.current = round2QuestionCounter;
   }, [round2QuestionCounter]);
 
+  useEffect(() => {
+    round2ShowingFactRef.current = round2ShowingFact;
+  }, [round2ShowingFact]);
+
   const clearCountdownTimeout = useCallback(() => {
     if (countdownTimeoutRef.current) {
       clearTimeout(countdownTimeoutRef.current);
       countdownTimeoutRef.current = null;
     }
+    countdownCompleteActionRef.current = null;
   }, []);
 
   const clearPrestartEnableTimeout = useCallback(() => {
@@ -347,15 +357,16 @@ export default function HostRoomPage() {
     jingle.loop = true;
     round2RulesMusicAudioRef.current = jingle;
 
-    const startVoice = new Audio(buildAudioUrl(ROUND2_RULES_START_FILE));
-    startVoice.volume = 0.95;
-    round2RulesVoiceAudioRef.current = startVoice;
+    const voiceSource = ROUND2_RULES_VOICE_FILES.length ? pickRandomItem(ROUND2_RULES_VOICE_FILES) : ROUND2_RULES_JINGLE_FILE;
+    const voice = new Audio(buildAudioUrl(voiceSource));
+    voice.volume = 0.95;
+    round2RulesVoiceAudioRef.current = voice;
 
     jingle.play().catch((err) => {
       console.error('Не удалось воспроизвести джингл правил Раунда 2', err);
     });
-    startVoice.play().catch((err) => {
-      console.error('Не удалось воспроизвести вступление Раунда 2', err);
+    voice.play().catch((err) => {
+      console.error('Не удалось воспроизвести озвучку правил Раунда 2', err);
     });
   }, [stopRound2RulesAudio]);
 
@@ -380,6 +391,10 @@ export default function HostRoomPage() {
       stopRound2RulesAudio();
     }
   }, [isRound2RulesVisible, playRound2RulesAudio, stopRound2RulesAudio]);
+
+  useEffect(() => {
+    round2RulesReadyAtRef.current = isRound2RulesVisible ? Date.now() : null;
+  }, [isRound2RulesVisible]);
 
   const playRound2FactAudio = useCallback(
     async (index: number, isFact: boolean) => {
@@ -1519,6 +1534,13 @@ export default function HostRoomPage() {
   }, [answerCount, players.length, roomId, roomStatus, serverAllPlayersAnswered]);
 
   useEffect(() => {
+    if (roomStatus !== 'round2-running' || round2Phase !== 'fact' || !serverAllPlayersAnswered) {
+      return;
+    }
+    clearRound2Timer();
+  }, [roomStatus, round2Phase, serverAllPlayersAnswered, clearRound2Timer]);
+
+  useEffect(() => {
     if (roomStatus !== 'waiting') {
       stopLobby();
       stopRulesAudio();
@@ -1637,22 +1659,31 @@ export default function HostRoomPage() {
     await loadAnswerCount(newIndex);
   }, [currentQuestionIndex, getServerIsoTimestamp, roomId, syncTimerWithStart, loadQuestionFromSelection, loadAnswerCount]);
 
-  const runCountdownSequence = (stepIndex: number) => {
-    const clampedIndex = Math.min(stepIndex, COUNTDOWN_STEPS.length - 1);
-    const value = COUNTDOWN_STEPS[clampedIndex];
-    const isFinal = clampedIndex === COUNTDOWN_STEPS.length - 1;
-    setCountdownValue(value);
-    void playBeep(isFinal ? 1200 : 880);
-    if (!isFinal) {
-      countdownTimeoutRef.current = setTimeout(() => runCountdownSequence(clampedIndex + 1), 1000);
-      return;
-    }
+  const runCountdownSequence = useCallback(
+    function runCountdownSequence(stepIndex: number) {
+      const clampedIndex = Math.min(stepIndex, COUNTDOWN_STEPS.length - 1);
+      const value = COUNTDOWN_STEPS[clampedIndex];
+      const isFinal = clampedIndex === COUNTDOWN_STEPS.length - 1;
+      setCountdownValue(value);
+      void playBeep(isFinal ? 1200 : 880);
+      if (!isFinal) {
+        countdownTimeoutRef.current = setTimeout(() => runCountdownSequence(clampedIndex + 1), 1000);
+        return;
+      }
 
-    countdownTimeoutRef.current = setTimeout(() => {
-      setIsCountdownVisible(false);
-      void startRound();
-    }, 400);
-  };
+      countdownTimeoutRef.current = setTimeout(() => {
+        setIsCountdownVisible(false);
+        const action = countdownCompleteActionRef.current;
+        countdownCompleteActionRef.current = null;
+        if (action) {
+          Promise.resolve(action()).catch((err) => {
+            console.error('Не удалось выполнить действие после обратного отсчёта', err);
+          });
+        }
+      }, 400);
+    },
+    [playBeep]
+  );
 
   const handleCountdownStart = () => {
     if (roomStatus !== 'waiting' || players.length === 0 || isCountdownVisible) {
@@ -1669,6 +1700,8 @@ export default function HostRoomPage() {
     countdownReadyAtRef.current = null;
     hasUserInteractedRef.current = true;
     setIsRulesVisible(false);
+    setCountdownContext('round1');
+    countdownCompleteActionRef.current = () => startRound();
     setIsCountdownVisible(true);
     clearCountdownTimeout();
     runCountdownSequence(0);
@@ -1759,7 +1792,9 @@ export default function HostRoomPage() {
         return;
       }
 
-      if (round2ShowingFact) {
+      const showingFact = round2ShowingFactRef.current;
+
+      if (showingFact) {
         await playRound2ExplanationAudio(index);
         return;
       }
@@ -1776,7 +1811,6 @@ export default function HostRoomPage() {
     [
       clearRound2Timer,
       playRound2ExplanationAudio,
-      round2ShowingFact,
       roomId,
       players.length,
       correctAnswerCount,
@@ -1882,7 +1916,7 @@ export default function HostRoomPage() {
   }, [round2Items]);
 
 
-  const startRound2 = useCallback(async () => {
+  const performRound2Start = useCallback(async () => {
     if (!round2Items.length) {
       setError('Вопросы для Раунда 2 ещё не загружены');
       return;
@@ -1896,7 +1930,43 @@ export default function HostRoomPage() {
 
     const showingFact = Math.random() < 0.5;
     await launchRound2Question(index, showingFact, 1, { resetTrackers: true });
-  }, [launchRound2Question, pickNextRound2Index, round2Items, setError]);
+  }, [launchRound2Question, pickNextRound2Index, round2Items.length, setError]);
+
+  const startRound2 = useCallback(() => {
+    if (!round2Items.length) {
+      setError('Вопросы для Раунда 2 ещё не загружены');
+      return;
+    }
+
+    hasUserInteractedRef.current = true;
+    const readyAt = round2RulesReadyAtRef.current;
+    round2RulesReadyAtRef.current = null;
+    const now = Date.now();
+    const shouldPlaySkip = !readyAt || now - readyAt <= ROUND2_RULES_SKIP_WINDOW_MS;
+
+    setIsRound2RulesVisible(false);
+    stopRound2RulesAudio();
+
+    if (shouldPlaySkip) {
+      playSkipAudio();
+    }
+
+    setCountdownContext('round2');
+    countdownCompleteActionRef.current = () => performRound2Start();
+    setIsCountdownVisible(true);
+    clearCountdownTimeout();
+    runCountdownSequence(0);
+  }, [
+    clearCountdownTimeout,
+    performRound2Start,
+    playSkipAudio,
+    round2Items.length,
+    runCountdownSequence,
+    setCountdownContext,
+    setIsCountdownVisible,
+    setIsRound2RulesVisible,
+    stopRound2RulesAudio,
+  ]);
 
   const completeRound2 = useCallback(async () => {
     handleRound2NextQuestionRef.current = null;
@@ -1993,7 +2063,7 @@ export default function HostRoomPage() {
   const questionsForSummary = summaryQuestions.length ? summaryQuestions : question ? [question] : [];
   const isWaiting = roomStatus === 'waiting' && !showResults;
   const shouldShowRulesModal = isWaiting && isRulesVisible;
-  const shouldShowCountdownOverlay = isWaiting && isCountdownVisible;
+  const shouldShowCountdownOverlay = isCountdownVisible;
   const currentRound2Item = round2CurrentIndex !== null ? round2Items[round2CurrentIndex] : null;
   const round2Statement = currentRound2Item
     ? round2ShowingFact
@@ -2725,11 +2795,17 @@ export default function HostRoomPage() {
 
       {shouldShowCountdownOverlay && (
         <div className="fixed inset-0 z-50 bg-[#142a45]/90 flex flex-col items-center justify-center text-center text-[#ffeccd] px-4">
-          <p className="text-sm uppercase tracking-[0.5em] text-[#ffeccd]/70 mb-4">Запуск раунда</p>
+          <p className="text-sm uppercase tracking-[0.5em] text-[#ffeccd]/70 mb-4">
+            {countdownContext === 'round2' ? 'Запуск Раунда 2' : 'Запуск раунда'}
+          </p>
           <div className="text-7xl sm:text-8xl font-black drop-shadow-lg">
             {countdownValue.toUpperCase()}
           </div>
-          <p className="mt-6 text-sm text-[#ffeccd]/80">Звук уже пошёл — готовим вопросы на экране игроков.</p>
+          <p className="mt-6 text-sm text-[#ffeccd]/80">
+            {countdownContext === 'round2'
+              ? 'Фейколов уже на подходе — готовим новое утверждение для игроков.'
+              : 'Звук уже пошёл — готовим вопросы на экране игроков.'}
+          </p>
         </div>
       )}
 
@@ -2748,7 +2824,7 @@ export default function HostRoomPage() {
             <div className="space-y-3">
               <button
                 type="button"
-                onClick={() => void startRound2()}
+                onClick={startRound2}
                 disabled={round2Items.length === 0}
                 className="w-full py-3 rounded-2xl font-black text-lg tracking-[0.3em] bg-[#b4007f] text-white border-[3px] border-[#142a45] transition disabled:opacity-40 disabled:cursor-not-allowed"
               >
