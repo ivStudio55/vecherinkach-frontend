@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import {
   ActiveRoundQuestion,
@@ -52,7 +52,10 @@ type RoomUpdatePayload = {
 export default function RoomPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const roomCode = params.code as string;
+  const fallbackPlayerId = searchParams.get('pid');
+  const fallbackPlayerName = searchParams.get('name');
 
   const [question, setQuestion] = useState<Question | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -144,89 +147,119 @@ export default function RoomPage() {
 
   useEffect(() => {
     const init = async () => {
-      // Проверка версии и принудительное обновление
-      const storedVersion = localStorage.getItem('appVersion');
-      if (storedVersion !== APP_VERSION) {
-        console.log('New version detected, clearing cache');
-        localStorage.setItem('appVersion', APP_VERSION);
-        // Даём браузеру время обновить кеш
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-
-      const storedPlayerId = localStorage.getItem('playerId');
-      const name = localStorage.getItem('playerName');
-
-      if (!storedPlayerId || !name) {
-        router.push('/');
-        return;
-      }
-
-      setPlayerName(name);
-
-      setPlayerId(storedPlayerId);
-      playerIdRef.current = storedPlayerId;
-
-      const offset = await syncServerTimeRef.current?.();
-
-      // Получаем данные комнаты
-      const { data: room, error: roomError } = await supabase
-        .from('rooms')
-        .select(
-          'id, current_question_index, is_active, status, question_started_at, all_players_answered, selected_question_ids, round2_item_index, round2_showing_fact, round2_phase'
-        )
-        .eq('code', roomCode)
-        .single();
-
-      if (roomError || !room) {
-        setError('Комната не найдена');
-        setIsLoading(false);
-        return;
-      }
-
-  setRoomId(room.id);
-  roomIdRef.current = room.id;
-      const selection = (room.selected_question_ids as number[] | null) || [];
-      setSelectedQuestionIds(selection);
-      const detectedStatus = (room.status as RoomStatus) || (room.is_active ? 'waiting' : 'finished');
-      setRoomStatus(detectedStatus);
-      const isLiveRound = detectedStatus === 'running' || detectedStatus === 'round2-running';
-      setAllPlayersAnswered(isLiveRound ? !!room.all_players_answered : false);
-
-      if (detectedStatus === 'waiting') {
-        setShowResults(false);
-        setHasAnswered(false);
-        setQuestion(null);
-        setQuestionStartedAt(null);
-        setTimeLeft(QUESTION_DURATION_SECONDS);
-        setIsLoading(false);
-      } else if (!room.is_active || detectedStatus === 'finished') {
-        setShowResults(true);
-        setQuestion(null);
-        setQuestionStartedAt(null);
-        setIsLoading(false);
-      } else if (detectedStatus === 'running') {
-        const startTime = room.question_started_at;
-        setQuestionStartedAt(startTime);
-        const initialTime = getRemainingSeconds(startTime, offset);
-        setTimeLeft(room.all_players_answered ? 0 : initialTime);
-
-        loadQuestionFromSelectionRef.current?.(room.current_question_index, selection);
-
-        // Проверяем, ответил ли игрок на текущий вопрос
-        const { data: existingAnswer } = await supabase
-          .from('answers')
-          .select('id')
-          .eq('player_id', storedPlayerId)
-          .eq('room_id', room.id)
-          .eq('question_index', room.current_question_index)
-          .single();
-
-        if (existingAnswer) {
-          setHasAnswered(true);
+      try {
+        try {
+          const storedVersion = localStorage.getItem('appVersion');
+          if (storedVersion !== APP_VERSION) {
+            console.log('New version detected, clearing cache');
+            localStorage.setItem('appVersion', APP_VERSION);
+            await new Promise((resolve) => setTimeout(resolve, 100));
+          }
+        } catch (storageError) {
+          console.warn('Не удалось обновить версию приложения', storageError);
         }
 
-        setIsLoading(false);
-      } else if (detectedStatus === 'round2-running') {
+        let storedPlayerId = '';
+        let storedName = '';
+        try {
+          storedPlayerId = localStorage.getItem('playerId') || '';
+          storedName = localStorage.getItem('playerName') || '';
+        } catch (storageError) {
+          console.warn('Не удалось получить данные игрока из localStorage', storageError);
+        }
+
+        if (!storedPlayerId && fallbackPlayerId) {
+          storedPlayerId = fallbackPlayerId;
+          try {
+            localStorage.setItem('playerId', fallbackPlayerId);
+          } catch (storageError) {
+            console.warn('Не удалось сохранить playerId в localStorage', storageError);
+          }
+        }
+
+        if (!storedName && fallbackPlayerName) {
+          storedName = fallbackPlayerName;
+          try {
+            localStorage.setItem('playerName', fallbackPlayerName);
+          } catch (storageError) {
+            console.warn('Не удалось сохранить playerName в localStorage', storageError);
+          }
+        }
+
+        if (!storedPlayerId || !storedName) {
+          setError('Не удалось найти данные игрока. Вернитесь на экран подключения и попробуйте ещё раз.');
+          router.push('/');
+          return;
+        }
+
+        setPlayerName(storedName);
+        setPlayerId(storedPlayerId);
+        playerIdRef.current = storedPlayerId;
+
+        const offset = await syncServerTimeRef.current?.();
+
+        const { data: room, error: roomError } = await supabase
+          .from('rooms')
+          .select(
+            'id, current_question_index, is_active, status, question_started_at, all_players_answered, selected_question_ids, round2_item_index, round2_showing_fact, round2_phase'
+          )
+          .eq('code', roomCode)
+          .single();
+
+        if (roomError || !room) {
+          setError('Комната не найдена');
+          return;
+        }
+
+        setRoomId(room.id);
+        roomIdRef.current = room.id;
+        const selection = (room.selected_question_ids as number[] | null) || [];
+        setSelectedQuestionIds(selection);
+        const detectedStatus = (room.status as RoomStatus) || (room.is_active ? 'waiting' : 'finished');
+        setRoomStatus(detectedStatus);
+        const isLiveRound = detectedStatus === 'running' || detectedStatus === 'round2-running';
+        setAllPlayersAnswered(isLiveRound ? !!room.all_players_answered : false);
+
+        if (detectedStatus === 'waiting') {
+          setShowResults(false);
+          setHasAnswered(false);
+          setQuestion(null);
+          setQuestionStartedAt(null);
+          setTimeLeft(QUESTION_DURATION_SECONDS);
+          return;
+        }
+
+        if (!room.is_active || detectedStatus === 'finished') {
+          setShowResults(true);
+          setQuestion(null);
+          setQuestionStartedAt(null);
+          return;
+        }
+
+        if (detectedStatus === 'running') {
+          const startTime = room.question_started_at;
+          setQuestionStartedAt(startTime);
+          const initialTime = getRemainingSeconds(startTime, offset);
+          setTimeLeft(room.all_players_answered ? 0 : initialTime);
+
+          loadQuestionFromSelectionRef.current?.(room.current_question_index, selection);
+
+          const { data: existingAnswer } = await supabase
+            .from('answers')
+            .select('id')
+            .eq('player_id', storedPlayerId)
+            .eq('room_id', room.id)
+            .eq('question_index', room.current_question_index)
+            .single();
+
+          if (existingAnswer) {
+            setHasAnswered(true);
+          } else {
+            setHasAnswered(false);
+          }
+          return;
+        }
+
         setRoomStatus('round2-running');
         setShowResults(false);
         setQuestion(null);
@@ -259,12 +292,16 @@ export default function RoomPage() {
         } else {
           setHasAnswered(false);
         }
+      } catch (err) {
+        console.error('Не удалось загрузить комнату игрока', err);
+        setError('Не удалось подключиться к комнате. Попробуйте обновить страницу.');
+      } finally {
         setIsLoading(false);
       }
     };
 
     init();
-  }, [roomCode, router]);
+  }, [roomCode, router, fallbackPlayerId, fallbackPlayerName]);
 
   useEffect(() => {
     if (!roomId) {

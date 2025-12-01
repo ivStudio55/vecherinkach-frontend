@@ -61,10 +61,15 @@ export default function JoinPage() {
         return;
       }
 
-      localStorage.setItem('playerId', player.id);
-      localStorage.setItem('playerName', finalName);
+      try {
+        localStorage.setItem('playerId', player.id);
+        localStorage.setItem('playerName', finalName);
+      } catch (storageError) {
+        console.warn('Не удалось сохранить данные игрока в localStorage', storageError);
+      }
 
-      router.push(`/room/${roomCode}`);
+      const query = new URLSearchParams({ pid: player.id, name: finalName }).toString();
+      router.push(`/room/${roomCode}?${query}`);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
       setError(`Ошибка: ${message}`);
