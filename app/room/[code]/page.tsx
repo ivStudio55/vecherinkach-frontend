@@ -338,6 +338,7 @@ export default function RoomPage() {
 
           const offset = await syncServerTimeRef.current?.();
           if (newStatus === 'round2-running') {
+            setShowResults(false);
             setQuestion(null);
             setQuestionStartedAt(startedAt);
             setTimeLeft(startedAt ? getRemainingSeconds(startedAt, offset || 0) : QUESTION_DURATION_SECONDS);

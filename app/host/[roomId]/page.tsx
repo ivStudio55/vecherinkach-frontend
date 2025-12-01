@@ -3,7 +3,7 @@
 import { Fragment, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { TrueFalseItem, pickRandomIndex, ROUND2_POINTS } from '@/lib/round2';
+import { TrueFalseItem, ROUND2_POINTS } from '@/lib/round2';
 import {
   ActiveRoundQuestion,
   OptionKey,
@@ -88,6 +88,15 @@ const ROUND1_END_JINGLE_FILE = 'round1_end/jingle_(after_round1).mp3';
 const ROUND2_RULES_JINGLE_FILE = 'round2/jingle (5).mp3';
 const ROUND2_RULES_START_FILE = 'round2/start.wav';
 const ROUND2_EXPLANATION_BG_FILE = 'round2/explanation.mp3';
+const ROUND2_RESULT_BG_FILE = 'round2/jingle (5).mp3';
+const ROUND2_FAKE_RESULT_DURATION_MS = 7000;
+const ROUND2_TOTAL_QUESTIONS = 6;
+const ROUND2_FAKE_RESULT_VARIANTS = {
+  zero: ['round2/between/0/1.wav', 'round2/between/0/2.wav', 'round2/between/0/3.wav', 'round2/between/0/4.wav'],
+  low: ['round2/between/1-49%/1.wav', 'round2/between/1-49%/2.wav', 'round2/between/1-49%/3.wav'],
+  mid: ['round2/between/50-99%/1.wav', 'round2/between/50-99%/2.wav', 'round2/between/50-99%/3.wav'],
+  full: ['round2/between/100%/1.wav', 'round2/between/100%/2.wav', 'round2/between/100%/4.wav', 'round2/between/100%/5.wav'],
+} as const;
 
 const buildAudioUrl = (relativePath: string) => `/api/audio?file=${encodeURIComponent(relativePath)}&t=${Date.now()}`;
 const buildJingleUrl = (fileName: string) => `/api/jingle/audio?file=${encodeURIComponent(fileName)}&t=${Date.now()}`;
@@ -191,6 +200,8 @@ export default function HostRoomPage() {
   const [round2Phase, setRound2Phase] = useState<Round2Phase>('idle');
   const [isRound2RulesVisible, setIsRound2RulesVisible] = useState(false);
   const [round2Answers, setRound2Answers] = useState<Round2AnswerRow[]>([]);
+  const [round2AskedIndices, setRound2AskedIndices] = useState<number[]>([]);
+  const [round2QuestionCounter, setRound2QuestionCounter] = useState(0);
 
   const meetAudioRef = useRef<HTMLAudioElement | null>(null);
   const connectAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -210,6 +221,9 @@ export default function HostRoomPage() {
   const lastJoinAudioRef = useRef<HTMLAudioElement | null>(null);
   const lobbySoundSetterRef = useRef(setIsLobbySoundOn);
   const roundEndButtonSetterRef = useRef(setIsRoundEndButtonLocked);
+  const round2AskedIndicesRef = useRef<number[]>([]);
+  const round2QuestionCounterRef = useRef(0);
+  const handleRound2NextQuestionRef = useRef<(() => void) | null>(null);
   const previousPlayerIdsRef = useRef<Set<string>>(new Set());
   const hasSnapshotRef = useRef(false);
   const countdownTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -241,6 +255,14 @@ export default function HostRoomPage() {
   useEffect(() => {
     roundEndButtonSetterRef.current = setIsRoundEndButtonLocked;
   }, [setIsRoundEndButtonLocked]);
+
+  useEffect(() => {
+    round2AskedIndicesRef.current = round2AskedIndices;
+  }, [round2AskedIndices]);
+
+  useEffect(() => {
+    round2QuestionCounterRef.current = round2QuestionCounter;
+  }, [round2QuestionCounter]);
 
   const clearCountdownTimeout = useCallback(() => {
     if (countdownTimeoutRef.current) {
@@ -410,8 +432,59 @@ export default function HostRoomPage() {
         console.error('Не удалось запустить фон объяснения Раунда 2', e);
       }
 
+      voice.addEventListener(
+        'ended',
+        () => {
+          stopRound2Audio();
+          handleRound2NextQuestionRef.current?.();
+        },
+        { once: true }
+      );
+
       voice.play().catch((e) => {
         console.error('Не удалось проиграть озвучку объяснения Раунда 2', e);
+      });
+    },
+    [stopRound2Audio]
+  );
+
+  const playRound2FakeResultAudio = useCallback(
+    async (percent: number) => {
+      if (!hasUserInteractedRef.current) {
+        return;
+      }
+
+      stopRound2Audio();
+
+      const normalized = Math.max(0, Math.min(100, Math.round(percent)));
+      const variants =
+        normalized === 100
+          ? ROUND2_FAKE_RESULT_VARIANTS.full
+          : normalized >= 50
+            ? ROUND2_FAKE_RESULT_VARIANTS.mid
+            : normalized >= 1
+              ? ROUND2_FAKE_RESULT_VARIANTS.low
+              : ROUND2_FAKE_RESULT_VARIANTS.zero;
+
+      const cueFile = pickRandomItem(variants);
+
+      const bg = new Audio(buildAudioUrl(ROUND2_RESULT_BG_FILE));
+      bg.volume = 0.35;
+      bg.loop = true;
+      round2ExplanationBgAudioRef.current = bg;
+
+      const cue = new Audio(buildAudioUrl(cueFile));
+      cue.volume = 0.95;
+      round2ExplanationAudioRef.current = cue;
+
+      try {
+        await bg.play();
+      } catch (error) {
+        console.error('Не удалось запустить фон реакции на фейк Раунда 2', error);
+      }
+
+      cue.play().catch((error) => {
+        console.error('Не удалось проиграть реакцию на фейк Раунда 2', error);
       });
     },
     [stopRound2Audio]
@@ -552,14 +625,17 @@ export default function HostRoomPage() {
   );
 
   const loadRound2AnswerStats = useCallback(
-    async (itemIndex: number | null) => {
+    async (itemIndex: number | null, options?: { preserveRound1Counters?: boolean }) => {
+      const preserveRound1Counters = options?.preserveRound1Counters ?? false;
       if (!itemIndex && itemIndex !== 0) {
         setRound2Answers([]);
-        setAnswerCount(0);
-        setCorrectAnswerCount(0);
-        setAnsweredPlayerIds([]);
-        if (serverAllPlayersAnswered) {
-          setServerAllPlayersAnswered(false);
+        if (!preserveRound1Counters) {
+          setAnswerCount(0);
+          setCorrectAnswerCount(0);
+          setAnsweredPlayerIds([]);
+          if (serverAllPlayersAnswered) {
+            setServerAllPlayersAnswered(false);
+          }
         }
         return;
       }
@@ -654,7 +730,7 @@ export default function HostRoomPage() {
         }
         loadQuestionFromSelection(room.current_question_index, selection);
         await loadAnswerCount(room.current_question_index);
-        await loadRound2AnswerStats(null);
+        await loadRound2AnswerStats(null, { preserveRound1Counters: true });
       } else if (detectedStatus === 'round2-running') {
         setShowResults(false);
         setQuestion(null);
@@ -1680,76 +1756,150 @@ export default function HostRoomPage() {
 
       if (error) {
         console.error('Не удалось переключить Раунд 2 в режим объяснения', error);
+        return;
       }
 
-      await playRound2ExplanationAudio(index);
+      if (round2ShowingFact) {
+        await playRound2ExplanationAudio(index);
+        return;
+      }
+
+      const totalPlayers = players.length;
+      const percent = totalPlayers > 0 ? (correctAnswerCount / totalPlayers) * 100 : 0;
+      await playRound2FakeResultAudio(percent);
+
+      round2TimerRef.current = setTimeout(() => {
+        stopRound2Audio();
+        handleRound2NextQuestionRef.current?.();
+      }, ROUND2_FAKE_RESULT_DURATION_MS);
     },
-    [clearRound2Timer, playRound2ExplanationAudio, roomId]
+    [
+      clearRound2Timer,
+      playRound2ExplanationAudio,
+      round2ShowingFact,
+      roomId,
+      players.length,
+      correctAnswerCount,
+      playRound2FakeResultAudio,
+      stopRound2Audio,
+    ]
   );
 
+  const launchRound2Question = useCallback(
+    async (index: number, showingFact: boolean, questionNumber: number, options?: { resetTrackers?: boolean }) => {
+      hasUserInteractedRef.current = true;
+      clearRound2Timer();
+      stopRoundEndAudio();
+      stopBetweenAudio();
+      stopQuestionAudio();
+      stopRound2Audio();
+      stopRound2RulesAudio();
+      setIsRound2RulesVisible(false);
 
-  const startRound2 = async () => {
+      if (options?.resetTrackers) {
+        round2AskedIndicesRef.current = [index];
+        setRound2AskedIndices([index]);
+      } else {
+        const nextUsed = [...round2AskedIndicesRef.current, index];
+        round2AskedIndicesRef.current = nextUsed;
+        setRound2AskedIndices(nextUsed);
+      }
+
+      round2QuestionCounterRef.current = questionNumber;
+      setRound2QuestionCounter(questionNumber);
+
+      const { iso: startedAt } = await getServerIsoTimestamp();
+
+      const { error: updateError } = await supabase
+        .from('rooms')
+        .update({
+          status: 'round2-running',
+          is_active: true,
+          question_started_at: startedAt,
+          current_question_index: index,
+          round2_item_index: index,
+          round2_showing_fact: showingFact,
+          round2_phase: 'fact',
+          all_players_answered: false,
+        })
+        .eq('id', roomId);
+
+      if (updateError) {
+        setError('Не удалось запустить Раунд 2');
+        return;
+      }
+
+      setShowResults(false);
+      setIsRatingVisible(false);
+      setRoomStatus('round2-running');
+      setRound2CurrentIndex(index);
+      setRound2ShowingFact(showingFact);
+      setRound2Phase('fact');
+      setServerAllPlayersAnswered(false);
+      setAnswerCount(0);
+      setCorrectAnswerCount(0);
+      setAnsweredPlayerIds([]);
+      setRound2Answers([]);
+      setQuestionStartedAt(startedAt);
+      setTimeLeft(QUESTION_DURATION_SECONDS);
+
+      await playRound2FactAudio(index, showingFact);
+
+      round2TimerRef.current = setTimeout(() => {
+        void moveRound2ToExplanation(index);
+      }, QUESTION_DURATION_SECONDS * 1000);
+    },
+    [
+      clearRound2Timer,
+      stopRoundEndAudio,
+      stopBetweenAudio,
+      stopQuestionAudio,
+      stopRound2Audio,
+      stopRound2RulesAudio,
+      setIsRound2RulesVisible,
+      getServerIsoTimestamp,
+      roomId,
+      setError,
+      setShowResults,
+      setIsRatingVisible,
+      playRound2FactAudio,
+      moveRound2ToExplanation,
+    ]
+  );
+
+  const pickNextRound2Index = useCallback(() => {
+    if (!round2Items.length) {
+      return null;
+    }
+    const used = new Set(round2AskedIndicesRef.current);
+    const allIndices = round2Items.map((_, idx) => idx);
+    const available = allIndices.filter((idx) => !used.has(idx));
+    const pool = available.length ? available : allIndices;
+    if (!pool.length) {
+      return null;
+    }
+    return pickRandomItem(pool);
+  }, [round2Items]);
+
+
+  const startRound2 = useCallback(async () => {
     if (!round2Items.length) {
       setError('Вопросы для Раунда 2 ещё не загружены');
       return;
     }
 
-    hasUserInteractedRef.current = true;
-    clearRound2Timer();
-    stopRoundEndAudio();
-    stopBetweenAudio();
-    stopQuestionAudio();
-    stopRound2Audio();
-
-    stopRound2RulesAudio();
-    setIsRound2RulesVisible(false);
-
-    const index = pickRandomIndex(round2Items.length);
-    const showingFact = Math.random() < 0.5;
-
-    const { iso: startedAt } = await getServerIsoTimestamp();
-
-    const { error: updateError } = await supabase
-      .from('rooms')
-      .update({
-        status: 'round2-running',
-        is_active: true,
-        question_started_at: startedAt,
-        current_question_index: index,
-        round2_item_index: index,
-        round2_showing_fact: showingFact,
-        round2_phase: 'fact',
-        all_players_answered: false,
-      })
-      .eq('id', roomId);
-
-    if (updateError) {
-      setError('Не удалось запустить Раунд 2');
+    const index = pickNextRound2Index();
+    if (index === null) {
+      setError('Не удалось выбрать факт для Раунда 2');
       return;
     }
 
-    setShowResults(false);
-    setIsRatingVisible(false);
-    setRoomStatus('round2-running');
-    setRound2CurrentIndex(index);
-    setRound2ShowingFact(showingFact);
-    setRound2Phase('fact');
-    setServerAllPlayersAnswered(false);
-    setAnswerCount(0);
-    setCorrectAnswerCount(0);
-    setAnsweredPlayerIds([]);
-    setRound2Answers([]);
-    setQuestionStartedAt(startedAt);
-    setTimeLeft(QUESTION_DURATION_SECONDS);
-
-    await playRound2FactAudio(index, showingFact);
-
-    round2TimerRef.current = setTimeout(() => {
-      void moveRound2ToExplanation(index);
-    }, QUESTION_DURATION_SECONDS * 1000);
-  };
+    const showingFact = Math.random() < 0.5;
+    await launchRound2Question(index, showingFact, 1, { resetTrackers: true });
+  }, [launchRound2Question, pickNextRound2Index, round2Items, setError]);
 
   const completeRound2 = useCallback(async () => {
+    handleRound2NextQuestionRef.current = null;
     clearRound2Timer();
     stopRound2Audio();
     stopRound2RulesAudio();
@@ -1773,9 +1923,38 @@ export default function HostRoomPage() {
     setShowResults(true);
     setRound2Phase('idle');
     setRound2CurrentIndex(null);
+    setRound2QuestionCounter(0);
+    setRound2AskedIndices([]);
+    round2QuestionCounterRef.current = 0;
+    round2AskedIndicesRef.current = [];
     setServerAllPlayersAnswered(true);
     setQuestionStartedAt(null);
   }, [clearRound2Timer, roomId, stopRound2Audio, stopRound2RulesAudio]);
+
+  const handleRound2NextQuestion = useCallback(async () => {
+    if (roomStatus !== 'round2-running') {
+      return;
+    }
+
+    const currentStep = round2QuestionCounterRef.current;
+    if (currentStep >= ROUND2_TOTAL_QUESTIONS) {
+      await completeRound2();
+      return;
+    }
+
+    const nextIndex = pickNextRound2Index();
+    if (nextIndex === null) {
+      await completeRound2();
+      return;
+    }
+
+    const showingFact = Math.random() < 0.5;
+    await launchRound2Question(nextIndex, showingFact, currentStep + 1);
+  }, [completeRound2, launchRound2Question, pickNextRound2Index, roomStatus]);
+
+  useEffect(() => {
+    handleRound2NextQuestionRef.current = handleRound2NextQuestion;
+  }, [handleRound2NextQuestion]);
 
   const handleRound2Reveal = useCallback(() => {
     if (round2CurrentIndex === null) {
@@ -1830,6 +2009,20 @@ export default function HostRoomPage() {
     return Array.from(unique.values());
   }, [round2Answers]);
   const headerActionLabel = roomStatus === 'finished' && showResults ? 'Раунд 2' : 'Завершить игру';
+  const round2QuestionNumber = round2QuestionCounter > 0 ? round2QuestionCounter : 1;
+  const clampedRound2QuestionNumber = Math.min(round2QuestionNumber, ROUND2_TOTAL_QUESTIONS);
+  const round2TruthLabel =
+    round2Phase === 'fact'
+      ? 'Правда откроется во время объяснения'
+      : round2ShowingFact
+        ? 'Ответ: правда'
+        : 'Ответ: вымысел';
+  const round2TruthClass =
+    round2Phase === 'fact'
+      ? 'text-[#142a45]/60'
+      : round2ShowingFact
+        ? 'text-[#1f6ac6]'
+        : 'text-[#b4007f]';
 
   const handlePrimaryHeaderAction = () => {
     if (roomStatus === 'finished' && showResults) {
@@ -2180,16 +2373,21 @@ export default function HostRoomPage() {
                     <p className="retro-heading text-xs tracking-[0.4em] text-[#b4007f]/70">Раунд 2 · «Фейколов»</p>
                     <h2 className="text-3xl font-black">⚡ Охота на фейк</h2>
                   </div>
-                  <span className="text-sm font-semibold text-[#b4007f]">
-                    Ответили: <span className="font-black">{answeredCount}/{totalPlayers}</span>
-                  </span>
+                  <div className="flex flex-col items-start sm:items-end text-sm font-semibold text-[#b4007f]">
+                    <span>
+                      Факт <span className="font-black">{clampedRound2QuestionNumber}</span>/{ROUND2_TOTAL_QUESTIONS}
+                    </span>
+                    <span className="text-xs text-[#142a45]/70">
+                      Ответили: <span className="font-black text-[#b4007f]">{answeredCount}/{totalPlayers}</span>
+                    </span>
+                  </div>
                 </div>
 
                 <div className="rounded-3xl border-[3px] border-[#b4007f]/20 bg-[#fff0fa] p-5 space-y-2">
                   <p className="text-[11px] tracking-[0.4em] text-[#b4007f]/60">Сейчас в эфире</p>
                   <p className="text-2xl font-black leading-snug">{round2Statement}</p>
-                  <p className={`text-xs font-semibold ${round2ShowingFact ? 'text-[#1f6ac6]' : 'text-[#b4007f]'}`}>
-                    {round2ShowingFact ? 'Это реальный факт' : 'Это выдумка'}
+                  <p className={`text-xs font-semibold ${round2TruthClass}`}>
+                    {round2TruthLabel}
                   </p>
                 </div>
 
