@@ -90,6 +90,9 @@ const ROUND2_EXPLANATION_BG_FILE = 'round2/explanation.mp3';
 const ROUND2_RESULT_BG_FILE = 'round2/jingle (5).mp3';
 const ROUND2_FAKE_RESULT_DURATION_MS = 7000;
 const ROUND2_TOTAL_QUESTIONS = 6;
+const ROUND2_EXPLANATION_FALLBACK = 'Озвучка рассказывает подробности — используйте текст, чтобы оттенить сюжет.';
+const ROUND2_FAKE_LABEL = 'Это фейк';
+const ROUND2_ANSWER_POLL_INTERVAL_MS = 1200;
 const ROUND2_FAKE_RESULT_VARIANTS = {
   zero: ['round2/between/0/1.wav', 'round2/between/0/2.wav', 'round2/between/0/3.wav', 'round2/between/0/4.wav'],
   low: ['round2/between/1-49%/1.wav', 'round2/between/1-49%/2.wav', 'round2/between/1-49%/3.wav'],
@@ -1553,6 +1556,27 @@ export default function HostRoomPage() {
   }, [answerCount, players.length, roomId, roomStatus, serverAllPlayersAnswered]);
 
   useEffect(() => {
+    // Poll answers during the fact phase so the host still sees fresh counts if realtime misses events.
+    if (roomStatus !== 'round2-running' || round2Phase !== 'fact' || serverAllPlayersAnswered) {
+      return;
+    }
+
+    const fetchLatestAnswers = () => {
+      const activeIndex = round2CurrentIndexRef.current ?? round2CurrentIndex;
+      if (activeIndex === null) {
+        return;
+      }
+      loadRound2AnswerStatsRef.current?.(activeIndex);
+    };
+
+    fetchLatestAnswers();
+    const intervalId = setInterval(fetchLatestAnswers, ROUND2_ANSWER_POLL_INTERVAL_MS);
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [roomStatus, round2Phase, serverAllPlayersAnswered, round2CurrentIndex]);
+
+  useEffect(() => {
     if (roomStatus !== 'waiting') {
       stopLobby();
       stopRulesAudio();
@@ -2095,6 +2119,7 @@ export default function HostRoomPage() {
       : currentRound2Item.fiction
     : 'Подождите, факт загружается…';
   const round2Explanation = currentRound2Item?.explanation ?? '';
+  const round2ExplanationText = round2ShowingFact ? round2Explanation || ROUND2_EXPLANATION_FALLBACK : ROUND2_FAKE_LABEL;
   const dedupedRound2Answers = useMemo(() => {
     const unique = new Map<string, Round2AnswerRow>();
     for (const answer of round2Answers) {
@@ -2512,7 +2537,7 @@ export default function HostRoomPage() {
                   <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-4 space-y-2">
                     <p className="text-[11px] tracking-[0.3em] text-[#142a45]/60">Объяснение</p>
                     <p className="text-base font-semibold text-[#142a45]">
-                      {round2Explanation || 'Озвучка рассказывает подробности — используйте текст, чтобы оттенить сюжет.'}
+                      {round2ExplanationText}
                     </p>
                   </div>
                 )}
