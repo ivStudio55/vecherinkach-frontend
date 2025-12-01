@@ -143,8 +143,6 @@ export default function RoomPage() {
   }, [syncServerTime]);
 
   useEffect(() => {
-    let cancelled = false;
-
     const init = async () => {
       // Проверка версии и принудительное обновление
       const storedVersion = localStorage.getItem('appVersion');
@@ -227,9 +225,7 @@ export default function RoomPage() {
           setHasAnswered(true);
         }
 
-        if (!cancelled) {
-          setIsLoading(false);
-        }
+        setIsLoading(false);
       } else if (detectedStatus === 'round2-running') {
         setRoomStatus('round2-running');
         setShowResults(false);
@@ -268,9 +264,6 @@ export default function RoomPage() {
     };
 
     init();
-    return () => {
-      cancelled = true;
-    };
   }, [roomCode, router]);
 
   useEffect(() => {
