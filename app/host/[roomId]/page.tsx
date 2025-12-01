@@ -1700,10 +1700,10 @@ export default function HostRoomPage() {
     countdownReadyAtRef.current = null;
     hasUserInteractedRef.current = true;
     setIsRulesVisible(false);
+    clearCountdownTimeout();
     setCountdownContext('round1');
     countdownCompleteActionRef.current = () => startRound();
     setIsCountdownVisible(true);
-    clearCountdownTimeout();
     runCountdownSequence(0);
   };
 
@@ -1951,10 +1951,10 @@ export default function HostRoomPage() {
       playSkipAudio();
     }
 
+    clearCountdownTimeout();
     setCountdownContext('round2');
     countdownCompleteActionRef.current = () => performRound2Start();
     setIsCountdownVisible(true);
-    clearCountdownTimeout();
     runCountdownSequence(0);
   }, [
     clearCountdownTimeout,
