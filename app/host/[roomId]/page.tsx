@@ -202,7 +202,8 @@ export default function HostRoomPage() {
   const [round2Items, setRound2Items] = useState<TrueFalseItem[]>([]);
   const [round2CurrentIndex, setRound2CurrentIndexState] = useState<number | null>(null);
   const [round2ShowingFact, setRound2ShowingFact] = useState<boolean>(true);
-  const [round2Phase, setRound2Phase] = useState<Round2Phase>('idle');
+  const [round2PhaseState, setRound2PhaseState] = useState<Round2Phase>('idle');
+  const round2Phase = round2PhaseState;
   const [isRound2RulesVisible, setIsRound2RulesVisible] = useState(false);
   const [round2Answers, setRound2Answers] = useState<Round2AnswerRow[]>([]);
   const [round2AskedIndices, setRound2AskedIndices] = useState<number[]>([]);
@@ -249,6 +250,15 @@ export default function HostRoomPage() {
   const countdownCompleteActionRef = useRef<(() => Promise<void> | void) | null>(null);
   const round2RulesReadyAtRef = useRef<number | null>(null);
   const round2ShowingFactRef = useRef(round2ShowingFact);
+  const round2PhaseRef = useRef<Round2Phase>(round2PhaseState);
+
+  const setRound2Phase = useCallback(
+    (nextPhase: Round2Phase) => {
+      round2PhaseRef.current = nextPhase;
+      setRound2PhaseState(nextPhase);
+    },
+    [setRound2PhaseState]
+  );
 
   const setRound2CurrentIndex = useCallback(
     (value: number | null) => {
@@ -610,6 +620,7 @@ export default function HostRoomPage() {
       clearCountdownTimeout,
       clearRound2Timer,
       setRound2CurrentIndex,
+      setRound2Phase,
       stopRound2Audio,
       stopRound2RulesAudio,
     ]
@@ -861,6 +872,7 @@ export default function HostRoomPage() {
       updateRoomStatus,
       setQuestion,
       setRound2CurrentIndex,
+      setRound2Phase,
     ]
   );
 
@@ -1818,6 +1830,9 @@ export default function HostRoomPage() {
 
   const moveRound2ToExplanation = useCallback(
     async (index: number) => {
+      if (round2PhaseRef.current !== 'fact') {
+        return;
+      }
       clearRound2Timer();
       stopRound2Audio();
       setRound2Phase('explanation');
@@ -1860,6 +1875,7 @@ export default function HostRoomPage() {
       players.length,
       correctAnswerCount,
       playRound2FakeResultAudio,
+      setRound2Phase,
     ]
   );
 
@@ -1878,13 +1894,12 @@ export default function HostRoomPage() {
     async (index: number, showingFact: boolean, questionNumber: number, options?: { resetTrackers?: boolean }) => {
       hasUserInteractedRef.current = true;
       clearRound2Timer();
-      stopRoundEndAudio();
+      stopRound2Audio();
       stopBetweenAudio();
       stopQuestionAudio();
-      stopRound2Audio();
+      stopRoundEndAudio();
       stopRound2RulesAudio();
       setIsRound2RulesVisible(false);
-
       if (options?.resetTrackers) {
         round2AskedIndicesRef.current = [index];
         setRound2AskedIndices([index]);
@@ -1954,6 +1969,7 @@ export default function HostRoomPage() {
       playRound2FactAudio,
       moveRound2ToExplanation,
       setRound2CurrentIndex,
+      setRound2Phase,
     ]
   );
 
@@ -2055,7 +2071,7 @@ export default function HostRoomPage() {
     round2AskedIndicesRef.current = [];
     setServerAllPlayersAnswered(true);
     setQuestionStartedAt(null);
-  }, [clearRound2Timer, roomId, setRound2CurrentIndex, stopRound2Audio, stopRound2RulesAudio]);
+  }, [clearRound2Timer, roomId, setRound2CurrentIndex, setRound2Phase, stopRound2Audio, stopRound2RulesAudio]);
 
   const handleRound2NextQuestion = useCallback(async () => {
     if (roomStatus !== 'round2-running') {
