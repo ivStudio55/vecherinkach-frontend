@@ -13,13 +13,15 @@
 
     DO $$
     BEGIN
-    IF NOT EXISTS (
+    IF EXISTS (
         SELECT 1 FROM pg_constraint
         WHERE conname = 'rooms_status_check'
     ) THEN
         ALTER TABLE rooms
-        ADD CONSTRAINT rooms_status_check CHECK (status IN ('waiting', 'running', 'finished'));
+        DROP CONSTRAINT rooms_status_check;
     END IF;
+    ALTER TABLE rooms
+    ADD CONSTRAINT rooms_status_check CHECK (status IN ('waiting', 'running', 'round2-running', 'finished'));
     END$$;
 
     ALTER TABLE questions
@@ -61,3 +63,41 @@
     -- Храним список выбранных вопросов для раунда
     ALTER TABLE rooms
     ADD COLUMN IF NOT EXISTS selected_question_ids integer[];
+
+    -- Поля для Раунда 2 "Фейколов"
+    ALTER TABLE rooms
+    ADD COLUMN IF NOT EXISTS round2_item_index integer,
+    ADD COLUMN IF NOT EXISTS round2_showing_fact boolean DEFAULT true,
+    ADD COLUMN IF NOT EXISTS round2_phase TEXT DEFAULT 'idle';
+
+    CREATE TABLE IF NOT EXISTS public.round2_answers (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        room_id uuid NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+        player_id uuid NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+        item_index integer NOT NULL,
+        answer_is_fact boolean NOT NULL,
+        is_correct boolean NOT NULL,
+        points_earned integer NOT NULL DEFAULT 0,
+        submitted_at timestamptz NOT NULL DEFAULT timezone('utc', now()),
+        UNIQUE (room_id, player_id, item_index)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_round2_answers_room_item
+        ON public.round2_answers (room_id, item_index);
+
+    DO $$
+    BEGIN
+    IF EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'rooms_round2_phase_check'
+    ) THEN
+        ALTER TABLE rooms
+        DROP CONSTRAINT rooms_round2_phase_check;
+    END IF;
+    ALTER TABLE rooms
+    ADD CONSTRAINT rooms_round2_phase_check CHECK (round2_phase IN ('idle', 'fact', 'explanation'));
+    END$$;
+
+    UPDATE rooms
+    SET round2_phase = 'idle'
+    WHERE round2_phase IS NULL OR round2_phase NOT IN ('idle', 'fact', 'explanation');
