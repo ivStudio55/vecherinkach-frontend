@@ -466,7 +466,7 @@ export default function HostRoomPage() {
   }, [isRound2RulesVisible]);
 
   const playRound2FactAudio = useCallback(
-    async (index: number, isFact: boolean) => {
+    (index: number, isFact: boolean) => {
       if (!hasUserInteractedRef.current) return;
       stopRound2Audio();
 
@@ -482,11 +482,9 @@ export default function HostRoomPage() {
       jingle.volume = 0.45;
       round2TimerJingleAudioRef.current = jingle;
 
-      try {
-        await jingle.play();
-      } catch (e) {
+      jingle.play().catch((e) => {
         console.error('Не удалось запустить джингл Раунда 2', e);
-      }
+      });
 
       audio.play().catch((e) => {
         console.error('Не удалось проиграть аудио факта Раунда 2', e);
@@ -1947,7 +1945,7 @@ export default function HostRoomPage() {
       setQuestionStartedAt(startedAt);
       setTimeLeft(QUESTION_DURATION_SECONDS);
 
-      await playRound2FactAudio(index, showingFact);
+      playRound2FactAudio(index, showingFact);
 
       round2TimerRef.current = setTimeout(() => {
         void moveRound2ToExplanation(index);
