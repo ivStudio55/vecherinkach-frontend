@@ -347,6 +347,47 @@ export default function HostRoomPage() {
     }
   }, []);
 
+  const stopRoundEndAudio = useCallback(() => {
+    const mainCue = roundEndAudioRef.current;
+    if (mainCue) {
+      mainCue.pause();
+      mainCue.currentTime = 0;
+      mainCue.onended = null;
+      roundEndAudioRef.current = null;
+    }
+
+    const jingleCue = roundEndJingleAudioRef.current;
+    if (jingleCue) {
+      jingleCue.pause();
+      jingleCue.currentTime = 0;
+      jingleCue.onended = null;
+      roundEndJingleAudioRef.current = null;
+    }
+  }, []);
+
+  const playRoundEndAudio = useCallback(() => {
+    if (!hasUserInteractedRef.current) {
+      return;
+    }
+
+    stopRoundEndAudio();
+    const file = pickRandomItem(ROUND1_END_AUDIO_FILES);
+    const audio = new Audio(buildAudioUrl(file));
+    audio.volume = 0.95;
+    roundEndAudioRef.current = audio;
+
+    const jingle = new Audio(buildAudioUrl(ROUND1_END_JINGLE_FILE));
+    jingle.volume = 0.95;
+    roundEndJingleAudioRef.current = jingle;
+
+    audio.play().catch((error) => {
+      console.error('Не удалось проиграть финальный сигнал раунда', error);
+    });
+    jingle.play().catch((error) => {
+      console.error('Не удалось проиграть джингл завершения раунда', error);
+    });
+  }, [stopRoundEndAudio]);
+
   const playRound2RulesAudio = useCallback(() => {
     if (!hasUserInteractedRef.current) {
       return;
@@ -386,11 +427,12 @@ export default function HostRoomPage() {
 
   useEffect(() => {
     if (isRound2RulesVisible) {
+      stopRoundEndAudio();
       playRound2RulesAudio();
     } else {
       stopRound2RulesAudio();
     }
-  }, [isRound2RulesVisible, playRound2RulesAudio, stopRound2RulesAudio]);
+  }, [isRound2RulesVisible, playRound2RulesAudio, stopRound2RulesAudio, stopRoundEndAudio]);
 
   useEffect(() => {
     round2RulesReadyAtRef.current = isRound2RulesVisible ? Date.now() : null;
@@ -655,7 +697,7 @@ export default function HostRoomPage() {
         return;
       }
 
-      const { data, error, count } = await supabase
+      const { data, error } = await supabase
         .from('round2_answers')
         .select('player_id, answer_is_fact, is_correct, points_earned, submitted_at', { count: 'exact' })
         .eq('room_id', roomId)
@@ -669,14 +711,22 @@ export default function HostRoomPage() {
 
       const rows = data || [];
       setRound2Answers(rows);
-      const answeredIds = rows.map((row) => row.player_id);
-      setAnsweredPlayerIds(answeredIds);
-      const totalAnswers = typeof count === 'number' ? count : rows.length;
-      setAnswerCount(totalAnswers);
-      const correct = rows.filter((row) => row.is_correct).length;
+
+      const latestAnswers = new Map<string, Round2AnswerRow>();
+      for (const row of rows) {
+        latestAnswers.set(row.player_id, row);
+      }
+
+      const uniqueAnswers = Array.from(latestAnswers.values());
+      const uniqueIds = uniqueAnswers.map((row) => row.player_id);
+      setAnsweredPlayerIds(uniqueIds);
+
+      const totalUniqueAnswers = uniqueAnswers.length;
+      setAnswerCount(totalUniqueAnswers);
+      const correct = uniqueAnswers.filter((row) => row.is_correct).length;
       setCorrectAnswerCount(correct);
 
-      const everyoneHandled = players.length > 0 && totalAnswers >= players.length;
+      const everyoneHandled = players.length > 0 && totalUniqueAnswers >= players.length;
       if (everyoneHandled !== serverAllPlayersAnswered) {
         setServerAllPlayersAnswered(everyoneHandled);
       }
@@ -1043,47 +1093,6 @@ export default function HostRoomPage() {
     },
     [stopBetweenAudio]
   );
-
-  const stopRoundEndAudio = useCallback(() => {
-    const mainCue = roundEndAudioRef.current;
-    if (mainCue) {
-      mainCue.pause();
-      mainCue.currentTime = 0;
-      mainCue.onended = null;
-      roundEndAudioRef.current = null;
-    }
-
-    const jingleCue = roundEndJingleAudioRef.current;
-    if (jingleCue) {
-      jingleCue.pause();
-      jingleCue.currentTime = 0;
-      jingleCue.onended = null;
-      roundEndJingleAudioRef.current = null;
-    }
-  }, []);
-
-  const playRoundEndAudio = useCallback(() => {
-    if (!hasUserInteractedRef.current) {
-      return;
-    }
-
-    stopRoundEndAudio();
-    const file = pickRandomItem(ROUND1_END_AUDIO_FILES);
-    const audio = new Audio(buildAudioUrl(file));
-    audio.volume = 0.95;
-    roundEndAudioRef.current = audio;
-
-    const jingle = new Audio(buildAudioUrl(ROUND1_END_JINGLE_FILE));
-    jingle.volume = 0.95;
-    roundEndJingleAudioRef.current = jingle;
-
-    audio.play().catch((error) => {
-      console.error('Не удалось проиграть финальный сигнал раунда', error);
-    });
-    jingle.play().catch((error) => {
-      console.error('Не удалось проиграть джингл завершения раунда', error);
-    });
-  }, [stopRoundEndAudio]);
 
   useEffect(() => {
     const currentIds = new Set(players.map((player) => player.id));
