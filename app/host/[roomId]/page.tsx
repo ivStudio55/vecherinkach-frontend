@@ -244,6 +244,7 @@ export default function HostRoomPage() {
   const round2CorrectTotalRef = useRef(0);
   const round2PossibleTotalRef = useRef(0);
   const round2LastAccuracyRef = useRef(0);
+  const isLastRound2QuestionRef = useRef(false);
   const playersRef = useRef<Player[]>(players);
   const hasUserInteractedRef = useRef(false);
   const lastJoinAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -625,14 +626,22 @@ export default function HostRoomPage() {
         'ended',
         () => {
           stopRound2Audio();
-          handleRound2NextQuestionRef.current?.();
+          if (isLastRound2QuestionRef.current) {
+            void completeRound2();
+          } else {
+            handleRound2NextQuestionRef.current?.();
+          }
         },
         { once: true }
       );
 
       cue.play().catch((error) => {
         console.error('Не удалось проиграть пост-раундовый сигнал Раунда 2', error);
-        handleRound2NextQuestionRef.current?.();
+        if (isLastRound2QuestionRef.current) {
+          void completeRound2();
+        } else {
+          handleRound2NextQuestionRef.current?.();
+        }
       });
     },
     [stopRound2Audio]
@@ -664,8 +673,12 @@ export default function HostRoomPage() {
         'ended',
         () => {
           stopRound2Audio();
-          const lastPercent = Number.isFinite(round2LastAccuracyRef.current) ? round2LastAccuracyRef.current : 0;
-          playRound2BetweenAudio(lastPercent);
+          if (isLastRound2QuestionRef.current) {
+            const lastPercent = Number.isFinite(round2LastAccuracyRef.current) ? round2LastAccuracyRef.current : 0;
+            playRound2BetweenAudio(lastPercent);
+          } else {
+            handleRound2NextQuestionRef.current?.();
+          }
         },
         { once: true }
       );
@@ -703,8 +716,12 @@ export default function HostRoomPage() {
         'ended',
         () => {
           stopRound2Audio();
-          const lastPercent = Number.isFinite(round2LastAccuracyRef.current) ? round2LastAccuracyRef.current : 0;
-          playRound2BetweenAudio(lastPercent);
+          if (isLastRound2QuestionRef.current) {
+            const lastPercent = Number.isFinite(round2LastAccuracyRef.current) ? round2LastAccuracyRef.current : 0;
+            playRound2BetweenAudio(lastPercent);
+          } else {
+            handleRound2NextQuestionRef.current?.();
+          }
         },
         { once: true }
       );
@@ -2046,6 +2063,7 @@ export default function HostRoomPage() {
 
       round2QuestionCounterRef.current = questionNumber;
       setRound2QuestionCounter(questionNumber);
+      isLastRound2QuestionRef.current = questionNumber >= ROUND2_TOTAL_QUESTIONS;
 
       const { iso: startedAt } = await getServerIsoTimestamp();
 
