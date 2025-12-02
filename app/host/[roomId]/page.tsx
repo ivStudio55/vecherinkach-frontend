@@ -267,6 +267,7 @@ export default function HostRoomPage() {
   const audioContextRef = useRef<AudioContext | null>(null);
   const autoNextTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const round2TimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isTransitioningRound2Ref = useRef(false);
   const round2CurrentIndexRef = useRef<number | null>(round2CurrentIndex);
   const countdownCompleteActionRef = useRef<(() => Promise<void> | void) | null>(null);
   const round2RulesReadyAtRef = useRef<number | null>(null);
@@ -2007,9 +2008,10 @@ export default function HostRoomPage() {
 
   const moveRound2ToExplanation = useCallback(
     async (index: number) => {
-      if (round2PhaseRef.current !== 'fact') {
+      if (round2PhaseRef.current !== 'fact' || isTransitioningRound2Ref.current) {
         return;
       }
+      isTransitioningRound2Ref.current = true;
       clearRound2Timer();
       stopRound2Audio();
       setRound2Phase('explanation');
@@ -2025,6 +2027,7 @@ export default function HostRoomPage() {
 
       if (error) {
         console.error('Не удалось переключить Раунд 2 в режим объяснения', error);
+        isTransitioningRound2Ref.current = false;
         return;
       }
 
@@ -2034,10 +2037,10 @@ export default function HostRoomPage() {
 
       if (showingFact) {
         await playRound2ExplanationAudio(index);
-        return;
+      } else {
+        await playRound2FictionExplanationAudio(index);
       }
-
-      await playRound2FictionExplanationAudio(index);
+      isTransitioningRound2Ref.current = false;
     },
     [
       clearRound2Timer,
@@ -2051,15 +2054,16 @@ export default function HostRoomPage() {
   );
 
   useEffect(() => {
-    if (roomStatus !== 'round2-running' || round2Phase !== 'fact' || !serverAllPlayersAnswered) {
+    if (roomStatus !== 'round2-running' || round2Phase !== 'fact' || !serverAllPlayersAnswered || isTransitioningRound2Ref.current) {
       return;
     }
     const currentIndex = round2CurrentIndexRef.current ?? round2CurrentIndex;
     if (currentIndex === null) {
       return;
     }
+    clearRound2Timer();
     void moveRound2ToExplanation(currentIndex);
-  }, [roomStatus, round2Phase, serverAllPlayersAnswered, moveRound2ToExplanation, round2CurrentIndex]);
+  }, [roomStatus, round2Phase, serverAllPlayersAnswered, moveRound2ToExplanation, round2CurrentIndex, clearRound2Timer]);
 
   const launchRound2Question = useCallback(
     async (index: number, showingFact: boolean, questionNumber: number, options?: { resetTrackers?: boolean }) => {
@@ -2789,7 +2793,6 @@ export default function HostRoomPage() {
                         >
                           <div>
                             <p className="font-semibold">{getPlayerName(answer.player_id)}</p>
-                            <p className="text-xs text-[#142a45]/70">{answer.answer_is_fact ? 'Правда' : 'Вымысел'}</p>
                           </div>
                           <span className={`font-black ${answer.is_correct ? 'text-[#b4007f]' : 'text-[#f1532f]'}`}>
                             {answer.is_correct ? `+${answer.points_earned}` : '+0'}
