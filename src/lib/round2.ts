@@ -2,6 +2,7 @@ export type TrueFalseItem = {
   fact: string;
   fiction: string;
   explanation: string;
+  fictionExplanation: string;
 };
 
 export const ROUND2_POINTS = 200;

@@ -654,7 +654,11 @@ export default function RoomPage() {
       ? currentRound2Item.fact
       : currentRound2Item.fiction
     : 'Утверждение загружается…';
-  const round2Explanation = currentRound2Item?.explanation ?? '';
+  const round2Explanation = currentRound2Item
+    ? round2ShowingFact
+      ? currentRound2Item.explanation
+      : currentRound2Item.fictionExplanation
+    : '';
   const round2ChoiceLabel = round2AnsweredChoice === null ? '' : round2AnsweredChoice ? 'Правда' : 'Вымысел';
 
   if (showResults) {

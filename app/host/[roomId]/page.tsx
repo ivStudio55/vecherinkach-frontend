@@ -88,7 +88,6 @@ const ROUND1_END_JINGLE_FILE = 'round1_end/jingle_(after_round1).mp3';
 const ROUND2_RULES_JINGLE_FILE = 'round2/jingle (5).mp3';
 const ROUND2_EXPLANATION_BG_FILE = 'round2/explanation.mp3';
 const ROUND2_RESULT_BG_FILE = 'round2/jingle (5).mp3';
-const ROUND2_FAKE_RESULT_DURATION_MS = 7000;
 const ROUND2_TOTAL_QUESTIONS = 6;
 const ROUND2_EXPLANATION_FALLBACK = 'Озвучка рассказывает подробности — используйте текст, чтобы оттенить сюжет.';
 const ROUND2_FAKE_LABEL = 'Это фейк';
@@ -526,6 +525,44 @@ export default function HostRoomPage() {
 
       voice.play().catch((e) => {
         console.error('Не удалось проиграть озвучку объяснения Раунда 2', e);
+      });
+    },
+    [stopRound2Audio]
+  );
+
+  const playRound2FictionExplanationAudio = useCallback(
+    async (index: number) => {
+      if (!hasUserInteractedRef.current) return;
+      stopRound2Audio();
+
+      const bg = new Audio(buildAudioUrl(ROUND2_EXPLANATION_BG_FILE));
+      bg.volume = 0.3;
+      bg.loop = true;
+      round2ExplanationBgAudioRef.current = bg;
+
+      const ordinal = index + 1;
+      const voice = new Audio(buildAudioUrl(`round2/fictionExplanation/${ordinal}.wav`));
+      voice.volume = 0.95;
+
+      round2ExplanationAudioRef.current = voice;
+
+      try {
+        await bg.play();
+      } catch (e) {
+        console.error('Не удалось запустить фон объяснения фейка Раунда 2', e);
+      }
+
+      voice.addEventListener(
+        'ended',
+        () => {
+          stopRound2Audio();
+          handleRound2NextQuestionRef.current?.();
+        },
+        { once: true }
+      );
+
+      voice.play().catch((e) => {
+        console.error('Не удалось проиграть озвучку объяснения фейка Раунда 2', e);
       });
     },
     [stopRound2Audio]
@@ -1860,15 +1897,13 @@ export default function HostRoomPage() {
       const percent = totalPlayers > 0 ? (correctAnswerCount / totalPlayers) * 100 : 0;
       await playRound2FakeResultAudio(percent);
 
-      round2TimerRef.current = setTimeout(() => {
-        stopRound2Audio();
-        handleRound2NextQuestionRef.current?.();
-      }, ROUND2_FAKE_RESULT_DURATION_MS);
+      await playRound2FictionExplanationAudio(index);
     },
     [
       clearRound2Timer,
       stopRound2Audio,
       playRound2ExplanationAudio,
+      playRound2FictionExplanationAudio,
       roomId,
       players.length,
       correctAnswerCount,
@@ -2141,7 +2176,8 @@ export default function HostRoomPage() {
       : currentRound2Item.fiction
     : 'Подождите, факт загружается…';
   const round2Explanation = currentRound2Item?.explanation ?? '';
-  const round2ExplanationText = round2ShowingFact ? round2Explanation || ROUND2_EXPLANATION_FALLBACK : ROUND2_FAKE_LABEL;
+  const round2FictionExplanation = currentRound2Item?.fictionExplanation ?? '';
+  const round2ExplanationText = round2ShowingFact ? round2Explanation || ROUND2_EXPLANATION_FALLBACK : round2FictionExplanation || ROUND2_FAKE_LABEL;
   const dedupedRound2Answers = useMemo(() => {
     const unique = new Map<string, Round2AnswerRow>();
     for (const answer of round2Answers) {
