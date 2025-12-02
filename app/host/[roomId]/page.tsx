@@ -185,6 +185,7 @@ export default function HostRoomPage() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [question, setQuestionState] = useState<Question | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
+  const [totalPlayerCount, setTotalPlayerCount] = useState(0);
   const [answerCount, setAnswerCount] = useState(0);
   const [correctAnswerCount, setCorrectAnswerCount] = useState(0);
   const [answeredPlayerIds, setAnsweredPlayerIds] = useState<string[]>([]);
@@ -858,6 +859,7 @@ export default function HostRoomPage() {
     const list = data || [];
     const limited = list.slice(0, 10);
     setPlayers(limited);
+    setTotalPlayerCount(list.length);
     setIsPlayerLimitReached(list.length > 10);
   }, [roomId]);
 
@@ -934,12 +936,12 @@ export default function HostRoomPage() {
       const correct = uniqueAnswers.filter((row) => row.is_correct).length;
       setCorrectAnswerCount(correct);
 
-      const everyoneHandled = players.length > 0 && totalUniqueAnswers >= players.length;
+      const everyoneHandled = totalPlayerCount > 0 && totalUniqueAnswers >= totalPlayerCount;
       if (everyoneHandled !== serverAllPlayersAnswered) {
         setServerAllPlayersAnswered(everyoneHandled);
       }
     },
-    [players.length, roomId, serverAllPlayersAnswered]
+    [totalPlayerCount, roomId, serverAllPlayersAnswered]
   );
 
   const loadRound2AnswerStatsRef = useRef(loadRound2AnswerStats);
@@ -1005,11 +1007,13 @@ export default function HostRoomPage() {
         await loadAnswerCount(room.current_question_index);
         await loadRound2AnswerStats(null, { preserveRound1Counters: true });
       } else if (detectedStatus === 'round2-running') {
-        setShowResults(false);
-        setQuestion(null);
-        setAnswerCount(0);
-        setCorrectAnswerCount(0);
-        setAnsweredPlayerIds([]);
+        if (nextRound2Index !== round2CurrentIndexRef.current) {
+          setShowResults(false);
+          setQuestion(null);
+          setAnswerCount(0);
+          setCorrectAnswerCount(0);
+          setAnsweredPlayerIds([]);
+        }
         syncTimerWithStart(room.question_started_at, effectiveOffset);
         if (room.all_players_answered) {
           setTimeLeft(0);
@@ -1727,11 +1731,11 @@ export default function HostRoomPage() {
       return;
     }
 
-    if (players.length === 0) {
+    if (totalPlayerCount === 0) {
       return;
     }
 
-    const everyoneAnswered = answerCount >= players.length;
+    const everyoneAnswered = answerCount >= totalPlayerCount;
     if (everyoneAnswered === serverAllPlayersAnswered) {
       return;
     }
@@ -1750,7 +1754,7 @@ export default function HostRoomPage() {
     };
 
     updateFlag();
-  }, [answerCount, players.length, roomId, roomStatus, serverAllPlayersAnswered]);
+  }, [answerCount, totalPlayerCount, roomId, roomStatus, serverAllPlayersAnswered]);
 
   useEffect(() => {
     // Poll answers during the fact phase so the host still sees fresh counts if realtime misses events.
