@@ -89,7 +89,7 @@ const ROUND2_EXPLANATION_BG_FILE = 'round2/jingle (5).mp3';
 const ROUND2_TOTAL_QUESTIONS = 6;
 const ROUND2_EXPLANATION_FALLBACK = 'Озвучка рассказывает подробности — используйте текст, чтобы оттенить сюжет.';
 const ROUND2_FAKE_LABEL = 'Это фейк';
-const ROUND2_ANSWER_POLL_INTERVAL_MS = 1200;
+const ROUND2_ANSWER_POLL_INTERVAL_MS = 5000;
 const ROUND2_BETWEEN_AUDIO_VARIANTS = {
   zero: ['round2/between/0/1.wav', 'round2/between/0/2.wav', 'round2/between/0/3.wav', 'round2/between/0/4.wav'],
   low: ['round2/between/1-49%/1.wav', 'round2/between/1-49%/2.wav', 'round2/between/1-49%/3.wav'],
@@ -2062,7 +2062,8 @@ export default function HostRoomPage() {
       return;
     }
     clearRound2Timer();
-    void moveRound2ToExplanation(currentIndex);
+    // Small delay to ensure UI has updated
+    setTimeout(() => void moveRound2ToExplanation(currentIndex), 100);
   }, [roomStatus, round2Phase, serverAllPlayersAnswered, moveRound2ToExplanation, round2CurrentIndex, clearRound2Timer]);
 
   const launchRound2Question = useCallback(
