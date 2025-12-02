@@ -1754,7 +1754,8 @@ export default function HostRoomPage() {
 
   useEffect(() => {
     // Poll answers during the fact phase so the host still sees fresh counts if realtime misses events.
-    if (roomStatus !== 'round2-running' || round2Phase !== 'fact' || serverAllPlayersAnswered) {
+    // Disabled for Round 2 to avoid conflicts with realtime updates
+    if (roomStatus !== 'round2-running' && (roomStatus !== 'running' || round2Phase !== 'fact' || serverAllPlayersAnswered)) {
       return;
     }
 
@@ -2063,7 +2064,7 @@ export default function HostRoomPage() {
     }
     clearRound2Timer();
     // Small delay to ensure UI has updated
-    setTimeout(() => void moveRound2ToExplanation(currentIndex), 100);
+    setTimeout(() => void moveRound2ToExplanation(currentIndex), 500);
   }, [roomStatus, round2Phase, serverAllPlayersAnswered, moveRound2ToExplanation, round2CurrentIndex, clearRound2Timer]);
 
   const launchRound2Question = useCallback(
