@@ -86,13 +86,12 @@ const ROUND1_END_AUDIO_FILES = [
 ] as const;
 const ROUND1_END_JINGLE_FILE = 'round1_end/jingle_(after_round1).mp3';
 const ROUND2_RULES_JINGLE_FILE = 'round2/jingle (5).mp3';
-const ROUND2_EXPLANATION_BG_FILE = 'round2/explanation.mp3';
-const ROUND2_RESULT_BG_FILE = 'round2/jingle (5).mp3';
+const ROUND2_EXPLANATION_BG_FILE = 'round2/jingle (5).mp3';
 const ROUND2_TOTAL_QUESTIONS = 6;
 const ROUND2_EXPLANATION_FALLBACK = 'Озвучка рассказывает подробности — используйте текст, чтобы оттенить сюжет.';
 const ROUND2_FAKE_LABEL = 'Это фейк';
 const ROUND2_ANSWER_POLL_INTERVAL_MS = 1200;
-const ROUND2_FAKE_RESULT_VARIANTS = {
+const ROUND2_BETWEEN_AUDIO_VARIANTS = {
   zero: ['round2/between/0/1.wav', 'round2/between/0/2.wav', 'round2/between/0/3.wav', 'round2/between/0/4.wav'],
   low: ['round2/between/1-49%/1.wav', 'round2/between/1-49%/2.wav', 'round2/between/1-49%/3.wav'],
   mid: ['round2/between/50-99%/1.wav', 'round2/between/50-99%/2.wav', 'round2/between/50-99%/3.wav'],
@@ -164,6 +163,20 @@ type Round2AnswerRow = {
   submitted_at: string;
 };
 
+type Round2PlayerStats = {
+  points: number;
+  correct: number;
+  attempts: number;
+};
+
+type Round2LeaderboardEntry = {
+  playerId: string;
+  name: string;
+  points: number;
+  correct: number;
+  attempts: number;
+};
+
 export default function HostRoomPage() {
   const params = useParams();
   const router = useRouter();
@@ -197,7 +210,6 @@ export default function HostRoomPage() {
   const [isPrestartNextEnabled, setIsPrestartNextEnabled] = useState(true);
   const [isPlayerLimitReached, setIsPlayerLimitReached] = useState(false);
   const [isRoundEndButtonLocked, setIsRoundEndButtonLocked] = useState(false);
-  const [isRatingVisible, setIsRatingVisible] = useState(false);
   const [round2Items, setRound2Items] = useState<TrueFalseItem[]>([]);
   const [round2CurrentIndex, setRound2CurrentIndexState] = useState<number | null>(null);
   const [round2ShowingFact, setRound2ShowingFact] = useState<boolean>(true);
@@ -207,6 +219,9 @@ export default function HostRoomPage() {
   const [round2Answers, setRound2Answers] = useState<Round2AnswerRow[]>([]);
   const [round2AskedIndices, setRound2AskedIndices] = useState<number[]>([]);
   const [round2QuestionCounter, setRound2QuestionCounter] = useState(0);
+  const [round2Leaderboard, setRound2Leaderboard] = useState<Round2LeaderboardEntry[]>([]);
+  const [round2LastAccuracy, setRound2LastAccuracy] = useState(0);
+  const [isRatingVisible, setIsRatingVisible] = useState(false);
 
   const meetAudioRef = useRef<HTMLAudioElement | null>(null);
   const connectAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -221,8 +236,15 @@ export default function HostRoomPage() {
   const round2TimerJingleAudioRef = useRef<HTMLAudioElement | null>(null);
   const round2ExplanationAudioRef = useRef<HTMLAudioElement | null>(null);
   const round2ExplanationBgAudioRef = useRef<HTMLAudioElement | null>(null);
+  const round2BetweenAudioRef = useRef<HTMLAudioElement | null>(null);
   const round2RulesMusicAudioRef = useRef<HTMLAudioElement | null>(null);
   const round2RulesVoiceAudioRef = useRef<HTMLAudioElement | null>(null);
+  const round2AnswersRef = useRef<Round2AnswerRow[]>([]);
+  const round2StatsRef = useRef<Map<string, Round2PlayerStats>>(new Map());
+  const round2CorrectTotalRef = useRef(0);
+  const round2PossibleTotalRef = useRef(0);
+  const round2LastAccuracyRef = useRef(0);
+  const playersRef = useRef<Player[]>(players);
   const hasUserInteractedRef = useRef(false);
   const lastJoinAudioRef = useRef<HTMLAudioElement | null>(null);
   const lobbySoundSetterRef = useRef(setIsLobbySoundOn);
@@ -294,6 +316,14 @@ export default function HostRoomPage() {
     round2ShowingFactRef.current = round2ShowingFact;
   }, [round2ShowingFact]);
 
+  useEffect(() => {
+    round2AnswersRef.current = round2Answers;
+  }, [round2Answers]);
+
+  useEffect(() => {
+    playersRef.current = players;
+  }, [players]);
+
   const clearCountdownTimeout = useCallback(() => {
     if (countdownTimeoutRef.current) {
       clearTimeout(countdownTimeoutRef.current);
@@ -357,6 +387,11 @@ export default function HostRoomPage() {
       round2ExplanationBgAudioRef.current.pause();
       round2ExplanationBgAudioRef.current.currentTime = 0;
       round2ExplanationBgAudioRef.current = null;
+    }
+    if (round2BetweenAudioRef.current) {
+      round2BetweenAudioRef.current.pause();
+      round2BetweenAudioRef.current.currentTime = 0;
+      round2BetweenAudioRef.current = null;
     }
   }, []);
 
@@ -464,6 +499,77 @@ export default function HostRoomPage() {
     round2RulesReadyAtRef.current = isRound2RulesVisible ? Date.now() : null;
   }, [isRound2RulesVisible]);
 
+  const resetRound2Stats = useCallback(() => {
+    round2StatsRef.current = new Map();
+    round2CorrectTotalRef.current = 0;
+    round2PossibleTotalRef.current = 0;
+    round2LastAccuracyRef.current = 0;
+    setRound2Leaderboard([]);
+    setRound2LastAccuracy(0);
+  }, []);
+
+  const updateRound2Leaderboard = useCallback(() => {
+    const statsMap = round2StatsRef.current;
+    const snapshot = playersRef.current;
+    if (!snapshot.length) {
+      setRound2Leaderboard([]);
+      return;
+    }
+
+    const leaderboard = snapshot
+      .map((player) => {
+        const stats = statsMap.get(player.id);
+        return {
+          playerId: player.id,
+          name: player.name,
+          points: stats?.points ?? 0,
+          correct: stats?.correct ?? 0,
+          attempts: stats?.attempts ?? 0,
+        };
+      })
+      .sort((a, b) => {
+        if (b.points !== a.points) return b.points - a.points;
+        if (b.correct !== a.correct) return b.correct - a.correct;
+        return a.name.localeCompare(b.name);
+      });
+
+    setRound2Leaderboard(leaderboard);
+  }, []);
+
+  const recordRound2QuestionStats = useCallback(() => {
+    const snapshot = round2AnswersRef.current;
+    const uniqueMap = new Map<string, Round2AnswerRow>();
+    for (const answer of snapshot) {
+      uniqueMap.set(answer.player_id, answer);
+    }
+    const uniqueAnswers = Array.from(uniqueMap.values());
+    const statsMap = round2StatsRef.current;
+
+    uniqueAnswers.forEach((answer) => {
+      const existing = statsMap.get(answer.player_id) ?? { points: 0, correct: 0, attempts: 0 };
+      existing.attempts += 1;
+      if (answer.is_correct) {
+        existing.correct += 1;
+        existing.points += answer.points_earned;
+      }
+      statsMap.set(answer.player_id, existing);
+    });
+
+    const participants = playersRef.current.length || uniqueAnswers.length;
+    if (participants > 0) {
+      const correctCount = uniqueAnswers.filter((answer) => answer.is_correct).length;
+      round2CorrectTotalRef.current += correctCount;
+      round2PossibleTotalRef.current += participants;
+      round2LastAccuracyRef.current = (correctCount / participants) * 100;
+    } else {
+      round2LastAccuracyRef.current = 0;
+    }
+
+    setRound2LastAccuracy(round2LastAccuracyRef.current);
+
+    updateRound2Leaderboard();
+  }, [updateRound2Leaderboard]);
+
   const playRound2FactAudio = useCallback(
     (index: number, isFact: boolean) => {
       if (!hasUserInteractedRef.current) return;
@@ -487,6 +593,46 @@ export default function HostRoomPage() {
 
       audio.play().catch((e) => {
         console.error('Не удалось проиграть аудио факта Раунда 2', e);
+      });
+    },
+    [stopRound2Audio]
+  );
+
+  const playRound2BetweenAudio = useCallback(
+    (percent: number) => {
+      if (!hasUserInteractedRef.current) {
+        return;
+      }
+
+      stopRound2Audio();
+
+      const normalized = Math.max(0, Math.min(100, Math.round(percent)));
+      const variants =
+        normalized === 100
+          ? ROUND2_BETWEEN_AUDIO_VARIANTS.full
+          : normalized >= 50
+            ? ROUND2_BETWEEN_AUDIO_VARIANTS.mid
+            : normalized >= 1
+              ? ROUND2_BETWEEN_AUDIO_VARIANTS.low
+              : ROUND2_BETWEEN_AUDIO_VARIANTS.zero;
+
+      const cueFile = pickRandomItem(variants);
+      const cue = new Audio(buildAudioUrl(cueFile));
+      cue.volume = 0.95;
+      round2BetweenAudioRef.current = cue;
+
+      cue.addEventListener(
+        'ended',
+        () => {
+          stopRound2Audio();
+          handleRound2NextQuestionRef.current?.();
+        },
+        { once: true }
+      );
+
+      cue.play().catch((error) => {
+        console.error('Не удалось проиграть пост-раундовый сигнал Раунда 2', error);
+        handleRound2NextQuestionRef.current?.();
       });
     },
     [stopRound2Audio]
@@ -518,7 +664,8 @@ export default function HostRoomPage() {
         'ended',
         () => {
           stopRound2Audio();
-          handleRound2NextQuestionRef.current?.();
+          const lastPercent = Number.isFinite(round2LastAccuracyRef.current) ? round2LastAccuracyRef.current : 0;
+          playRound2BetweenAudio(lastPercent);
         },
         { once: true }
       );
@@ -527,7 +674,7 @@ export default function HostRoomPage() {
         console.error('Не удалось проиграть озвучку объяснения Раунда 2', e);
       });
     },
-    [stopRound2Audio]
+    [playRound2BetweenAudio, stopRound2Audio]
   );
 
   const playRound2FictionExplanationAudio = useCallback(
@@ -556,7 +703,8 @@ export default function HostRoomPage() {
         'ended',
         () => {
           stopRound2Audio();
-          handleRound2NextQuestionRef.current?.();
+          const lastPercent = Number.isFinite(round2LastAccuracyRef.current) ? round2LastAccuracyRef.current : 0;
+          playRound2BetweenAudio(lastPercent);
         },
         { once: true }
       );
@@ -565,49 +713,7 @@ export default function HostRoomPage() {
         console.error('Не удалось проиграть озвучку объяснения фейка Раунда 2', e);
       });
     },
-    [stopRound2Audio]
-  );
-
-  const playRound2FakeResultAudio = useCallback(
-    async (percent: number) => {
-      if (!hasUserInteractedRef.current) {
-        return;
-      }
-
-      stopRound2Audio();
-
-      const normalized = Math.max(0, Math.min(100, Math.round(percent)));
-      const variants =
-        normalized === 100
-          ? ROUND2_FAKE_RESULT_VARIANTS.full
-          : normalized >= 50
-            ? ROUND2_FAKE_RESULT_VARIANTS.mid
-            : normalized >= 1
-              ? ROUND2_FAKE_RESULT_VARIANTS.low
-              : ROUND2_FAKE_RESULT_VARIANTS.zero;
-
-      const cueFile = pickRandomItem(variants);
-
-      const bg = new Audio(buildAudioUrl(ROUND2_RESULT_BG_FILE));
-      bg.volume = 0.35;
-      bg.loop = true;
-      round2ExplanationBgAudioRef.current = bg;
-
-      const cue = new Audio(buildAudioUrl(cueFile));
-      cue.volume = 0.95;
-      round2ExplanationAudioRef.current = cue;
-
-      try {
-        await bg.play();
-      } catch (error) {
-        console.error('Не удалось запустить фон реакции на фейк Раунда 2', error);
-      }
-
-      cue.play().catch((error) => {
-        console.error('Не удалось проиграть реакцию на фейк Раунда 2', error);
-      });
-    },
-    [stopRound2Audio]
+    [playRound2BetweenAudio, stopRound2Audio]
   );
 
   const syncServerTime = useCallback(async () => {
@@ -1886,16 +1992,14 @@ export default function HostRoomPage() {
         return;
       }
 
+      recordRound2QuestionStats();
+
       const showingFact = round2ShowingFactRef.current;
 
       if (showingFact) {
         await playRound2ExplanationAudio(index);
         return;
       }
-
-      const totalPlayers = players.length;
-      const percent = totalPlayers > 0 ? (correctAnswerCount / totalPlayers) * 100 : 0;
-      await playRound2FakeResultAudio(percent);
 
       await playRound2FictionExplanationAudio(index);
     },
@@ -1905,9 +2009,7 @@ export default function HostRoomPage() {
       playRound2ExplanationAudio,
       playRound2FictionExplanationAudio,
       roomId,
-      players.length,
-      correctAnswerCount,
-      playRound2FakeResultAudio,
+      recordRound2QuestionStats,
       setRound2Phase,
     ]
   );
@@ -1979,6 +2081,8 @@ export default function HostRoomPage() {
       setRound2Answers([]);
       setQuestionStartedAt(startedAt);
       setTimeLeft(QUESTION_DURATION_SECONDS);
+      round2LastAccuracyRef.current = 0;
+      setRound2LastAccuracy(0);
 
       playRound2FactAudio(index, showingFact);
 
@@ -2022,6 +2126,7 @@ export default function HostRoomPage() {
 
 
   const performRound2Start = useCallback(async () => {
+    resetRound2Stats();
     if (!round2Items.length) {
       setError('Вопросы для Раунда 2 ещё не загружены');
       return;
@@ -2035,7 +2140,7 @@ export default function HostRoomPage() {
 
     const showingFact = Math.random() < 0.5;
     await launchRound2Question(index, showingFact, 1, { resetTrackers: true });
-  }, [launchRound2Question, pickNextRound2Index, round2Items.length, setError]);
+  }, [launchRound2Question, pickNextRound2Index, resetRound2Stats, round2Items.length, setError]);
 
   const startRound2 = useCallback(() => {
     if (!round2Items.length) {
@@ -2094,6 +2199,7 @@ export default function HostRoomPage() {
       return;
     }
 
+    updateRound2Leaderboard();
     setRoomStatus('finished');
     setShowResults(true);
     setRound2Phase('idle');
@@ -2104,7 +2210,7 @@ export default function HostRoomPage() {
     round2AskedIndicesRef.current = [];
     setServerAllPlayersAnswered(true);
     setQuestionStartedAt(null);
-  }, [clearRound2Timer, roomId, setRound2CurrentIndex, setRound2Phase, stopRound2Audio, stopRound2RulesAudio]);
+  }, [clearRound2Timer, roomId, setRound2CurrentIndex, setRound2Phase, stopRound2Audio, stopRound2RulesAudio, updateRound2Leaderboard]);
 
   const handleRound2NextQuestion = useCallback(async () => {
     if (roomStatus !== 'round2-running') {
@@ -2137,10 +2243,6 @@ export default function HostRoomPage() {
     }
     void moveRound2ToExplanation(round2CurrentIndex);
   }, [moveRound2ToExplanation, round2CurrentIndex]);
-
-  const handleRound2Finish = useCallback(() => {
-    void completeRound2();
-  }, [completeRound2]);
 
   const handleReplayRound2Audio = useCallback(() => {
     if (round2CurrentIndex === null) {
@@ -2200,6 +2302,9 @@ export default function HostRoomPage() {
       : round2ShowingFact
         ? 'text-[#1f6ac6]'
         : 'text-[#b4007f]';
+  const round2AccuracyPercent = Math.max(0, Math.min(100, Math.round(round2LastAccuracy)));
+  const round2AccuracyLabel =
+    round2Leaderboard.length > 0 ? `${round2AccuracyPercent}% попали в точку` : 'Ждём первую статистику';
 
   const handlePrimaryHeaderAction = () => {
     if (roomStatus === 'finished' && showResults) {
@@ -2613,10 +2718,10 @@ export default function HostRoomPage() {
                   ) : (
                     <button
                       type="button"
-                      onClick={handleRound2Finish}
+                      onClick={handleRound2NextQuestion}
                       className="flex-1 py-4 rounded-2xl font-black text-lg tracking-[0.2em] bg-[#1f6ac6] text-white border-[3px] border-[#142a45]"
                     >
-                      Итоги игры
+                      Следующий факт
                     </button>
                   )}
                   <button
@@ -2654,6 +2759,42 @@ export default function HostRoomPage() {
                           </span>
                         </div>
                       ))}
+                    </div>
+                  )}
+
+                  {round2Phase !== 'fact' && (
+                    <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-white p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/70">Рейтинг Раунда 2</p>
+                        <span className="text-xs font-semibold text-[#1f6ac6]">{round2AccuracyLabel}</span>
+                      </div>
+                      {round2Leaderboard.length === 0 ? (
+                        <p className="text-sm text-[#142a45]/70">Как только завершится первый факт, здесь появятся очки за «Фейколов».</p>
+                      ) : (
+                        <ol className="space-y-2">
+                          {round2Leaderboard.map((entry, index) => (
+                            <li
+                              key={entry.playerId}
+                              className="flex items-center justify-between rounded-2xl border-[3px] border-[#142a45]/10 bg-[#fff6da] px-3 py-2"
+                            >
+                              <div className="flex items-center gap-3">
+                                <span className="w-8 h-8 rounded-full border-[3px] border-[#142a45]/30 flex items-center justify-center font-black">
+                                  {index + 1}
+                                </span>
+                                <div>
+                                  <p className="font-semibold text-[#142a45]">{entry.name}</p>
+                                  <p className="text-xs text-[#142a45]/70">
+                                    {entry.correct}/{entry.attempts} верно
+                                  </p>
+                                </div>
+                              </div>
+                              <span className="font-black text-[#b4007f]">
+                                {entry.points > 0 ? `+${entry.points}` : '+0'} 💎
+                              </span>
+                            </li>
+                          ))}
+                        </ol>
+                      )}
                     </div>
                   )}
                 </div>
