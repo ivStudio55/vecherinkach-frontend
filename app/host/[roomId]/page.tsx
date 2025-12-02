@@ -60,7 +60,6 @@ const RULES_ROUND1_FILES = [
 const SKIP_AUDIO_FILES = [
   'skip/skip.wav',
   'skip/skip2.wav',
-  'skip/skip3.wav',
   'skip/skip4.wav',
   'skip/skip5.wav',
   'skip/skip6.wav',
@@ -370,28 +369,48 @@ export default function HostRoomPage() {
 
   const stopRound2Audio = useCallback(() => {
     if (round2FactAudioRef.current) {
-      round2FactAudioRef.current.pause();
-      round2FactAudioRef.current.currentTime = 0;
+      try {
+        round2FactAudioRef.current.pause();
+        round2FactAudioRef.current.currentTime = 0;
+      } catch (e) {
+        console.error('Ошибка остановки факта Раунда 2', e);
+      }
       round2FactAudioRef.current = null;
     }
     if (round2TimerJingleAudioRef.current) {
-      round2TimerJingleAudioRef.current.pause();
-      round2TimerJingleAudioRef.current.currentTime = 0;
+      try {
+        round2TimerJingleAudioRef.current.pause();
+        round2TimerJingleAudioRef.current.currentTime = 0;
+      } catch (e) {
+        console.error('Ошибка остановки джингла Раунда 2', e);
+      }
       round2TimerJingleAudioRef.current = null;
     }
     if (round2ExplanationAudioRef.current) {
-      round2ExplanationAudioRef.current.pause();
-      round2ExplanationAudioRef.current.currentTime = 0;
+      try {
+        round2ExplanationAudioRef.current.pause();
+        round2ExplanationAudioRef.current.currentTime = 0;
+      } catch (e) {
+        console.error('Ошибка остановки объяснения Раунда 2', e);
+      }
       round2ExplanationAudioRef.current = null;
     }
     if (round2ExplanationBgAudioRef.current) {
-      round2ExplanationBgAudioRef.current.pause();
-      round2ExplanationBgAudioRef.current.currentTime = 0;
+      try {
+        round2ExplanationBgAudioRef.current.pause();
+        round2ExplanationBgAudioRef.current.currentTime = 0;
+      } catch (e) {
+        console.error('Ошибка остановки фона объяснения Раунда 2', e);
+      }
       round2ExplanationBgAudioRef.current = null;
     }
     if (round2BetweenAudioRef.current) {
-      round2BetweenAudioRef.current.pause();
-      round2BetweenAudioRef.current.currentTime = 0;
+      try {
+        round2BetweenAudioRef.current.pause();
+        round2BetweenAudioRef.current.currentTime = 0;
+      } catch (e) {
+        console.error('Ошибка остановки между-аудио Раунда 2', e);
+      }
       round2BetweenAudioRef.current = null;
     }
   }, []);
