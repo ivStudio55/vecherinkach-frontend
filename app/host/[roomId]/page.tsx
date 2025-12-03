@@ -2511,9 +2511,6 @@ export default function HostRoomPage() {
               </button>
             </div>
           </div>
-          <p className="text-sm text-[#ffeccd]/80">
-            Управляйте раундом, запускайте таймеры и следите за списком игроков. Все действия синхронизируются через Supabase в реальном времени.
-          </p>
         </header>
 
         {error && (

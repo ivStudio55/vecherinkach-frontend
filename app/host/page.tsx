@@ -137,15 +137,6 @@ export default function HostPage() {
                 >
                   ← На главную
                 </button>
-
-                <div className="rounded-2xl border-[3px] border-[#142a45] bg-white/70 px-4 py-3 text-sm">
-                  <p className="retro-heading text-[10px] tracking-[0.4em] text-[#142a45]/60">Что подготовить</p>
-                  <ul className="list-disc list-inside space-y-1 text-[#142a45]/80">
-                    <li>Колонку или джингл для атмосферы</li>
-                    <li>Ссылку `/join` для участников</li>
-                    <li>Вопросы раунда (уже вшиты в систему)</li>
-                  </ul>
-                </div>
               </div>
             </section>
           </div>
