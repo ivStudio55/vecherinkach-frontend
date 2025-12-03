@@ -2525,7 +2525,50 @@ export default function HostRoomPage() {
         <div className="grid gap-6 lg:grid-cols-[1.45fr,0.55fr]">
           <div className="space-y-6">
             {showResults ? (
-              <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
+              roomStatus === 'finished' ? (
+                <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Финальные результаты</p>
+                      <h2 className="text-3xl font-black">🏆 Рейтинг Раунда 2</h2>
+                    </div>
+                    <span className="text-sm font-semibold text-[#1f6ac6]">Очки уже начислены игрокам</span>
+                  </div>
+                  <div className="space-y-4">
+                    {round2Leaderboard.length === 0 ? (
+                      <p className="text-sm text-[#142a45]/70">Рейтинг появится после завершения раунда.</p>
+                    ) : (
+                      <ol className="space-y-3">
+                        {round2Leaderboard.map((entry, index) => (
+                          <li
+                            key={entry.playerId}
+                            className="flex items-center justify-between rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-4"
+                          >
+                            <div className="flex items-center gap-4">
+                              <span className={`w-10 h-10 rounded-full border-[3px] flex items-center justify-center font-black text-lg ${
+                                index === 0 ? 'border-[#f1532f] bg-[#f1532f] text-white' :
+                                index === 1 ? 'border-[#b4007f] bg-[#b4007f] text-white' :
+                                index === 2 ? 'border-[#1f6ac6] bg-[#1f6ac6] text-white' :
+                                'border-[#142a45]/30 bg-white text-[#142a45]'
+                              }`}>
+                                {index + 1}
+                              </span>
+                              <div>
+                                <p className="font-black text-[#142a45]">{entry.name}</p>
+                                <p className="text-xs text-[#142a45]/70">
+                                  {entry.correct}/{entry.attempts} правильных • {Math.round((entry.correct / Math.max(entry.attempts, 1)) * 100)}% точность
+                                </p>
+                              </div>
+                            </div>
+                            <span className="font-black text-2xl text-[#f1532f]">{entry.points} 💎</span>
+                          </li>
+                        ))}
+                      </ol>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Итоги раунда</p>
@@ -2629,6 +2672,7 @@ export default function HostRoomPage() {
                   </div>
                 )}
               </div>
+              )
             ) : isWaiting ? (
               <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
                 <div className="flex flex-col gap-2">
@@ -2753,16 +2797,7 @@ export default function HostRoomPage() {
                 )}
 
                 <div className="flex flex-col gap-3 sm:flex-row">
-                  {round2Phase === 'fact' ? (
-                    <button
-                      type="button"
-                      onClick={handleRound2Reveal}
-                      disabled={round2CurrentIndex === null}
-                      className="flex-1 py-4 rounded-2xl font-black text-lg tracking-[0.2em] bg-[#b4007f] text-white border-[3px] border-[#142a45] transition disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      Показать объяснение
-                    </button>
-                  ) : (
+                  {round2Phase === 'explanation' && (
                     <button
                       type="button"
                       onClick={handleRound2NextQuestion}
@@ -2771,14 +2806,6 @@ export default function HostRoomPage() {
                       Следующий факт
                     </button>
                   )}
-                  <button
-                    type="button"
-                    onClick={handleReplayRound2Audio}
-                    disabled={round2CurrentIndex === null}
-                    className="flex-1 py-4 rounded-2xl border-[3px] border-dashed border-[#142a45] bg-white font-semibold text-[#142a45] disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    Повторить озвучку
-                  </button>
                 </div>
 
                 <div className="rounded-3xl border-[3px] border-dashed border-[#142a45]/30 bg-[#fff6da] p-4 space-y-3">
