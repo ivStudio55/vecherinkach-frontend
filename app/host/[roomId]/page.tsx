@@ -293,6 +293,7 @@ export default function HostRoomPage() {
   const lastSpokenQuestionRef = useRef<number | null>(null);
   const betweenCueQuestionRef = useRef<number | null>(null);
   const roundEndLockQuestionRef = useRef<number | null>(null);
+  const previousCorrectAnswerPercentageRef = useRef(0);
   const audioContextRef = useRef<AudioContext | null>(null);
   const autoNextTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const round2TimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1403,7 +1404,9 @@ export default function HostRoomPage() {
 
   const playBetweenAudioForPercent = useCallback(
     async (percent: number) => {
+      console.log('playBetweenAudioForPercent called with percent:', percent);
       if (!hasUserInteractedRef.current) {
+        console.log('No user interaction, skipping');
         return;
       }
 
@@ -2021,6 +2024,7 @@ export default function HostRoomPage() {
     setCurrentQuestionIndex(newIndex);
     setServerAllPlayersAnswered(false);
     syncTimerWithStart(questionStartedAt, offset);
+    previousCorrectAnswerPercentageRef.current = totalPlayers > 0 ? (correctAnswerCount / totalPlayers) * 100 : 0;
     setAnswerCount(0);
     setCorrectAnswerCount(0);
     setAnsweredPlayerIds([]);
@@ -2525,7 +2529,7 @@ export default function HostRoomPage() {
   };
 
   useEffect(() => {
-    if (!question || roomStatus !== 'running' || !canAdvance || totalPlayers === 0) {
+    if (!question || roomStatus !== 'running' || !canAdvance || totalPlayers === 0 || currentQuestionIndex === 0) {
       return;
     }
 
@@ -2535,8 +2539,9 @@ export default function HostRoomPage() {
     }
 
     betweenCueQuestionRef.current = questionKey;
-    void playBetweenAudioForPercent(correctAnswerPercentage);
-  }, [question, roomStatus, canAdvance, totalPlayers, correctAnswerPercentage, playBetweenAudioForPercent]);
+    console.log('Playing between audio for question', questionKey, 'with percent', previousCorrectAnswerPercentageRef.current);
+    void playBetweenAudioForPercent(previousCorrectAnswerPercentageRef.current);
+  }, [question, roomStatus, canAdvance, totalPlayers, currentQuestionIndex, playBetweenAudioForPercent]);
 
   useEffect(() => {
     if (!question || roomStatus !== 'running' || !isLastQuestion || !canAdvance) {
