@@ -792,7 +792,11 @@ export default function HostRoomPage() {
 
   const playRound2ExplanationAudio = useCallback(
     async (index: number) => {
-      if (!hasUserInteractedRef.current) return;
+      console.log('playRound2ExplanationAudio called with index:', index);
+      if (!hasUserInteractedRef.current) {
+        console.log('No user interaction for round2 explanation');
+        return;
+      }
       stopRound2Audio();
 
       const bg = new Audio(buildAudioUrl(ROUND2_EXPLANATION_BG_FILE));
@@ -802,6 +806,7 @@ export default function HostRoomPage() {
 
       const ordinal = index + 1;
       const voice = new Audio(buildAudioUrl(`round2/explanation/${ordinal}.mp3`));
+      console.log('Loading round2 explanation audio:', `round2/explanation/${ordinal}.mp3`);
       voice.volume = 0.95;
 
       round2ExplanationAudioRef.current = voice;
@@ -835,7 +840,11 @@ export default function HostRoomPage() {
 
   const playRound2FictionExplanationAudio = useCallback(
     async (index: number) => {
-      if (!hasUserInteractedRef.current) return;
+      console.log('playRound2FictionExplanationAudio called with index:', index);
+      if (!hasUserInteractedRef.current) {
+        console.log('No user interaction for round2 fiction explanation');
+        return;
+      }
       stopRound2Audio();
 
       const bg = new Audio(buildAudioUrl(ROUND2_EXPLANATION_BG_FILE));
@@ -844,7 +853,8 @@ export default function HostRoomPage() {
       round2ExplanationBgAudioRef.current = bg;
 
       const ordinal = index + 1;
-      const voice = new Audio(buildAudioUrl(`round2/fictionExplanation/${ordinal}.wav`));
+      const voice = new Audio(buildAudioUrl(`round2/fictionExplanation/${ordinal}.mp3`));
+      console.log('Loading round2 fiction explanation audio:', `round2/fictionExplanation/${ordinal}.mp3`);
       voice.volume = 0.95;
 
       round2ExplanationAudioRef.current = voice;
