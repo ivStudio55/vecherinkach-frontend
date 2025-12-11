@@ -352,6 +352,22 @@ export default function HostRoomPage() {
   }, [round2Answers]);
 
   useEffect(() => {
+    const loadRound2Items = async () => {
+      try {
+        const response = await fetch('/round2/true_false_explanation.json');
+        if (!response.ok) {
+          throw new Error('Failed to load round2 items');
+        }
+        const data: TrueFalseItem[] = await response.json();
+        setRound2Items(data);
+      } catch (error) {
+        console.error('Error loading round2 items:', error);
+      }
+    };
+    loadRound2Items();
+  }, []);
+
+  useEffect(() => {
     playersRef.current = players;
   }, [players]);
 
