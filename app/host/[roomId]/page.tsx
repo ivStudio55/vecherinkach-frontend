@@ -115,8 +115,8 @@ const ROUND3_RULES_TEXT = [
 ];
 const ROUND3_MIN_PLAYERS = 3;
 
-const buildAudioUrl = (relativePath: string) => `/api/audio?file=${encodeURIComponent(relativePath)}&t=${Date.now()}`;
-const buildJingleUrl = (fileName: string) => `/api/jingle/audio?file=${encodeURIComponent(fileName)}&t=${Date.now()}`;
+const buildAudioUrl = (relativePath: string) => `/audio/${relativePath}?t=${Date.now()}`;
+const buildJingleUrl = (fileName: string) => `/audio/${fileName}?t=${Date.now()}`;
 const pickRandomItem = <T,>(items: readonly T[]) => items[Math.floor(Math.random() * items.length)];
 
 const getRemainingSeconds = (startedAt: string | null, offsetMs = 0) => {
