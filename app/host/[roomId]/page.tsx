@@ -98,6 +98,22 @@ const ROUND2_BETWEEN_AUDIO_VARIANTS = {
 } as const;
 const ROUND2_RULES_VOICE_FILES = ['round2/ruels/1.wav', 'round2/ruels/2.wav'] as const;
 const ROUND2_RULES_SKIP_WINDOW_MS = 20000;
+const ROUND3_TOO_FEW_AUDIO_FILES = [
+  'round3/too_few_people/too_few_people.wav',
+  'round3/too_few_people/too_few_people2.wav',
+  'round3/too_few_people/too_few_people3.wav',
+] as const;
+const ROUND3_RULES_AUDIO_FILES = ['round3/ruels3/ruels1.wav', 'round3/ruels3/ruels2.wav', 'round3/ruels3/ruels3.wav'] as const;
+const ROUND3_RULES_TEXT = [
+  'Раунд «МозгоШтурм»',
+  'Перед вами появятся 6 интересных фактов с одним пропущенным словом.',
+  'Ваша задача: ввести на телефоне одно слово без дефисов, пробелов и знаков препинания.',
+  'После каждого тура на экране появятся ответы всех игроков — выбирайте понравившийся (кроме своего).',
+  'Подсчёт очков: точное слово — +200 очков, каждый голос за ваш ответ — +50 очков, пропущенное голосование — -50 очков.',
+  'Время на ввод — 60 секунд, на голосование — 30 секунд. Синонимы может засчитать ведущий.',
+  'Готовы угадывать и голосовать? Давайте устроим настоящий мозговой штурм!',
+];
+const ROUND3_MIN_PLAYERS = 3;
 
 const buildAudioUrl = (relativePath: string) => `/api/audio?file=${encodeURIComponent(relativePath)}&t=${Date.now()}`;
 const buildJingleUrl = (fileName: string) => `/api/jingle/audio?file=${encodeURIComponent(fileName)}&t=${Date.now()}`;
@@ -138,7 +154,14 @@ interface Player {
   total_points: number;
 }
 
-type RoomStatus = 'waiting' | 'running' | 'finished' | 'round2-running';
+type RoomStatus =
+  | 'waiting'
+  | 'running'
+  | 'round2-running'
+  | 'round2-ready'
+  | 'round3-ready'
+  | 'round3-running'
+  | 'finished';
 
 interface RoundAnswer {
   player_id: string;
@@ -222,6 +245,8 @@ export default function HostRoomPage() {
   const [round2Leaderboard, setRound2Leaderboard] = useState<Round2LeaderboardEntry[]>([]);
   const [round2LastAccuracy, setRound2LastAccuracy] = useState(0);
   const [isRatingVisible, setIsRatingVisible] = useState(false);
+  const [round3Notice, setRound3Notice] = useState('');
+  const [isRound3RulesVisible, setIsRound3RulesVisible] = useState(false);
 
   const meetAudioRef = useRef<HTMLAudioElement | null>(null);
   const connectAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -239,6 +264,9 @@ export default function HostRoomPage() {
   const round2BetweenAudioRef = useRef<HTMLAudioElement | null>(null);
   const round2RulesMusicAudioRef = useRef<HTMLAudioElement | null>(null);
   const round2RulesVoiceAudioRef = useRef<HTMLAudioElement | null>(null);
+  const round3RulesAudioRef = useRef<HTMLAudioElement | null>(null);
+  const round3TooFewAudioRef = useRef<HTMLAudioElement | null>(null);
+  const round3TransitionAudioRef = useRef<HTMLAudioElement | null>(null);
   const round2AnswersRef = useRef<Round2AnswerRow[]>([]);
   const round2StatsRef = useRef<Map<string, Round2PlayerStats>>(new Map());
   const round2CorrectTotalRef = useRef(0);
@@ -430,6 +458,77 @@ export default function HostRoomPage() {
     }
   }, []);
 
+  const stopRound3RulesAudio = useCallback(() => {
+    if (round3RulesAudioRef.current) {
+      round3RulesAudioRef.current.pause();
+      round3RulesAudioRef.current.currentTime = 0;
+      round3RulesAudioRef.current = null;
+    }
+  }, []);
+
+  const stopRound3TooFewAudio = useCallback(() => {
+    if (round3TooFewAudioRef.current) {
+      round3TooFewAudioRef.current.pause();
+      round3TooFewAudioRef.current.currentTime = 0;
+      round3TooFewAudioRef.current = null;
+    }
+  }, []);
+
+  const stopRound3TransitionAudio = useCallback(() => {
+    if (round3TransitionAudioRef.current) {
+      round3TransitionAudioRef.current.pause();
+      round3TransitionAudioRef.current.currentTime = 0;
+      round3TransitionAudioRef.current = null;
+    }
+  }, []);
+
+  const playRound3TransitionJingle = useCallback(() => {
+    if (!hasUserInteractedRef.current) {
+      return;
+    }
+    stopRound3TransitionAudio();
+    const cue = new Audio(buildAudioUrl(ROUND1_END_JINGLE_FILE));
+    cue.volume = 0.95;
+    round3TransitionAudioRef.current = cue;
+    cue.play().catch((error) => {
+      console.error('Не удалось проиграть джингл перехода к Раунду 3', error);
+    });
+  }, [stopRound3TransitionAudio]);
+
+  const playRound3RulesAudio = useCallback(() => {
+    if (!hasUserInteractedRef.current) {
+      return;
+    }
+    if (!ROUND3_RULES_AUDIO_FILES.length) {
+      return;
+    }
+    stopRound3RulesAudio();
+    const file = pickRandomItem(ROUND3_RULES_AUDIO_FILES);
+    const audio = new Audio(buildAudioUrl(file));
+    audio.volume = 0.95;
+    round3RulesAudioRef.current = audio;
+    audio.play().catch((error) => {
+      console.error('Не удалось проиграть правила Раунда 3', error);
+    });
+  }, [stopRound3RulesAudio]);
+
+  const playRound3TooFewAudio = useCallback(() => {
+    if (!hasUserInteractedRef.current) {
+      return;
+    }
+    if (!ROUND3_TOO_FEW_AUDIO_FILES.length) {
+      return;
+    }
+    stopRound3TooFewAudio();
+    const file = pickRandomItem(ROUND3_TOO_FEW_AUDIO_FILES);
+    const audio = new Audio(buildAudioUrl(file));
+    audio.volume = 0.95;
+    round3TooFewAudioRef.current = audio;
+    audio.play().catch((error) => {
+      console.error('Не удалось проиграть предупреждение про малое количество игроков', error);
+    });
+  }, [stopRound3TooFewAudio]);
+
   const stopRoundEndAudio = useCallback(() => {
     const mainCue = roundEndAudioRef.current;
     if (mainCue) {
@@ -516,6 +615,28 @@ export default function HostRoomPage() {
       stopRound2RulesAudio();
     }
   }, [isRound2RulesVisible, playRound2RulesAudio, stopRound2RulesAudio, stopRoundEndAudio]);
+
+  useEffect(() => {
+    if (isRound3RulesVisible) {
+      stopRound3TooFewAudio();
+      playRound3RulesAudio();
+    } else {
+      stopRound3RulesAudio();
+    }
+  }, [isRound3RulesVisible, playRound3RulesAudio, stopRound3RulesAudio, stopRound3TooFewAudio]);
+
+  useEffect(() => {
+    if (roomStatus !== 'round3-ready') {
+      setIsRound3RulesVisible(false);
+      stopRound3RulesAudio();
+    }
+  }, [roomStatus, stopRound3RulesAudio]);
+
+  useEffect(() => {
+    if (roomStatus !== 'round3-ready' && round3Notice) {
+      setRound3Notice('');
+    }
+  }, [roomStatus, round3Notice]);
 
   useEffect(() => {
     round2RulesReadyAtRef.current = isRound2RulesVisible ? Date.now() : null;
@@ -1019,6 +1140,13 @@ export default function HostRoomPage() {
           setTimeLeft(0);
         }
         await loadRound2AnswerStats(nextRound2Index);
+      } else if (detectedStatus === 'round2-ready' || detectedStatus === 'round3-ready') {
+        setShowResults(true);
+        setAnswerCount(0);
+        setAnsweredPlayerIds([]);
+        setServerAllPlayersAnswered(false);
+        await fetchSummaryData();
+        await loadRound2AnswerStats(null);
       } else if (detectedStatus === 'finished') {
         setShowResults(true);
         setAnswerCount(0);
@@ -1512,6 +1640,9 @@ export default function HostRoomPage() {
     stopRoundEndAudio,
     stopRound2Audio,
     stopRound2RulesAudio,
+    stopRound3RulesAudio,
+    stopRound3TooFewAudio,
+    stopRound3TransitionAudio,
     clearCountdownTimeout,
     clearPrestartEnableTimeout,
     clearRoundEndUnlockTimeout,
@@ -1815,7 +1946,7 @@ export default function HostRoomPage() {
     stopQuestionAudio();
     const { error: updateError } = await supabase
       .from('rooms')
-      .update({ is_active: false, status: 'finished', all_players_answered: false })
+      .update({ is_active: false, status: 'round2-ready', all_players_answered: false })
       .eq('id', roomId);
 
     if (updateError) {
@@ -1825,7 +1956,7 @@ export default function HostRoomPage() {
     }
     await fetchSummaryData();
     await loadPlayers();
-    updateRoomStatus('finished');
+    updateRoomStatus('round2-ready');
     setShowResults(true);
     setIsRatingVisible(false);
     setAnsweredPlayerIds([]);
@@ -2080,6 +2211,9 @@ export default function HostRoomPage() {
       stopQuestionAudio();
       stopRoundEndAudio();
       stopRound2RulesAudio();
+      stopRound3RulesAudio();
+      stopRound3TooFewAudio();
+      stopRound3TransitionAudio();
       setIsRound2RulesVisible(false);
       if (options?.resetTrackers) {
         round2AskedIndicesRef.current = [index];
@@ -2233,7 +2367,7 @@ export default function HostRoomPage() {
     const { error } = await supabase
       .from('rooms')
       .update({
-        status: 'finished',
+        status: 'round3-ready',
         is_active: false,
         all_players_answered: true,
         question_started_at: null,
@@ -2247,7 +2381,8 @@ export default function HostRoomPage() {
     }
 
     updateRound2Leaderboard();
-    setRoomStatus('finished');
+    playRound3TransitionJingle();
+    setRoomStatus('round3-ready');
     setShowResults(true);
     setRound2Phase('idle');
     setRound2CurrentIndex(null);
@@ -2257,7 +2392,16 @@ export default function HostRoomPage() {
     round2AskedIndicesRef.current = [];
     setServerAllPlayersAnswered(true);
     setQuestionStartedAt(null);
-  }, [clearRound2Timer, roomId, setRound2CurrentIndex, setRound2Phase, stopRound2Audio, stopRound2RulesAudio, updateRound2Leaderboard]);
+  }, [
+    clearRound2Timer,
+    playRound3TransitionJingle,
+    roomId,
+    setRound2CurrentIndex,
+    setRound2Phase,
+    stopRound2Audio,
+    stopRound2RulesAudio,
+    updateRound2Leaderboard,
+  ]);
 
   const handleRound2NextQuestion = useCallback(async () => {
     if (roomStatus !== 'round2-running') {
@@ -2283,6 +2427,17 @@ export default function HostRoomPage() {
   useEffect(() => {
     handleRound2NextQuestionRef.current = handleRound2NextQuestion;
   }, [handleRound2NextQuestion]);
+
+  const handleRound3Button = useCallback(() => {
+    if (players.length < ROUND3_MIN_PLAYERS) {
+      setRound3Notice('К сожалению, если вас меньше трёх, игра считается разминочной — доступны только первые два раунда.');
+      playRound3TooFewAudio();
+      return;
+    }
+    setRound3Notice('');
+    stopRound3TooFewAudio();
+    setIsRound3RulesVisible(true);
+  }, [players.length, playRound3TooFewAudio, stopRound3TooFewAudio]);
 
   const handleRound2Reveal = useCallback(() => {
     if (round2CurrentIndex === null) {
@@ -2334,7 +2489,9 @@ export default function HostRoomPage() {
     }
     return Array.from(unique.values());
   }, [round2Answers]);
-  const headerActionLabel = roomStatus === 'finished' && showResults ? 'Раунд 2' : 'Завершить игру';
+  const isRound2Ready = roomStatus === 'round2-ready' && showResults;
+  const isRound3Ready = roomStatus === 'round3-ready' && showResults;
+  const headerActionLabel = isRound3Ready ? 'Раунд 3' : isRound2Ready ? 'Раунд 2' : 'Завершить игру';
   const round2QuestionNumber = round2QuestionCounter > 0 ? round2QuestionCounter : 1;
   const clampedRound2QuestionNumber = Math.min(round2QuestionNumber, ROUND2_TOTAL_QUESTIONS);
   const round2TruthLabel =
@@ -2354,7 +2511,12 @@ export default function HostRoomPage() {
     round2Leaderboard.length > 0 ? `${round2AccuracyPercent}% попали в точку` : 'Ждём первую статистику';
 
   const handlePrimaryHeaderAction = () => {
-    if (roomStatus === 'finished' && showResults) {
+    if (isRound3Ready) {
+      hasUserInteractedRef.current = true;
+      handleRound3Button();
+      return;
+    }
+    if (isRound2Ready) {
       hasUserInteractedRef.current = true;
       setIsRound2RulesVisible(true);
       return;
@@ -2478,15 +2640,23 @@ export default function HostRoomPage() {
         ? 'Раунд 1 в эфире'
         : roomStatus === 'round2-running'
           ? 'Раунд 2 в эфире'
-          : 'Итоги раунда';
+          : roomStatus === 'round3-running'
+            ? 'Раунд 3 в эфире'
+            : roomStatus === 'round2-ready'
+              ? 'Раунд 1 завершён'
+              : roomStatus === 'round3-ready'
+                ? 'Раунд 2 завершён'
+                : 'Итоги игры';
   const statusBadgeClass =
     roomStatus === 'running'
       ? 'bg-[#f1532f] text-[#ffeccd]'
       : roomStatus === 'round2-running'
         ? 'bg-[#b4007f] text-white'
-        : roomStatus === 'waiting'
-          ? 'bg-[#ffe184] text-[#142a45]'
-          : 'bg-[#1f6ac6] text-white';
+        : roomStatus === 'round3-running'
+          ? 'bg-[#1f6ac6] text-white'
+          : roomStatus === 'waiting'
+            ? 'bg-[#ffe184] text-[#142a45]'
+            : 'bg-[#142a45] text-[#ffeccd]';
 
   return (
     <Fragment>
@@ -2516,6 +2686,19 @@ export default function HostRoomPage() {
         {error && (
           <div className="rounded-3xl border-[3px] border-[#b23324] bg-[#ffd7d0] px-4 py-3 text-sm font-semibold text-[#7b1d16]">
             {error}
+          </div>
+        )}
+
+        {round3Notice && (
+          <div className="rounded-3xl border-[3px] border-[#b87333] bg-[#fff1e0] px-4 py-3 text-sm font-semibold text-[#7a3c16] flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <span>{round3Notice}</span>
+            <button
+              type="button"
+              onClick={() => setRound3Notice('')}
+              className="px-4 py-2 rounded-2xl border-[2px] border-[#b87333] text-[#b87333] bg-white text-xs font-semibold"
+            >
+              Понятно
+            </button>
           </div>
         )}
 
@@ -2955,9 +3138,17 @@ export default function HostRoomPage() {
                   <h3 className="text-2xl font-black">{players.length || 0} подключено</h3>
                 </div>
                 <span className="text-sm font-semibold text-[#1f6ac6]">
-                  {roomStatus === 'running' ? 'Раунд 1'
-                    : roomStatus === 'round2-running' ? 'Раунд 2'
-                      : 'Подготовка'}
+                  {roomStatus === 'running'
+                    ? 'Раунд 1'
+                    : roomStatus === 'round2-running'
+                      ? 'Раунд 2'
+                      : roomStatus === 'round3-running'
+                        ? 'Раунд 3'
+                        : roomStatus === 'round2-ready'
+                          ? 'Итоги Раунда 1'
+                          : roomStatus === 'round3-ready'
+                            ? 'Итоги Раунда 2'
+                            : 'Подготовка'}
                 </span>
               </div>
 
@@ -3159,6 +3350,34 @@ export default function HostRoomPage() {
             {round2Items.length === 0 && (
               <p className="text-xs text-[#b23324] font-semibold">Факты ещё загружаются — подождите пару секунд.</p>
             )}
+          </div>
+        </div>
+      )}
+
+      {roomStatus === 'round3-ready' && isRound3RulesVisible && (
+        <div className="fixed inset-0 z-50 bg-[#142a45]/70 backdrop-blur-sm flex items-center justify-center px-4">
+          <div className="max-w-lg w-full rounded-3xl border-[4px] border-[#142a45] bg-[#fff6da] p-6 space-y-4 shadow-2xl">
+            <div>
+              <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Раунд 3 · «МозгоШтурм»</p>
+              <h3 className="text-2xl font-black text-[#142a45]">Готовим мозги к шторму</h3>
+            </div>
+            <ul className="text-sm text-[#142a45]/80 space-y-2">
+              {ROUND3_RULES_TEXT.map((line) => (
+                <li key={line}>• {line}</li>
+              ))}
+            </ul>
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={() => setIsRound3RulesVisible(false)}
+                className="w-full py-3 rounded-2xl font-black text-lg tracking-[0.3em] bg-[#1f6ac6] text-white border-[3px] border-[#142a45]"
+              >
+                Всё понятно
+              </button>
+              <p className="text-xs text-[#142a45]/60 text-center">
+                Полная механика Раунда 3 появится в следующем обновлении.
+              </p>
+            </div>
           </div>
         </div>
       )}

@@ -33,7 +33,14 @@ type Question = ActiveRoundQuestion;
 
 type Round2Phase = 'idle' | 'fact' | 'explanation';
 
-type RoomStatus = 'waiting' | 'running' | 'finished' | 'round2-running';
+type RoomStatus =
+  | 'waiting'
+  | 'running'
+  | 'round2-running'
+  | 'round2-ready'
+  | 'round3-ready'
+  | 'round3-running'
+  | 'finished';
 
 type RoomUpdatePayload = {
   new: {
@@ -217,7 +224,8 @@ export default function RoomPage() {
         setSelectedQuestionIds(selection);
         const detectedStatus = (room.status as RoomStatus) || (room.is_active ? 'waiting' : 'finished');
         setRoomStatus(detectedStatus);
-        const isLiveRound = detectedStatus === 'running' || detectedStatus === 'round2-running';
+        const isLiveRound =
+          detectedStatus === 'running' || detectedStatus === 'round2-running' || detectedStatus === 'round3-running';
         setAllPlayersAnswered(isLiveRound ? !!room.all_players_answered : false);
 
         if (detectedStatus === 'waiting') {
@@ -226,6 +234,17 @@ export default function RoomPage() {
           setQuestion(null);
           setQuestionStartedAt(null);
           setTimeLeft(QUESTION_DURATION_SECONDS);
+          return;
+        }
+
+        if (detectedStatus === 'round2-ready' || detectedStatus === 'round3-ready') {
+          setShowResults(true);
+          setQuestion(null);
+          setQuestionStartedAt(null);
+          setRound2Phase('idle');
+          setRound2CurrentIndex(null);
+          setRound2AnsweredChoice(null);
+          setRound2AnsweredCorrect(null);
           return;
         }
 
@@ -331,7 +350,9 @@ export default function RoomPage() {
           const newStatus = (payload.new.status as RoomStatus) || (payload.new.is_active ? 'waiting' : 'finished');
           setRoomStatus(newStatus);
           const everyoneAnsweredFlag =
-            newStatus === 'running' || newStatus === 'round2-running' ? !!payload.new.all_players_answered : false;
+            newStatus === 'running' || newStatus === 'round2-running' || newStatus === 'round3-running'
+              ? !!payload.new.all_players_answered
+              : false;
           setAllPlayersAnswered(everyoneAnsweredFlag);
           const selection = (payload.new.selected_question_ids as number[] | null) || [];
           setSelectedQuestionIds(selection);
@@ -344,6 +365,18 @@ export default function RoomPage() {
           if (newStatus === 'waiting') {
             setShowResults(false);
             setHasAnswered(false);
+            setQuestion(null);
+            setQuestionStartedAt(null);
+            setTimeLeft(QUESTION_DURATION_SECONDS);
+            setRound2Phase('idle');
+            setRound2CurrentIndex(null);
+            setRound2AnsweredChoice(null);
+            setRound2AnsweredCorrect(null);
+            return;
+          }
+
+          if (newStatus === 'round2-ready' || newStatus === 'round3-ready') {
+            setShowResults(true);
             setQuestion(null);
             setQuestionStartedAt(null);
             setTimeLeft(QUESTION_DURATION_SECONDS);

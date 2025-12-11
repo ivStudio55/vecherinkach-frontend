@@ -21,7 +21,17 @@
         DROP CONSTRAINT rooms_status_check;
     END IF;
     ALTER TABLE rooms
-    ADD CONSTRAINT rooms_status_check CHECK (status IN ('waiting', 'running', 'round2-running', 'finished'));
+    ADD CONSTRAINT rooms_status_check CHECK (
+        status IN (
+            'waiting',
+            'running',
+            'round2-running',
+            'round2-ready',
+            'round3-ready',
+            'round3-running',
+            'finished'
+        )
+    );
     END$$;
 
     ALTER TABLE questions
@@ -29,7 +39,15 @@
 
     UPDATE rooms
     SET status = 'waiting'
-    WHERE status IS NULL OR status NOT IN ('waiting', 'running', 'finished');
+    WHERE status IS NULL OR status NOT IN (
+        'waiting',
+        'running',
+        'round2-running',
+        'round2-ready',
+        'round3-ready',
+        'round3-running',
+        'finished'
+    );
 
     UPDATE rooms
     SET question_started_at = NULL
