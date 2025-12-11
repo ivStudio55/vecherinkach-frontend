@@ -721,7 +721,7 @@ export default function HostRoomPage() {
       const folder = isFact ? 'round2/true' : 'round2/false';
       const ordinal = index + 1;
       const prefix = isFact ? 'true' : 'false';
-      const filePath = `${folder}/${prefix}${ordinal}.wav`;
+      const filePath = `${folder}/${prefix}${ordinal}.mp3`;
       const audio = new Audio(buildAudioUrl(filePath));
       audio.volume = 0.95;
       round2FactAudioRef.current = audio;
@@ -800,7 +800,7 @@ export default function HostRoomPage() {
       round2ExplanationBgAudioRef.current = bg;
 
       const ordinal = index + 1;
-      const voice = new Audio(buildAudioUrl(`round2/explanation/${ordinal}.wav`));
+      const voice = new Audio(buildAudioUrl(`round2/explanation/${ordinal}.mp3`));
       voice.volume = 0.95;
 
       round2ExplanationAudioRef.current = voice;
