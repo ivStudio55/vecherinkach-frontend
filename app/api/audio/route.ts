@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import path from 'path';
 import { promises as fs } from 'fs';
 
-const AUDIO_ROOT = path.join(process.cwd(), 'app', 'audio');
+const AUDIO_ROOT = path.join(process.cwd(), 'public', 'audio');
 const MIME_TYPES: Record<string, string> = {
   '.mp3': 'audio/mpeg',
   '.wav': 'audio/wav',
