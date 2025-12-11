@@ -16,6 +16,12 @@ import {
   hasEnoughQuestions,
   pickRandomQuestionIds,
 } from '@/lib/questions';
+import {
+  Round3Question,
+  ROUND3_TOTAL_QUESTIONS,
+  buildRound3Questions,
+  pickRound3QuestionIds,
+} from '@/lib/round3';
 
 const QUESTION_DURATION_SECONDS = 30;
 const COUNTDOWN_STEPS = ['на старт', 'внимание', '3', '2', '1', 'старт'] as const;
@@ -114,6 +120,7 @@ const ROUND3_RULES_TEXT = [
   'Готовы угадывать и голосовать? Давайте устроим настоящий мозговой штурм!',
 ];
 const ROUND3_MIN_PLAYERS = 3;
+const ROUND3_INPUT_SECONDS = 60;
 
 const buildAudioUrl = (relativePath: string) => `/api/audio?file=${encodeURIComponent(relativePath)}&t=${Date.now()}`;
 const buildJingleUrl = (fileName: string) => `/api/jingle/audio?file=${encodeURIComponent(fileName)}&t=${Date.now()}`;
@@ -247,6 +254,16 @@ export default function HostRoomPage() {
   const [isRatingVisible, setIsRatingVisible] = useState(false);
   const [round3Notice, setRound3Notice] = useState('');
   const [isRound3RulesVisible, setIsRound3RulesVisible] = useState(false);
+  const [round3Questions, setRound3Questions] = useState<Round3Question[]>([]);
+  const [round3CurrentIndex, setRound3CurrentIndexState] = useState(0);
+  const [round3ActiveQuestion, setRound3ActiveQuestion] = useState<Round3Question | null>(null);
+  const [round3TimeLeft, setRound3TimeLeft] = useState(ROUND3_INPUT_SECONDS);
+  const [isRound3TimerVisible, setIsRound3TimerVisible] = useState(false);
+  const [isRound3TimerRunning, setIsRound3TimerRunning] = useState(false);
+  const [round3AudioState, setRound3AudioState] = useState<'idle' | 'playing' | 'finished'>('idle');
+  const [isRound3Complete, setIsRound3Complete] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const meetAudioRef = useRef<HTMLAudioElement | null>(null);
   const connectAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -267,6 +284,8 @@ export default function HostRoomPage() {
   const round3RulesAudioRef = useRef<HTMLAudioElement | null>(null);
   const round3TooFewAudioRef = useRef<HTMLAudioElement | null>(null);
   const round3TransitionAudioRef = useRef<HTMLAudioElement | null>(null);
+  const round3QuestionAudioRef = useRef<HTMLAudioElement | null>(null);
+  const round3TimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const round2AnswersRef = useRef<Round2AnswerRow[]>([]);
   const round2StatsRef = useRef<Map<string, Round2PlayerStats>>(new Map());
   const round2CorrectTotalRef = useRef(0);
@@ -303,6 +322,8 @@ export default function HostRoomPage() {
   const round2RulesReadyAtRef = useRef<number | null>(null);
   const round2ShowingFactRef = useRef(round2ShowingFact);
   const round2PhaseRef = useRef<Round2Phase>(round2PhaseState);
+  const round3CurrentIndexRef = useRef(0);
+  const round3QuestionsRef = useRef<Round3Question[]>([]);
 
   const setRound2Phase = useCallback(
     (nextPhase: Round2Phase) => {
@@ -318,6 +339,14 @@ export default function HostRoomPage() {
       setRound2CurrentIndexState(value);
     },
     [setRound2CurrentIndexState]
+  );
+
+  const setRound3CurrentIndex = useCallback(
+    (value: number) => {
+      round3CurrentIndexRef.current = value;
+      setRound3CurrentIndexState(value);
+    },
+    [setRound3CurrentIndexState]
   );
 
   const setQuestion = useCallback(
@@ -350,6 +379,15 @@ export default function HostRoomPage() {
   useEffect(() => {
     round2AnswersRef.current = round2Answers;
   }, [round2Answers]);
+
+  useEffect(() => {
+    round3QuestionsRef.current = round3Questions;
+  }, [round3Questions]);
+
+  useEffect(() => {
+    round3CurrentIndexRef.current = round3CurrentIndex;
+  }, [round3CurrentIndex]);
+
 
   useEffect(() => {
     const loadRound2Items = async () => {
@@ -546,6 +584,167 @@ export default function HostRoomPage() {
     });
   }, [stopRound3TooFewAudio]);
 
+  const stopRound3QuestionAudio = useCallback(() => {
+    if (round3QuestionAudioRef.current) {
+      try {
+        round3QuestionAudioRef.current.pause();
+        round3QuestionAudioRef.current.currentTime = 0;
+      } catch (error) {
+        console.error('Не удалось остановить озвучку Раунда 3', error);
+      }
+      round3QuestionAudioRef.current.onended = null;
+      round3QuestionAudioRef.current = null;
+    }
+    setRound3AudioState('idle');
+  }, []);
+
+  const clearRound3Timer = useCallback(() => {
+    if (round3TimerRef.current) {
+      clearInterval(round3TimerRef.current);
+      round3TimerRef.current = null;
+    }
+    setIsRound3TimerRunning(false);
+  }, []);
+
+  const startRound3Timer = useCallback(() => {
+    clearRound3Timer();
+    setIsRound3TimerRunning(true);
+    setIsRound3TimerVisible(true);
+    setRound3TimeLeft(ROUND3_INPUT_SECONDS);
+    round3TimerRef.current = setInterval(() => {
+      setRound3TimeLeft((prev) => {
+        if (prev <= 1) {
+          clearRound3Timer();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, [clearRound3Timer]);
+
+  const playRound3QuestionAudio = useCallback(
+    (question: Round3Question) => {
+      stopRound3QuestionAudio();
+      setRound3AudioState('playing');
+      setIsRound3TimerVisible(false);
+      setIsRound3TimerRunning(false);
+
+      const audio = new Audio(buildAudioUrl(question.audioFile));
+      audio.volume = 0.95;
+      audio.onended = () => {
+        setRound3AudioState('finished');
+        startRound3Timer();
+      };
+      audio.onerror = () => {
+        setRound3AudioState('idle');
+        startRound3Timer();
+      };
+      round3QuestionAudioRef.current = audio;
+      audio
+        .play()
+        .then(() => {
+          /* nada */
+        })
+        .catch((error) => {
+          console.error('Не удалось озвучить вопрос Раунда 3', error);
+          setRound3AudioState('idle');
+          startRound3Timer();
+        });
+    },
+    [startRound3Timer, stopRound3QuestionAudio]
+  );
+
+  const resetRound3Flow = useCallback(() => {
+    clearRound3Timer();
+    stopRound3QuestionAudio();
+    setRound3ActiveQuestion(null);
+    setRound3CurrentIndex(0);
+    setRound3TimeLeft(ROUND3_INPUT_SECONDS);
+    setIsRound3TimerVisible(false);
+    setIsRound3TimerRunning(false);
+    setRound3AudioState('idle');
+    setIsRound3Complete(false);
+  }, [clearRound3Timer, setRound3CurrentIndex, stopRound3QuestionAudio]);
+
+  const prepareRound3QuestionSet = useCallback(() => {
+    try {
+      const ids = pickRound3QuestionIds();
+      const built = buildRound3Questions(ids);
+      setRound3Questions(built);
+      return built;
+    } catch (questionError) {
+      console.error('Не удалось подготовить вопросы Раунда 3', questionError);
+      setError('Не удалось подготовить вопросы Раунда 3. Попробуйте ещё раз.');
+      setRound3Questions([]);
+      return [];
+    }
+  }, [setError]);
+
+  const beginRound3Question = useCallback(
+    (question: Round3Question) => {
+      if (!question) {
+        return;
+      }
+      clearRound3Timer();
+      setRound3ActiveQuestion(question);
+      setRound3TimeLeft(ROUND3_INPUT_SECONDS);
+      setIsRound3TimerVisible(false);
+      setIsRound3TimerRunning(false);
+      setRound3AudioState('idle');
+      playRound3QuestionAudio(question);
+    },
+    [clearRound3Timer, playRound3QuestionAudio]
+  );
+
+  const moveToRound3Question = useCallback(
+    (targetIndex: number) => {
+      const questions = round3QuestionsRef.current;
+      if (!questions.length) {
+        return;
+      }
+      if (targetIndex >= questions.length) {
+        clearRound3Timer();
+        stopRound3QuestionAudio();
+        setRound3ActiveQuestion(null);
+        setIsRound3TimerVisible(false);
+        setIsRound3TimerRunning(false);
+        setRound3TimeLeft(0);
+        setIsRound3Complete(true);
+        setRound3CurrentIndex(questions.length);
+        return;
+      }
+      setIsRound3Complete(false);
+      setRound3CurrentIndex(targetIndex);
+      beginRound3Question(questions[targetIndex]);
+    },
+    [beginRound3Question, clearRound3Timer, setRound3CurrentIndex, stopRound3QuestionAudio]
+  );
+
+  useEffect(() => {
+    if (roomStatus !== 'round3-ready') {
+      return;
+    }
+    if (round3QuestionsRef.current.length) {
+      return;
+    }
+    prepareRound3QuestionSet();
+  }, [prepareRound3QuestionSet, roomStatus]);
+
+  useEffect(() => {
+    if (roomStatus === 'round3-running') {
+      return;
+    }
+    clearRound3Timer();
+    stopRound3QuestionAudio();
+  }, [clearRound3Timer, roomStatus, stopRound3QuestionAudio]);
+
+  useEffect(() => {
+    return () => {
+      clearRound3Timer();
+      stopRound3QuestionAudio();
+    };
+  }, [clearRound3Timer, stopRound3QuestionAudio]);
+
   const stopRoundEndAudio = useCallback(() => {
     const mainCue = roundEndAudioRef.current;
     if (mainCue) {
@@ -730,6 +929,50 @@ export default function HostRoomPage() {
     updateRound2Leaderboard();
   }, [updateRound2Leaderboard]);
 
+  const completeRound2 = useCallback(async () => {
+    handleRound2NextQuestionRef.current = null;
+    clearRound2Timer();
+    stopRound2Audio();
+    stopRound2RulesAudio();
+    const { error } = await supabase
+      .from('rooms')
+      .update({
+        status: 'round3-ready',
+        is_active: false,
+        all_players_answered: true,
+        question_started_at: null,
+        round2_phase: 'idle',
+      })
+      .eq('id', roomId);
+
+    if (error) {
+      setError('Не удалось завершить Раунд 2');
+      return;
+    }
+
+    updateRound2Leaderboard();
+    playRound3TransitionJingle();
+    setRoomStatus('round3-ready');
+    setShowResults(true);
+    setRound2Phase('idle');
+    setRound2CurrentIndex(null);
+    setRound2QuestionCounter(0);
+    setRound2AskedIndices([]);
+    round2QuestionCounterRef.current = 0;
+    round2AskedIndicesRef.current = [];
+    setServerAllPlayersAnswered(true);
+    setQuestionStartedAt(null);
+  }, [
+    clearRound2Timer,
+    playRound3TransitionJingle,
+    roomId,
+    setRound2CurrentIndex,
+    setRound2Phase,
+    stopRound2Audio,
+    stopRound2RulesAudio,
+    updateRound2Leaderboard,
+  ]);
+
   const playRound2FactAudio = useCallback(
     (index: number, isFact: boolean) => {
       if (!hasUserInteractedRef.current) return;
@@ -755,7 +998,7 @@ export default function HostRoomPage() {
         console.error('Не удалось проиграть аудио факта Раунда 2', e);
       });
     },
-    [stopRound2Audio]
+    [completeRound2, stopRound2Audio]
   );
 
   const playRound2BetweenAudio = useCallback(
@@ -961,9 +1204,6 @@ export default function HostRoomPage() {
     },
     [timeOffsetMs]
   );
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
-
   const summaryQuestions = useMemo<Question[]>(() => {
     if (!selectedQuestionIds.length) {
       return [];
@@ -2050,13 +2290,22 @@ export default function HostRoomPage() {
     setCurrentQuestionIndex(newIndex);
     setServerAllPlayersAnswered(false);
     syncTimerWithStart(questionStartedAt, offset);
-    previousCorrectAnswerPercentageRef.current = totalPlayers > 0 ? (correctAnswerCount / totalPlayers) * 100 : 0;
+    const playerCount = playersRef.current.length;
+    previousCorrectAnswerPercentageRef.current = playerCount > 0 ? (correctAnswerCount / playerCount) * 100 : 0;
     setAnswerCount(0);
     setCorrectAnswerCount(0);
     setAnsweredPlayerIds([]);
     loadQuestionFromSelection(newIndex);
     await loadAnswerCount(newIndex);
-  }, [currentQuestionIndex, getServerIsoTimestamp, roomId, syncTimerWithStart, loadQuestionFromSelection, loadAnswerCount]);
+  }, [
+    correctAnswerCount,
+    currentQuestionIndex,
+    getServerIsoTimestamp,
+    loadAnswerCount,
+    loadQuestionFromSelection,
+    roomId,
+    syncTimerWithStart,
+  ]);
 
   const runCountdownSequence = useCallback(
     function runCountdownSequence(stepIndex: number) {
@@ -2389,50 +2638,6 @@ export default function HostRoomPage() {
     stopRound2RulesAudio,
   ]);
 
-  const completeRound2 = useCallback(async () => {
-    handleRound2NextQuestionRef.current = null;
-    clearRound2Timer();
-    stopRound2Audio();
-    stopRound2RulesAudio();
-    const { error } = await supabase
-      .from('rooms')
-      .update({
-        status: 'round3-ready',
-        is_active: false,
-        all_players_answered: true,
-        question_started_at: null,
-        round2_phase: 'idle',
-      })
-      .eq('id', roomId);
-
-    if (error) {
-      setError('Не удалось завершить Раунд 2');
-      return;
-    }
-
-    updateRound2Leaderboard();
-    playRound3TransitionJingle();
-    setRoomStatus('round3-ready');
-    setShowResults(true);
-    setRound2Phase('idle');
-    setRound2CurrentIndex(null);
-    setRound2QuestionCounter(0);
-    setRound2AskedIndices([]);
-    round2QuestionCounterRef.current = 0;
-    round2AskedIndicesRef.current = [];
-    setServerAllPlayersAnswered(true);
-    setQuestionStartedAt(null);
-  }, [
-    clearRound2Timer,
-    playRound3TransitionJingle,
-    roomId,
-    setRound2CurrentIndex,
-    setRound2Phase,
-    stopRound2Audio,
-    stopRound2RulesAudio,
-    updateRound2Leaderboard,
-  ]);
-
   const handleRound2NextQuestion = useCallback(async () => {
     if (roomStatus !== 'round2-running') {
       return;
@@ -2466,8 +2671,51 @@ export default function HostRoomPage() {
     }
     setRound3Notice('');
     stopRound3TooFewAudio();
+    if (!round3QuestionsRef.current.length) {
+      prepareRound3QuestionSet();
+    }
     setIsRound3RulesVisible(true);
-  }, [players.length, playRound3TooFewAudio, stopRound3TooFewAudio]);
+  }, [players.length, playRound3TooFewAudio, prepareRound3QuestionSet, stopRound3TooFewAudio]);
+
+  const handleRound3Start = useCallback(() => {
+    hasUserInteractedRef.current = true;
+    const preparedQuestions = round3QuestionsRef.current.length
+      ? round3QuestionsRef.current
+      : prepareRound3QuestionSet();
+    if (!preparedQuestions.length) {
+      return;
+    }
+    resetRound3Flow();
+    stopRound3RulesAudio();
+    setIsRound3RulesVisible(false);
+    setShowResults(false);
+    setRoomStatus('round3-running');
+    setRound3CurrentIndex(0);
+    setIsRound3Complete(false);
+    beginRound3Question(preparedQuestions[0]);
+  }, [beginRound3Question, prepareRound3QuestionSet, resetRound3Flow, setRound3CurrentIndex, setRoomStatus, setShowResults, stopRound3RulesAudio]);
+
+  const handleRound3ReplayAudio = useCallback(() => {
+    if (!round3ActiveQuestion) {
+      return;
+    }
+    beginRound3Question(round3ActiveQuestion);
+  }, [beginRound3Question, round3ActiveQuestion]);
+
+  const handleRound3SkipQuestion = useCallback(() => {
+    playSkipAudio();
+    moveToRound3Question(round3CurrentIndexRef.current + 1);
+  }, [moveToRound3Question, playSkipAudio]);
+
+  const handleRound3NextQuestion = useCallback(() => {
+    moveToRound3Question(round3CurrentIndexRef.current + 1);
+  }, [moveToRound3Question]);
+
+  const handleRound3ReturnToResults = useCallback(() => {
+    resetRound3Flow();
+    setRoomStatus('round3-ready');
+    setShowResults(true);
+  }, [resetRound3Flow, setRoomStatus, setShowResults]);
 
   const handleRound2Reveal = useCallback(() => {
     if (round2CurrentIndex === null) {
@@ -2539,6 +2787,18 @@ export default function HostRoomPage() {
   const round2AccuracyPercent = Math.max(0, Math.min(100, Math.round(round2LastAccuracy)));
   const round2AccuracyLabel =
     round2Leaderboard.length > 0 ? `${round2AccuracyPercent}% попали в точку` : 'Ждём первую статистику';
+  const totalRound3Questions = round3Questions.length || ROUND3_TOTAL_QUESTIONS;
+  const round3QuestionNumber = Math.min(round3CurrentIndex + 1, totalRound3Questions);
+  const round3ProgressPercent = Math.max(0, Math.min(100, (round3TimeLeft / ROUND3_INPUT_SECONDS) * 100));
+  const canAdvanceRound3 = isRound3TimerVisible && !isRound3TimerRunning && round3TimeLeft === 0;
+  const isRound3Running = roomStatus === 'round3-running';
+  const visibleQuestionNumber = isRound3Running
+    ? round3QuestionNumber
+    : question
+      ? question.order
+      : showResults
+        ? totalQuestions
+        : 0;
 
   const handlePrimaryHeaderAction = () => {
     if (isRound3Ready) {
@@ -3083,7 +3343,118 @@ export default function HostRoomPage() {
                   )}
                 </div>
               </div>
-            ) : question ? (
+              ) : isRound3Running ? (
+                isRound3Complete ? (
+                  <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-4 text-center">
+                    <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Раунд 3 · МозгоШтурм</p>
+                    <h2 className="text-3xl font-black">Все шесть фактов готовы!</h2>
+                    <p className="text-sm text-[#142a45]/70">
+                      Обсудите ответы, начислите очки за догадки и подготовьтесь к голосованию. Цифровая часть голосования появится в следующем обновлении.
+                    </p>
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      <button
+                        type="button"
+                        onClick={handleRound3ReturnToResults}
+                        className="flex-1 py-4 rounded-2xl font-black text-lg tracking-[0.2em] bg-[#1f6ac6] text-white border-[3px] border-[#142a45]"
+                      >
+                        Вернуться к итогам
+                      </button>
+                    </div>
+                    <p className="text-xs text-[#142a45]/60">
+                      Чтобы переиграть МозгоШтурм, нажмите «Раунд 3» в шапке и выберите «Начать».
+                    </p>
+                  </div>
+                ) : (
+                  <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <span className="px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
+                        Факт {round3QuestionNumber} / {totalRound3Questions}
+                      </span>
+                      <span className="text-xs font-semibold text-[#142a45]/70">
+                        {round3ActiveQuestion?.category || 'Категория появится вместе с вопросом'}
+                      </span>
+                    </div>
+
+                    <div className="rounded-3xl border-[3px] border-dashed border-[#142a45]/30 bg-[#fff6da] p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/70">Озвучка</p>
+                        <span className="text-xs font-semibold text-[#1f6ac6]">
+                          {round3AudioState === 'playing'
+                            ? 'Говорит диктор'
+                            : round3AudioState === 'finished'
+                              ? 'Таймер готов'
+                              : 'Готово к запуску'}
+                        </span>
+                      </div>
+                      <p className="text-sm text-[#142a45]/80">
+                        {round3AudioState === 'playing'
+                          ? 'Дождитесь окончания озвучки — таймер на 60 секунд появится автоматически.'
+                          : 'Можно перечитать вопрос вручную или снова включить дорожку.'}
+                      </p>
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        <button
+                          type="button"
+                          onClick={handleRound3ReplayAudio}
+                          disabled={!round3ActiveQuestion || round3AudioState === 'playing'}
+                          className="flex-1 py-3 rounded-2xl border-[3px] border-[#142a45] bg-white font-semibold text-[#142a45] disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          Повторить озвучку
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-4 space-y-3">
+                      <div className="flex items-center justify-between text-xs text-[#142a45]/70">
+                        <span>Таймер · 60 сек</span>
+                        <span className="font-black text-[#142a45]">
+                          {isRound3TimerVisible ? `${round3TimeLeft} c` : 'Ждём окончания озвучки'}
+                        </span>
+                      </div>
+                      <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
+                        <div
+                          className={`h-full ${round3TimeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
+                          style={{ width: `${round3ProgressPercent}%` }}
+                        />
+                      </div>
+                      {!isRound3TimerVisible && (
+                        <p className="text-xs text-[#142a45]/70">Таймер появится автоматически после окончания аудиодорожки.</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-3">
+                      <p className="text-xs font-semibold text-[#142a45]/70 uppercase tracking-[0.3em]">Заполните пропуск</p>
+                      <h2 className="text-3xl font-black leading-tight">
+                        {round3ActiveQuestion?.text || 'Вопрос подготавливается…'}
+                      </h2>
+                      {round3ActiveQuestion?.comment && (
+                        <p className="text-sm text-[#142a45]/60">{round3ActiveQuestion.comment}</p>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      <button
+                        type="button"
+                        onClick={handleRound3SkipQuestion}
+                        className="flex-1 py-4 rounded-2xl border-[3px] border-dashed border-[#142a45] text-[#142a45] font-semibold"
+                      >
+                        Пропустить
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleRound3NextQuestion}
+                        disabled={!canAdvanceRound3}
+                        className="flex-1 py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#1f6ac6] text-white border-[3px] border-[#142a45] transition disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        {round3QuestionNumber >= totalRound3Questions ? 'Завершить раунд' : 'Следующий вопрос'}
+                      </button>
+                    </div>
+
+                    <p className="text-xs text-[#142a45]/60">
+                      Время на ввод — 60 секунд. После сигнала обсудите ответы и переходите к голосованию.
+                    </p>
+                  </div>
+                )
+              ) : question ? (
               <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <span className="px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
@@ -3153,6 +3524,10 @@ export default function HostRoomPage() {
                 <p className="text-sm text-[#142a45]/80">
                   Игроки ловят фейк: {answeredCount}/{totalPlayers} уже ответили. Ниже показаны их выборы и кто попал в цель.
                 </p>
+              ) : isRound3Running ? (
+                <p className="text-sm text-[#142a45]/80">
+                  МозгоШтурм в эфире: игроки вводят одно слово на телефоне. Таймер синхронизирован с вашей панелью.
+                </p>
               ) : (
                 <p className="text-sm text-[#142a45]/80">
                   Ответы скрыты до окончания таймера. Уже ответили: <span className="font-black text-[#1f6ac6]">{answeredCount}/{totalPlayers}</span>
@@ -3210,6 +3585,8 @@ export default function HostRoomPage() {
                               <p className={`text-xs font-semibold ${hasAnswered ? 'text-[#b4007f]' : 'text-[#142a45]/50'}`}>
                                 {hasAnswered ? 'Выбор сделан' : 'Ждём выбор'}
                               </p>
+                            ) : roomStatus === 'round3-running' ? (
+                              <p className="text-xs font-semibold text-[#1f6ac6]">Играют в «МозгоШтурм»</p>
                             ) : null}
                           </div>
                         </div>
@@ -3228,7 +3605,7 @@ export default function HostRoomPage() {
               <div className="grid grid-cols-2 gap-3 text-sm font-semibold">
                 <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-[#fff6da] px-4 py-3">
                   <p className="text-[11px] text-[#142a45]/60">Вопрос</p>
-                  <p className="text-2xl font-black">{question ? question.order : showResults ? totalQuestions : 0}</p>
+                  <p className="text-2xl font-black">{visibleQuestionNumber}</p>
                 </div>
                 <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-[#ffe184] px-4 py-3">
                   <p className="text-[11px] text-[#142a45]/60">Игроки</p>
@@ -3400,15 +3777,25 @@ export default function HostRoomPage() {
             <div className="space-y-3">
               <button
                 type="button"
-                onClick={() => setIsRound3RulesVisible(false)}
+                onClick={handleRound3Start}
                 className="w-full py-3 rounded-2xl font-black text-lg tracking-[0.3em] bg-[#1f6ac6] text-white border-[3px] border-[#142a45]"
               >
-                Всё понятно
+                НАЧАТЬ
               </button>
-              <p className="text-xs text-[#142a45]/60 text-center">
-                Полная механика Раунда 3 появится в следующем обновлении.
-              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsRound3RulesVisible(false);
+                  stopRound3RulesAudio();
+                }}
+                className="w-full py-3 rounded-2xl border-[3px] border-dashed border-[#142a45] bg-white font-semibold text-[#142a45]"
+              >
+                Закрыть
+              </button>
             </div>
+            <p className="text-xs text-[#142a45]/60 text-center">
+              После завершения озвучки на экране появится таймер на 60 секунд.
+            </p>
           </div>
         </div>
       )}
