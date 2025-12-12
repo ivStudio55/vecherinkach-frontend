@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, ChangeEvent } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import {
@@ -85,6 +85,7 @@ export default function RoomPage() {
   const [round2Phase, setRound2Phase] = useState<Round2Phase>('idle');
   const [round2AnsweredChoice, setRound2AnsweredChoice] = useState<boolean | null>(null);
   const [round2AnsweredCorrect, setRound2AnsweredCorrect] = useState<boolean | null>(null);
+  const [round3AnswerDraft, setRound3AnswerDraft] = useState('');
   const roomIdRef = useRef('');
   const playerIdRef = useRef('');
 
@@ -500,6 +501,12 @@ export default function RoomPage() {
     return () => clearInterval(interval);
   }, [timerActive, questionStartedAt, timeOffsetMs]);
 
+  useEffect(() => {
+    if (roomStatus !== 'round3-running' && round3AnswerDraft) {
+      setRound3AnswerDraft('');
+    }
+  }, [roomStatus, round3AnswerDraft]);
+
   const submitAnswer = async (optionKey: string) => {
     setError('');
     setIsSubmitting(true);
@@ -668,6 +675,12 @@ export default function RoomPage() {
       setIsSubmitting(false);
     }
   };
+
+  const handleRound3AnswerChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    const rawValue = event.target.value;
+    const sanitized = rawValue.replace(/[^0-9A-Za-zА-Яа-яЁё]/g, '');
+    setRound3AnswerDraft(sanitized.slice(0, 32));
+  }, []);
 
   if (isLoading) {
     return (
@@ -850,6 +863,42 @@ export default function RoomPage() {
             {effectiveTimeLeft <= 0 && round2Phase === 'fact' && !hasAnswered && (
               <p className="text-xs text-center text-[#142a45]/60">⏱ Время истекло. Ответ засчитать не получится.</p>
             )}
+          </section>
+        )}
+
+        {roomStatus === 'round3-running' && (
+          <section className="rounded-3xl border-[4px] border-[#1f6ac6] bg-white shadow-xl p-6 space-y-6">
+            <div className="flex flex-col gap-2 text-center">
+              <span className="mx-auto px-4 py-2 rounded-full border-[3px] border-[#1f6ac6] text-sm font-black">
+                Раунд 3 · «МозгоШтурм»
+              </span>
+              <h2 className="text-3xl font-black leading-tight">Введите слово с пропуском</h2>
+              <p className="text-sm text-[#142a45]/80">
+                Ведущий озвучивает факт с пропущенным словом. Напишите свою версию без пробелов, дефисов и знаков препинания — одно слово целиком.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs font-semibold tracking-[0.3em] text-[#142a45]/60 uppercase">Ваш ответ</p>
+              <input
+                type="text"
+                inputMode="text"
+                autoComplete="off"
+                spellCheck={false}
+                value={round3AnswerDraft}
+                onChange={handleRound3AnswerChange}
+                maxLength={32}
+                placeholder="Например: метеорит"
+                className="w-full rounded-2xl border-[3px] border-[#142a45] px-4 py-4 text-2xl font-black tracking-[0.2em] text-center uppercase bg-[#fff6da] focus:outline-none focus:ring-4 focus:ring-[#1f6ac6]/30"
+              />
+              <div className="flex items-center justify-between text-xs text-[#142a45]/60">
+                <span>Только буквы и цифры</span>
+                <span className="font-semibold text-[#1f6ac6]">{round3AnswerDraft.length}/32</span>
+              </div>
+              <p className="text-xs text-[#142a45]/60">
+                Черновик хранится только на вашем устройстве. Ждите команды ведущего, чтобы озвучить и защитить ответ.
+              </p>
+            </div>
           </section>
         )}
 
