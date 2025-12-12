@@ -6,11 +6,8 @@ import { supabase } from '@/lib/supabase';
 import { TrueFalseItem, ROUND2_POINTS } from '@/lib/round2';
 import {
   ActiveRoundQuestion,
-  OptionKey,
   OPTION_LABELS,
   ROUND_QUESTION_COUNT,
-  buildQuestionsFromSelection,
-  getOptionIndexFromKey,
   getOptionKeyByIndex,
   getQuestionForIndex,
   hasEnoughQuestions,
@@ -172,15 +169,6 @@ type RoomStatus =
   | 'round3-running'
   | 'finished';
 
-interface RoundAnswer {
-  player_id: string;
-  text: string;
-  submitted_at: string;
-  is_correct: boolean;
-  points_earned: number;
-  question_index: number;
-}
-
 type AnswerSummaryRow = {
   player_id: string;
   is_correct: boolean | null;
@@ -224,7 +212,6 @@ export default function HostRoomPage() {
   const [questionStartedAt, setQuestionStartedAt] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState(QUESTION_DURATION_SECONDS);
   const [showResults, setShowResults] = useState(false);
-  const [roundAnswers, setRoundAnswers] = useState<RoundAnswer[]>([]);
   const [isSummaryLoading, setIsSummaryLoading] = useState(false);
   const [roomStatus, setRoomStatus] = useState<RoomStatus>('waiting');
   const [serverAllPlayersAnswered, setServerAllPlayersAnswered] = useState(false);
@@ -253,7 +240,6 @@ export default function HostRoomPage() {
   const [round2QuestionCounter, setRound2QuestionCounter] = useState(0);
   const [round2Leaderboard, setRound2Leaderboard] = useState<Round2LeaderboardEntry[]>([]);
   const [round2LastAccuracy, setRound2LastAccuracy] = useState(0);
-  const [isRatingVisible, setIsRatingVisible] = useState(false);
   const [round3Notice, setRound3Notice] = useState('');
   const [isRound3RulesVisible, setIsRound3RulesVisible] = useState(false);
   const [round3Questions, setRound3Questions] = useState<Round3Question[]>([]);
@@ -541,19 +527,6 @@ export default function HostRoomPage() {
     }
   }, []);
 
-  const playRound3TransitionJingle = useCallback(() => {
-    if (!hasUserInteractedRef.current) {
-      return;
-    }
-    stopRound3TransitionAudio();
-    const cue = new Audio(buildAudioUrl(ROUND1_END_JINGLE_FILE));
-    cue.volume = 0.95;
-    round3TransitionAudioRef.current = cue;
-    cue.play().catch((error) => {
-      console.error('Не удалось проиграть джингл перехода к Раунду 3', error);
-    });
-  }, [stopRound3TransitionAudio]);
-
   const playRound3RulesAudio = useCallback(() => {
     if (!hasUserInteractedRef.current) {
       return;
@@ -772,55 +745,6 @@ export default function HostRoomPage() {
     [clearRound3Timer, playRound3QuestionAudio]
   );
 
-  const moveToRound3Question = useCallback(
-    (targetIndex: number) => {
-      const questions = round3QuestionsRef.current;
-      if (!questions.length) {
-        return;
-      }
-      if (targetIndex >= questions.length) {
-        clearRound3Timer();
-        stopRound3QuestionAudio();
-        setRound3ActiveQuestion(null);
-        setIsRound3TimerVisible(false);
-        setIsRound3TimerRunning(false);
-        setRound3TimeLeft(0);
-        setIsRound3Complete(true);
-        setRound3CurrentIndex(questions.length);
-        return;
-      }
-      setIsRound3Complete(false);
-      setRound3CurrentIndex(targetIndex);
-      beginRound3Question(questions[targetIndex]);
-    },
-    [beginRound3Question, clearRound3Timer, setRound3CurrentIndex, stopRound3QuestionAudio]
-  );
-
-  useEffect(() => {
-    if (roomStatus !== 'round3-ready') {
-      return;
-    }
-    if (round3QuestionsRef.current.length) {
-      return;
-    }
-    prepareRound3QuestionSet();
-  }, [prepareRound3QuestionSet, roomStatus]);
-
-  useEffect(() => {
-    if (roomStatus === 'round3-running') {
-      return;
-    }
-    clearRound3Timer();
-    stopRound3QuestionAudio();
-  }, [clearRound3Timer, roomStatus, stopRound3QuestionAudio]);
-
-  useEffect(() => {
-    return () => {
-      clearRound3Timer();
-      stopRound3QuestionAudio();
-    };
-  }, [clearRound3Timer, stopRound3QuestionAudio]);
-
   const stopRoundEndAudio = useCallback(() => {
     const mainCue = roundEndAudioRef.current;
     if (mainCue) {
@@ -861,6 +785,56 @@ export default function HostRoomPage() {
       console.error('Не удалось проиграть джингл завершения раунда', error);
     });
   }, [stopRoundEndAudio]);
+
+  const moveToRound3Question = useCallback(
+    (targetIndex: number) => {
+      const questions = round3QuestionsRef.current;
+      if (!questions.length) {
+        return;
+      }
+      if (targetIndex >= questions.length) {
+        clearRound3Timer();
+        stopRound3QuestionAudio();
+        setRound3ActiveQuestion(null);
+        setIsRound3TimerVisible(false);
+        setIsRound3TimerRunning(false);
+        setRound3TimeLeft(0);
+        setIsRound3Complete(true);
+        setRound3CurrentIndex(questions.length);
+        playRoundEndAudio();
+        return;
+      }
+      setIsRound3Complete(false);
+      setRound3CurrentIndex(targetIndex);
+      beginRound3Question(questions[targetIndex]);
+    },
+    [beginRound3Question, clearRound3Timer, playRoundEndAudio, setRound3CurrentIndex, stopRound3QuestionAudio]
+  );
+
+  useEffect(() => {
+    if (roomStatus !== 'round3-ready') {
+      return;
+    }
+    if (round3QuestionsRef.current.length) {
+      return;
+    }
+    prepareRound3QuestionSet();
+  }, [prepareRound3QuestionSet, roomStatus]);
+
+  useEffect(() => {
+    if (roomStatus === 'round3-running') {
+      return;
+    }
+    clearRound3Timer();
+    stopRound3QuestionAudio();
+  }, [clearRound3Timer, roomStatus, stopRound3QuestionAudio]);
+
+  useEffect(() => {
+    return () => {
+      clearRound3Timer();
+      stopRound3QuestionAudio();
+    };
+  }, [clearRound3Timer, stopRound3QuestionAudio]);
 
   const playRound2RulesAudio = useCallback(() => {
     if (!hasUserInteractedRef.current) {
@@ -1027,7 +1001,7 @@ export default function HostRoomPage() {
     }
 
     updateRound2Leaderboard();
-    playRound3TransitionJingle();
+    playRoundEndAudio();
     setRoomStatus('round3-ready');
     setShowResults(true);
     setRound2Phase('idle');
@@ -1040,7 +1014,7 @@ export default function HostRoomPage() {
     setQuestionStartedAt(null);
   }, [
     clearRound2Timer,
-    playRound3TransitionJingle,
+    playRoundEndAudio,
     roomId,
     setRound2CurrentIndex,
     setRound2Phase,
@@ -1280,13 +1254,6 @@ export default function HostRoomPage() {
     },
     [timeOffsetMs]
   );
-  const summaryQuestions = useMemo<Question[]>(() => {
-    if (!selectedQuestionIds.length) {
-      return [];
-    }
-    return buildQuestionsFromSelection(selectedQuestionIds);
-  }, [selectedQuestionIds]);
-
   const playerRatings = useMemo(() => {
     return [...players].sort((a, b) => b.total_points - a.total_points);
   }, [players]);
@@ -1414,18 +1381,6 @@ export default function HostRoomPage() {
     loadRound2AnswerStatsRef.current = loadRound2AnswerStats;
   }, [loadRound2AnswerStats]);
 
-  const fetchSummaryData = useCallback(async () => {
-    const { data, error: answersError } = await supabase
-      .from('answers')
-      .select('player_id, text, submitted_at, is_correct, points_earned, question_index')
-      .eq('room_id', roomId)
-      .order('question_index', { ascending: true });
-
-    if (!answersError) {
-      setRoundAnswers(data || []);
-    }
-  }, [roomId]);
-
   const loadRoomData = useCallback(
     async (offsetOverride?: number) => {
       try {
@@ -1488,14 +1443,12 @@ export default function HostRoomPage() {
         setAnswerCount(0);
         setAnsweredPlayerIds([]);
         setServerAllPlayersAnswered(false);
-        await fetchSummaryData();
         await loadRound2AnswerStats(null);
       } else if (detectedStatus === 'finished') {
         setShowResults(true);
         setAnswerCount(0);
         setAnsweredPlayerIds([]);
         setServerAllPlayersAnswered(false);
-        await fetchSummaryData();
         await loadRound2AnswerStats(null);
       } else {
         setQuestion(null);
@@ -1518,7 +1471,6 @@ export default function HostRoomPage() {
       roomId,
       loadQuestionFromSelection,
       loadAnswerCount,
-      fetchSummaryData,
       loadRound2AnswerStats,
       loadPlayers,
       syncTimerWithStart,
@@ -2276,6 +2228,12 @@ export default function HostRoomPage() {
   }, [roomStatus, showResults, stopBetweenAudio, stopRoundEndAudio, clearRoundEndUnlockTimeout, clearRoundEndDelayTimeout]);
 
   useEffect(() => {
+    if (roomStatus === 'running' || roomStatus === 'round2-running' || roomStatus === 'round3-running') {
+      stopRoundEndAudio();
+    }
+  }, [roomStatus, stopRoundEndAudio]);
+
+  useEffect(() => {
     const shouldPlayRulesAudio = roomStatus === 'waiting' && !showResults && isRulesVisible;
     if (shouldPlayRulesAudio) {
       playRulesAudio();
@@ -2299,11 +2257,9 @@ export default function HostRoomPage() {
       setIsSummaryLoading(false);
       return;
     }
-    await fetchSummaryData();
     await loadPlayers();
     updateRoomStatus('round2-ready');
     setShowResults(true);
-    setIsRatingVisible(false);
     setAnsweredPlayerIds([]);
     setIsSummaryLoading(false);
   };
@@ -2338,7 +2294,6 @@ export default function HostRoomPage() {
 
     updateRoomStatus('running');
     setShowResults(false);
-    setIsRatingVisible(false);
     setServerAllPlayersAnswered(false);
     setSelectedQuestionIds(questionIds);
     syncTimerWithStart(startedAt, offset);
@@ -2605,7 +2560,6 @@ export default function HostRoomPage() {
       }
 
       setShowResults(false);
-      setIsRatingVisible(false);
       setRoomStatus('round2-running');
       setRound2CurrentIndex(index);
       setRound2ShowingFact(showingFact);
@@ -2641,7 +2595,6 @@ export default function HostRoomPage() {
       roomId,
       setError,
       setShowResults,
-      setIsRatingVisible,
       playRound2FactAudio,
       moveRound2ToExplanation,
       setRound2CurrentIndex,
@@ -2801,7 +2754,6 @@ export default function HostRoomPage() {
   const canAdvance = isRound1Active && (effectiveTimeLeft === 0 || allPlayersAnswered);
   const nextButtonDisabled = !canAdvance || (isLastQuestion && (isSummaryLoading || isRoundEndButtonLocked));
   const progressPercent = Math.max(0, Math.min(100, (effectiveTimeLeft / QUESTION_DURATION_SECONDS) * 100));
-  const questionsForSummary = summaryQuestions.length ? summaryQuestions : question ? [question] : [];
   const isWaiting = roomStatus === 'waiting' && !showResults;
   const shouldShowRulesModal = isWaiting && isRulesVisible;
   const shouldShowCountdownOverlay = isCountdownVisible;
@@ -2853,6 +2805,11 @@ export default function HostRoomPage() {
       : showResults
         ? totalQuestions
         : 0;
+  const round1CorrectOptionKey = question ? getOptionKeyByIndex(question.correctIndex) : null;
+  const round1CorrectLabel = round1CorrectOptionKey ? OPTION_LABELS[round1CorrectOptionKey] ?? round1CorrectOptionKey : '';
+  const round1CorrectText = question ? question.options[question.correctIndex] ?? '' : '';
+  const shouldShowRound1Answer = Boolean(question && canAdvance && round1CorrectLabel && round1CorrectText);
+  const summaryRoundLabel = roomStatus === 'round3-ready' ? 'Раунда 2' : 'Раунда 1';
 
   const handlePrimaryHeaderAction = () => {
     if (isRound3Ready) {
@@ -2964,16 +2921,6 @@ export default function HostRoomPage() {
       </div>
     );
   }
-
-  const getOptionText = (q: Question, keyOrIndex: string | number) => {
-    const index = typeof keyOrIndex === 'number' ? keyOrIndex : getOptionIndexFromKey(keyOrIndex);
-    return q.options[index] || '';
-  };
-
-  const formatOptionLabel = (key: string) => {
-    const normalizedKey = key as OptionKey;
-    return OPTION_LABELS[normalizedKey] || key;
-  };
 
   const getPlayerName = (playerId: string) =>
     players.find((player) => player.id === playerId)?.name || 'Неизвестный игрок';
@@ -3093,95 +3040,30 @@ export default function HostRoomPage() {
                   </div>
                 </div>
               ) : (
-                <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Итоги раунда</p>
-                    <h2 className="text-3xl font-black">🏆 Результаты</h2>
+                <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Итоги {summaryRoundLabel}</p>
+                      <h2 className="text-3xl font-black">🏆 Таблица лидеров</h2>
+                    </div>
+                    <span className="text-sm font-semibold text-[#1f6ac6]">Очки уже начислены игрокам</span>
                   </div>
-                  <span className="text-sm font-semibold text-[#1f6ac6]">Очки уже начислены игрокам</span>
-                </div>
-                <div className="flex flex-wrap justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setIsRatingVisible((prev) => !prev)}
-                    className={`px-4 py-2 rounded-2xl border-[3px] font-semibold transition ${
-                      isRatingVisible
-                        ? 'border-[#1f6ac6] bg-[#1f6ac6] text-white'
-                        : 'border-[#142a45]/40 bg-white text-[#142a45]'
-                    }`}
-                  >
-                    {isRatingVisible ? 'Скрыть рейтинг' : 'Рейтинг'}
-                  </button>
-                </div>
-                <div className="space-y-4">
-                  {questionsForSummary.map((summaryQuestion: Question) => {
-                    const answersForQuestion = roundAnswers.filter(
-                      (answer) => answer.question_index === summaryQuestion.order - 1
-                    );
-                    const correctKey = getOptionKeyByIndex(summaryQuestion.correctIndex);
-                    const correctText = getOptionText(summaryQuestion, summaryQuestion.correctIndex);
-
-                    return (
-                      <article
-                        key={summaryQuestion.order}
-                        className="rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-4 space-y-3"
-                      >
-                        <div className="flex items-center justify-between text-xs text-[#142a45]/70">
-                          <span className="font-semibold tracking-[0.3em]">Вопрос {summaryQuestion.order}</span>
-                          <span className="font-black text-[#f1532f]">+{summaryQuestion.points}💎</span>
-                        </div>
-                        <p className="text-lg font-semibold">{summaryQuestion.text}</p>
-                        <p className="text-sm text-[#1f6ac6] font-semibold">
-                          Правильный ответ: {OPTION_LABELS[correctKey]} — {correctText}
-                        </p>
-                        <div className="space-y-2">
-                          {answersForQuestion.length === 0 ? (
-                            <p className="text-xs text-[#142a45]/70">Никто не ответил на этот вопрос</p>
-                          ) : (
-                            answersForQuestion.map((answer) => (
-                              <div
-                                key={`${answer.player_id}-${answer.question_index}`}
-                                className={`rounded-2xl border-[3px] px-3 py-2 text-sm flex items-center justify-between ${
-                                  answer.is_correct
-                                    ? 'border-[#1f6ac6]/40 bg-white'
-                                    : 'border-[#f1532f]/30 bg-white'
-                                }`}
-                              >
-                                <div>
-                                  <p className="font-semibold">{getPlayerName(answer.player_id)}</p>
-                                  <p className="text-xs text-[#142a45]/70">
-                                    {formatOptionLabel(answer.text)} — {getOptionText(summaryQuestion, answer.text)}
-                                  </p>
-                                </div>
-                                <span className={`font-black ${answer.is_correct ? 'text-[#1f6ac6]' : 'text-[#f1532f]'}`}>
-                                  {answer.is_correct ? `+${answer.points_earned}` : '+0'}
-                                </span>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      </article>
-                    );
-                  })}
-                  {!questionsForSummary.length && (
-                    <p className="text-sm text-[#142a45]/70">Ответов пока нет — возможно, раунд завершили слишком рано.</p>
-                  )}
-                </div>
-                {isRatingVisible && (
-                  <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-white p-4 space-y-3">
+                  <p className="text-sm text-[#142a45]/70">
+                    {summaryRoundLabel} завершён — перескажите правильный ответ голосом и переходите к следующему этапу, ориентируясь на рейтинг ниже.
+                  </p>
+                  <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Рейтинг игроков</p>
                       <span className="text-xs font-semibold text-[#1f6ac6]">По итогам раунда</span>
                     </div>
                     {playerRatings.length === 0 ? (
-                      <p className="text-sm text-[#142a45]/70">Рейтинг появится после завершения первого раунда.</p>
+                      <p className="text-sm text-[#142a45]/70">Рейтинг появится, когда хотя бы один игрок заработает очки.</p>
                     ) : (
                       <ol className="space-y-2">
                         {playerRatings.map((player, index) => (
                           <li
                             key={player.id}
-                            className="flex items-center justify-between rounded-2xl border-[3px] border-[#142a45]/10 bg-[#fff6da] px-3 py-2"
+                            className="flex items-center justify-between rounded-2xl border-[3px] border-[#142a45]/10 bg-white px-3 py-2"
                           >
                             <div className="flex items-center gap-3">
                               <span className="w-8 h-8 rounded-full border-[3px] border-[#142a45]/30 flex items-center justify-center font-black">
@@ -3195,8 +3077,7 @@ export default function HostRoomPage() {
                       </ol>
                     )}
                   </div>
-                )}
-              </div>
+                </div>
               )
             ) : isWaiting ? (
               <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
@@ -3525,6 +3406,15 @@ export default function HostRoomPage() {
                 </div>
 
                 <h2 className="text-3xl font-black leading-tight">{question.text}</h2>
+
+                {shouldShowRound1Answer && (
+                  <div className="rounded-2xl border-[3px] border-[#1f6ac6]/30 bg-white px-4 py-3 space-y-1">
+                    <p className="text-[11px] tracking-[0.4em] text-[#1f6ac6]/70">Правильный ответ</p>
+                    <p className="text-sm font-semibold text-[#1f6ac6]">
+                      {round1CorrectLabel} — {round1CorrectText}
+                    </p>
+                  </div>
+                )}
 
                 <button
                   onClick={isLastQuestion ? finishRound : nextQuestion}
