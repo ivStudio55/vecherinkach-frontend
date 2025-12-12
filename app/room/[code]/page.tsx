@@ -14,6 +14,14 @@ import { TrueFalseItem, ROUND2_POINTS } from '@/lib/round2';
 const QUESTION_DURATION_SECONDS = 30;
 const APP_VERSION = '1.0.4'; // Инкрементируйте при важных изменениях
 
+type Round3AnswerRow = {
+  id: string;
+  player_id: string;
+  answer: string;
+  question_index: number;
+  submitted_at: string;
+};
+
 type Round3AnswersListProps = {
   answers: Round3AnswerRow[];
   playerId?: string;
@@ -50,12 +58,9 @@ type RoomStatus =
   | 'round3-running'
   | 'finished';
 
-type Round3AnswerRow = {
-  id: string;
-  player_id: string;
-  answer: string;
-  question_index: number;
-  submitted_at: string;
+type Round3AnswerChangePayload = {
+  new: Round3AnswerRow;
+  old: Round3AnswerRow;
 };
 
 type RoomUpdatePayload = {
@@ -608,14 +613,15 @@ export default function RoomPage() {
     const round3AnswersChannel = supabase
       .channel(`player-round3-answers-${roomId}-${channelId}`)
       .on(
+        // @ts-ignore
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
           schema: 'public',
           table: 'round3_answers',
           filter: `room_id=eq.${roomId}`,
         },
-        (payload) => {
+        (payload: Round3AnswerChangePayload) => {
           if (!mounted) {
             return;
           }
@@ -628,12 +634,7 @@ export default function RoomPage() {
             return;
           }
 
-          const payloadIndex =
-            'new' in payload && payload.new && typeof payload.new.question_index === 'number'
-              ? payload.new.question_index
-              : payload.old && typeof payload.old.question_index === 'number'
-                ? payload.old.question_index
-                : null;
+          const payloadIndex = payload.new.question_index;
 
           if (payloadIndex === null || payloadIndex !== currentIndex) {
             return;
