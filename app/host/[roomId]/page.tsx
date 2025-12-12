@@ -87,6 +87,18 @@ const ROUND1_END_AUDIO_FILES = [
   'round1end/9.mp3',
 ] as const;
 const ROUND1_END_JINGLE_FILE = 'round1_end/jingle_(after_round1).mp3';
+const ROUND2_END_AUDIO_FILES = [
+  'round2end/1.mp3',
+  'round2end/2.mp3',
+  'round2end/3.mp3',
+  'round2end/4.mp3',
+  'round2end/5.mp3',
+  'round2end/6.mp3',
+  'round2end/7.mp3',
+  'round2end/8.mp3',
+  'round2end/9.mp3',
+] as const;
+const ROUND2_END_JINGLE_FILE = 'round2_end/jingle_(after_round2).mp3';
 const ROUND2_RULES_JINGLE_FILE = 'round2/jingle (5).mp3';
 const ROUND2_EXPLANATION_BG_FILE = 'round2/jingle (5).mp3';
 const ROUND2_TOTAL_QUESTIONS = 6;
@@ -113,7 +125,7 @@ const ROUND3_RULES_TEXT = [
   'Ваша задача: ввести на телефоне одно слово без дефисов, пробелов и знаков препинания.',
   'После каждого тура на экране появятся ответы всех игроков — выбирайте понравившийся (кроме своего).',
   'Подсчёт очков: точное слово — +200 очков, каждый голос за ваш ответ — +50 очков, пропущенное голосование — -50 очков.',
-  'Время на ввод — 30 секунд, на голосование — 30 секунд. Синонимы может засчитать ведущий.',
+  'Время на ввод — 30 секунд, на голосование — 15 секунд. Синонимы может засчитать ведущий.',
   'Готовы угадывать и голосовать? Давайте устроим настоящий мозговой штурм!',
 ];
 const ROUND3_MIN_PLAYERS = 3;
@@ -763,18 +775,20 @@ export default function HostRoomPage() {
     }
   }, []);
 
-  const playRoundEndAudio = useCallback(() => {
+  const playRoundEndAudio = useCallback((round: number = 1) => {
     if (!hasUserInteractedRef.current) {
       return;
     }
 
     stopRoundEndAudio();
-    const file = pickRandomItem(ROUND1_END_AUDIO_FILES);
+    const files = round === 2 ? ROUND2_END_AUDIO_FILES : ROUND1_END_AUDIO_FILES;
+    const jingleFile = round === 2 ? ROUND2_END_JINGLE_FILE : ROUND1_END_JINGLE_FILE;
+    const file = pickRandomItem(files);
     const audio = new Audio(buildAudioUrl(file));
     audio.volume = 0.95;
     roundEndAudioRef.current = audio;
 
-    const jingle = new Audio(buildAudioUrl(ROUND1_END_JINGLE_FILE));
+    const jingle = new Audio(buildAudioUrl(jingleFile));
     jingle.volume = 0.95;
     roundEndJingleAudioRef.current = jingle;
 
@@ -801,7 +815,7 @@ export default function HostRoomPage() {
         setRound3TimeLeft(0);
         setIsRound3Complete(true);
         setRound3CurrentIndex(questions.length);
-        playRoundEndAudio();
+        playRoundEndAudio(3);
         return;
       }
       setIsRound3Complete(false);
@@ -1001,7 +1015,7 @@ export default function HostRoomPage() {
     }
 
     updateRound2Leaderboard();
-    playRoundEndAudio();
+    playRoundEndAudio(2);
     setRoomStatus('round3-ready');
     setShowResults(true);
     setRound2Phase('idle');
@@ -2856,7 +2870,7 @@ export default function HostRoomPage() {
     clearRoundEndDelayTimeout();
     clearRoundEndUnlockTimeout();
     roundEndDelayTimeoutRef.current = setTimeout(() => {
-      playRoundEndAudio();
+      playRoundEndAudio(1);
       roundEndUnlockTimeoutRef.current = setTimeout(() => {
         roundEndButtonSetterRef.current(false);
         roundEndUnlockTimeoutRef.current = null;
