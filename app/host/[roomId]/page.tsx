@@ -17,6 +17,7 @@ import {
   Round3Question,
   ROUND3_TOTAL_QUESTIONS,
   buildRound3Questions,
+  getRound3QuestionById,
   pickRound3QuestionIds,
 } from '@/lib/round3';
 
@@ -166,6 +167,12 @@ type Round2AnswerInsertPayload = {
   };
 };
 
+type Round3AnswerChangePayload = {
+  new: {
+    question_index: number;
+  };
+};
+
 interface Player {
   id: string;
   name: string;
@@ -207,6 +214,19 @@ type Round2LeaderboardEntry = {
   correct: number;
   attempts: number;
 };
+
+type Round3AnswerRow = {
+  id: string;
+  player_id: string;
+  answer: string;
+  question_index: number;
+  submitted_at: string;
+};
+
+type PersistRound3StateFn = (
+  questionIndex: number | null,
+  options?: { questionId?: number | null; status?: RoomStatus }
+) => Promise<void>;
 
 export default function HostRoomPage() {
   const params = useParams();
@@ -262,6 +282,7 @@ export default function HostRoomPage() {
   const [isRound3TimerRunning, setIsRound3TimerRunning] = useState(false);
   const [round3AudioState, setRound3AudioState] = useState<'idle' | 'playing' | 'finished'>('idle');
   const [isRound3Complete, setIsRound3Complete] = useState(false);
+  const [round3Answers, setRound3Answers] = useState<Round3AnswerRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -288,6 +309,7 @@ export default function HostRoomPage() {
   const round3QuestionBgAudioRef = useRef<HTMLAudioElement | null>(null);
   const round3TimerAudioRef = useRef<HTMLAudioElement | null>(null);
   const round3TimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const round3AnswersRef = useRef<Round3AnswerRow[]>([]);
   const round2AnswersRef = useRef<Round2AnswerRow[]>([]);
   const round2StatsRef = useRef<Map<string, Round2PlayerStats>>(new Map());
   const round2CorrectTotalRef = useRef(0);
@@ -326,6 +348,7 @@ export default function HostRoomPage() {
   const round2PhaseRef = useRef<Round2Phase>(round2PhaseState);
   const round3CurrentIndexRef = useRef(0);
   const round3QuestionsRef = useRef<Round3Question[]>([]);
+  const persistRound3StateRef = useRef<PersistRound3StateFn | null>(null);
 
   const setRound2Phase = useCallback(
     (nextPhase: Round2Phase) => {
@@ -385,6 +408,10 @@ export default function HostRoomPage() {
   useEffect(() => {
     round3QuestionsRef.current = round3Questions;
   }, [round3Questions]);
+
+  useEffect(() => {
+    round3AnswersRef.current = round3Answers;
+  }, [round3Answers]);
 
   useEffect(() => {
     round3CurrentIndexRef.current = round3CurrentIndex;
@@ -801,7 +828,7 @@ export default function HostRoomPage() {
   }, [stopRoundEndAudio]);
 
   const moveToRound3Question = useCallback(
-    (targetIndex: number) => {
+    async (targetIndex: number) => {
       const questions = round3QuestionsRef.current;
       if (!questions.length) {
         return;
@@ -815,11 +842,22 @@ export default function HostRoomPage() {
         setRound3TimeLeft(0);
         setIsRound3Complete(true);
         setRound3CurrentIndex(questions.length);
+        const persistFn = persistRound3StateRef.current;
+        if (persistFn) {
+          await persistFn(null);
+        }
         playRoundEndAudio(3);
         return;
       }
       setIsRound3Complete(false);
       setRound3CurrentIndex(targetIndex);
+      const persistFn = persistRound3StateRef.current;
+      if (persistFn) {
+        await persistFn(targetIndex, {
+          questionId: questions[targetIndex].id,
+          status: 'round3-running',
+        });
+      }
       beginRound3Question(questions[targetIndex]);
     },
     [beginRound3Question, clearRound3Timer, playRoundEndAudio, setRound3CurrentIndex, stopRound3QuestionAudio]
@@ -1006,6 +1044,9 @@ export default function HostRoomPage() {
         all_players_answered: true,
         question_started_at: null,
         round2_phase: 'idle',
+        round3_question_index: null,
+        round3_question_id: null,
+        round3_question_started_at: null,
       })
       .eq('id', roomId);
 
@@ -1230,6 +1271,36 @@ export default function HostRoomPage() {
     return { iso: serverNow, offset };
   }, [syncServerTime]);
 
+  const persistRound3QuestionState = useCallback(
+    async (questionIndex: number | null, options?: { questionId?: number | null; status?: RoomStatus }) => {
+      const payload: Record<string, unknown> = {
+        round3_question_index: questionIndex,
+        round3_question_id: options?.questionId ?? null,
+      };
+
+      if (questionIndex === null) {
+        payload.round3_question_started_at = null;
+      } else {
+        const { iso } = await getServerIsoTimestamp();
+        payload.round3_question_started_at = iso;
+      }
+
+      if (options?.status) {
+        payload.status = options.status;
+      }
+
+      const { error } = await supabase.from('rooms').update(payload).eq('id', roomId);
+      if (error) {
+        console.error('Не удалось обновить состояние Раунда 3', error);
+      }
+    },
+    [getServerIsoTimestamp, roomId]
+  );
+
+  useEffect(() => {
+    persistRound3StateRef.current = persistRound3QuestionState;
+  }, [persistRound3QuestionState]);
+
   const updateRoomStatus = useCallback(
     (nextStatus: RoomStatus) => {
       setRoomStatus(nextStatus);
@@ -1391,9 +1462,50 @@ export default function HostRoomPage() {
 
   const loadRound2AnswerStatsRef = useRef(loadRound2AnswerStats);
 
+  const loadRound3Answers = useCallback(
+    async (questionIndex: number | null) => {
+      if (!roomId || questionIndex === null) {
+        setRound3Answers([]);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('round3_answers')
+        .select('id, player_id, answer, question_index, submitted_at')
+        .eq('room_id', roomId)
+        .eq('question_index', questionIndex)
+        .order('submitted_at', { ascending: true });
+
+      if (error) {
+        console.error('Не удалось загрузить ответы Раунда 3', error);
+        return;
+      }
+
+      setRound3Answers(data || []);
+    },
+    [roomId]
+  );
+
+  const loadRound3AnswersRef = useRef(loadRound3Answers);
+
   useEffect(() => {
     loadRound2AnswerStatsRef.current = loadRound2AnswerStats;
   }, [loadRound2AnswerStats]);
+
+  useEffect(() => {
+    loadRound3AnswersRef.current = loadRound3Answers;
+  }, [loadRound3Answers]);
+
+  useEffect(() => {
+    if (roomStatus !== 'round3-running') {
+      setRound3Answers([]);
+      return;
+    }
+    const currentIndex = round3CurrentIndexRef.current;
+    if (typeof currentIndex === 'number') {
+      void loadRound3AnswersRef.current?.(currentIndex);
+    }
+  }, [roomStatus, round3CurrentIndex]);
 
   const loadRoomData = useCallback(
     async (offsetOverride?: number) => {
@@ -1402,7 +1514,7 @@ export default function HostRoomPage() {
         const { data: room, error: roomError } = await supabase
           .from('rooms')
           .select(
-            'code, current_question_index, question_started_at, status, all_players_answered, selected_question_ids, is_active, round2_item_index, round2_showing_fact, round2_phase'
+            'code, current_question_index, question_started_at, status, all_players_answered, selected_question_ids, is_active, round2_item_index, round2_showing_fact, round2_phase, round3_question_index, round3_question_id, round3_question_started_at'
           )
           .eq('id', roomId)
           .single();
@@ -1419,7 +1531,8 @@ export default function HostRoomPage() {
         setCurrentQuestionIndex(room.current_question_index);
         const detectedStatus = (room.status as RoomStatus) || 'waiting';
         updateRoomStatus(detectedStatus);
-        const isLiveRound = detectedStatus === 'running' || detectedStatus === 'round2-running';
+        const isLiveRound =
+          detectedStatus === 'running' || detectedStatus === 'round2-running' || detectedStatus === 'round3-running';
         setServerAllPlayersAnswered(isLiveRound ? !!room.all_players_answered : false);
         const nextRound2Index = (room.round2_item_index as number | null) ?? room.current_question_index ?? null;
         if (nextRound2Index !== null) {
@@ -1430,6 +1543,9 @@ export default function HostRoomPage() {
         }
         const dbRound2Phase = (room.round2_phase as Round2Phase) || 'idle';
         setRound2Phase(detectedStatus === 'round2-running' ? dbRound2Phase : 'idle');
+        const dbRound3Index = typeof room.round3_question_index === 'number' ? room.round3_question_index : null;
+        const dbRound3QuestionId = typeof room.round3_question_id === 'number' ? room.round3_question_id : null;
+        const dbRound3StartedAt = (room.round3_question_started_at as string | null) ?? null;
 
       if (detectedStatus === 'running') {
         syncTimerWithStart(room.question_started_at, effectiveOffset);
@@ -1452,6 +1568,27 @@ export default function HostRoomPage() {
           setTimeLeft(0);
         }
         await loadRound2AnswerStats(nextRound2Index);
+      } else if (detectedStatus === 'round3-running') {
+        setShowResults(false);
+        setQuestion(null);
+        setAnswerCount(0);
+        setAnsweredPlayerIds([]);
+        setServerAllPlayersAnswered(false);
+        if (dbRound3Index !== null) {
+          setRound3CurrentIndex(dbRound3Index);
+          if (dbRound3QuestionId !== null) {
+            const hydrated = getRound3QuestionById(dbRound3QuestionId);
+            setRound3ActiveQuestion(hydrated);
+          }
+          await loadRound3Answers(dbRound3Index);
+        } else {
+          setRound3ActiveQuestion(null);
+          setRound3Answers([]);
+        }
+        if (!dbRound3StartedAt) {
+          setRound3TimeLeft(ROUND3_INPUT_SECONDS);
+          setIsRound3TimerVisible(false);
+        }
       } else if (detectedStatus === 'round2-ready' || detectedStatus === 'round3-ready') {
         setShowResults(true);
         setAnswerCount(0);
@@ -1485,6 +1622,7 @@ export default function HostRoomPage() {
       roomId,
       loadQuestionFromSelection,
       loadAnswerCount,
+      loadRound3Answers,
       loadRound2AnswerStats,
       loadPlayers,
       syncTimerWithStart,
@@ -1492,6 +1630,7 @@ export default function HostRoomPage() {
       setQuestion,
       setRound2CurrentIndex,
       setRound2Phase,
+      setRound3CurrentIndex,
     ]
   );
 
@@ -2087,6 +2226,29 @@ export default function HostRoomPage() {
       )
       .subscribe();
 
+    const round3AnswersChannel = supabase
+      .channel(`host-round3-answers-${roomId}-${channelId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'round3_answers',
+          filter: `room_id=eq.${roomId}`,
+        },
+        async (payload: Round3AnswerChangePayload) => {
+          if (!mounted) return;
+          if (roomStatusRef.current !== 'round3-running') {
+            return;
+          }
+          const currentIndex = round3CurrentIndexRef.current;
+          if (payload.new.question_index === currentIndex) {
+            await loadRound3AnswersRef.current?.(currentIndex);
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
       mounted = false;
       roomChannel.unsubscribe().then(() => {
@@ -2100,6 +2262,9 @@ export default function HostRoomPage() {
       });
       round2AnswersChannel.unsubscribe().then(() => {
         supabase.removeChannel(round2AnswersChannel);
+      });
+      round3AnswersChannel.unsubscribe().then(() => {
+        supabase.removeChannel(round3AnswersChannel);
       });
     };
   }, [roomId]);
@@ -2723,7 +2888,7 @@ export default function HostRoomPage() {
     setIsRound3RulesVisible(true);
   }, [players.length, playRound3TooFewAudio, prepareRound3QuestionSet, stopRound3TooFewAudio]);
 
-  const handleRound3Start = useCallback(() => {
+  const handleRound3Start = useCallback(async () => {
     hasUserInteractedRef.current = true;
     const preparedQuestions = round3QuestionsRef.current.length
       ? round3QuestionsRef.current
@@ -2738,23 +2903,34 @@ export default function HostRoomPage() {
     setRoomStatus('round3-running');
     setRound3CurrentIndex(0);
     setIsRound3Complete(false);
+    await persistRound3QuestionState(0, { questionId: preparedQuestions[0].id, status: 'round3-running' });
     beginRound3Question(preparedQuestions[0]);
-  }, [beginRound3Question, prepareRound3QuestionSet, resetRound3Flow, setRound3CurrentIndex, setRoomStatus, setShowResults, stopRound3RulesAudio]);
+  }, [
+    beginRound3Question,
+    persistRound3QuestionState,
+    prepareRound3QuestionSet,
+    resetRound3Flow,
+    setRound3CurrentIndex,
+    setRoomStatus,
+    setShowResults,
+    stopRound3RulesAudio,
+  ]);
 
   const handleRound3SkipQuestion = useCallback(() => {
     playSkipAudio();
-    moveToRound3Question(round3CurrentIndexRef.current + 1);
+    void moveToRound3Question(round3CurrentIndexRef.current + 1);
   }, [moveToRound3Question, playSkipAudio]);
 
   const handleRound3NextQuestion = useCallback(() => {
-    moveToRound3Question(round3CurrentIndexRef.current + 1);
+    void moveToRound3Question(round3CurrentIndexRef.current + 1);
   }, [moveToRound3Question]);
 
-  const handleRound3ReturnToResults = useCallback(() => {
+  const handleRound3ReturnToResults = useCallback(async () => {
     resetRound3Flow();
     setRoomStatus('round3-ready');
     setShowResults(true);
-  }, [resetRound3Flow, setRoomStatus, setShowResults]);
+    await persistRound3QuestionState(null, { status: 'round3-ready' });
+  }, [persistRound3QuestionState, resetRound3Flow, setRoomStatus, setShowResults]);
 
   const effectiveTimeLeft = shouldForceZero ? 0 : timeLeft;
   const answeredCount = answerCount;
@@ -3365,6 +3541,36 @@ export default function HostRoomPage() {
                       <h2 className="text-3xl font-black leading-tight">
                         {round3ActiveQuestion?.text || 'Вопрос подготавливается…'}
                       </h2>
+                    </div>
+
+                    <div className="rounded-3xl border-[3px] border-dashed border-[#142a45]/25 bg-white p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/70">Ответы игроков</p>
+                        <span className="text-xs font-semibold text-[#1f6ac6]">
+                          {round3Answers.length}/{totalPlayers}
+                        </span>
+                      </div>
+                      {round3Answers.length === 0 ? (
+                        <p className="text-sm text-[#142a45]/70">
+                          Как только игроки начнут отправлять идеи, они появятся здесь в хронологическом порядке.
+                        </p>
+                      ) : (
+                        <div className="space-y-2 max-h-72 overflow-y-auto pr-2">
+                          {round3Answers.map((answer) => (
+                            <div
+                              key={answer.id}
+                              className="rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-3"
+                            >
+                              <p className="text-xs font-semibold text-[#142a45]/60 uppercase tracking-[0.2em]">
+                                {getPlayerName(answer.player_id)}
+                              </p>
+                              <p className="text-base font-semibold text-[#142a45] whitespace-pre-wrap break-words">
+                                {answer.answer || '—'}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex flex-col gap-3 sm:flex-row">

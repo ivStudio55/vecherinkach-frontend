@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, ChangeEvent } from 'react';
+import { useState, useEffect, useCallback, useRef, ChangeEvent, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import {
@@ -13,6 +13,14 @@ import { TrueFalseItem, ROUND2_POINTS } from '@/lib/round2';
 
 const QUESTION_DURATION_SECONDS = 30;
 const APP_VERSION = '1.0.4'; // Инкрементируйте при важных изменениях
+
+type Round3AnswersListProps = {
+  answers: Round3AnswerRow[];
+  playerId?: string;
+  isSelfVisible?: boolean;
+  roomStatus: RoomStatus;
+  title?: string;
+};
 
 const getRemainingSeconds = (startedAt: string | null, offsetMs = 0) => {
   if (!startedAt) {
@@ -42,6 +50,14 @@ type RoomStatus =
   | 'round3-running'
   | 'finished';
 
+type Round3AnswerRow = {
+  id: string;
+  player_id: string;
+  answer: string;
+  question_index: number;
+  submitted_at: string;
+};
+
 type RoomUpdatePayload = {
   new: {
     current_question_index: number;
@@ -53,6 +69,8 @@ type RoomUpdatePayload = {
     round2_item_index: number | null;
     round2_showing_fact: boolean | null;
     round2_phase: Round2Phase | null;
+    round3_question_index: number | null;
+    round3_question_id: number | null;
   };
 };
 
@@ -86,8 +104,16 @@ export default function RoomPage() {
   const [round2AnsweredChoice, setRound2AnsweredChoice] = useState<boolean | null>(null);
   const [round2AnsweredCorrect, setRound2AnsweredCorrect] = useState<boolean | null>(null);
   const [round3AnswerDraft, setRound3AnswerDraft] = useState('');
+  const [round3QuestionIndex, setRound3QuestionIndex] = useState<number | null>(null);
+  const [round3Answers, setRound3Answers] = useState<Round3AnswerRow[]>([]);
+  const [round3SubmittedAnswer, setRound3SubmittedAnswer] = useState<string | null>(null);
+  const [isRound3Submitting, setIsRound3Submitting] = useState(false);
+  const [round3Error, setRound3Error] = useState('');
   const roomIdRef = useRef('');
   const playerIdRef = useRef('');
+  const roomStatusRef = useRef<RoomStatus>('waiting');
+  const round3QuestionIndexRef = useRef<number | null>(null);
+  const previousRound3QuestionIndexRef = useRef<number | null>(null);
 
   const syncServerTime = useCallback(async () => {
     try {
@@ -112,6 +138,25 @@ export default function RoomPage() {
     playerIdRef.current = playerId;
   }, [playerId]);
 
+  useEffect(() => {
+    round3QuestionIndexRef.current = round3QuestionIndex;
+  }, [round3QuestionIndex]);
+
+  useEffect(() => {
+    if (previousRound3QuestionIndexRef.current === round3QuestionIndex) {
+      return;
+    }
+    previousRound3QuestionIndexRef.current = round3QuestionIndex;
+    setRound3AnswerDraft('');
+    setRound3SubmittedAnswer(null);
+    setRound3Error('');
+    setRound3Answers([]);
+  }, [round3QuestionIndex]);
+
+  useEffect(() => {
+    roomStatusRef.current = roomStatus;
+  }, [roomStatus]);
+
   const loadQuestionFromSelection = useCallback(
     (questionIndex: number, selectionOverride?: number[]) => {
       const selection = selectionOverride && selectionOverride.length ? selectionOverride : selectedQuestionIds;
@@ -128,7 +173,38 @@ export default function RoomPage() {
     },
     [selectedQuestionIds]
   );
+
+  const loadRound3Answers = useCallback(async (questionIndex: number | null) => {
+    if (!roomIdRef.current || questionIndex === null) {
+      setRound3Answers([]);
+      setRound3SubmittedAnswer(null);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('round3_answers')
+      .select('id, player_id, answer, question_index, submitted_at')
+      .eq('room_id', roomIdRef.current)
+      .eq('question_index', questionIndex)
+      .order('submitted_at', { ascending: true });
+
+    if (error) {
+      console.error('Не удалось загрузить ответы Раунда 3', error);
+      return;
+    }
+
+    const rows = data || [];
+    setRound3Answers(rows);
+    const currentPlayerId = playerIdRef.current;
+    if (currentPlayerId) {
+      const ownAnswer = rows.find((row) => row.player_id === currentPlayerId);
+      setRound3SubmittedAnswer(ownAnswer?.answer ?? null);
+    } else {
+      setRound3SubmittedAnswer(null);
+    }
+  }, []);
   const loadQuestionFromSelectionRef = useRef(loadQuestionFromSelection);
+  const loadRound3AnswersRef = useRef(loadRound3Answers);
   const syncServerTimeRef = useRef(syncServerTime);
 
   useEffect(() => {
@@ -148,6 +224,10 @@ export default function RoomPage() {
   useEffect(() => {
     loadQuestionFromSelectionRef.current = loadQuestionFromSelection;
   }, [loadQuestionFromSelection]);
+
+  useEffect(() => {
+    loadRound3AnswersRef.current = loadRound3Answers;
+  }, [loadRound3Answers]);
 
   useEffect(() => {
     syncServerTimeRef.current = syncServerTime;
@@ -209,7 +289,7 @@ export default function RoomPage() {
         const { data: room, error: roomError } = await supabase
           .from('rooms')
           .select(
-            'id, current_question_index, is_active, status, question_started_at, all_players_answered, selected_question_ids, round2_item_index, round2_showing_fact, round2_phase'
+            'id, current_question_index, is_active, status, question_started_at, all_players_answered, selected_question_ids, round2_item_index, round2_showing_fact, round2_phase, round3_question_index'
           )
           .eq('code', roomCode)
           .single();
@@ -228,6 +308,8 @@ export default function RoomPage() {
         const isLiveRound =
           detectedStatus === 'running' || detectedStatus === 'round2-running' || detectedStatus === 'round3-running';
         setAllPlayersAnswered(isLiveRound ? !!room.all_players_answered : false);
+        const initialRound3Index = typeof room.round3_question_index === 'number' ? room.round3_question_index : null;
+        setRound3QuestionIndex(initialRound3Index);
 
         if (detectedStatus === 'waiting') {
           setShowResults(false);
@@ -235,6 +317,8 @@ export default function RoomPage() {
           setQuestion(null);
           setQuestionStartedAt(null);
           setTimeLeft(QUESTION_DURATION_SECONDS);
+          setRound3Answers([]);
+          setRound3SubmittedAnswer(null);
           return;
         }
 
@@ -246,6 +330,8 @@ export default function RoomPage() {
           setRound2CurrentIndex(null);
           setRound2AnsweredChoice(null);
           setRound2AnsweredCorrect(null);
+          setRound3Answers([]);
+          setRound3SubmittedAnswer(null);
           return;
         }
 
@@ -253,6 +339,8 @@ export default function RoomPage() {
           setShowResults(true);
           setQuestion(null);
           setQuestionStartedAt(null);
+          setRound3Answers([]);
+          setRound3SubmittedAnswer(null);
           return;
         }
 
@@ -280,38 +368,61 @@ export default function RoomPage() {
           return;
         }
 
-        setRoomStatus('round2-running');
-        setShowResults(false);
-        setQuestion(null);
-        const round2Index = (room.round2_item_index as number | null) ?? room.current_question_index ?? null;
-        const showingFact = typeof room.round2_showing_fact === 'boolean' ? room.round2_showing_fact : true;
-        const phase = (room.round2_phase as Round2Phase) || 'fact';
-        setRound2CurrentIndex(round2Index);
-        setRound2ShowingFact(showingFact);
-        setRound2Phase(phase);
-        setQuestionStartedAt(room.question_started_at);
-        setTimeLeft(getRemainingSeconds(room.question_started_at, offset));
-        setRound2AnsweredChoice(null);
-        setRound2AnsweredCorrect(null);
-        if (round2Index !== null) {
-          const { data: existingRound2Answer } = await supabase
-            .from('round2_answers')
-            .select('answer_is_fact, is_correct')
-            .eq('player_id', storedPlayerId)
-            .eq('room_id', room.id)
-            .eq('item_index', round2Index)
-            .single();
+        if (detectedStatus === 'round2-running') {
+          setRoomStatus('round2-running');
+          setShowResults(false);
+          setQuestion(null);
+          const round2Index = (room.round2_item_index as number | null) ?? room.current_question_index ?? null;
+          const showingFact = typeof room.round2_showing_fact === 'boolean' ? room.round2_showing_fact : true;
+          const phase = (room.round2_phase as Round2Phase) || 'fact';
+          setRound2CurrentIndex(round2Index);
+          setRound2ShowingFact(showingFact);
+          setRound2Phase(phase);
+          setQuestionStartedAt(room.question_started_at);
+          setTimeLeft(getRemainingSeconds(room.question_started_at, offset));
+          setRound2AnsweredChoice(null);
+          setRound2AnsweredCorrect(null);
+          if (round2Index !== null) {
+            const { data: existingRound2Answer } = await supabase
+              .from('round2_answers')
+              .select('answer_is_fact, is_correct')
+              .eq('player_id', storedPlayerId)
+              .eq('room_id', room.id)
+              .eq('item_index', round2Index)
+              .single();
 
-          if (existingRound2Answer) {
-            setHasAnswered(true);
-            setRound2AnsweredChoice(existingRound2Answer.answer_is_fact);
-            setRound2AnsweredCorrect(existingRound2Answer.is_correct);
+            if (existingRound2Answer) {
+              setHasAnswered(true);
+              setRound2AnsweredChoice(existingRound2Answer.answer_is_fact);
+              setRound2AnsweredCorrect(existingRound2Answer.is_correct);
+            } else {
+              setHasAnswered(false);
+            }
           } else {
             setHasAnswered(false);
           }
-        } else {
-          setHasAnswered(false);
+          return;
         }
+
+        if (detectedStatus === 'round3-running') {
+          setRoomStatus('round3-running');
+          setShowResults(false);
+          setQuestion(null);
+          setRound2Phase('idle');
+          setRound2CurrentIndex(null);
+          setRound2AnsweredChoice(null);
+          setRound2AnsweredCorrect(null);
+          if (initialRound3Index !== null) {
+            setRound3SubmittedAnswer(null);
+            await loadRound3Answers(initialRound3Index);
+          } else {
+            setRound3Answers([]);
+            setRound3SubmittedAnswer(null);
+          }
+          return;
+        }
+
+        setHasAnswered(false);
       } catch (err) {
         console.error('Не удалось загрузить комнату игрока', err);
         setError('Не удалось подключиться к комнате. Попробуйте обновить страницу.');
@@ -362,6 +473,8 @@ export default function RoomPage() {
           const nextRound2Phase = (payload.new.round2_phase as Round2Phase) || 'idle';
           const nextRound2Showing =
             typeof payload.new.round2_showing_fact === 'boolean' ? payload.new.round2_showing_fact : true;
+          const nextRound3Index = typeof payload.new.round3_question_index === 'number' ? payload.new.round3_question_index : null;
+          setRound3QuestionIndex(nextRound3Index);
 
           if (newStatus === 'waiting') {
             setShowResults(false);
@@ -373,6 +486,8 @@ export default function RoomPage() {
             setRound2CurrentIndex(null);
             setRound2AnsweredChoice(null);
             setRound2AnsweredCorrect(null);
+            setRound3Answers([]);
+            setRound3SubmittedAnswer(null);
             return;
           }
 
@@ -385,6 +500,8 @@ export default function RoomPage() {
             setRound2CurrentIndex(null);
             setRound2AnsweredChoice(null);
             setRound2AnsweredCorrect(null);
+            setRound3Answers([]);
+            setRound3SubmittedAnswer(null);
             return;
           }
 
@@ -397,6 +514,8 @@ export default function RoomPage() {
             setRound2CurrentIndex(null);
             setRound2AnsweredChoice(null);
             setRound2AnsweredCorrect(null);
+            setRound3Answers([]);
+            setRound3SubmittedAnswer(null);
             return;
           }
 
@@ -439,6 +558,22 @@ export default function RoomPage() {
             return;
           }
 
+          if (newStatus === 'round3-running') {
+            setShowResults(false);
+            setQuestion(null);
+            setRound2Phase('idle');
+            setRound2CurrentIndex(null);
+            setRound2AnsweredChoice(null);
+            setRound2AnsweredCorrect(null);
+            if (nextRound3Index !== null) {
+              await loadRound3AnswersRef.current?.(nextRound3Index);
+            } else {
+              setRound3Answers([]);
+              setRound3SubmittedAnswer(null);
+            }
+            return;
+          }
+
           loadQuestionFromSelectionRef.current?.(newQuestionIndex, selection);
           setRound2Phase('idle');
           setRound2CurrentIndex(null);
@@ -470,13 +605,77 @@ export default function RoomPage() {
       )
       .subscribe();
 
+    const round3AnswersChannel = supabase
+      .channel(`player-round3-answers-${roomId}-${channelId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'round3_answers',
+          filter: `room_id=eq.${roomId}`,
+        },
+        (payload) => {
+          if (!mounted) {
+            return;
+          }
+          if (roomStatusRef.current !== 'round3-running') {
+            return;
+          }
+
+          const currentIndex = round3QuestionIndexRef.current;
+          if (currentIndex === null) {
+            return;
+          }
+
+          const payloadIndex =
+            'new' in payload && payload.new && typeof payload.new.question_index === 'number'
+              ? payload.new.question_index
+              : payload.old && typeof payload.old.question_index === 'number'
+                ? payload.old.question_index
+                : null;
+
+          if (payloadIndex === null || payloadIndex !== currentIndex) {
+            return;
+          }
+
+          loadRound3AnswersRef.current?.(currentIndex);
+        }
+      )
+      .subscribe();
+
     return () => {
       mounted = false;
       roomChannel.unsubscribe().then(() => {
         supabase.removeChannel(roomChannel);
       });
+      round3AnswersChannel.unsubscribe().then(() => {
+        supabase.removeChannel(round3AnswersChannel);
+      });
     };
   }, [roomId]);
+
+  useEffect(() => {
+    if (roomStatus !== 'round3-running') {
+      return;
+    }
+    if (round3QuestionIndex === null) {
+      setRound3Answers([]);
+      setRound3SubmittedAnswer(null);
+      return;
+    }
+    loadRound3Answers(round3QuestionIndex);
+  }, [roomStatus, round3QuestionIndex, loadRound3Answers]);
+
+  useEffect(() => {
+    if (roomStatus === 'round3-running') {
+      return;
+    }
+    setRound3Answers([]);
+    setRound3SubmittedAnswer(null);
+    setIsRound3Submitting(false);
+    setRound3Error('');
+  }, [roomStatus]);
 
   const effectiveTimeLeft = allPlayersAnswered ? 0 : timeLeft;
   const isRound2FactPhase = roomStatus === 'round2-running' && round2Phase === 'fact';
@@ -676,9 +875,64 @@ export default function RoomPage() {
     }
   };
 
+  const submitRound3Answer = async () => {
+    setRound3Error('');
+    if (roomStatus !== 'round3-running') {
+      setRound3Error('Ждём старт Раунда 3 от ведущего');
+      return;
+    }
+    if (isRound3Submitting) {
+      return;
+    }
+    if (!playerId || !roomId) {
+      setRound3Error('Данные игрока ещё загружаются');
+      return;
+    }
+    if (round3QuestionIndex === null) {
+      setRound3Error('Новый вопрос ещё готовится');
+      return;
+    }
+    const normalized = round3AnswerDraft.trim().toUpperCase();
+    if (!normalized) {
+      setRound3Error('Введите слово без пробелов');
+      return;
+    }
+    if (normalized.length < 2) {
+      setRound3Error('Ответ должен быть длиннее одного символа');
+      return;
+    }
+
+    setIsRound3Submitting(true);
+    try {
+      const payload = {
+        room_id: roomId,
+        player_id: playerId,
+        question_index: round3QuestionIndex,
+        answer: normalized,
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error: upsertError } = await supabase
+        .from('round3_answers')
+        .upsert(payload, { onConflict: 'room_id,player_id,question_index' });
+
+      if (upsertError) {
+        throw new Error('Не удалось отправить ответ Раунда 3');
+      }
+
+      setRound3SubmittedAnswer(normalized);
+      await loadRound3Answers(round3QuestionIndex);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Неизвестная ошибка при отправке Раунда 3';
+      setRound3Error(message);
+    } finally {
+      setIsRound3Submitting(false);
+    }
+  };
+
   const handleRound3AnswerChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     const rawValue = event.target.value;
-    const sanitized = rawValue.replace(/[^0-9A-Za-zА-Яа-яЁё]/g, '');
+    const sanitized = rawValue.replace(/[^0-9A-Za-zА-Яа-яЁё]/g, '').toUpperCase();
     setRound3AnswerDraft(sanitized.slice(0, 32));
   }, []);
 
@@ -896,9 +1150,32 @@ export default function RoomPage() {
                 <span className="font-semibold text-[#1f6ac6]">{round3AnswerDraft.length}/32</span>
               </div>
               <p className="text-xs text-[#142a45]/60">
-                Черновик хранится только на вашем устройстве. Ждите команды ведущего, чтобы озвучить и защитить ответ.
+                Отправьте слово, когда водитель объявит старт. Ответ можно переписать, пока идёт таймер.
               </p>
+              <button
+                type="button"
+                onClick={submitRound3Answer}
+                disabled={isRound3Submitting || !round3AnswerDraft}
+                className="w-full rounded-2xl border-[3px] border-[#1f6ac6] bg-[#1f6ac6] text-white font-black tracking-[0.2em] py-3 text-lg disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {round3SubmittedAnswer ? 'Обновить ответ' : 'Отправить ответ'}
+              </button>
+              {round3SubmittedAnswer && (
+                <p className="text-xs font-semibold text-[#1f6ac6]">
+                  Ваш ответ: {round3SubmittedAnswer}
+                </p>
+              )}
+              {round3Error && (
+                <p className="text-xs font-semibold text-[#b23324]">{round3Error}</p>
+              )}
             </div>
+
+            <Round3AnswersList
+              answers={round3Answers}
+              playerId={playerId}
+              isSelfVisible={false}
+              roomStatus={roomStatus}
+            />
           </section>
         )}
 
@@ -976,6 +1253,43 @@ export default function RoomPage() {
           </section>
         )}
       </div>
+    </div>
+  );
+}
+
+function Round3AnswersList({ answers, playerId, isSelfVisible = true, roomStatus, title = 'Ответы игроков' }: Round3AnswersListProps) {
+  const visibleAnswers = useMemo(() => {
+    if (!isSelfVisible && playerId) {
+      return answers.filter((answer) => answer.player_id !== playerId);
+    }
+    return answers;
+  }, [answers, isSelfVisible, playerId]);
+
+  const infoText = roomStatus === 'round3-running'
+    ? 'Тут появятся варианты других участников сразу после отправки.'
+    : 'Ждём, пока ведущий снова запустит Раунд 3.';
+
+  return (
+    <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/60">{title}</p>
+        <span className="text-xs font-semibold text-[#1f6ac6]">{visibleAnswers.length}</span>
+      </div>
+      {visibleAnswers.length === 0 ? (
+        <p className="text-sm text-[#142a45]/70">{infoText}</p>
+      ) : (
+        <ol className="space-y-2">
+          {visibleAnswers.map((answer) => (
+            <li
+              key={answer.id}
+              className="rounded-2xl border-[3px] border-[#142a45]/15 bg-white px-4 py-3 flex items-center justify-between"
+            >
+              <span className="font-black text-[#142a45] tracking-[0.2em] text-lg">{answer.answer}</span>
+              <span className="text-xs text-[#142a45]/50">#{answer.question_index + 1}</span>
+            </li>
+          ))}
+        </ol>
+      )}
     </div>
   );
 }
