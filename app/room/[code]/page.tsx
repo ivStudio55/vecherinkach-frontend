@@ -991,7 +991,11 @@ export default function RoomPage() {
   const round3QuestionNumber = round3QuestionIndex !== null ? round3QuestionIndex + 1 : null;
   const round3CategoryLabel = round3QuestionMeta?.category ?? null;
 
-  if (showResults) {
+  const isResultsStatus =
+    roomStatus === 'waiting' || roomStatus === 'round2-ready' || roomStatus === 'round3-ready' || roomStatus === 'finished';
+  const shouldShowResultsScreen = showResults && isResultsStatus;
+
+  if (shouldShowResultsScreen) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#fef4dc] text-[#142a45] px-4 py-10">
         <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl max-w-lg w-full p-8 text-center space-y-4">
