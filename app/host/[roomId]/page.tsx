@@ -1630,7 +1630,7 @@ export default function HostRoomPage() {
         const { data: room, error: roomError } = await supabase
           .from('rooms')
           .select(
-            'code, current_question_index, question_started_at, status, all_players_answered, selected_question_ids, is_active, round2_item_index, round2_showing_fact, round2_phase, round3_question_index, round3_question_id, round3_question_started_at'
+            'code, current_question_index, question_started_at, status, all_players_answered, selected_question_ids, is_active, round2_item_index, round2_showing_fact, round2_phase, round3_question_index, round3_question_id, round3_question_started_at, round3_vote_started_at, round3_phase'
           )
           .eq('id', roomId)
           .single();
@@ -1662,6 +1662,8 @@ export default function HostRoomPage() {
         const dbRound3Index = typeof room.round3_question_index === 'number' ? room.round3_question_index : null;
         const dbRound3QuestionId = typeof room.round3_question_id === 'number' ? room.round3_question_id : null;
         const dbRound3StartedAt = (room.round3_question_started_at as string | null) ?? null;
+        const dbRound3VoteStartedAt = (room.round3_vote_started_at as string | null) ?? null;
+        const dbRound3Phase = (room.round3_phase as 'input' | 'vote' | 'reveal' | null) ?? null;
 
       if (detectedStatus === 'running') {
         syncTimerWithStart(room.question_started_at, effectiveOffset);
@@ -1690,6 +1692,8 @@ export default function HostRoomPage() {
         setAnswerCount(0);
         setAnsweredPlayerIds([]);
         setServerAllPlayersAnswered(false);
+        setRound3Phase(dbRound3Phase || 'input');
+        setRound3VoteStartedAt(null);
         if (dbRound3Index !== null) {
           setRound3CurrentIndex(dbRound3Index);
           if (dbRound3QuestionId !== null) {
@@ -1701,10 +1705,71 @@ export default function HostRoomPage() {
           setRound3ActiveQuestion(null);
           setRound3Answers([]);
         }
-        if (!dbRound3StartedAt) {
+        if (dbRound3StartedAt) {
+          const startMs = new Date(dbRound3StartedAt).getTime() - effectiveOffset;
+          const elapsed = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
+          const remaining = Math.max(0, ROUND3_INPUT_SECONDS - elapsed);
+          setRound3TimeLeft(remaining);
+          setIsRound3TimerVisible(true);
+          setIsRound3TimerRunning(remaining > 0);
+          if (remaining <= 0 && dbRound3Phase !== 'vote' && dbRound3Phase !== 'reveal') {
+            void startRound3Voting();
+          }
+        } else {
           setRound3TimeLeft(ROUND3_INPUT_SECONDS);
           setIsRound3TimerVisible(false);
+          setIsRound3TimerRunning(false);
         }
+      } else if (detectedStatus === 'round3-voting') {
+        setShowResults(false);
+        setQuestion(null);
+        setAnswerCount(0);
+        setAnsweredPlayerIds([]);
+        setServerAllPlayersAnswered(false);
+        setRound3Phase('vote');
+        setRound3VoteStartedAt(dbRound3VoteStartedAt);
+        setRound3CurrentIndex(dbRound3Index || 0);
+        if (dbRound3QuestionId !== null) {
+          const hydrated = getRound3QuestionById(dbRound3QuestionId);
+          setRound3ActiveQuestion(hydrated);
+        }
+        if (dbRound3Index !== null) {
+          await loadRound3Answers(dbRound3Index);
+        }
+        if (dbRound3VoteStartedAt) {
+          const startMs = new Date(dbRound3VoteStartedAt).getTime() - effectiveOffset;
+          const elapsed = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
+          const remaining = Math.max(0, ROUND3_VOTE_SECONDS - elapsed);
+          setRound3TimeLeft(remaining);
+          setIsRound3TimerVisible(true);
+          setIsRound3TimerRunning(remaining > 0);
+          if (remaining <= 0) {
+            void startRound3Reveal();
+          }
+        } else {
+          setRound3TimeLeft(ROUND3_VOTE_SECONDS);
+          setIsRound3TimerVisible(false);
+          setIsRound3TimerRunning(false);
+        }
+      } else if (detectedStatus === 'round3-reveal') {
+        setShowResults(false);
+        setQuestion(null);
+        setAnswerCount(0);
+        setAnsweredPlayerIds([]);
+        setServerAllPlayersAnswered(false);
+        setRound3Phase('reveal');
+        setRound3VoteStartedAt(dbRound3VoteStartedAt);
+        setRound3CurrentIndex(dbRound3Index || 0);
+        if (dbRound3QuestionId !== null) {
+          const hydrated = getRound3QuestionById(dbRound3QuestionId);
+          setRound3ActiveQuestion(hydrated);
+        }
+        if (dbRound3Index !== null) {
+          await loadRound3Answers(dbRound3Index);
+        }
+        setRound3TimeLeft(0);
+        setIsRound3TimerVisible(false);
+        setIsRound3TimerRunning(false);
       } else if (detectedStatus === 'round2-ready' || detectedStatus === 'round3-ready') {
         setShowResults(true);
         setAnswerCount(0);
@@ -1747,6 +1812,8 @@ export default function HostRoomPage() {
       setRound2CurrentIndex,
       setRound2Phase,
       setRound3CurrentIndex,
+      startRound3Voting,
+      startRound3Reveal,
     ]
   );
 

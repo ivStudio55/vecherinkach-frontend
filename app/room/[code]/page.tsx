@@ -49,6 +49,21 @@ const getRemainingSeconds = (startedAt: string | null, offsetMs = 0) => {
   return Math.max(0, Math.min(QUESTION_DURATION_SECONDS, remaining));
 };
 
+const getRound3InputRemainingSeconds = (startedAt: string | null, offsetMs = 0) => {
+  if (!startedAt) {
+    return QUESTION_DURATION_SECONDS;
+  }
+  const startTime = new Date(startedAt).getTime();
+  if (isNaN(startTime)) {
+    return QUESTION_DURATION_SECONDS;
+  }
+  const now = Date.now() - offsetMs;
+  const diffMs = now - startTime;
+  const elapsedSeconds = Math.floor(diffMs / 1000);
+  const remaining = QUESTION_DURATION_SECONDS - elapsedSeconds;
+  return Math.max(0, Math.min(QUESTION_DURATION_SECONDS, remaining));
+};
+
 const getRound3VoteRemainingSeconds = (startedAt: string | null, offsetMs = 0) => {
   if (!startedAt) {
     return ROUND3_VOTE_SECONDS;
@@ -148,6 +163,7 @@ export default function RoomPage() {
   const [round3QuestionStartedAt, setRound3QuestionStartedAt] = useState<string | null>(null);
   const [round3VoteStartedAt, setRound3VoteStartedAt] = useState<string | null>(null);
   const [round3VoteTimeLeft, setRound3VoteTimeLeft] = useState(15);
+  const [round3InputTimeLeft, setRound3InputTimeLeft] = useState(QUESTION_DURATION_SECONDS);
   const [round3VoteSelection, setRound3VoteSelection] = useState<string | null>(null);
   const [isRound3Voting, setIsRound3Voting] = useState(false);
   const [isRound3VoteSubmitting, setIsRound3VoteSubmitting] = useState(false);
@@ -379,25 +395,36 @@ export default function RoomPage() {
 
         setRoomId(room.id);
         roomIdRef.current = room.id;
-        const selection = (room.selected_question_ids as number[] | null) || [];
-        setSelectedQuestionIds(selection);
-        const detectedStatus = (room.status as RoomStatus) || (room.is_active ? 'waiting' : 'finished');
-        setRoomStatus(detectedStatus);
-        const isLiveRound =
-          detectedStatus === 'running' || detectedStatus === 'round2-running' || detectedStatus === 'round3-running';
-        setAllPlayersAnswered(isLiveRound ? !!room.all_players_answered : false);
         const initialRound3Index = typeof room.round3_question_index === 'number' ? room.round3_question_index : null;
         const initialRound3Id = typeof room.round3_question_id === 'number' ? room.round3_question_id : null;
         const initialRound3Phase = (room.round3_phase as 'input' | 'vote' | 'reveal' | null) ?? null;
         const initialRound3QuestionStartedAt = (room.round3_question_started_at as string | null) ?? null;
         const initialRound3VoteStartedAt = (room.round3_vote_started_at as string | null) ?? null;
+        const selection = (room.selected_question_ids as number[] | null) || [];
+        setSelectedQuestionIds(selection);
+        const detectedStatus = (room.status as RoomStatus) || (room.is_active ? 'waiting' : 'finished');
+        const effectiveDetectedStatus =
+          detectedStatus === 'round3-running'
+            ? initialRound3Phase === 'vote'
+              ? 'round3-voting'
+              : initialRound3Phase === 'reveal'
+                ? 'round3-reveal'
+                : 'round3-running'
+            : detectedStatus;
+        setRoomStatus(effectiveDetectedStatus);
+        const isLiveRound =
+          effectiveDetectedStatus === 'running' ||
+          effectiveDetectedStatus === 'round2-running' ||
+          effectiveDetectedStatus === 'round3-running' ||
+          effectiveDetectedStatus === 'round3-voting';
+        setAllPlayersAnswered(isLiveRound ? !!room.all_players_answered : false);
         setRound3QuestionIndex(initialRound3Index);
         setRound3QuestionId(initialRound3Id);
         setRound3Phase(initialRound3Phase);
         setRound3QuestionStartedAt(initialRound3QuestionStartedAt);
         setRound3VoteStartedAt(initialRound3VoteStartedAt);
 
-        if (detectedStatus === 'waiting') {
+        if (effectiveDetectedStatus === 'waiting') {
           setShowResults(false);
           setHasAnswered(false);
           setQuestion(null);
@@ -410,7 +437,7 @@ export default function RoomPage() {
           return;
         }
 
-        if (detectedStatus === 'round2-ready' || detectedStatus === 'round3-ready') {
+        if (effectiveDetectedStatus === 'round2-ready' || effectiveDetectedStatus === 'round3-ready') {
           setShowResults(true);
           setQuestion(null);
           setQuestionStartedAt(null);
@@ -425,7 +452,7 @@ export default function RoomPage() {
           return;
         }
 
-        if (!room.is_active || detectedStatus === 'finished') {
+        if (!room.is_active || effectiveDetectedStatus === 'finished') {
           setShowResults(true);
           setQuestion(null);
           setQuestionStartedAt(null);
@@ -436,7 +463,7 @@ export default function RoomPage() {
           return;
         }
 
-        if (detectedStatus === 'running') {
+        if (effectiveDetectedStatus === 'running') {
           const startTime = room.question_started_at;
           setQuestionStartedAt(startTime);
           const initialTime = getRemainingSeconds(startTime, offset);
@@ -460,7 +487,7 @@ export default function RoomPage() {
           return;
         }
 
-        if (detectedStatus === 'round2-running') {
+        if (effectiveDetectedStatus === 'round2-running') {
           setRoomStatus('round2-running');
           setShowResults(false);
           setQuestion(null);
@@ -496,7 +523,7 @@ export default function RoomPage() {
           return;
         }
 
-        if (detectedStatus === 'round3-running') {
+        if (effectiveDetectedStatus === 'round3-running') {
           setRoomStatus('round3-running');
           setShowResults(false);
           setQuestion(null);
@@ -521,16 +548,16 @@ export default function RoomPage() {
           return;
         }
 
-        if (detectedStatus === 'round3-voting' || detectedStatus === 'round3-reveal') {
-          setRoomStatus(detectedStatus);
+        if (effectiveDetectedStatus === 'round3-voting' || effectiveDetectedStatus === 'round3-reveal') {
+          setRoomStatus(effectiveDetectedStatus);
           setShowResults(false);
           setQuestion(null);
           setRound2Phase('idle');
           setRound2CurrentIndex(null);
           setRound2AnsweredChoice(null);
           setRound2AnsweredCorrect(null);
-          setIsRound3Voting(detectedStatus === 'round3-voting');
-          setRound3Phase(initialRound3Phase || (detectedStatus === 'round3-voting' ? 'vote' : 'reveal'));
+          setIsRound3Voting(effectiveDetectedStatus === 'round3-voting');
+          setRound3Phase(initialRound3Phase || (effectiveDetectedStatus === 'round3-voting' ? 'vote' : 'reveal'));
           setRound3QuestionStartedAt(initialRound3QuestionStartedAt);
           setRound3VoteStartedAt(initialRound3VoteStartedAt);
           if (initialRound3Index !== null) {
@@ -581,12 +608,24 @@ export default function RoomPage() {
           const newQuestionIndex = payload.new.current_question_index;
           const startedAt = payload.new.question_started_at as string | null;
           const newStatus = (payload.new.status as RoomStatus) || (payload.new.is_active ? 'waiting' : 'finished');
-          setRoomStatus(newStatus);
+          const nextRound3Phase = (payload.new.round3_phase as 'input' | 'vote' | 'reveal' | null) ?? null;
+          const effectiveStatus =
+            newStatus === 'round3-running'
+              ? nextRound3Phase === 'vote'
+                ? 'round3-voting'
+                : nextRound3Phase === 'reveal'
+                  ? 'round3-reveal'
+                  : 'round3-running'
+              : newStatus;
           const everyoneAnsweredFlag =
-            newStatus === 'running' || newStatus === 'round2-running' || newStatus === 'round3-running'
+            effectiveStatus === 'running' ||
+            effectiveStatus === 'round2-running' ||
+            effectiveStatus === 'round3-running' ||
+            effectiveStatus === 'round3-voting'
               ? !!payload.new.all_players_answered
               : false;
           setAllPlayersAnswered(everyoneAnsweredFlag);
+          setRoomStatus(effectiveStatus);
           const selection = (payload.new.selected_question_ids as number[] | null) || [];
           setSelectedQuestionIds(selection);
           const nextRound2Index =
@@ -596,7 +635,6 @@ export default function RoomPage() {
             typeof payload.new.round2_showing_fact === 'boolean' ? payload.new.round2_showing_fact : true;
           const nextRound3Index = typeof payload.new.round3_question_index === 'number' ? payload.new.round3_question_index : null;
           const nextRound3Id = typeof payload.new.round3_question_id === 'number' ? payload.new.round3_question_id : null;
-          const nextRound3Phase = (payload.new.round3_phase as 'input' | 'vote' | 'reveal' | null) ?? null;
           const nextRound3QuestionStartedAt = (payload.new.round3_question_started_at as string | null) ?? null;
           const nextRound3VoteStartedAt = (payload.new.round3_vote_started_at as string | null) ?? null;
           setRound3QuestionIndex(nextRound3Index);
@@ -605,7 +643,7 @@ export default function RoomPage() {
           setRound3QuestionStartedAt(nextRound3QuestionStartedAt);
           setRound3VoteStartedAt(nextRound3VoteStartedAt);
 
-          if (newStatus === 'waiting') {
+          if (effectiveStatus === 'waiting') {
             setShowResults(false);
             setHasAnswered(false);
             setQuestion(null);
@@ -622,7 +660,7 @@ export default function RoomPage() {
             return;
           }
 
-          if (newStatus === 'round2-ready' || newStatus === 'round3-ready') {
+          if (effectiveStatus === 'round2-ready' || effectiveStatus === 'round3-ready') {
             setShowResults(true);
             setQuestion(null);
             setQuestionStartedAt(null);
@@ -638,7 +676,7 @@ export default function RoomPage() {
             return;
           }
 
-          if (newStatus === 'finished' || !payload.new.is_active) {
+          if (effectiveStatus === 'finished' || !payload.new.is_active) {
             setShowResults(true);
             setQuestion(null);
             setQuestionStartedAt(null);
@@ -655,7 +693,7 @@ export default function RoomPage() {
           }
 
           const offset = await syncServerTimeRef.current?.();
-          if (newStatus === 'round2-running') {
+          if (effectiveStatus === 'round2-running') {
             setShowResults(false);
             setQuestion(null);
             setQuestionStartedAt(startedAt);
@@ -693,7 +731,7 @@ export default function RoomPage() {
             return;
           }
 
-          if (newStatus === 'round3-running') {
+          if (effectiveStatus === 'round3-running') {
             setShowResults(false);
             setQuestion(null);
             setRound2Phase('idle');
@@ -713,14 +751,14 @@ export default function RoomPage() {
             return;
           }
 
-          if (newStatus === 'round3-voting' || newStatus === 'round3-reveal') {
+          if (effectiveStatus === 'round3-voting' || effectiveStatus === 'round3-reveal') {
             setShowResults(false);
             setQuestion(null);
             setRound2Phase('idle');
             setRound2CurrentIndex(null);
             setRound2AnsweredChoice(null);
             setRound2AnsweredCorrect(null);
-            setIsRound3Voting(newStatus === 'round3-voting');
+            setIsRound3Voting(effectiveStatus === 'round3-voting');
             if (nextRound3Index !== null) {
               await loadRound3AnswersRef.current?.(nextRound3Index);
               await loadRound3VoteRef.current?.(nextRound3Index);
@@ -858,6 +896,22 @@ export default function RoomPage() {
       setRound3AnswerDraft('');
     }
   }, [roomStatus, round3AnswerDraft]);
+
+  useEffect(() => {
+    if (roomStatus !== 'round3-running' || !round3QuestionStartedAt) {
+      setRound3InputTimeLeft(QUESTION_DURATION_SECONDS);
+      return;
+    }
+
+    const tick = () => {
+      const remaining = getRound3InputRemainingSeconds(round3QuestionStartedAt, timeOffsetMs);
+      setRound3InputTimeLeft(remaining);
+    };
+
+    tick();
+    const interval = setInterval(tick, 300);
+    return () => clearInterval(interval);
+  }, [roomStatus, round3QuestionStartedAt, timeOffsetMs]);
 
   useEffect(() => {
     if (roomStatus !== 'round3-voting' || !round3VoteStartedAt) {
@@ -1197,6 +1251,8 @@ export default function RoomPage() {
   const round2ChoiceLabel = round2AnsweredChoice === null ? '' : round2AnsweredChoice ? 'Правда' : 'Вымысел';
   const round3QuestionNumber = round3QuestionIndex !== null ? round3QuestionIndex + 1 : null;
   const round3CategoryLabel = round3QuestionMeta?.category ?? null;
+  const round3InputProgress = Math.max(0, Math.min(100, (round3InputTimeLeft / QUESTION_DURATION_SECONDS) * 100));
+  const isRound3InputClosed = round3InputTimeLeft <= 0;
   const round3VoteProgress = Math.max(0, Math.min(100, (round3VoteTimeLeft / ROUND3_VOTE_SECONDS) * 100));
   const isRound3VoteClosed = round3VoteTimeLeft <= 0;
 
@@ -1384,6 +1440,19 @@ export default function RoomPage() {
                   <span className="text-[#142a45]/40">Категория появится позже</span>
                 )}
               </div>
+              <div className="flex items-center justify-between text-xs text-[#142a45]/60">
+                <span>Таймер · 30 сек</span>
+                <span className={`font-black ${isRound3InputClosed ? 'text-[#f1532f]' : 'text-[#1f6ac6]'}`}>
+                  {isRound3InputClosed ? 'Время истекло' : `${round3InputTimeLeft} c`}
+                </span>
+              </div>
+              <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
+                <div
+                  className={`h-full ${round3InputTimeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
+                  style={{ width: `${round3InputProgress}%` }}
+                />
+              </div>
+              <p className="text-[11px] text-[#142a45]/60">Голосование откроется автоматически после окончания таймера.</p>
               <p className="text-lg font-semibold text-[#142a45] leading-snug">
                 {round3QuestionMeta?.text || 'Слушайте ведущего — текст вопроса прозвучит в эфире.'}
               </p>
@@ -1412,7 +1481,7 @@ export default function RoomPage() {
               <button
                 type="button"
                 onClick={submitRound3Answer}
-                disabled={isRound3Submitting || !round3AnswerDraft}
+                disabled={isRound3Submitting || !round3AnswerDraft || isRound3InputClosed}
                 className="w-full rounded-2xl border-[3px] border-[#1f6ac6] bg-[#1f6ac6] text-white font-black tracking-[0.2em] py-3 text-lg disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {round3SubmittedAnswer ? 'Обновить ответ' : 'Отправить ответ'}
@@ -1421,6 +1490,9 @@ export default function RoomPage() {
                 <p className="text-xs font-semibold text-[#1f6ac6]">
                   Ваш ответ: {round3SubmittedAnswer}
                 </p>
+              )}
+              {isRound3InputClosed && (
+                <p className="text-xs font-semibold text-[#f1532f]">Время на ввод вышло. Ждём голосование.</p>
               )}
               {round3Error && (
                 <p className="text-xs font-semibold text-[#b23324]">{round3Error}</p>
