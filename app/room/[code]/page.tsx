@@ -916,9 +916,21 @@ export default function RoomPage() {
       setRound3Error('Данные игрока ещё загружаются');
       return;
     }
-    if (round3QuestionIndex === null) {
-      setRound3Error('Новый вопрос ещё готовится');
-      return;
+    let questionIndex = round3QuestionIndex;
+    if (questionIndex === null) {
+      const { data } = await supabase
+        .from('rooms')
+        .select('round3_question_index')
+        .eq('id', roomId)
+        .single();
+
+      const fetchedIndex = typeof data?.round3_question_index === 'number' ? data.round3_question_index : null;
+      setRound3QuestionIndex(fetchedIndex);
+      questionIndex = fetchedIndex;
+      if (questionIndex === null) {
+        setRound3Error('Новый вопрос ещё готовится');
+        return;
+      }
     }
     const normalized = round3AnswerDraft.trim().toUpperCase();
     if (!normalized) {
@@ -935,7 +947,7 @@ export default function RoomPage() {
       const payload = {
         room_id: roomId,
         player_id: playerId,
-        question_index: round3QuestionIndex,
+        question_index: questionIndex,
         answer: normalized,
         updated_at: new Date().toISOString(),
       };
@@ -949,7 +961,7 @@ export default function RoomPage() {
       }
 
       setRound3SubmittedAnswer(normalized);
-      await loadRound3Answers(round3QuestionIndex);
+      await loadRound3Answers(questionIndex);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Неизвестная ошибка при отправке Раунда 3';
       setRound3Error(message);
