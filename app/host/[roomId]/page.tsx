@@ -131,6 +131,7 @@ const ROUND3_RULES_TEXT = [
 ];
 const ROUND3_MIN_PLAYERS = 3;
 const ROUND3_INPUT_SECONDS = 30;
+const ROUND3_VOTE_SECONDS = 15;
 const ROUND3_VOICE_BG_FILE = 'round2/jingle (5).mp3';
 const ROUND3_TIMER_AUDIO_FILE = '30_sec.mp3';
 
@@ -186,6 +187,8 @@ type RoomStatus =
   | 'round2-ready'
   | 'round3-ready'
   | 'round3-running'
+  | 'round3-voting'
+  | 'round3-reveal'
   | 'finished';
 
 type AnswerSummaryRow = {
@@ -283,6 +286,8 @@ export default function HostRoomPage() {
   const [round3AudioState, setRound3AudioState] = useState<'idle' | 'playing' | 'finished'>('idle');
   const [isRound3Complete, setIsRound3Complete] = useState(false);
   const [round3Answers, setRound3Answers] = useState<Round3AnswerRow[]>([]);
+  const [round3Phase, setRound3Phase] = useState<'input' | 'vote' | 'reveal'>('input');
+  const [round3VoteStartedAt, setRound3VoteStartedAt] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -349,6 +354,8 @@ export default function HostRoomPage() {
   const round3CurrentIndexRef = useRef(0);
   const round3QuestionsRef = useRef<Round3Question[]>([]);
   const persistRound3StateRef = useRef<PersistRound3StateFn | null>(null);
+  const round3PhaseRef = useRef<'input' | 'vote' | 'reveal'>('input');
+  const round3VoteStartedAtRef = useRef<string | null>(null);
 
   const setRound2Phase = useCallback(
     (nextPhase: Round2Phase) => {
@@ -417,6 +424,14 @@ export default function HostRoomPage() {
     round3CurrentIndexRef.current = round3CurrentIndex;
   }, [round3CurrentIndex]);
 
+  useEffect(() => {
+    round3PhaseRef.current = round3Phase;
+  }, [round3Phase]);
+
+  useEffect(() => {
+    round3VoteStartedAtRef.current = round3VoteStartedAt;
+  }, [round3VoteStartedAt]);
+
 
   useEffect(() => {
     const loadRound2Items = async () => {
@@ -437,6 +452,27 @@ export default function HostRoomPage() {
   useEffect(() => {
     playersRef.current = players;
   }, [players]);
+
+  const syncServerTime = useCallback(async () => {
+    try {
+      const { data } = await supabase.rpc('get_server_time');
+      if (data) {
+        const serverNow = new Date(data as string).getTime();
+        const offset = Date.now() - serverNow;
+        setTimeOffsetMs(offset);
+        return offset;
+      }
+    } catch (error) {
+      console.error('Не удалось синхронизировать время сервера (host)', error);
+    }
+    return timeOffsetMs;
+  }, [timeOffsetMs]);
+
+  const getServerIsoTimestamp = useCallback(async () => {
+    const offset = await syncServerTime();
+    const serverNow = new Date(Date.now() - offset).toISOString();
+    return { iso: serverNow, offset };
+  }, [syncServerTime]);
 
   const clearCountdownTimeout = useCallback(() => {
     if (countdownTimeoutRef.current) {
@@ -550,22 +586,6 @@ export default function HostRoomPage() {
     }
   }, []);
 
-  const stopRound3TooFewAudio = useCallback(() => {
-    if (round3TooFewAudioRef.current) {
-      round3TooFewAudioRef.current.pause();
-      round3TooFewAudioRef.current.currentTime = 0;
-      round3TooFewAudioRef.current = null;
-    }
-  }, []);
-
-  const stopRound3TransitionAudio = useCallback(() => {
-    if (round3TransitionAudioRef.current) {
-      round3TransitionAudioRef.current.pause();
-      round3TransitionAudioRef.current.currentTime = 0;
-      round3TransitionAudioRef.current = null;
-    }
-  }, []);
-
   const playRound3RulesAudio = useCallback(() => {
     if (!hasUserInteractedRef.current) {
       return;
@@ -582,6 +602,22 @@ export default function HostRoomPage() {
       console.error('Не удалось проиграть правила Раунда 3', error);
     });
   }, [stopRound3RulesAudio]);
+
+  const stopRound3TooFewAudio = useCallback(() => {
+    if (round3TooFewAudioRef.current) {
+      round3TooFewAudioRef.current.pause();
+      round3TooFewAudioRef.current.currentTime = 0;
+      round3TooFewAudioRef.current = null;
+    }
+  }, []);
+
+  const stopRound3TransitionAudio = useCallback(() => {
+    if (round3TransitionAudioRef.current) {
+      round3TransitionAudioRef.current.pause();
+      round3TransitionAudioRef.current.currentTime = 0;
+      round3TransitionAudioRef.current = null;
+    }
+  }, []);
 
   const playRound3TooFewAudio = useCallback(() => {
     if (!hasUserInteractedRef.current) {
@@ -661,35 +697,74 @@ export default function HostRoomPage() {
     setIsRound3TimerRunning(false);
   }, [stopRound3TimerAudio]);
 
-  const startRound3Timer = useCallback(() => {
-    clearRound3Timer();
-    setIsRound3TimerRunning(true);
-    setIsRound3TimerVisible(true);
-    setRound3TimeLeft(ROUND3_INPUT_SECONDS);
-    const timerAudio = new Audio(buildAudioUrl(ROUND3_TIMER_AUDIO_FILE));
-    timerAudio.loop = false;
-    timerAudio.volume = 0.95;
-    timerAudio.onended = () => {
-      round3TimerAudioRef.current = null;
-    };
-    timerAudio.onerror = () => {
-      stopRound3TimerAudio();
-    };
-    round3TimerAudioRef.current = timerAudio;
-    timerAudio.play().catch((error) => {
-      console.error('Не удалось воспроизвести таймер Раунда 3', error);
-      stopRound3TimerAudio();
-    });
-    round3TimerRef.current = setInterval(() => {
-      setRound3TimeLeft((prev) => {
-        if (prev <= 1) {
-          clearRound3Timer();
-          return 0;
-        }
-        return prev - 1;
+  const startRound3Timer = useCallback(
+    (duration: number, onComplete?: () => void) => {
+      clearRound3Timer();
+      setIsRound3TimerRunning(true);
+      setIsRound3TimerVisible(true);
+      setRound3TimeLeft(duration);
+      const timerAudio = new Audio(buildAudioUrl(ROUND3_TIMER_AUDIO_FILE));
+      timerAudio.loop = false;
+      timerAudio.volume = 0.95;
+      timerAudio.onended = () => {
+        round3TimerAudioRef.current = null;
+      };
+      timerAudio.onerror = () => {
+        stopRound3TimerAudio();
+      };
+      round3TimerAudioRef.current = timerAudio;
+      timerAudio.play().catch((error) => {
+        console.error('Не удалось воспроизвести таймер Раунда 3', error);
+        stopRound3TimerAudio();
       });
-    }, 1000);
-  }, [clearRound3Timer, stopRound3TimerAudio]);
+
+      const startTs = Date.now();
+      round3TimerRef.current = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - startTs) / 1000);
+        const remaining = Math.max(0, duration - elapsed);
+        setRound3TimeLeft(remaining);
+        if (remaining <= 0) {
+          clearRound3Timer();
+          if (onComplete) {
+            onComplete();
+          }
+        }
+      }, 500);
+    },
+    [clearRound3Timer, stopRound3TimerAudio]
+  );
+
+  const startRound3Reveal = useCallback(async () => {
+    clearRound3Timer();
+    setRound3Phase('reveal');
+    setRoomStatus('round3-reveal');
+    const { error } = await supabase
+      .from('rooms')
+      .update({ status: 'round3-reveal', round3_phase: 'reveal' })
+      .eq('id', roomId);
+    if (error) {
+      console.error('Не удалось переключить Раунд 3 в режим показа', error);
+    }
+  }, [clearRound3Timer, roomId]);
+
+  const startRound3Voting = useCallback(async () => {
+    clearRound3Timer();
+    const { iso } = await getServerIsoTimestamp();
+    setRound3Phase('vote');
+    setRound3VoteStartedAt(iso);
+    setRoomStatus('round3-voting');
+    const { error } = await supabase
+      .from('rooms')
+      .update({ status: 'round3-voting', round3_phase: 'vote', round3_vote_started_at: iso })
+      .eq('id', roomId);
+    if (error) {
+      console.error('Не удалось перевести Раунд 3 в голосование', error);
+    }
+    startRound3Timer(ROUND3_VOTE_SECONDS, () => {
+      void startRound3Reveal();
+    });
+  }, [clearRound3Timer, getServerIsoTimestamp, roomId, startRound3Reveal, startRound3Timer]);
+
 
   const playRound3QuestionAudio = useCallback(
     (question: Round3Question) => {
@@ -718,13 +793,17 @@ export default function HostRoomPage() {
         round3QuestionAudioRef.current = null;
         stopRound3BedAudio();
         setRound3AudioState('finished');
-        startRound3Timer();
+        startRound3Timer(ROUND3_INPUT_SECONDS, () => {
+          void startRound3Voting();
+        });
       };
       audio.onerror = () => {
         round3QuestionAudioRef.current = null;
         stopRound3BedAudio();
         setRound3AudioState('idle');
-        startRound3Timer();
+        startRound3Timer(ROUND3_INPUT_SECONDS, () => {
+          void startRound3Voting();
+        });
       };
       round3QuestionAudioRef.current = audio;
       audio
@@ -736,10 +815,12 @@ export default function HostRoomPage() {
           console.error('Не удалось озвучить вопрос Раунда 3', error);
           stopRound3BedAudio();
           setRound3AudioState('idle');
-          startRound3Timer();
+          startRound3Timer(ROUND3_INPUT_SECONDS, () => {
+            void startRound3Voting();
+          });
         });
     },
-    [startRound3Timer, stopRound3BedAudio, stopRound3QuestionAudio]
+    [startRound3Timer, startRound3Voting, stopRound3BedAudio, stopRound3QuestionAudio]
   );
 
   const resetRound3Flow = useCallback(() => {
@@ -1250,36 +1331,18 @@ export default function HostRoomPage() {
     [playRound2BetweenAudio, stopRound2Audio]
   );
 
-  const syncServerTime = useCallback(async () => {
-    try {
-      const { data } = await supabase.rpc('get_server_time');
-      if (data) {
-        const serverNow = new Date(data as string).getTime();
-        const offset = Date.now() - serverNow;
-        setTimeOffsetMs(offset);
-        return offset;
-      }
-    } catch (error) {
-      console.error('Не удалось синхронизировать время сервера (host)', error);
-    }
-    return timeOffsetMs;
-  }, [timeOffsetMs]);
-
-  const getServerIsoTimestamp = useCallback(async () => {
-    const offset = await syncServerTime();
-    const serverNow = new Date(Date.now() - offset).toISOString();
-    return { iso: serverNow, offset };
-  }, [syncServerTime]);
-
   const persistRound3QuestionState = useCallback(
     async (questionIndex: number | null, options?: { questionId?: number | null; status?: RoomStatus }) => {
       const payload: Record<string, unknown> = {
         round3_question_index: questionIndex,
         round3_question_id: options?.questionId ?? null,
+        round3_phase: 'input',
+        round3_vote_started_at: null,
       };
 
       if (questionIndex === null) {
         payload.round3_question_started_at = null;
+        payload.round3_phase = null;
       } else {
         const { iso } = await getServerIsoTimestamp();
         payload.round3_question_started_at = iso;
