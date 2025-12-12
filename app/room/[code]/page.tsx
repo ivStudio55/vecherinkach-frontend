@@ -720,7 +720,7 @@ export default function RoomPage() {
             onClick={() => router.push('/')}
             className="w-full py-3 rounded-2xl border-[3px] border-[#142a45] bg-[#ffe184] font-black"
           >
-            Вернуться на главную
+            Вернуться на экран подключения
           </button>
         </div>
       </div>

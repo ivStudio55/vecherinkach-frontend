@@ -98,7 +98,7 @@ const ROUND2_END_AUDIO_FILES = [
   'round2end/8.mp3',
   'round2end/9.mp3',
 ] as const;
-const ROUND2_END_JINGLE_FILE = 'round2_end/jingle_(after_round2).mp3';
+const ROUND2_END_JINGLE_FILE = 'round1_end/jingle_(after_round1).mp3';
 const ROUND2_RULES_JINGLE_FILE = 'round2/jingle (5).mp3';
 const ROUND2_EXPLANATION_BG_FILE = 'round2/jingle (5).mp3';
 const ROUND2_TOTAL_QUESTIONS = 6;
@@ -2840,7 +2840,7 @@ export default function HostRoomPage() {
   };
 
   useEffect(() => {
-    if (!question || roomStatus !== 'running' || !canAdvance || totalPlayers === 0 || currentQuestionIndex === 0) {
+    if (!question || roomStatus !== 'running' || !canAdvance || totalPlayers === 0) {
       return;
     }
 
