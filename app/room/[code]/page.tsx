@@ -717,7 +717,7 @@ export default function RoomPage() {
             Ведущий сейчас озвучит правильные ответы и начисленные баллы. Не закрывайте вкладку, чтобы не потерять прогресс.
           </p>
           <button
-            onClick={() => router.push('/')}
+            onClick={() => router.push('/join')}
             className="w-full py-3 rounded-2xl border-[3px] border-[#142a45] bg-[#ffe184] font-black"
           >
             Вернуться на экран подключения
