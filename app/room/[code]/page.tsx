@@ -10,6 +10,7 @@ import {
   getQuestionForIndex,
 } from '@/lib/questions';
 import { TrueFalseItem, ROUND2_POINTS } from '@/lib/round2';
+import { getRound3QuestionById, type Round3Question } from '@/lib/round3';
 
 const QUESTION_DURATION_SECONDS = 30;
 const APP_VERSION = '1.0.4'; // Инкрементируйте при важных изменениях
@@ -110,6 +111,8 @@ export default function RoomPage() {
   const [round2AnsweredCorrect, setRound2AnsweredCorrect] = useState<boolean | null>(null);
   const [round3AnswerDraft, setRound3AnswerDraft] = useState('');
   const [round3QuestionIndex, setRound3QuestionIndex] = useState<number | null>(null);
+  const [round3QuestionId, setRound3QuestionId] = useState<number | null>(null);
+  const [round3QuestionMeta, setRound3QuestionMeta] = useState<Round3Question | null>(null);
   const [round3Answers, setRound3Answers] = useState<Round3AnswerRow[]>([]);
   const [round3SubmittedAnswer, setRound3SubmittedAnswer] = useState<string | null>(null);
   const [isRound3Submitting, setIsRound3Submitting] = useState(false);
@@ -161,6 +164,14 @@ export default function RoomPage() {
   useEffect(() => {
     roomStatusRef.current = roomStatus;
   }, [roomStatus]);
+
+  useEffect(() => {
+    if (round3QuestionId === null) {
+      setRound3QuestionMeta(null);
+      return;
+    }
+    setRound3QuestionMeta(getRound3QuestionById(round3QuestionId));
+  }, [round3QuestionId]);
 
   const loadQuestionFromSelection = useCallback(
     (questionIndex: number, selectionOverride?: number[]) => {
@@ -294,7 +305,7 @@ export default function RoomPage() {
         const { data: room, error: roomError } = await supabase
           .from('rooms')
           .select(
-            'id, current_question_index, is_active, status, question_started_at, all_players_answered, selected_question_ids, round2_item_index, round2_showing_fact, round2_phase, round3_question_index'
+            'id, current_question_index, is_active, status, question_started_at, all_players_answered, selected_question_ids, round2_item_index, round2_showing_fact, round2_phase, round3_question_index, round3_question_id'
           )
           .eq('code', roomCode)
           .single();
@@ -314,7 +325,9 @@ export default function RoomPage() {
           detectedStatus === 'running' || detectedStatus === 'round2-running' || detectedStatus === 'round3-running';
         setAllPlayersAnswered(isLiveRound ? !!room.all_players_answered : false);
         const initialRound3Index = typeof room.round3_question_index === 'number' ? room.round3_question_index : null;
+        const initialRound3Id = typeof room.round3_question_id === 'number' ? room.round3_question_id : null;
         setRound3QuestionIndex(initialRound3Index);
+        setRound3QuestionId(initialRound3Id);
 
         if (detectedStatus === 'waiting') {
           setShowResults(false);
@@ -322,6 +335,8 @@ export default function RoomPage() {
           setQuestion(null);
           setQuestionStartedAt(null);
           setTimeLeft(QUESTION_DURATION_SECONDS);
+          setRound3QuestionIndex(null);
+          setRound3QuestionId(null);
           setRound3Answers([]);
           setRound3SubmittedAnswer(null);
           return;
@@ -335,6 +350,8 @@ export default function RoomPage() {
           setRound2CurrentIndex(null);
           setRound2AnsweredChoice(null);
           setRound2AnsweredCorrect(null);
+          setRound3QuestionIndex(null);
+          setRound3QuestionId(null);
           setRound3Answers([]);
           setRound3SubmittedAnswer(null);
           return;
@@ -344,6 +361,8 @@ export default function RoomPage() {
           setShowResults(true);
           setQuestion(null);
           setQuestionStartedAt(null);
+          setRound3QuestionIndex(null);
+          setRound3QuestionId(null);
           setRound3Answers([]);
           setRound3SubmittedAnswer(null);
           return;
@@ -479,7 +498,9 @@ export default function RoomPage() {
           const nextRound2Showing =
             typeof payload.new.round2_showing_fact === 'boolean' ? payload.new.round2_showing_fact : true;
           const nextRound3Index = typeof payload.new.round3_question_index === 'number' ? payload.new.round3_question_index : null;
+          const nextRound3Id = typeof payload.new.round3_question_id === 'number' ? payload.new.round3_question_id : null;
           setRound3QuestionIndex(nextRound3Index);
+          setRound3QuestionId(nextRound3Id);
 
           if (newStatus === 'waiting') {
             setShowResults(false);
@@ -491,6 +512,8 @@ export default function RoomPage() {
             setRound2CurrentIndex(null);
             setRound2AnsweredChoice(null);
             setRound2AnsweredCorrect(null);
+            setRound3QuestionIndex(null);
+            setRound3QuestionId(null);
             setRound3Answers([]);
             setRound3SubmittedAnswer(null);
             return;
@@ -505,6 +528,8 @@ export default function RoomPage() {
             setRound2CurrentIndex(null);
             setRound2AnsweredChoice(null);
             setRound2AnsweredCorrect(null);
+            setRound3QuestionIndex(null);
+            setRound3QuestionId(null);
             setRound3Answers([]);
             setRound3SubmittedAnswer(null);
             return;
@@ -519,6 +544,8 @@ export default function RoomPage() {
             setRound2CurrentIndex(null);
             setRound2AnsweredChoice(null);
             setRound2AnsweredCorrect(null);
+            setRound3QuestionIndex(null);
+            setRound3QuestionId(null);
             setRound3Answers([]);
             setRound3SubmittedAnswer(null);
             return;
@@ -961,6 +988,8 @@ export default function RoomPage() {
       : currentRound2Item.fictionExplanation
     : '';
   const round2ChoiceLabel = round2AnsweredChoice === null ? '' : round2AnsweredChoice ? 'Правда' : 'Вымысел';
+  const round3QuestionNumber = round3QuestionIndex !== null ? round3QuestionIndex + 1 : null;
+  const round3CategoryLabel = round3QuestionMeta?.category ?? null;
 
   if (showResults) {
     return (
@@ -1133,6 +1162,20 @@ export default function RoomPage() {
               </p>
             </div>
 
+            <div className="rounded-3xl border-[3px] border-[#1f6ac6]/20 bg-[#e9f0ff] p-4 space-y-2">
+              <div className="flex items-center justify-between text-xs text-[#142a45]/60">
+                <span>Факт {round3QuestionNumber ?? '—'}</span>
+                {round3CategoryLabel ? (
+                  <span className="font-semibold text-[#1f6ac6]">{round3CategoryLabel}</span>
+                ) : (
+                  <span className="text-[#142a45]/40">Категория появится позже</span>
+                )}
+              </div>
+              <p className="text-lg font-semibold text-[#142a45] leading-snug">
+                {round3QuestionMeta?.text || 'Слушайте ведущего — текст вопроса прозвучит в эфире.'}
+              </p>
+            </div>
+
             <div className="space-y-2">
               <p className="text-xs font-semibold tracking-[0.3em] text-[#142a45]/60 uppercase">Ваш ответ</p>
               <input
@@ -1176,6 +1219,7 @@ export default function RoomPage() {
               playerId={playerId}
               isSelfVisible={false}
               roomStatus={roomStatus}
+              title={round3QuestionNumber ? `Ответы игроков · Факт ${round3QuestionNumber}` : undefined}
             />
           </section>
         )}
