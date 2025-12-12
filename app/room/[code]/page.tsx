@@ -1427,13 +1427,14 @@ export default function RoomPage() {
               )}
             </div>
 
-            <Round3AnswersList
-              answers={round3Answers}
-              playerId={playerId}
-              isSelfVisible={false}
-              roomStatus={roomStatus}
-              title={round3QuestionNumber ? `Ответы игроков · Факт ${round3QuestionNumber}` : undefined}
-            />
+            <div className="rounded-3xl border-[3px] border-dashed border-[#142a45]/25 bg-white p-5 space-y-2 text-center">
+              <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/60">
+                Ответы появятся позже
+              </p>
+              <p className="text-sm text-[#142a45]/70">
+                Мы скрываем идеи других игроков, пока идёт таймер. Они раскроются автоматически на этапе голосования.
+              </p>
+            </div>
           </section>
         )}
 

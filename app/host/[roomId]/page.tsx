@@ -134,6 +134,7 @@ const ROUND3_INPUT_SECONDS = 30;
 const ROUND3_VOTE_SECONDS = 15;
 const ROUND3_VOICE_BG_FILE = 'round2/jingle (5).mp3';
 const ROUND3_TIMER_AUDIO_FILE = '30_sec.mp3';
+const ROUND3_COMMENTS_AUDIO_DIR = 'round3/comments';
 
 const buildAudioUrl = (relativePath: string) => `/api/audio?file=${encodeURIComponent(relativePath)}&t=${Date.now()}`;
 const buildJingleUrl = (fileName: string) => `/api/jingle/audio?file=${encodeURIComponent(fileName)}&t=${Date.now()}`;
@@ -313,6 +314,7 @@ export default function HostRoomPage() {
   const round3QuestionAudioRef = useRef<HTMLAudioElement | null>(null);
   const round3QuestionBgAudioRef = useRef<HTMLAudioElement | null>(null);
   const round3TimerAudioRef = useRef<HTMLAudioElement | null>(null);
+  const round3CommentAudioRef = useRef<HTMLAudioElement | null>(null);
   const round3TimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const round3AnswersRef = useRef<Round3AnswerRow[]>([]);
   const round2AnswersRef = useRef<Round2AnswerRow[]>([]);
@@ -688,6 +690,38 @@ export default function HostRoomPage() {
     setRound3AudioState('idle');
   }, [stopRound3BedAudio, stopRound3VoiceAudio]);
 
+  const stopRound3CommentAudio = useCallback(() => {
+    if (round3CommentAudioRef.current) {
+      round3CommentAudioRef.current.pause();
+      round3CommentAudioRef.current.currentTime = 0;
+      round3CommentAudioRef.current = null;
+    }
+  }, []);
+
+  const playRound3CommentAudio = useCallback(
+    (questionId?: number | null) => {
+      stopRound3CommentAudio();
+      if (!questionId || !hasUserInteractedRef.current) {
+        return;
+      }
+
+      const audioPath = `${ROUND3_COMMENTS_AUDIO_DIR}/${questionId}.mp3`;
+      const audio = new Audio(buildAudioUrl(audioPath));
+      audio.volume = 0.95;
+      audio.onended = () => {
+        round3CommentAudioRef.current = null;
+      };
+      audio.onerror = () => {
+        round3CommentAudioRef.current = null;
+      };
+      round3CommentAudioRef.current = audio;
+      audio.play().catch((err) => {
+        console.error('Не удалось воспроизвести комментарий Раунда 3', err);
+      });
+    },
+    [stopRound3CommentAudio]
+  );
+
   const clearRound3Timer = useCallback(() => {
     if (round3TimerRef.current) {
       clearInterval(round3TimerRef.current);
@@ -917,6 +951,7 @@ export default function HostRoomPage() {
       if (targetIndex >= questions.length) {
         clearRound3Timer();
         stopRound3QuestionAudio();
+        stopRound3CommentAudio();
         setRound3ActiveQuestion(null);
         setIsRound3TimerVisible(false);
         setIsRound3TimerRunning(false);
@@ -930,6 +965,7 @@ export default function HostRoomPage() {
         playRoundEndAudio(3);
         return;
       }
+      stopRound3CommentAudio();
       setIsRound3Complete(false);
       setRound3CurrentIndex(targetIndex);
       const persistFn = persistRound3StateRef.current;
@@ -941,7 +977,14 @@ export default function HostRoomPage() {
       }
       beginRound3Question(questions[targetIndex]);
     },
-    [beginRound3Question, clearRound3Timer, playRoundEndAudio, setRound3CurrentIndex, stopRound3QuestionAudio]
+    [
+      beginRound3Question,
+      clearRound3Timer,
+      playRoundEndAudio,
+      setRound3CurrentIndex,
+      stopRound3CommentAudio,
+      stopRound3QuestionAudio,
+    ]
   );
 
   useEffect(() => {
@@ -960,14 +1003,16 @@ export default function HostRoomPage() {
     }
     clearRound3Timer();
     stopRound3QuestionAudio();
-  }, [clearRound3Timer, roomStatus, stopRound3QuestionAudio]);
+    stopRound3CommentAudio();
+  }, [clearRound3Timer, roomStatus, stopRound3CommentAudio, stopRound3QuestionAudio]);
 
   useEffect(() => {
     return () => {
       clearRound3Timer();
       stopRound3QuestionAudio();
+      stopRound3CommentAudio();
     };
-  }, [clearRound3Timer, stopRound3QuestionAudio]);
+  }, [clearRound3Timer, stopRound3CommentAudio, stopRound3QuestionAudio]);
 
   const playRound2RulesAudio = useCallback(() => {
     if (!hasUserInteractedRef.current) {
@@ -1036,6 +1081,14 @@ export default function HostRoomPage() {
       setRound3Notice('');
     }
   }, [roomStatus, round3Notice]);
+
+  useEffect(() => {
+    if (roomStatus === 'round3-reveal' && round3ActiveQuestion?.id) {
+      playRound3CommentAudio(round3ActiveQuestion.id);
+    } else if (roomStatus !== 'round3-reveal') {
+      stopRound3CommentAudio();
+    }
+  }, [playRound3CommentAudio, roomStatus, round3ActiveQuestion?.id, stopRound3CommentAudio]);
 
   useEffect(() => {
     round2RulesReadyAtRef.current = isRound2RulesVisible ? Date.now() : null;
@@ -3048,10 +3101,15 @@ export default function HostRoomPage() {
     round2Leaderboard.length > 0 ? `${round2AccuracyPercent}% попали в точку` : 'Ждём первую статистику';
   const totalRound3Questions = round3Questions.length || ROUND3_TOTAL_QUESTIONS;
   const round3QuestionNumber = Math.min(round3CurrentIndex + 1, totalRound3Questions);
-  const round3ProgressPercent = Math.max(0, Math.min(100, (round3TimeLeft / ROUND3_INPUT_SECONDS) * 100));
-  const canAdvanceRound3 = isRound3TimerVisible && !isRound3TimerRunning && round3TimeLeft === 0;
   const isRound3Running = roomStatus === 'round3-running';
-  const visibleQuestionNumber = isRound3Running
+  const isRound3Voting = roomStatus === 'round3-voting';
+  const isRound3Reveal = roomStatus === 'round3-reveal';
+  const isRound3FlowActive = isRound3Running || isRound3Voting || isRound3Reveal;
+  const isLastRound3Fact = round3QuestionNumber >= totalRound3Questions;
+  const round3TimerTotalSeconds = round3Phase === 'vote' ? ROUND3_VOTE_SECONDS : ROUND3_INPUT_SECONDS;
+  const round3ProgressPercent = Math.max(0, Math.min(100, round3TimerTotalSeconds ? (round3TimeLeft / round3TimerTotalSeconds) * 100 : 0));
+  const round3VoteProgressPercent = Math.max(0, Math.min(100, (round3TimeLeft / ROUND3_VOTE_SECONDS) * 100));
+  const visibleQuestionNumber = isRound3FlowActive
     ? round3QuestionNumber
     : question
       ? question.order
@@ -3185,7 +3243,7 @@ export default function HostRoomPage() {
         ? 'Раунд 1 в эфире'
         : roomStatus === 'round2-running'
           ? 'Раунд 2 в эфире'
-          : roomStatus === 'round3-running'
+          : isRound3FlowActive
             ? 'Раунд 3 в эфире'
             : roomStatus === 'round2-ready'
               ? 'Раунд 1 завершён'
@@ -3197,7 +3255,7 @@ export default function HostRoomPage() {
       ? 'bg-[#f1532f] text-[#ffeccd]'
       : roomStatus === 'round2-running'
         ? 'bg-[#b4007f] text-white'
-        : roomStatus === 'round3-running'
+        : isRound3FlowActive
           ? 'bg-[#1f6ac6] text-white'
           : roomStatus === 'waiting'
             ? 'bg-[#ffe184] text-[#142a45]'
@@ -3531,13 +3589,149 @@ export default function HostRoomPage() {
                   )}
                 </div>
               </div>
+              ) : roomStatus === 'round3-reveal' ? (
+                <div className="rounded-3xl border-[4px] border-[#1f6ac6] bg-white shadow-xl p-6 space-y-6">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <span className="px-4 py-2 rounded-full border-[3px] border-[#1f6ac6] text-sm font-black">
+                      Разбор · Факт {round3QuestionNumber} / {totalRound3Questions}
+                    </span>
+                    <span className="text-xs font-semibold text-[#1f6ac6]">
+                      {round3ActiveQuestion?.category || 'Категория появится вместе с вопросом'}
+                    </span>
+                  </div>
+
+                  <div className="rounded-3xl border-[3px] border-[#1f6ac6]/20 bg-[#e9f0ff] p-5 space-y-2 text-center">
+                    <p className="text-xs font-semibold text-[#142a45]/60 tracking-[0.3em] uppercase">Искомое слово</p>
+                    <p className="text-4xl font-black text-[#1f6ac6] tracking-[0.3em]">
+                      {round3ActiveQuestion?.answer || '—'}
+                    </p>
+                    {round3ActiveQuestion?.comment ? (
+                      <p className="text-sm text-[#142a45]/80 max-w-2xl mx-auto">{round3ActiveQuestion.comment}</p>
+                    ) : (
+                      <p className="text-xs text-[#142a45]/60">Если нужен контекст, добавьте короткое пояснение голосом.</p>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <button
+                      type="button"
+                      onClick={() => playRound3CommentAudio(round3ActiveQuestion?.id)}
+                      className="flex-1 py-4 rounded-2xl border-[3px] border-[#1f6ac6]/40 text-[#1f6ac6] font-semibold"
+                    >
+                      🔁 Повторить комментарий
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRound3NextQuestion}
+                      className="flex-1 py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#1f6ac6] text-white border-[3px] border-[#142a45]"
+                    >
+                      {isLastRound3Fact ? 'Завершить раунд' : 'Следующий факт'}
+                    </button>
+                  </div>
+
+                  <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/70">Ответы игроков</p>
+                      <span className="text-xs font-semibold text-[#1f6ac6]">{round3Answers.length}/{totalPlayers}</span>
+                    </div>
+                    {round3Answers.length === 0 ? (
+                      <p className="text-sm text-[#142a45]/70">Никто не успел отправить ответ — можно перейти к следующему факту.</p>
+                    ) : (
+                      <div className="space-y-2 max-h-80 overflow-y-auto pr-2">
+                        {round3Answers.map((answer) => (
+                          <div key={answer.id} className="rounded-2xl border-[3px] border-[#142a45]/15 bg-white p-3">
+                            <p className="text-xs font-semibold text-[#142a45]/60 uppercase tracking-[0.3em]">
+                              {getPlayerName(answer.player_id)}
+                            </p>
+                            <p className="text-base font-semibold text-[#142a45] break-words">{answer.answer || '—'}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <p className="text-xs text-[#142a45]/60 text-center">
+                    Начислите +200 за точный ответ и +50 за каждый голос. Нажмите «Следующий факт», чтобы продолжить цикл из шести вопросов.
+                  </p>
+                </div>
+              ) : roomStatus === 'round3-voting' ? (
+                <div className="rounded-3xl border-[4px] border-[#1f6ac6] bg-white shadow-xl p-6 space-y-6">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <span className="px-4 py-2 rounded-full border-[3px] border-[#1f6ac6] text-sm font-black">
+                      Голосование · Факт {round3QuestionNumber} / {totalRound3Questions}
+                    </span>
+                    <span className="text-xs font-semibold text-[#1f6ac6]">
+                      {round3ActiveQuestion?.category || 'Категория появится вместе с вопросом'}
+                    </span>
+                  </div>
+
+                  <div className="rounded-3xl border-[3px] border-[#1f6ac6]/20 bg-[#e9f0ff] p-4 space-y-2">
+                    <div className="flex items-center justify-between text-xs text-[#142a45]/60">
+                      <span>Таймер · 15 сек</span>
+                      <span className={`font-black ${round3TimeLeft > 0 ? 'text-[#1f6ac6]' : 'text-[#f1532f]'}`}>
+                        {round3TimeLeft > 0 ? `${round3TimeLeft} c` : 'Время истекло'}
+                      </span>
+                    </div>
+                    <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
+                      <div
+                        className={`h-full ${round3TimeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
+                        style={{ width: `${round3VoteProgressPercent}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-[#142a45]/70">По окончании обратного отсчёта игроки увидят экран с результатами.</p>
+                  </div>
+
+                  <div className="rounded-3xl border-[3px] border-dashed border-[#142a45]/30 bg-white p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/70">Ответы игроков</p>
+                      <span className="text-xs font-semibold text-[#1f6ac6]">{round3Answers.length}/{totalPlayers}</span>
+                    </div>
+                    {round3Answers.length === 0 ? (
+                      <p className="text-sm text-[#142a45]/70">Ждём, когда появится хотя бы один вариант, чтобы начать голосование.</p>
+                    ) : (
+                      <div className="space-y-2 max-h-72 overflow-y-auto pr-2">
+                        {round3Answers.map((answer) => (
+                          <div key={answer.id} className="rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-3">
+                            <p className="text-xs font-semibold text-[#142a45]/60 uppercase tracking-[0.2em]">
+                              {getPlayerName(answer.player_id)}
+                            </p>
+                            <p className="text-base font-semibold text-[#142a45] break-words">{answer.answer || '—'}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <button
+                      type="button"
+                      onClick={handleRound3SkipQuestion}
+                      className="flex-1 py-4 rounded-2xl border-[3px] border-dashed border-[#142a45] text-[#142a45] font-semibold"
+                    >
+                      Пропустить факт
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void startRound3Reveal();
+                      }}
+                      className="flex-1 py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#1f6ac6] text-white border-[3px] border-[#142a45]"
+                    >
+                      Открыть результаты
+                    </button>
+                  </div>
+
+                  <p className="text-xs text-[#142a45]/60">
+                    Если кто-то пропустил голосование, система автоматически начислит -50 к его счёту.
+                  </p>
+                </div>
               ) : isRound3Running ? (
                 isRound3Complete ? (
                   <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-4 text-center">
                     <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Раунд 3 · МозгоШтурм</p>
-                    <h2 className="text-3xl font-black">Все шесть фактов готовы!</h2>
+                    <h2 className="text-3xl font-black">Все шесть фактов сыграны!</h2>
                     <p className="text-sm text-[#142a45]/70">
-                      Обсудите ответы, начислите очки за догадки и подготовьтесь к голосованию. Цифровая часть голосования появится в следующем обновлении.
+                      Объявите очки и вернитесь к итогам, чтобы перейти к награждению или повторить раунд.
                     </p>
                     <div className="flex flex-col gap-3 sm:flex-row">
                       <button
@@ -3549,7 +3743,7 @@ export default function HostRoomPage() {
                       </button>
                     </div>
                     <p className="text-xs text-[#142a45]/60">
-                      Чтобы переиграть МозгоШтурм, нажмите «Раунд 3» в шапке и выберите «Начать».
+                      Чтобы сыграть снова, нажмите «Раунд 3» в шапке и перезапустите подготовку вопросов.
                     </p>
                   </div>
                 ) : (
@@ -3646,16 +3840,18 @@ export default function HostRoomPage() {
                       </button>
                       <button
                         type="button"
-                        onClick={handleRound3NextQuestion}
-                        disabled={!canAdvanceRound3}
+                        onClick={() => {
+                          void startRound3Voting();
+                        }}
+                        disabled={round3Phase !== 'input' || isRound3TimerRunning || round3TimeLeft > 0}
                         className="flex-1 py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#1f6ac6] text-white border-[3px] border-[#142a45] transition disabled:opacity-40 disabled:cursor-not-allowed"
                       >
-                        {round3QuestionNumber >= totalRound3Questions ? 'Завершить раунд' : 'Следующий вопрос'}
+                        Запустить голосование
                       </button>
                     </div>
 
                     <p className="text-xs text-[#142a45]/60">
-                      Время на ввод — 30 секунд. После сигнала обсудите ответы и переходите к голосованию.
+                      Как только таймер завершится, голосование включится автоматически. Кнопка выше нужна, если хотите ускорить переход.
                     </p>
                   </div>
                 )
@@ -3742,6 +3938,14 @@ export default function HostRoomPage() {
                 <p className="text-sm text-[#142a45]/80">
                   МозгоШтурм в эфире: игроки вводят одно слово на телефоне. Таймер синхронизирован с вашей панелью.
                 </p>
+              ) : isRound3Voting ? (
+                <p className="text-sm text-[#142a45]/80">
+                  Идёт голосование за лучшие ответы. Следите за списком ниже и переходите к разбору по кнопке сверху.
+                </p>
+              ) : isRound3Reveal ? (
+                <p className="text-sm text-[#142a45]/80">
+                  Рассказываем правильный ответ и комментарий. После обсуждения нажмите «Следующий факт».
+                </p>
               ) : (
                 <p className="text-sm text-[#142a45]/80">
                   Ответы скрыты до окончания таймера. Уже ответили: <span className="font-black text-[#1f6ac6]">{answeredCount}/{totalPlayers}</span>
@@ -3762,7 +3966,7 @@ export default function HostRoomPage() {
                     ? 'Раунд 1'
                     : roomStatus === 'round2-running'
                       ? 'Раунд 2'
-                      : roomStatus === 'round3-running'
+                      : isRound3FlowActive
                         ? 'Раунд 3'
                         : roomStatus === 'round2-ready'
                           ? 'Итоги Раунда 1'
@@ -3799,8 +4003,14 @@ export default function HostRoomPage() {
                               <p className={`text-xs font-semibold ${hasAnswered ? 'text-[#b4007f]' : 'text-[#142a45]/50'}`}>
                                 {hasAnswered ? 'Выбор сделан' : 'Ждём выбор'}
                               </p>
-                            ) : roomStatus === 'round3-running' ? (
-                              <p className="text-xs font-semibold text-[#1f6ac6]">Играют в «МозгоШтурм»</p>
+                            ) : isRound3FlowActive ? (
+                              <p className="text-xs font-semibold text-[#1f6ac6]">
+                                {roomStatus === 'round3-voting'
+                                  ? 'Голосуют за ответы'
+                                  : roomStatus === 'round3-reveal'
+                                    ? 'Слушают разбор'
+                                    : 'Играют в «МозгоШтурм»'}
+                              </p>
                             ) : null}
                           </div>
                         </div>
