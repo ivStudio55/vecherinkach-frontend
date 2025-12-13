@@ -1783,8 +1783,15 @@ export default function HostRoomPage() {
           setIsRound3TimerVisible(true);
           setIsRound3TimerRunning(remaining > 0);
           const hasQuestion = dbRound3Index !== null && dbRound3QuestionId !== null;
-          if (hasQuestion && remaining <= 0 && dbRound3Phase !== 'vote' && dbRound3Phase !== 'reveal') {
+          const withinGrace = elapsed <= ROUND3_INPUT_SECONDS + 5;
+          if (hasQuestion && remaining <= 0 && withinGrace && dbRound3Phase !== 'vote' && dbRound3Phase !== 'reveal') {
             void startRound3Voting();
+          } else if (hasQuestion && remaining <= 0 && !withinGrace && dbRound3Phase !== 'vote' && dbRound3Phase !== 'reveal') {
+            // Если время ушло слишком далеко (например, после перезагрузки или дрейфа времени), не перескакиваем в голосование.
+            // Сбросим локальный таймер, чтобы ведущий мог запустить вопрос заново вручную.
+            setRound3TimeLeft(ROUND3_INPUT_SECONDS);
+            setIsRound3TimerVisible(false);
+            setIsRound3TimerRunning(false);
           }
         } else {
           setRound3TimeLeft(ROUND3_INPUT_SECONDS);
