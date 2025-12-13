@@ -782,6 +782,11 @@ export default function HostRoomPage() {
   }, [clearRound3Timer, roomId]);
 
   const startRound3Voting = useCallback(async () => {
+    if (round3Phase !== 'input') return;
+    if (round3CurrentIndex == null) return;
+    const questionId = round3ActiveQuestion?.id;
+    if (!questionId) return;
+
     clearRound3Timer();
     const { iso } = await getServerIsoTimestamp();
     setRound3Phase('vote');
@@ -789,7 +794,13 @@ export default function HostRoomPage() {
     setRoomStatus('round3-voting');
     const { error } = await supabase
       .from('rooms')
-      .update({ status: 'round3-voting', round3_phase: 'vote', round3_vote_started_at: iso })
+      .update({
+        status: 'round3-voting',
+        round3_phase: 'vote',
+        round3_vote_started_at: iso,
+        round3_question_index: round3CurrentIndex,
+        round3_question_id: questionId,
+      })
       .eq('id', roomId);
     if (error) {
       console.error('Не удалось перевести Раунд 3 в голосование', error);
@@ -797,7 +808,16 @@ export default function HostRoomPage() {
     startRound3Timer(ROUND3_VOTE_SECONDS, () => {
       void startRound3Reveal();
     });
-  }, [clearRound3Timer, getServerIsoTimestamp, roomId, startRound3Reveal, startRound3Timer]);
+  }, [
+    clearRound3Timer,
+    getServerIsoTimestamp,
+    roomId,
+    round3ActiveQuestion?.id,
+    round3CurrentIndex,
+    round3Phase,
+    startRound3Reveal,
+    startRound3Timer,
+  ]);
 
 
   const playRound3QuestionAudio = useCallback(
@@ -968,6 +988,8 @@ export default function HostRoomPage() {
       stopRound3CommentAudio();
       setIsRound3Complete(false);
       setRound3CurrentIndex(targetIndex);
+      setRound3Phase('input');
+      setRound3VoteStartedAt(null);
       const persistFn = persistRound3StateRef.current;
       if (persistFn) {
         await persistFn(targetIndex, {
@@ -1712,7 +1734,8 @@ export default function HostRoomPage() {
           setRound3TimeLeft(remaining);
           setIsRound3TimerVisible(true);
           setIsRound3TimerRunning(remaining > 0);
-          if (remaining <= 0 && dbRound3Phase !== 'vote' && dbRound3Phase !== 'reveal') {
+          const hasQuestion = dbRound3Index !== null && dbRound3QuestionId !== null;
+          if (hasQuestion && remaining <= 0 && dbRound3Phase !== 'vote' && dbRound3Phase !== 'reveal') {
             void startRound3Voting();
           }
         } else {
@@ -3084,6 +3107,8 @@ export default function HostRoomPage() {
     setIsRound3RulesVisible(false);
     setShowResults(false);
     setRoomStatus('round3-running');
+    setRound3Phase('input');
+    setRound3VoteStartedAt(null);
     setRound3CurrentIndex(0);
     setIsRound3Complete(false);
     await persistRound3QuestionState(0, { questionId: preparedQuestions[0].id, status: 'round3-running' });
