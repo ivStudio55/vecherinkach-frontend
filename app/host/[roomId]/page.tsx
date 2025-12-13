@@ -281,6 +281,7 @@ export default function HostRoomPage() {
   const [round3Questions, setRound3Questions] = useState<Round3Question[]>([]);
   const [round3CurrentIndex, setRound3CurrentIndexState] = useState(0);
   const [round3ActiveQuestion, setRound3ActiveQuestion] = useState<Round3Question | null>(null);
+  const [round3CurrentQuestionId, setRound3CurrentQuestionId] = useState<number | null>(null);
   const [round3TimeLeft, setRound3TimeLeft] = useState(ROUND3_INPUT_SECONDS);
   const [isRound3TimerVisible, setIsRound3TimerVisible] = useState(false);
   const [isRound3TimerRunning, setIsRound3TimerRunning] = useState(false);
@@ -417,6 +418,19 @@ export default function HostRoomPage() {
   useEffect(() => {
     round3QuestionsRef.current = round3Questions;
   }, [round3Questions]);
+
+  useEffect(() => {
+    if (!round3CurrentQuestionId) {
+      return;
+    }
+    if (round3ActiveQuestion && round3ActiveQuestion.id === round3CurrentQuestionId) {
+      return;
+    }
+    const hydrated = getRound3QuestionById(round3CurrentQuestionId);
+    if (hydrated) {
+      setRound3ActiveQuestion(hydrated);
+    }
+  }, [round3ActiveQuestion, round3CurrentQuestionId]);
 
   useEffect(() => {
     round3AnswersRef.current = round3Answers;
@@ -881,6 +895,7 @@ export default function HostRoomPage() {
     clearRound3Timer();
     stopRound3QuestionAudio();
     setRound3ActiveQuestion(null);
+    setRound3CurrentQuestionId(null);
     setRound3CurrentIndex(0);
     setRound3TimeLeft(ROUND3_INPUT_SECONDS);
     setIsRound3TimerVisible(false);
@@ -973,6 +988,7 @@ export default function HostRoomPage() {
         stopRound3QuestionAudio();
         stopRound3CommentAudio();
         setRound3ActiveQuestion(null);
+        setRound3CurrentQuestionId(null);
         setIsRound3TimerVisible(false);
         setIsRound3TimerRunning(false);
         setRound3TimeLeft(0);
@@ -988,6 +1004,7 @@ export default function HostRoomPage() {
       stopRound3CommentAudio();
       setIsRound3Complete(false);
       setRound3CurrentIndex(targetIndex);
+      setRound3CurrentQuestionId(questions[targetIndex].id);
       setRound3Phase('input');
       setRound3VoteStartedAt(null);
       const persistFn = persistRound3StateRef.current;
@@ -1090,6 +1107,24 @@ export default function HostRoomPage() {
       stopRound3RulesAudio();
     }
   }, [isRound3RulesVisible, playRound3RulesAudio, stopRound3RulesAudio, stopRound3TooFewAudio]);
+
+  useEffect(() => {
+    if (roomStatus !== 'round3-running') return;
+    if (round3Phase !== 'input') return;
+    if (!round3ActiveQuestion) return;
+    if (round3QuestionAudioRef.current) return;
+    if (round3AudioState !== 'idle') return;
+    if (isRound3TimerVisible || isRound3TimerRunning) return;
+    playRound3QuestionAudio(round3ActiveQuestion);
+  }, [
+    isRound3TimerRunning,
+    isRound3TimerVisible,
+    playRound3QuestionAudio,
+    roomStatus,
+    round3ActiveQuestion,
+    round3AudioState,
+    round3Phase,
+  ]);
 
   useEffect(() => {
     if (roomStatus !== 'round3-ready') {
@@ -1688,6 +1723,7 @@ export default function HostRoomPage() {
         const dbRound3Phase = (room.round3_phase as 'input' | 'vote' | 'reveal' | null) ?? null;
 
       if (detectedStatus === 'running') {
+        setRound3CurrentQuestionId(null);
         syncTimerWithStart(room.question_started_at, effectiveOffset);
         if (room.all_players_answered) {
           setTimeLeft(0);
@@ -1696,6 +1732,7 @@ export default function HostRoomPage() {
         await loadAnswerCount(room.current_question_index);
         await loadRound2AnswerStats(null, { preserveRound1Counters: true });
       } else if (detectedStatus === 'round2-running') {
+        setRound3CurrentQuestionId(null);
         if (nextRound2Index !== round2CurrentIndexRef.current) {
           setShowResults(false);
           setQuestion(null);
@@ -1716,6 +1753,7 @@ export default function HostRoomPage() {
         setServerAllPlayersAnswered(false);
         setRound3Phase(dbRound3Phase || 'input');
         setRound3VoteStartedAt(null);
+        setRound3CurrentQuestionId(dbRound3QuestionId ?? null);
         if (dbRound3Index !== null) {
           setRound3CurrentIndex(dbRound3Index);
           if (dbRound3QuestionId !== null) {
@@ -1752,6 +1790,7 @@ export default function HostRoomPage() {
         setRound3Phase('vote');
         setRound3VoteStartedAt(dbRound3VoteStartedAt);
         setRound3CurrentIndex(dbRound3Index || 0);
+        setRound3CurrentQuestionId(dbRound3QuestionId ?? null);
         if (dbRound3QuestionId !== null) {
           const hydrated = getRound3QuestionById(dbRound3QuestionId);
           setRound3ActiveQuestion(hydrated);
@@ -1783,6 +1822,7 @@ export default function HostRoomPage() {
         setRound3Phase('reveal');
         setRound3VoteStartedAt(dbRound3VoteStartedAt);
         setRound3CurrentIndex(dbRound3Index || 0);
+        setRound3CurrentQuestionId(dbRound3QuestionId ?? null);
         if (dbRound3QuestionId !== null) {
           const hydrated = getRound3QuestionById(dbRound3QuestionId);
           setRound3ActiveQuestion(hydrated);
@@ -1798,12 +1838,14 @@ export default function HostRoomPage() {
         setAnswerCount(0);
         setAnsweredPlayerIds([]);
         setServerAllPlayersAnswered(false);
+        setRound3CurrentQuestionId(null);
         await loadRound2AnswerStats(null);
       } else if (detectedStatus === 'finished') {
         setShowResults(true);
         setAnswerCount(0);
         setAnsweredPlayerIds([]);
         setServerAllPlayersAnswered(false);
+        setRound3CurrentQuestionId(null);
         await loadRound2AnswerStats(null);
       } else {
         setQuestion(null);
@@ -1812,6 +1854,7 @@ export default function HostRoomPage() {
         setQuestionStartedAt(null);
         setTimeLeft(QUESTION_DURATION_SECONDS);
         setServerAllPlayersAnswered(false);
+        setRound3CurrentQuestionId(null);
         await loadRound2AnswerStats(null);
       }
 
@@ -3110,6 +3153,7 @@ export default function HostRoomPage() {
     setRound3Phase('input');
     setRound3VoteStartedAt(null);
     setRound3CurrentIndex(0);
+    setRound3CurrentQuestionId(preparedQuestions[0].id);
     setIsRound3Complete(false);
     await persistRound3QuestionState(0, { questionId: preparedQuestions[0].id, status: 'round3-running' });
     beginRound3Question(preparedQuestions[0]);
