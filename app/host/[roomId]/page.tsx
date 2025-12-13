@@ -1753,15 +1753,25 @@ export default function HostRoomPage() {
         setServerAllPlayersAnswered(false);
         setRound3Phase(dbRound3Phase || 'input');
         setRound3VoteStartedAt(null);
-        setRound3CurrentQuestionId(dbRound3QuestionId ?? null);
-        if (dbRound3Index !== null) {
-          setRound3CurrentIndex(dbRound3Index);
-          if (dbRound3QuestionId !== null) {
-            const hydrated = getRound3QuestionById(dbRound3QuestionId);
-            setRound3ActiveQuestion(hydrated);
+        const effectiveQuestionId = dbRound3QuestionId ?? round3CurrentQuestionId ?? round3ActiveQuestion?.id ?? null;
+        const effectiveIndex =
+          typeof dbRound3Index === 'number'
+            ? dbRound3Index
+            : typeof round3CurrentIndexRef.current === 'number'
+              ? round3CurrentIndexRef.current
+              : null;
+
+        setRound3CurrentQuestionId(effectiveQuestionId);
+        if (effectiveIndex !== null) {
+          setRound3CurrentIndex(effectiveIndex);
+          if (effectiveQuestionId !== null) {
+            const hydrated = getRound3QuestionById(effectiveQuestionId);
+            if (hydrated) {
+              setRound3ActiveQuestion(hydrated);
+            }
           }
-          await loadRound3Answers(dbRound3Index);
-        } else {
+          await loadRound3Answers(effectiveIndex);
+        } else if (!round3ActiveQuestion) {
           setRound3ActiveQuestion(null);
           setRound3Answers([]);
         }
@@ -1789,14 +1799,24 @@ export default function HostRoomPage() {
         setServerAllPlayersAnswered(false);
         setRound3Phase('vote');
         setRound3VoteStartedAt(dbRound3VoteStartedAt);
-        setRound3CurrentIndex(dbRound3Index || 0);
-        setRound3CurrentQuestionId(dbRound3QuestionId ?? null);
-        if (dbRound3QuestionId !== null) {
-          const hydrated = getRound3QuestionById(dbRound3QuestionId);
-          setRound3ActiveQuestion(hydrated);
+        const effectiveQuestionId = dbRound3QuestionId ?? round3CurrentQuestionId ?? round3ActiveQuestion?.id ?? null;
+        const effectiveIndex =
+          typeof dbRound3Index === 'number'
+            ? dbRound3Index
+            : typeof round3CurrentIndexRef.current === 'number'
+              ? round3CurrentIndexRef.current
+              : 0;
+
+        setRound3CurrentIndex(effectiveIndex);
+        setRound3CurrentQuestionId(effectiveQuestionId);
+        if (effectiveQuestionId !== null) {
+          const hydrated = getRound3QuestionById(effectiveQuestionId);
+          if (hydrated) {
+            setRound3ActiveQuestion(hydrated);
+          }
         }
-        if (dbRound3Index !== null) {
-          await loadRound3Answers(dbRound3Index);
+        if (effectiveIndex !== null) {
+          await loadRound3Answers(effectiveIndex);
         }
         if (dbRound3VoteStartedAt) {
           const startMs = new Date(dbRound3VoteStartedAt).getTime() - effectiveOffset;
@@ -1821,14 +1841,24 @@ export default function HostRoomPage() {
         setServerAllPlayersAnswered(false);
         setRound3Phase('reveal');
         setRound3VoteStartedAt(dbRound3VoteStartedAt);
-        setRound3CurrentIndex(dbRound3Index || 0);
-        setRound3CurrentQuestionId(dbRound3QuestionId ?? null);
-        if (dbRound3QuestionId !== null) {
-          const hydrated = getRound3QuestionById(dbRound3QuestionId);
-          setRound3ActiveQuestion(hydrated);
+        const effectiveQuestionId = dbRound3QuestionId ?? round3CurrentQuestionId ?? round3ActiveQuestion?.id ?? null;
+        const effectiveIndex =
+          typeof dbRound3Index === 'number'
+            ? dbRound3Index
+            : typeof round3CurrentIndexRef.current === 'number'
+              ? round3CurrentIndexRef.current
+              : 0;
+
+        setRound3CurrentIndex(effectiveIndex);
+        setRound3CurrentQuestionId(effectiveQuestionId);
+        if (effectiveQuestionId !== null) {
+          const hydrated = getRound3QuestionById(effectiveQuestionId);
+          if (hydrated) {
+            setRound3ActiveQuestion(hydrated);
+          }
         }
-        if (dbRound3Index !== null) {
-          await loadRound3Answers(dbRound3Index);
+        if (effectiveIndex !== null) {
+          await loadRound3Answers(effectiveIndex);
         }
         setRound3TimeLeft(0);
         setIsRound3TimerVisible(false);
