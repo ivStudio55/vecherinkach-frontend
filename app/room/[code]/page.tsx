@@ -166,6 +166,7 @@ export default function RoomPage() {
   const roomStatusRef = useRef<RoomStatus>('waiting');
   const round3QuestionIndexRef = useRef<number | null>(null);
   const previousRound3QuestionIndexRef = useRef<number | null>(null);
+  const loadRoomDataRef = useRef<() => Promise<void>>(async () => {});
 
   const syncServerTime = useCallback(async () => {
     try {
@@ -321,8 +322,7 @@ export default function RoomPage() {
     syncServerTimeRef.current = syncServerTime;
   }, [syncServerTime]);
 
-  useEffect(() => {
-    const init = async () => {
+  const loadRoomData = useCallback(async () => {
       try {
         try {
           const storedVersion = localStorage.getItem('appVersion');
@@ -571,10 +571,15 @@ export default function RoomPage() {
       } finally {
         setIsLoading(false);
       }
-    };
+  }, [roomCode, router, fallbackPlayerId, fallbackPlayerName, loadRound3Answers, loadRound3Vote]);
 
-    init();
-  }, [roomCode, router, fallbackPlayerId, fallbackPlayerName]);
+  useEffect(() => {
+    loadRoomDataRef.current = loadRoomData;
+  }, [loadRoomData]);
+
+  useEffect(() => {
+    loadRoomData();
+  }, [loadRoomData]);
 
   useEffect(() => {
     if (!roomId) {
@@ -949,6 +954,9 @@ export default function RoomPage() {
     if (roomStatus !== 'round3-voting') {
       return;
     }
+
+    // Принудительно обновляем данные комнаты при входе в голосование, чтобы получить актуальный round3_question_index
+    void loadRoomDataRef.current?.();
 
     if (!round3VoteStartedAt && roomIdRef.current) {
       void (async () => {

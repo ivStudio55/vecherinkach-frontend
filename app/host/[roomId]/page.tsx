@@ -1047,7 +1047,11 @@ export default function HostRoomPage() {
       setIsRound3TimerVisible(false);
       setIsRound3TimerRunning(false);
 
-      const bed = new Audio(buildAudioUrl(ROUND3_VOICE_BG_FILE));
+      // Используем прямой путь к файлу, минуя API, чтобы избежать проблем с кодировкой
+      // Файл лежит в public/audio/round2/jingle (5).mp3
+      const bedUrl = `/audio/round2/jingle%20(5).mp3`;
+      const bed = new Audio(bedUrl);
+      
       // Важно: не loop, иначе никогда не сработает onended.
       bed.loop = false;
       bed.volume = 0.35;
@@ -1061,9 +1065,9 @@ export default function HostRoomPage() {
         });
       };
       bed.onerror = (e) => {
-        console.error('Не удалось воспроизвести фон Раунда 3', e);
+        console.error('Не удалось воспроизвести фон Раунда 3 (jingle)', e);
         stopRound3BedAudio();
-        // Fallback: start timer immediately
+        // Fallback: start timer immediately if audio fails
         startRound3Timer(ROUND3_INPUT_SECONDS, () => {
             void startRound3Voting();
         });
@@ -1366,13 +1370,23 @@ export default function HostRoomPage() {
     }
   }, [roomStatus, round3Notice]);
 
+  const round3LastPlayedCommentIdRef = useRef<number | null>(null);
+
   useEffect(() => {
     if (roomStatus === 'round3-reveal' && round3ActiveQuestion?.id) {
-      playRound3CommentAudio(round3ActiveQuestion.id);
+      // Проверяем, не играли ли мы уже этот комментарий
+      if (round3LastPlayedCommentIdRef.current !== round3ActiveQuestion.id) {
+        round3LastPlayedCommentIdRef.current = round3ActiveQuestion.id;
+        playRound3CommentAudio(round3ActiveQuestion.id);
+      }
     } else if (roomStatus !== 'round3-reveal') {
       stopRound3CommentAudio();
+      // Сбрасываем ref, если ушли с экрана reveal (например, на следующий вопрос)
+      if (roomStatus === 'round3-running' && round3Phase === 'input') {
+         round3LastPlayedCommentIdRef.current = null;
+      }
     }
-  }, [playRound3CommentAudio, roomStatus, round3ActiveQuestion?.id, stopRound3CommentAudio]);
+  }, [playRound3CommentAudio, roomStatus, round3ActiveQuestion?.id, stopRound3CommentAudio, round3Phase]);
 
   useEffect(() => {
     round2RulesReadyAtRef.current = isRound2RulesVisible ? Date.now() : null;
