@@ -747,13 +747,6 @@ export default function HostRoomPage() {
     }
   }, []);
 
-  const stopAllRound3Audio = useCallback(() => {
-    stopRound3VoteAudio();
-    stopRound3TimerAudio();
-    stopRound3QuestionAudio();
-    stopRound3CommentAudio();
-  }, [stopRound3CommentAudio, stopRound3QuestionAudio, stopRound3TimerAudio, stopRound3VoteAudio]);
-
   const playRound3CommentAudio = useCallback(
     (questionId?: number | null) => {
       stopRound3CommentAudio();
@@ -812,6 +805,13 @@ export default function HostRoomPage() {
       round3VoteTimerAudioRef.current = null;
     }
   }, []);
+
+  const stopAllRound3Audio = useCallback(() => {
+    stopRound3VoteAudio();
+    stopRound3TimerAudio();
+    stopRound3QuestionAudio();
+    stopRound3CommentAudio();
+  }, [stopRound3CommentAudio, stopRound3QuestionAudio, stopRound3TimerAudio, stopRound3VoteAudio]);
 
   // Воспроизведение vote audio (голос + таймер)
   const playRound3VoteAudio = useCallback(() => {
