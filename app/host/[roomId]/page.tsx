@@ -133,7 +133,8 @@ const ROUND3_MIN_PLAYERS = 3;
 const ROUND3_INPUT_SECONDS = 30;
 const ROUND3_VOTE_SECONDS = 15;
 const ROUND3_VOICE_BG_FILE = 'round2/jingle (5).mp3';
-const ROUND3_TIMER_AUDIO_FILE = '30_sec.mp3';
+// Таймер для Раунда 3 (30 секунд), используем отдельный файл из каталога round3
+const ROUND3_TIMER_AUDIO_FILE = 'round3/30_sec.mp3';
 const ROUND3_COMMENTS_AUDIO_DIR = 'round3/comments';
 const ROUND3_VOTE_AUDIO_FILES = [
   'vote/1.mp3',
@@ -868,20 +869,24 @@ export default function HostRoomPage() {
       // Обновляем timestamp в БД, чтобы игроки синхронизировались
       void updateRound3TimerStartInDb();
 
-      const timerAudio = new Audio(buildAudioUrl(ROUND3_TIMER_AUDIO_FILE));
-      timerAudio.loop = false;
-      timerAudio.volume = 0.95;
-      timerAudio.onended = () => {
-        round3TimerAudioRef.current = null;
-      };
-      timerAudio.onerror = () => {
-        stopRound3TimerAudio();
-      };
-      round3TimerAudioRef.current = timerAudio;
-      timerAudio.play().catch((error) => {
-        console.error('Не удалось воспроизвести таймер Раунда 3', error);
-        stopRound3TimerAudio();
-      });
+      // Таймер аудио используем только для стадии ввода (30 сек),
+      // на голосовании (15 сек) воспроизводится отдельное vote audio
+      if (duration >= ROUND3_INPUT_SECONDS) {
+        const timerAudio = new Audio(buildAudioUrl(ROUND3_TIMER_AUDIO_FILE));
+        timerAudio.loop = false;
+        timerAudio.volume = 0.95;
+        timerAudio.onended = () => {
+          round3TimerAudioRef.current = null;
+        };
+        timerAudio.onerror = () => {
+          stopRound3TimerAudio();
+        };
+        round3TimerAudioRef.current = timerAudio;
+        timerAudio.play().catch((error) => {
+          console.error('Не удалось воспроизвести таймер Раунда 3', error);
+          stopRound3TimerAudio();
+        });
+      }
 
       const startTs = Date.now();
       round3TimerRef.current = setInterval(() => {
@@ -921,6 +926,7 @@ export default function HostRoomPage() {
 
     clearRound3Timer();
     stopRound3QuestionAudio(); // Останавливаем аудио вопроса
+    stopRound3TimerAudio(); // На всякий случай глушим таймер ввода
     
     const { iso } = await getServerIsoTimestamp();
     setRound3Phase('vote');
