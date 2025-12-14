@@ -24,13 +24,7 @@ type Round3AnswerRow = {
   submitted_at: string;
 };
 
-type Round3AnswersListProps = {
-  answers: Round3AnswerRow[];
-  playerId?: string;
-  isSelfVisible?: boolean;
-  roomStatus: RoomStatus;
-  title?: string;
-};
+
 
 type Round3Phase = 'input' | 'vote' | 'reveal';
 
@@ -1484,11 +1478,11 @@ export default function RoomPage() {
                 Раунд 3 · «МозгоШтурм»
               </span>
               <h2 className="text-3xl font-black leading-tight">
-                {isRound3WaitingForStart ? 'Слушайте ведущего' : 'Введите слово с пропуском'}
+                {isRound3WaitingForStart ? 'Внимание на экран!' : 'Введите слово с пропуском'}
               </h2>
               <p className="text-sm text-[#142a45]/80">
                 {isRound3WaitingForStart
-                  ? 'Ведущий озвучивает факт. Когда закончит, откроется поле для ввода вашей версии.'
+                  ? 'Слушайте вопрос и музыку. Таймер запустится автоматически.'
                   : 'Ведущий озвучил факт с пропущенным словом. Напишите свою версию без пробелов, дефисов и знаков препинания — одно слово целиком.'}
               </p>
             </div>
@@ -1539,7 +1533,7 @@ export default function RoomPage() {
                 <p className="text-4xl">👂</p>
                 <p className="text-lg font-black text-[#142a45]">Внимательно слушайте</p>
                 <p className="text-sm text-[#142a45]/70">
-                  Поле для ввода ответа появится сразу после окончания озвучки факта.
+                  Поле для ввода ответа появится сразу после окончания озвучки факта и музыкальной заставки.
                 </p>
               </div>
             ) : (
@@ -1593,6 +1587,52 @@ export default function RoomPage() {
                 Мы скрываем идеи других игроков, пока идёт таймер. Они раскроются автоматически на этапе голосования.
               </p>
             </div>
+          </section>
+        )}
+
+        {roomStatus === 'round3-voting' && (
+          <section className="rounded-3xl border-[4px] border-[#1f6ac6] bg-white shadow-xl p-6 space-y-6">
+            <div className="flex flex-col gap-2 text-center">
+              <span className="mx-auto px-4 py-2 rounded-full border-[3px] border-[#1f6ac6] text-sm font-black">
+                Голосование · Раунд 3
+              </span>
+              <h2 className="text-3xl font-black leading-tight">Выберите лучший ответ</h2>
+              <p className="text-sm text-[#142a45]/80">
+                Нажмите на вариант, который кажется вам самым смешным или точным. За свой ответ голосовать нельзя.
+              </p>
+            </div>
+
+            <div className="rounded-3xl border-[3px] border-[#1f6ac6]/20 bg-[#e9f0ff] p-4 space-y-2">
+              <div className="flex items-center justify-between text-xs text-[#142a45]/60">
+                <span>Таймер · 15 сек</span>
+                <span className={`font-black ${isRound3VoteClosed ? 'text-[#f1532f]' : 'text-[#1f6ac6]'}`}>
+                  {isRound3VoteClosed ? 'Время истекло' : `${round3VoteTimeLeft} c`}
+                </span>
+              </div>
+              <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
+                <div
+                  className={`h-full ${round3VoteTimeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
+                  style={{ width: `${round3VoteProgress}%` }}
+                />
+              </div>
+            </div>
+
+            <Round3AnswersList
+              answers={round3Answers}
+              playerId={playerId}
+              isSelfVisible={false} // Скрываем свой ответ
+              roomStatus={roomStatus}
+              title="Варианты ответов"
+              onVote={submitRound3Vote}
+              voteSelection={round3VoteSelection}
+              isVoteSubmitting={isRound3VoteSubmitting}
+            />
+
+            {round3Error && (
+              <div className="rounded-2xl border-[3px] border-[#b23324] bg-[#ffd7d0] px-4 py-3 text-sm font-semibold text-[#7b1d16]">
+                {round3Error}
+              </div>
+            )}
           </section>
         )}
 
@@ -1704,7 +1744,27 @@ export default function RoomPage() {
   );
 }
 
-function Round3AnswersList({ answers, playerId, isSelfVisible = true, roomStatus, title = 'Ответы игроков' }: Round3AnswersListProps) {
+interface Round3AnswersListProps {
+  answers: Round3AnswerRow[];
+  playerId?: string;
+  isSelfVisible?: boolean;
+  roomStatus: RoomStatus;
+  title?: string;
+  onVote?: (answerId: string) => void;
+  voteSelection?: string | null;
+  isVoteSubmitting?: boolean;
+}
+
+function Round3AnswersList({
+  answers,
+  playerId,
+  isSelfVisible = true,
+  roomStatus,
+  title = 'Ответы игроков',
+  onVote,
+  voteSelection,
+  isVoteSubmitting,
+}: Round3AnswersListProps) {
   const visibleAnswers = useMemo(() => {
     if (!isSelfVisible && playerId) {
       return answers.filter((answer) => answer.player_id !== playerId);
@@ -1719,6 +1779,8 @@ function Round3AnswersList({ answers, playerId, isSelfVisible = true, roomStatus
         ? 'Выберите понравившийся ответ. Свой ответ скрыт.'
         : 'Ждём, пока ведущий снова запустит Раунд 3.';
 
+  const isVoting = roomStatus === 'round3-voting';
+
   return (
     <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-4 space-y-3">
       <div className="flex items-center justify-between">
@@ -1728,17 +1790,42 @@ function Round3AnswersList({ answers, playerId, isSelfVisible = true, roomStatus
       {visibleAnswers.length === 0 ? (
         <p className="text-sm text-[#142a45]/70">{infoText}</p>
       ) : (
-        <ol className="space-y-2">
-          {visibleAnswers.map((answer) => (
-            <li
-              key={answer.id}
-              className="rounded-2xl border-[3px] border-[#142a45]/15 bg-white px-4 py-3 flex items-center justify-between"
-            >
-              <span className="font-black text-[#142a45] tracking-[0.2em] text-lg">{answer.answer}</span>
-              <span className="text-xs text-[#142a45]/50">#{answer.question_index + 1}</span>
-            </li>
-          ))}
-        </ol>
+        <div className="space-y-2">
+          {visibleAnswers.map((answer) => {
+            const isSelected = voteSelection === answer.id;
+            const isDisabled = isVoteSubmitting || (voteSelection !== null && voteSelection !== undefined);
+            
+            if (isVoting && onVote) {
+              return (
+                <button
+                  key={answer.id}
+                  onClick={() => onVote(answer.id)}
+                  disabled={isDisabled}
+                  className={`w-full rounded-2xl border-[3px] px-4 py-3 flex items-center justify-between transition
+                    ${isSelected 
+                      ? 'border-[#1f6ac6] bg-[#e9f0ff] ring-2 ring-[#1f6ac6] ring-offset-2' 
+                      : 'border-[#142a45]/15 bg-white hover:bg-[#fff]'
+                    }
+                    ${isDisabled && !isSelected ? 'opacity-50 cursor-not-allowed' : ''}
+                  `}
+                >
+                  <span className="font-black text-[#142a45] tracking-[0.2em] text-lg">{answer.answer}</span>
+                  {isSelected && <span className="text-xl">✅</span>}
+                </button>
+              );
+            }
+
+            return (
+              <div
+                key={answer.id}
+                className="rounded-2xl border-[3px] border-[#142a45]/15 bg-white px-4 py-3 flex items-center justify-between"
+              >
+                <span className="font-black text-[#142a45] tracking-[0.2em] text-lg">{answer.answer}</span>
+                <span className="text-xs text-[#142a45]/50">#{answer.question_index + 1}</span>
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );

@@ -132,7 +132,8 @@ const ROUND3_RULES_TEXT = [
 const ROUND3_MIN_PLAYERS = 3;
 const ROUND3_INPUT_SECONDS = 30;
 const ROUND3_VOTE_SECONDS = 15;
-const ROUND3_VOICE_BG_FILE = 'round2/jingle (5).mp3';
+// Используем encodeURI для файла с пробелами и скобками
+const ROUND3_VOICE_BG_FILE = 'round2/jingle%20(5).mp3';
 // Таймер для Раунда 3 (30 секунд), используем общий файл из корня audio
 const ROUND3_TIMER_AUDIO_FILE = '30_sec.mp3';
 const ROUND3_COMMENTS_AUDIO_DIR = 'round3/comments';
@@ -812,11 +813,26 @@ export default function HostRoomPage() {
   }, []);
 
   const stopAllRound3Audio = useCallback(() => {
-    stopRound3VoteAudio();
-    stopRound3TimerAudio();
-    stopRound3QuestionAudio();
-    stopRound3CommentAudio();
-  }, [stopRound3CommentAudio, stopRound3QuestionAudio, stopRound3TimerAudio, stopRound3VoteAudio]);
+    // Останавливаем вообще всё, что может играть в 3 раунде
+    [
+      round3QuestionAudioRef,
+      round3QuestionBgAudioRef, // round3BedAudioRef
+      round3TimerAudioRef,
+      round3VoteAudioRef,
+      round3VoteTimerAudioRef,
+      round3CommentAudioRef,
+      round3CommentBgAudioRef,
+      round3RulesAudioRef // на всякий случай
+    ].forEach(ref => {
+      if (ref.current) {
+        ref.current.pause();
+        ref.current.currentTime = 0;
+      }
+    });
+    // Также сбрасываем обработчики
+    if (round3QuestionBgAudioRef.current) round3QuestionBgAudioRef.current.onended = null;
+    if (round3QuestionAudioRef.current) round3QuestionAudioRef.current.onended = null;
+  }, []);
 
   // Воспроизведение vote audio (голос + таймер)
   const playRound3VoteAudio = useCallback(() => {
@@ -873,6 +889,11 @@ export default function HostRoomPage() {
 
   const startRound3Timer = useCallback(
     (duration: number, onComplete?: () => void) => {
+      // Останавливаем фон вопроса, если он вдруг еще играет
+      if (round3QuestionBgAudioRef.current) {
+          round3QuestionBgAudioRef.current.pause();
+      }
+
       clearRound3Timer();
       setIsRound3TimerRunning(true);
       setIsRound3TimerVisible(true);
@@ -907,6 +928,10 @@ export default function HostRoomPage() {
         setRound3TimeLeft(remaining);
         if (remaining <= 0) {
           clearRound3Timer();
+          // Останавливаем музыку таймера
+          if (round3TimerAudioRef.current) {
+             round3TimerAudioRef.current.pause();
+          }
           if (onComplete) {
             onComplete();
           }
@@ -929,10 +954,27 @@ export default function HostRoomPage() {
     if (error) {
       console.error('Не удалось переключить Раунд 3 в режим показа', error);
     }
-  }, [clearRound3Timer, roomId]);
+
+    // Аудио: Комментарий + Фон (explanation)
+    const commentFile = `round3/comments/${(round3CurrentIndexRef.current || 0) + 1}.mp3`;
+    const commentVoice = new Audio(buildAudioUrl(commentFile));
+    round3CommentAudioRef.current = commentVoice;
+
+    const commentBg = new Audio(buildAudioUrl(ROUND2_EXPLANATION_BG_FILE));
+    round3CommentBgAudioRef.current = commentBg;
+    commentBg.volume = 0.3; // Чуть тише, чтобы слышно голос
+
+    commentVoice.play().catch(e => console.error("Comment voice error:", e));
+    commentBg.play().catch(e => console.error("Comment bg error:", e));
+
+    // Когда комментарий закончился -> останавливаем фон
+    commentVoice.onended = () => {
+        commentBg.pause();
+    };
+  }, [clearRound3Timer, roomId, stopAllRound3Audio]);
 
   const startRound3Voting = useCallback(async () => {
-    if (round3Phase !== 'input') return;
+    // if (round3Phase !== 'input') return; // Убираем проверку, чтобы можно было форсировать
     if (round3CurrentIndex == null) return;
     const questionId = round3ActiveQuestion?.id;
     if (!questionId) return;
@@ -947,7 +989,10 @@ export default function HostRoomPage() {
     setRoomStatus('round3-voting');
 
     // Загружаем ответы перед переходом в голосование
-    await loadRound3AnswersRef.current?.(round3CurrentIndex);
+    // Добавляем задержку, чтобы убедиться, что ответы дошли
+    setTimeout(async () => {
+        await loadRound3AnswersRef.current?.(round3CurrentIndex);
+    }, 500);
 
     const { error } = await supabase
       .from('rooms')
@@ -988,78 +1033,68 @@ export default function HostRoomPage() {
     roomId,
     round3ActiveQuestion?.id,
     round3CurrentIndex,
-    round3Phase,
+    round3Phase, // Keep round3Phase in deps even if not used in logic, to be safe or remove if linter complains
     startRound3Reveal,
-    stopRound3QuestionAudio,
+    stopAllRound3Audio,
     stopRound3VoteAudio,
   ]);
 
 
   const playRound3QuestionAudio = useCallback(
     (question: Round3Question) => {
-      stopRound3QuestionAudio();
+      stopAllRound3Audio(); // Сброс всего перед стартом
       setRound3AudioState('playing');
       setIsRound3TimerVisible(false);
       setIsRound3TimerRunning(false);
-
-      // Таймер Раунда 3 должен стартовать после окончания фонового джингла,
-      // а не после окончания озвучки вопроса.
-      let timerStarted = false;
-      const startInputTimerOnce = () => {
-        if (timerStarted) return;
-        timerStarted = true;
-        setRound3AudioState('finished');
-        startRound3Timer(ROUND3_INPUT_SECONDS, () => {
-          void startRound3Voting();
-        });
-      };
 
       const bed = new Audio(buildAudioUrl(ROUND3_VOICE_BG_FILE));
       // Важно: не loop, иначе никогда не сработает onended.
       bed.loop = false;
       bed.volume = 0.35;
       bed.onended = () => {
+        console.log('Round 3: Jingle finished, starting 30s timer');
         // Как только джингл закончился — стартуем таймер ввода.
         stopRound3BedAudio();
-        startInputTimerOnce();
+        setRound3AudioState('finished');
+        startRound3Timer(ROUND3_INPUT_SECONDS, () => {
+          void startRound3Voting();
+        });
       };
-      bed.onerror = () => {
-        console.error('Не удалось воспроизвести фон Раунда 3');
+      bed.onerror = (e) => {
+        console.error('Не удалось воспроизвести фон Раунда 3', e);
         stopRound3BedAudio();
+        // Fallback: start timer immediately
+        startRound3Timer(ROUND3_INPUT_SECONDS, () => {
+            void startRound3Voting();
+        });
       };
       round3QuestionBgAudioRef.current = bed;
       bed.play().catch((error) => {
         console.error('Не удалось запустить фон Раунда 3', error);
         stopRound3BedAudio();
+        // Fallback
+        startRound3Timer(ROUND3_INPUT_SECONDS, () => {
+            void startRound3Voting();
+        });
       });
 
       const audio = new Audio(buildAudioUrl(question.audioFile));
       audio.volume = 0.95;
+      // Voice doesn't trigger timer anymore, only bed does
       audio.onended = () => {
         round3QuestionAudioRef.current = null;
-        // Не запускаем таймер здесь: ждём окончания фона.
-        // Но если фон уже закончился/не запустился, таймер мог уже стартануть.
-        startInputTimerOnce();
       };
       audio.onerror = () => {
         round3QuestionAudioRef.current = null;
-        setRound3AudioState('idle');
-        // Фоллбек: если озвучка не проигралась, стартуем таймер по джинглу/сразу.
-        startInputTimerOnce();
       };
       round3QuestionAudioRef.current = audio;
       audio
         .play()
-        .then(() => {
-          /* nada */
-        })
         .catch((error) => {
           console.error('Не удалось озвучить вопрос Раунда 3', error);
-          setRound3AudioState('idle');
-          startInputTimerOnce();
         });
     },
-    [startRound3Timer, startRound3Voting, stopRound3BedAudio, stopRound3QuestionAudio]
+    [startRound3Timer, startRound3Voting, stopAllRound3Audio, stopRound3BedAudio]
   );
 
   const resetRound3Flow = useCallback(() => {
