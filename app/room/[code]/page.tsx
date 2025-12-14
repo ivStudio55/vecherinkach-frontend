@@ -931,6 +931,9 @@ export default function RoomPage() {
       return;
     }
 
+    // Принудительно синхронизируем время при старте голосования
+    void syncServerTime();
+
     const tick = () => {
       const remaining = getRound3VoteRemainingSeconds(round3VoteStartedAt, timeOffsetMs);
       setRound3VoteTimeLeft(remaining);
@@ -939,7 +942,7 @@ export default function RoomPage() {
     tick();
     const interval = setInterval(tick, 300);
     return () => clearInterval(interval);
-  }, [roomStatus, round3VoteStartedAt, timeOffsetMs]);
+  }, [roomStatus, round3VoteStartedAt, timeOffsetMs, syncServerTime]);
 
   // При входе в голосование подстрахуем стартовый таймстамп и подгрузку ответов
   useEffect(() => {

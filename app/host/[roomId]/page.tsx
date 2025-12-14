@@ -132,8 +132,8 @@ const ROUND3_RULES_TEXT = [
 const ROUND3_MIN_PLAYERS = 3;
 const ROUND3_INPUT_SECONDS = 30;
 const ROUND3_VOTE_SECONDS = 15;
-// Используем encodeURI для файла с пробелами и скобками
-const ROUND3_VOICE_BG_FILE = 'round2/jingle%20(5).mp3';
+// Используем точное имя файла, buildAudioUrl сам сделает encodeURIComponent
+const ROUND3_VOICE_BG_FILE = 'round2/jingle (5).mp3';
 // Таймер для Раунда 3 (30 секунд), используем общий файл из корня audio
 const ROUND3_TIMER_AUDIO_FILE = '30_sec.mp3';
 const ROUND3_COMMENTS_AUDIO_DIR = 'round3/comments';
