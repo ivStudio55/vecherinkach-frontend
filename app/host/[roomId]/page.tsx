@@ -135,6 +135,17 @@ const ROUND3_VOTE_SECONDS = 15;
 const ROUND3_VOICE_BG_FILE = 'round2/jingle (5).mp3';
 const ROUND3_TIMER_AUDIO_FILE = '30_sec.mp3';
 const ROUND3_COMMENTS_AUDIO_DIR = 'round3/comments';
+const ROUND3_VOTE_AUDIO_FILES = [
+  'vote/1.mp3',
+  'vote/2.mp3',
+  'vote/3.mp3',
+  'vote/4.mp3',
+  'vote/5.mp3',
+  'vote/6.mp3',
+  'vote/7.mp3',
+  'vote/8.mp3',
+  'vote/9.mp3',
+] as const;
 
 const buildAudioUrl = (relativePath: string) => `/api/audio?file=${encodeURIComponent(relativePath)}&t=${Date.now()}`;
 const buildJingleUrl = (fileName: string) => `/api/jingle/audio?file=${encodeURIComponent(fileName)}&t=${Date.now()}`;
@@ -316,6 +327,8 @@ export default function HostRoomPage() {
   const round3QuestionAudioRef = useRef<HTMLAudioElement | null>(null);
   const round3QuestionBgAudioRef = useRef<HTMLAudioElement | null>(null);
   const round3TimerAudioRef = useRef<HTMLAudioElement | null>(null);
+  const round3VoteAudioRef = useRef<HTMLAudioElement | null>(null);
+  const round3VoteTimerAudioRef = useRef<HTMLAudioElement | null>(null);
   const round3CommentAudioRef = useRef<HTMLAudioElement | null>(null);
   const round3CommentBgAudioRef = useRef<HTMLAudioElement | null>(null);
   const round3TimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -778,6 +791,51 @@ export default function HostRoomPage() {
     [stopRound3CommentAudio]
   );
 
+  // Остановка vote audio
+  const stopRound3VoteAudio = useCallback(() => {
+    if (round3VoteAudioRef.current) {
+      round3VoteAudioRef.current.pause();
+      round3VoteAudioRef.current.currentTime = 0;
+      round3VoteAudioRef.current = null;
+    }
+    if (round3VoteTimerAudioRef.current) {
+      round3VoteTimerAudioRef.current.pause();
+      round3VoteTimerAudioRef.current.currentTime = 0;
+      round3VoteTimerAudioRef.current = null;
+    }
+  }, []);
+
+  // Воспроизведение vote audio (голос + таймер)
+  const playRound3VoteAudio = useCallback(() => {
+    stopRound3VoteAudio();
+    if (!hasUserInteractedRef.current) return;
+
+    // Случайный голос из vote
+    const randomVoice = ROUND3_VOTE_AUDIO_FILES[Math.floor(Math.random() * ROUND3_VOTE_AUDIO_FILES.length)];
+    const voiceAudio = new Audio(buildAudioUrl(randomVoice));
+    voiceAudio.volume = 0.9;
+    round3VoteAudioRef.current = voiceAudio;
+    voiceAudio.play().catch((err) => {
+      console.error('Не удалось воспроизвести vote audio', err);
+    });
+
+    // Таймер audio (30_sec.mp3, но ограничен 15 сек)
+    const timerAudio = new Audio(buildAudioUrl(ROUND3_TIMER_AUDIO_FILE));
+    timerAudio.volume = 0.5;
+    round3VoteTimerAudioRef.current = timerAudio;
+    timerAudio.play().catch((err) => {
+      console.error('Не удалось воспроизвести vote timer audio', err);
+    });
+
+    // Остановим таймер audio через ROUND3_VOTE_SECONDS
+    setTimeout(() => {
+      if (round3VoteTimerAudioRef.current) {
+        round3VoteTimerAudioRef.current.pause();
+        round3VoteTimerAudioRef.current.currentTime = 0;
+      }
+    }, ROUND3_VOTE_SECONDS * 1000);
+  }, [stopRound3VoteAudio]);
+
   const clearRound3Timer = useCallback(() => {
     if (round3TimerRef.current) {
       clearInterval(round3TimerRef.current);
@@ -861,6 +919,8 @@ export default function HostRoomPage() {
     if (!questionId) return;
 
     clearRound3Timer();
+    stopRound3QuestionAudio(); // Останавливаем аудио вопроса
+    
     const { iso } = await getServerIsoTimestamp();
     setRound3Phase('vote');
     setRound3VoteStartedAt(iso);
@@ -882,18 +942,36 @@ export default function HostRoomPage() {
     if (error) {
       console.error('Не удалось перевести Раунд 3 в голосование', error);
     }
-    startRound3Timer(ROUND3_VOTE_SECONDS, () => {
-      void startRound3Reveal();
-    });
+    
+    // Воспроизводим vote audio вместо таймер audio
+    playRound3VoteAudio();
+    
+    // Запускаем таймер голосования (без аудио, т.к. уже запустили vote audio)
+    setIsRound3TimerVisible(true);
+    setIsRound3TimerRunning(true);
+    setRound3TimeLeft(ROUND3_VOTE_SECONDS);
+    
+    let remaining = ROUND3_VOTE_SECONDS;
+    round3TimerRef.current = setInterval(() => {
+      remaining -= 1;
+      setRound3TimeLeft(remaining);
+      if (remaining <= 0) {
+        clearRound3Timer();
+        stopRound3VoteAudio();
+        void startRound3Reveal();
+      }
+    }, 1000);
   }, [
     clearRound3Timer,
     getServerIsoTimestamp,
+    playRound3VoteAudio,
     roomId,
     round3ActiveQuestion?.id,
     round3CurrentIndex,
     round3Phase,
     startRound3Reveal,
-    startRound3Timer,
+    stopRound3QuestionAudio,
+    stopRound3VoteAudio,
   ]);
 
 

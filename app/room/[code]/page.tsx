@@ -241,7 +241,9 @@ export default function RoomPage() {
   );
 
   const loadRound3Answers = useCallback(async (questionIndex: number | null) => {
+    console.log('[Player] loadRound3Answers called, roomId:', roomIdRef.current, 'questionIndex:', questionIndex);
     if (!roomIdRef.current || questionIndex === null) {
+      console.log('[Player] Early return - no roomId or questionIndex');
       setRound3Answers([]);
       setRound3SubmittedAnswer(null);
       return;
@@ -260,8 +262,10 @@ export default function RoomPage() {
     }
 
     const rows = data || [];
+    console.log('[Player] Loaded round3 answers:', rows.length, 'answers', rows);
     setRound3Answers(rows);
     const currentPlayerId = playerIdRef.current;
+    console.log('[Player] Current playerId:', currentPlayerId);
     if (currentPlayerId) {
       const ownAnswer = rows.find((row) => row.player_id === currentPlayerId);
       setRound3SubmittedAnswer(ownAnswer?.answer ?? null);
@@ -753,6 +757,7 @@ export default function RoomPage() {
           }
 
           if (effectiveStatus === 'round3-voting' || effectiveStatus === 'round3-reveal') {
+            console.log('[Player] Round3 voting/reveal detected, nextRound3Index:', nextRound3Index);
             setShowResults(false);
             setQuestion(null);
             setRound2Phase('idle');
@@ -761,9 +766,11 @@ export default function RoomPage() {
             setRound2AnsweredCorrect(null);
             setIsRound3Voting(effectiveStatus === 'round3-voting');
             if (nextRound3Index !== null) {
+              console.log('[Player] Loading round3 answers for index:', nextRound3Index);
               await loadRound3AnswersRef.current?.(nextRound3Index);
               await loadRound3VoteRef.current?.(nextRound3Index);
             } else {
+              console.log('[Player] nextRound3Index is null, clearing answers');
               setRound3Answers([]);
               setRound3VoteSelection(null);
             }
