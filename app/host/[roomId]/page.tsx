@@ -1047,55 +1047,67 @@ export default function HostRoomPage() {
       setIsRound3TimerVisible(false);
       setIsRound3TimerRunning(false);
 
-      // Используем прямой путь к файлу, минуя API, чтобы избежать проблем с кодировкой
-      // Файл лежит в public/audio/round2/jingle (5).mp3
-      const bedUrl = `/audio/round2/jingle%20(5).mp3`;
-      const bed = new Audio(bedUrl);
-      
-      // Важно: не loop, иначе никогда не сработает onended.
-      bed.loop = false;
-      bed.volume = 0.35;
-      bed.onended = () => {
-        console.log('Round 3: Jingle finished, starting 30s timer');
-        // Как только джингл закончился — стартуем таймер ввода.
+      // Helper to transition to timer phase
+      const transitionToTimer = () => {
+        console.log('Round 3: Audio finished, starting 30s timer');
         stopRound3BedAudio();
         setRound3AudioState('finished');
         startRound3Timer(ROUND3_INPUT_SECONDS, () => {
           void startRound3Voting();
         });
       };
+
+      // Используем прямой путь к файлу, минуя API, чтобы избежать проблем с кодировкой
+      // Файл лежит в public/audio/round2/jingle (5).mp3
+      const bedUrl = `/audio/round2/jingle%20(5).mp3`;
+      const bed = new Audio(bedUrl);
+      
+      // Loop=true чтобы музыка не кончилась раньше голоса.
+      // Мы остановим её вручную, когда закончится голос.
+      bed.loop = true;
+      bed.volume = 0.35;
+      
+      // На случай если loop уберем или что-то пойдет не так
+      bed.onended = () => {
+        transitionToTimer();
+      };
+      
       bed.onerror = (e) => {
         console.error('Не удалось воспроизвести фон Раунда 3 (jingle)', e);
-        stopRound3BedAudio();
-        // Fallback: start timer immediately if audio fails
-        startRound3Timer(ROUND3_INPUT_SECONDS, () => {
-            void startRound3Voting();
-        });
+        // Fallback
+        transitionToTimer();
       };
+      
       round3QuestionBgAudioRef.current = bed;
       bed.play().catch((error) => {
         console.error('Не удалось запустить фон Раунда 3', error);
-        stopRound3BedAudio();
         // Fallback
-        startRound3Timer(ROUND3_INPUT_SECONDS, () => {
-            void startRound3Voting();
-        });
+        transitionToTimer();
       });
 
       const audio = new Audio(buildAudioUrl(question.audioFile));
       audio.volume = 0.95;
-      // Voice doesn't trigger timer anymore, only bed does
+      
       audio.onended = () => {
         round3QuestionAudioRef.current = null;
+        // Голос закончился -> останавливаем музыку -> запускаем таймер
+        transitionToTimer();
       };
+      
       audio.onerror = () => {
+        console.error('Ошибка воспроизведения вопроса');
         round3QuestionAudioRef.current = null;
+        // Fallback
+        transitionToTimer();
       };
+      
       round3QuestionAudioRef.current = audio;
       audio
         .play()
         .catch((error) => {
           console.error('Не удалось озвучить вопрос Раунда 3', error);
+          // Fallback
+          transitionToTimer();
         });
     },
     [startRound3Timer, startRound3Voting, stopAllRound3Audio, stopRound3BedAudio]
