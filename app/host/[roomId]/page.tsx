@@ -133,8 +133,8 @@ const ROUND3_MIN_PLAYERS = 3;
 const ROUND3_INPUT_SECONDS = 30;
 const ROUND3_VOTE_SECONDS = 15;
 const ROUND3_VOICE_BG_FILE = 'round2/jingle (5).mp3';
-// Таймер для Раунда 3 (30 секунд), используем отдельный файл из каталога round3
-const ROUND3_TIMER_AUDIO_FILE = 'round3/30_sec.mp3';
+// Таймер для Раунда 3 (30 секунд), используем общий файл из корня audio
+const ROUND3_TIMER_AUDIO_FILE = '30_sec.mp3';
 const ROUND3_COMMENTS_AUDIO_DIR = 'round3/comments';
 const ROUND3_VOTE_AUDIO_FILES = [
   'vote/1.mp3',
@@ -628,11 +628,16 @@ export default function HostRoomPage() {
       return;
     }
     stopRound3RulesAudio();
-    // Остановить jingle от предыдущего раунда
+    // Остановить jingle от предыдущего раунда (round1_end/jingle_(after_round1).mp3)
     if (roundEndJingleAudioRef.current) {
       roundEndJingleAudioRef.current.pause();
       roundEndJingleAudioRef.current.currentTime = 0;
       roundEndJingleAudioRef.current = null;
+    }
+    if (roundEndAudioRef.current) {
+      roundEndAudioRef.current.pause();
+      roundEndAudioRef.current.currentTime = 0;
+      roundEndAudioRef.current = null;
     }
     setIsRound3RulesAudioFinished(false);
     const file = pickRandomItem(ROUND3_RULES_AUDIO_FILES);
@@ -754,8 +759,8 @@ export default function HostRoomPage() {
         return;
       }
 
-      // Фоновая музыка (та же что и для Round 2 explanation)
-      const bgAudio = new Audio(buildAudioUrl('round2/explanation/explanation.mp3'));
+      // Фоновая музыка (round2/jingle (5).mp3 по аналогии с explanation)
+      const bgAudio = new Audio(buildAudioUrl(ROUND2_EXPLANATION_BG_FILE));
       bgAudio.loop = true;
       bgAudio.volume = 0.35;
       round3CommentBgAudioRef.current = bgAudio;
@@ -1058,7 +1063,7 @@ export default function HostRoomPage() {
     setIsRound3TimerRunning(false);
     setRound3AudioState('idle');
     setIsRound3Complete(false);
-  }, [clearRound3Timer, setRound3CurrentIndex, stopRound3QuestionAudio]);
+  }, [clearRound3Timer, setRound3CurrentIndex, stopAllRound3Audio]);
 
   const prepareRound3QuestionSet = useCallback(() => {
     try {
