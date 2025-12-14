@@ -806,6 +806,10 @@ export default function HostRoomPage() {
     setRound3Phase('vote');
     setRound3VoteStartedAt(iso);
     setRoomStatus('round3-voting');
+
+    // Загружаем ответы перед переходом в голосование
+    await loadRound3AnswersRef.current?.(round3CurrentIndex);
+
     const { error } = await supabase
       .from('rooms')
       .update({
@@ -1007,6 +1011,7 @@ export default function HostRoomPage() {
       setRound3CurrentQuestionId(questions[targetIndex].id);
       setRound3Phase('input');
       setRound3VoteStartedAt(null);
+      setRound3Answers([]); // Сбрасываем ответы при переходе к новому факту
       const persistFn = persistRound3StateRef.current;
       if (persistFn) {
         await persistFn(targetIndex, {
@@ -1669,8 +1674,14 @@ export default function HostRoomPage() {
     loadRound3AnswersRef.current = loadRound3Answers;
   }, [loadRound3Answers]);
 
+  // Загружаем ответы для Раунда 3 когда мы в одной из его фаз
   useEffect(() => {
-    if (roomStatus !== 'round3-running') {
+    const isRound3Active =
+      roomStatus === 'round3-running' ||
+      roomStatus === 'round3-voting' ||
+      roomStatus === 'round3-reveal';
+
+    if (!isRound3Active) {
       setRound3Answers([]);
       return;
     }

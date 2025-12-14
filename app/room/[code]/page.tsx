@@ -740,6 +740,7 @@ export default function RoomPage() {
             setRound2AnsweredCorrect(null);
             setIsRound3Voting(false);
             setRound3VoteSelection(null);
+            setRound3AnswerDraft(''); // Сбрасываем черновик при новом факте
             if (nextRound3Index !== null) {
               await loadRound3AnswersRef.current?.(nextRound3Index);
               await loadRound3VoteRef.current?.(nextRound3Index);
