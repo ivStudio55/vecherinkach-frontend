@@ -1343,7 +1343,9 @@ export default function RoomPage() {
     );
   }
 
-  if (error && !question) {
+  // Don't show error screen if we are in Round 3 (question is null in Round 3)
+  const isRound3Active = roomStatus === 'round3-running' || roomStatus === 'round3-voting' || roomStatus === 'round3-reveal';
+  if (error && !question && !isRound3Active) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#fef4dc] text-[#142a45] px-4 py-10">
         <div className="rounded-3xl border-[4px] border-[#b23324] bg-white shadow-xl max-w-md w-full p-8 text-center space-y-4">

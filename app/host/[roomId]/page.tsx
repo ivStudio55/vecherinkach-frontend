@@ -967,11 +967,15 @@ export default function HostRoomPage() {
     commentVoice.play().catch(e => console.error("Comment voice error:", e));
     commentBg.play().catch(e => console.error("Comment bg error:", e));
 
-    // Когда комментарий закончился -> останавливаем фон
+    // Когда комментарий закончился -> останавливаем фон и переходим к следующему вопросу
     commentVoice.onended = () => {
         commentBg.pause();
+        // Автоматический переход к следующему факту
+        setTimeout(() => {
+             void moveToRound3Question(round3CurrentIndexRef.current + 1);
+        }, 1000); // Небольшая пауза перед переходом
     };
-  }, [clearRound3Timer, roomId, stopAllRound3Audio]);
+  }, [clearRound3Timer, roomId, stopAllRound3Audio, moveToRound3Question]);
 
   const startRound3Voting = useCallback(async () => {
     // if (round3Phase !== 'input') return; // Убираем проверку, чтобы можно было форсировать
@@ -4173,17 +4177,10 @@ export default function HostRoomPage() {
                   <div className="flex flex-col gap-3 sm:flex-row">
                     <button
                       type="button"
-                      onClick={handleRound3SkipQuestion}
-                      className="flex-1 py-4 rounded-2xl border-[3px] border-dashed border-[#142a45] text-[#142a45] font-semibold"
-                    >
-                      Пропустить факт
-                    </button>
-                    <button
-                      type="button"
                       onClick={() => {
                         void startRound3Reveal();
                       }}
-                      className="flex-1 py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#1f6ac6] text-white border-[3px] border-[#142a45]"
+                      className="w-full py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#1f6ac6] text-white border-[3px] border-[#142a45]"
                     >
                       Открыть результаты
                     </button>
