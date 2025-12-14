@@ -1,23 +1,14 @@
--- Reset Round 3 state for a single room.
--- Usage: set the room code below, run in Supabase SQL editor.
+-- Reset Round 3 state for ALL rooms (clears all round3 data).
+-- Usage: run in Supabase SQL editor.
+-- WARNING: This will reset ALL Round 3 progress across all rooms!
 
--- 1) Set room code
--- Replace 'ABCDE' with your real room code
 DO $$
-DECLARE
-  v_room_code text := 'ABCDE';
-  v_room_id uuid;
 BEGIN
-  SELECT id INTO v_room_id FROM public.rooms WHERE code = v_room_code;
-  IF v_room_id IS NULL THEN
-    RAISE EXCEPTION 'Room with code % not found', v_room_code;
-  END IF;
+  -- Clear per-round tables for all rooms
+  DELETE FROM public.round3_votes;
+  DELETE FROM public.round3_answers;
 
-  -- Clear per-round tables
-  DELETE FROM public.round3_votes WHERE room_id = v_room_id;
-  DELETE FROM public.round3_answers WHERE room_id = v_room_id;
-
-  -- Clear room round3 fields
+  -- Reset round3 fields for all rooms that are in round3 states
   UPDATE public.rooms
   SET
     status = 'round3-ready',
@@ -26,5 +17,5 @@ BEGIN
     round3_question_id = NULL,
     round3_question_started_at = NULL,
     round3_vote_started_at = NULL
-  WHERE id = v_room_id;
+  WHERE status LIKE 'round3%';
 END $$;
