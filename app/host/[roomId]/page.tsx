@@ -745,12 +745,29 @@ export default function HostRoomPage() {
     setIsRound3TimerRunning(false);
   }, [stopRound3TimerAudio]);
 
+  // Обновляет timestamp старта таймера в БД (вызывается после окончания озвучки)
+  const updateRound3TimerStartInDb = useCallback(async () => {
+    if (!roomId) return;
+    const { iso } = await getServerIsoTimestamp();
+    const { error } = await supabase
+      .from('rooms')
+      .update({ round3_question_started_at: iso })
+      .eq('id', roomId);
+    if (error) {
+      console.error('Не удалось обновить round3_question_started_at', error);
+    }
+  }, [getServerIsoTimestamp, roomId]);
+
   const startRound3Timer = useCallback(
     (duration: number, onComplete?: () => void) => {
       clearRound3Timer();
       setIsRound3TimerRunning(true);
       setIsRound3TimerVisible(true);
       setRound3TimeLeft(duration);
+
+      // Обновляем timestamp в БД, чтобы игроки синхронизировались
+      void updateRound3TimerStartInDb();
+
       const timerAudio = new Audio(buildAudioUrl(ROUND3_TIMER_AUDIO_FILE));
       timerAudio.loop = false;
       timerAudio.volume = 0.95;
@@ -779,7 +796,7 @@ export default function HostRoomPage() {
         }
       }, 500);
     },
-    [clearRound3Timer, stopRound3TimerAudio]
+    [clearRound3Timer, stopRound3TimerAudio, updateRound3TimerStartInDb]
   );
 
   const startRound3Reveal = useCallback(async () => {
@@ -1453,14 +1470,12 @@ export default function HostRoomPage() {
         round3_question_id: options?.questionId ?? null,
         round3_phase: 'input',
         round3_vote_started_at: null,
+        // НЕ устанавливаем round3_question_started_at здесь — он будет установлен после озвучки
+        round3_question_started_at: null,
       };
 
       if (questionIndex === null) {
-        payload.round3_question_started_at = null;
         payload.round3_phase = null;
-      } else {
-        const { iso } = await getServerIsoTimestamp();
-        payload.round3_question_started_at = iso;
       }
 
       if (options?.status) {
@@ -1472,7 +1487,7 @@ export default function HostRoomPage() {
         console.error('Не удалось обновить состояние Раунда 3', error);
       }
     },
-    [getServerIsoTimestamp, roomId]
+    [roomId]
   );
 
   useEffect(() => {
