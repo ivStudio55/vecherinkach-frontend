@@ -101,7 +101,7 @@ const ROUND2_END_AUDIO_FILES = [
 ] as const;
 const ROUND2_END_JINGLE_FILE = 'round1_end/jingle_(after_round1).mp3';
 const ROUND2_RULES_JINGLE_FILE = 'round2/jingle (5).mp3';
-const ROUND2_EXPLANATION_BG_FILE = 'round2/jingle (5).mp3';
+const ROUND2_EXPLANATION_BG_FILE = 'round2/explanation.mp3';
 const ROUND2_TOTAL_QUESTIONS = 6;
 const ROUND2_EXPLANATION_FALLBACK = 'Озвучка рассказывает подробности — используйте текст, чтобы оттенить сюжет.';
 const ROUND2_FAKE_LABEL = 'Это фейк';

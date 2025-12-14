@@ -1307,8 +1307,10 @@ export default function RoomPage() {
   const round2ChoiceLabel = round2AnsweredChoice === null ? '' : round2AnsweredChoice ? 'Правда' : 'Вымысел';
   const round3QuestionNumber = round3QuestionIndex !== null ? round3QuestionIndex + 1 : null;
   const round3CategoryLabel = round3QuestionMeta?.category ?? null;
+  // Таймер ещё не стартовал - озвучка ещё идёт
+  const isRound3WaitingForVoice = roomStatus === 'round3-running' && !round3QuestionStartedAt;
   const round3InputProgress = Math.max(0, Math.min(100, (round3InputTimeLeft / QUESTION_DURATION_SECONDS) * 100));
-  const isRound3InputClosed = round3InputTimeLeft <= 0;
+  const isRound3InputClosed = round3InputTimeLeft <= 0 && !isRound3WaitingForVoice;
   const round3VoteProgress = Math.max(0, Math.min(100, (round3VoteTimeLeft / ROUND3_VOTE_SECONDS) * 100));
   const isRound3VoteClosed = round3VoteTimeLeft <= 0;
 
@@ -1481,9 +1483,13 @@ export default function RoomPage() {
               <span className="mx-auto px-4 py-2 rounded-full border-[3px] border-[#1f6ac6] text-sm font-black">
                 Раунд 3 · «МозгоШтурм»
               </span>
-              <h2 className="text-3xl font-black leading-tight">Введите слово с пропуском</h2>
+              <h2 className="text-3xl font-black leading-tight">
+                {isRound3WaitingForVoice ? 'Слушайте ведущего' : 'Введите слово с пропуском'}
+              </h2>
               <p className="text-sm text-[#142a45]/80">
-                Ведущий озвучивает факт с пропущенным словом. Напишите свою версию без пробелов, дефисов и знаков препинания — одно слово целиком.
+                {isRound3WaitingForVoice
+                  ? 'Ведущий озвучивает факт. Когда закончит, откроется поле для ввода вашей версии.'
+                  : 'Ведущий озвучил факт с пропущенным словом. Напишите свою версию без пробелов, дефисов и знаков препинания — одно слово целиком.'}
               </p>
             </div>
 
@@ -1496,64 +1502,88 @@ export default function RoomPage() {
                   <span className="text-[#142a45]/40">Категория появится позже</span>
                 )}
               </div>
-              <div className="flex items-center justify-between text-xs text-[#142a45]/60">
-                <span>Таймер · 30 сек</span>
-                <span className={`font-black ${isRound3InputClosed ? 'text-[#f1532f]' : 'text-[#1f6ac6]'}`}>
-                  {isRound3InputClosed ? 'Время истекло' : `${round3InputTimeLeft} c`}
-                </span>
-              </div>
-              <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
-                <div
-                  className={`h-full ${round3InputTimeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
-                  style={{ width: `${round3InputProgress}%` }}
-                />
-              </div>
-              <p className="text-[11px] text-[#142a45]/60">Голосование откроется автоматически после окончания таймера.</p>
+              {isRound3WaitingForVoice ? (
+                <>
+                  <div className="flex items-center justify-center gap-2 py-4">
+                    <span className="text-4xl animate-pulse">🎤</span>
+                    <span className="text-lg font-black text-[#1f6ac6]">Озвучка...</span>
+                  </div>
+                  <p className="text-[11px] text-[#142a45]/60 text-center">
+                    Внимательно слушайте факт. После окончания озвучки у вас будет 30 секунд на ввод ответа.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between text-xs text-[#142a45]/60">
+                    <span>Таймер · 30 сек</span>
+                    <span className={`font-black ${isRound3InputClosed ? 'text-[#f1532f]' : 'text-[#1f6ac6]'}`}>
+                      {isRound3InputClosed ? 'Время истекло' : `${round3InputTimeLeft} c`}
+                    </span>
+                  </div>
+                  <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
+                    <div
+                      className={`h-full ${round3InputTimeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
+                      style={{ width: `${round3InputProgress}%` }}
+                    />
+                  </div>
+                  <p className="text-[11px] text-[#142a45]/60">Голосование откроется автоматически после окончания таймера.</p>
+                </>
+              )}
               <p className="text-lg font-semibold text-[#142a45] leading-snug">
                 {round3QuestionMeta?.text || 'Слушайте ведущего — текст вопроса прозвучит в эфире.'}
               </p>
             </div>
 
-            <div className="space-y-2">
-              <p className="text-xs font-semibold tracking-[0.3em] text-[#142a45]/60 uppercase">Ваш ответ</p>
-              <input
-                type="text"
-                inputMode="text"
-                autoComplete="off"
-                spellCheck={false}
-                value={round3AnswerDraft}
-                onChange={handleRound3AnswerChange}
-                maxLength={32}
-                placeholder="Например: метеорит"
-                className="w-full rounded-2xl border-[3px] border-[#142a45] px-4 py-4 text-2xl font-black tracking-[0.2em] text-center uppercase bg-[#fff6da] focus:outline-none focus:ring-4 focus:ring-[#1f6ac6]/30"
-              />
-              <div className="flex items-center justify-between text-xs text-[#142a45]/60">
-                <span>Только буквы и цифры</span>
-                <span className="font-semibold text-[#1f6ac6]">{round3AnswerDraft.length}/32</span>
-              </div>
-              <p className="text-xs text-[#142a45]/60">
-                Отправьте слово, когда водитель объявит старт. Ответ можно переписать, пока идёт таймер.
-              </p>
-              <button
-                type="button"
-                onClick={submitRound3Answer}
-                disabled={isRound3Submitting || !round3AnswerDraft || isRound3InputClosed}
-                className="w-full rounded-2xl border-[3px] border-[#1f6ac6] bg-[#1f6ac6] text-white font-black tracking-[0.2em] py-3 text-lg disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {round3SubmittedAnswer ? 'Обновить ответ' : 'Отправить ответ'}
-              </button>
-              {round3SubmittedAnswer && (
-                <p className="text-xs font-semibold text-[#1f6ac6]">
-                  Ваш ответ: {round3SubmittedAnswer}
+            {isRound3WaitingForVoice ? (
+              <div className="rounded-3xl border-[3px] border-dashed border-[#142a45]/25 bg-[#fff6da] p-5 space-y-2 text-center">
+                <p className="text-4xl">👂</p>
+                <p className="text-lg font-black text-[#142a45]">Внимательно слушайте</p>
+                <p className="text-sm text-[#142a45]/70">
+                  Поле для ввода ответа появится сразу после окончания озвучки факта.
                 </p>
-              )}
-              {isRound3InputClosed && (
-                <p className="text-xs font-semibold text-[#f1532f]">Время на ввод вышло. Ждём голосование.</p>
-              )}
-              {round3Error && (
-                <p className="text-xs font-semibold text-[#b23324]">{round3Error}</p>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold tracking-[0.3em] text-[#142a45]/60 uppercase">Ваш ответ</p>
+                <input
+                  type="text"
+                  inputMode="text"
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={round3AnswerDraft}
+                  onChange={handleRound3AnswerChange}
+                  maxLength={32}
+                  placeholder="Например: метеорит"
+                  className="w-full rounded-2xl border-[3px] border-[#142a45] px-4 py-4 text-2xl font-black tracking-[0.2em] text-center uppercase bg-[#fff6da] focus:outline-none focus:ring-4 focus:ring-[#1f6ac6]/30"
+                />
+                <div className="flex items-center justify-between text-xs text-[#142a45]/60">
+                  <span>Только буквы и цифры</span>
+                  <span className="font-semibold text-[#1f6ac6]">{round3AnswerDraft.length}/32</span>
+                </div>
+                <p className="text-xs text-[#142a45]/60">
+                  Отправьте слово пока идёт таймер. Ответ можно переписать.
+                </p>
+                <button
+                  type="button"
+                  onClick={submitRound3Answer}
+                  disabled={isRound3Submitting || !round3AnswerDraft || isRound3InputClosed}
+                  className="w-full rounded-2xl border-[3px] border-[#1f6ac6] bg-[#1f6ac6] text-white font-black tracking-[0.2em] py-3 text-lg disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {round3SubmittedAnswer ? 'Обновить ответ' : 'Отправить ответ'}
+                </button>
+                {round3SubmittedAnswer && (
+                  <p className="text-xs font-semibold text-[#1f6ac6]">
+                    Ваш ответ: {round3SubmittedAnswer}
+                  </p>
+                )}
+                {isRound3InputClosed && (
+                  <p className="text-xs font-semibold text-[#f1532f]">Время на ввод вышло. Ждём голосование.</p>
+                )}
+                {round3Error && (
+                  <p className="text-xs font-semibold text-[#b23324]">{round3Error}</p>
+                )}
+              </div>
+            )}
 
             <div className="rounded-3xl border-[3px] border-dashed border-[#142a45]/25 bg-white p-5 space-y-2 text-center">
               <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/60">
