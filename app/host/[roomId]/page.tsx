@@ -1946,6 +1946,7 @@ export default function HostRoomPage() {
           setIsRound3TimerRunning(false);
         }
       } else if (detectedStatus === 'round3-voting') {
+        stopRound3QuestionAudio(); // Останавливаем аудио вопроса при входе в голосование
         setShowResults(false);
         setQuestion(null);
         setAnswerCount(0);
@@ -1988,6 +1989,8 @@ export default function HostRoomPage() {
           setIsRound3TimerRunning(false);
         }
       } else if (detectedStatus === 'round3-reveal') {
+        stopRound3QuestionAudio(); // Останавливаем аудио вопроса при входе в reveal
+        stopRound3VoteAudio(); // Останавливаем vote audio
         setShowResults(false);
         setQuestion(null);
         setAnswerCount(0);
@@ -2064,6 +2067,8 @@ export default function HostRoomPage() {
       setRound3CurrentIndex,
       startRound3Voting,
       startRound3Reveal,
+      stopRound3QuestionAudio,
+      stopRound3VoteAudio,
     ]
   );
 
