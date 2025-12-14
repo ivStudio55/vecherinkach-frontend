@@ -1307,10 +1307,10 @@ export default function RoomPage() {
   const round2ChoiceLabel = round2AnsweredChoice === null ? '' : round2AnsweredChoice ? 'Правда' : 'Вымысел';
   const round3QuestionNumber = round3QuestionIndex !== null ? round3QuestionIndex + 1 : null;
   const round3CategoryLabel = round3QuestionMeta?.category ?? null;
-  // Таймер ещё не стартовал - озвучка ещё идёт
-  const isRound3WaitingForVoice = roomStatus === 'round3-running' && !round3QuestionStartedAt;
+  // Таймер ещё не стартовал (ведущий ещё не дал старт через round3_question_started_at)
+  const isRound3WaitingForStart = roomStatus === 'round3-running' && !round3QuestionStartedAt;
   const round3InputProgress = Math.max(0, Math.min(100, (round3InputTimeLeft / QUESTION_DURATION_SECONDS) * 100));
-  const isRound3InputClosed = round3InputTimeLeft <= 0 && !isRound3WaitingForVoice;
+  const isRound3InputClosed = round3InputTimeLeft <= 0 && !isRound3WaitingForStart;
   const round3VoteProgress = Math.max(0, Math.min(100, (round3VoteTimeLeft / ROUND3_VOTE_SECONDS) * 100));
   const isRound3VoteClosed = round3VoteTimeLeft <= 0;
 
@@ -1484,10 +1484,10 @@ export default function RoomPage() {
                 Раунд 3 · «МозгоШтурм»
               </span>
               <h2 className="text-3xl font-black leading-tight">
-                {isRound3WaitingForVoice ? 'Слушайте ведущего' : 'Введите слово с пропуском'}
+                {isRound3WaitingForStart ? 'Слушайте ведущего' : 'Введите слово с пропуском'}
               </h2>
               <p className="text-sm text-[#142a45]/80">
-                {isRound3WaitingForVoice
+                {isRound3WaitingForStart
                   ? 'Ведущий озвучивает факт. Когда закончит, откроется поле для ввода вашей версии.'
                   : 'Ведущий озвучил факт с пропущенным словом. Напишите свою версию без пробелов, дефисов и знаков препинания — одно слово целиком.'}
               </p>
@@ -1502,7 +1502,7 @@ export default function RoomPage() {
                   <span className="text-[#142a45]/40">Категория появится позже</span>
                 )}
               </div>
-              {isRound3WaitingForVoice ? (
+              {isRound3WaitingForStart ? (
                 <>
                   <div className="flex items-center justify-center gap-2 py-4">
                     <span className="text-4xl animate-pulse">🎤</span>
@@ -1534,7 +1534,7 @@ export default function RoomPage() {
               </p>
             </div>
 
-            {isRound3WaitingForVoice ? (
+            {isRound3WaitingForStart ? (
               <div className="rounded-3xl border-[3px] border-dashed border-[#142a45]/25 bg-[#fff6da] p-5 space-y-2 text-center">
                 <p className="text-4xl">👂</p>
                 <p className="text-lg font-black text-[#142a45]">Внимательно слушайте</p>
@@ -1571,7 +1571,7 @@ export default function RoomPage() {
                 >
                   {round3SubmittedAnswer ? 'Обновить ответ' : 'Отправить ответ'}
                 </button>
-                {round3SubmittedAnswer && (
+                {roomStatus === 'round3-running' && (
                   <p className="text-xs font-semibold text-[#1f6ac6]">
                     Ваш ответ: {round3SubmittedAnswer}
                   </p>
@@ -1593,98 +1593,6 @@ export default function RoomPage() {
                 Мы скрываем идеи других игроков, пока идёт таймер. Они раскроются автоматически на этапе голосования.
               </p>
             </div>
-          </section>
-        )}
-
-        {roomStatus === 'round3-voting' && (
-          <section className="rounded-3xl border-[4px] border-[#1f6ac6] bg-white shadow-xl p-6 space-y-6">
-            <div className="flex flex-col gap-2 text-center">
-              <span className="mx-auto px-4 py-2 rounded-full border-[3px] border-[#1f6ac6] text-sm font-black">
-                Голосование · Раунд 3
-              </span>
-              <h2 className="text-3xl font-black leading-tight">Выберите лучший вариант</h2>
-              <p className="text-sm text-[#142a45]/80">
-                Выберите понравившийся ответ другого игрока. Свой вариант голосовать нельзя. Голос можно поменять, пока идёт таймер.
-              </p>
-            </div>
-
-            <div className="rounded-3xl border-[3px] border-[#1f6ac6]/20 bg-[#e9f0ff] p-4 space-y-2">
-              <div className="flex items-center justify-between text-xs text-[#142a45]/60">
-                <span>Осталось времени</span>
-                <span className={`font-black ${isRound3VoteClosed ? 'text-[#f1532f]' : 'text-[#1f6ac6]'}`}>
-                  {isRound3VoteClosed ? 'Время истекло' : `${round3VoteTimeLeft} c`}
-                </span>
-              </div>
-              <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
-                <div
-                  className={`h-full ${round3VoteTimeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
-                  style={{ width: `${round3VoteProgress}%` }}
-                />
-              </div>
-              <p className="text-xs text-[#142a45]/60">После окончания таймера голоса фиксируются автоматически.</p>
-            </div>
-
-            <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-4 space-y-2">
-              <div className="flex items-center justify-between text-xs text-[#142a45]/60">
-                <span>Факт {round3QuestionIndex !== null ? round3QuestionIndex + 1 : '—'}</span>
-                {round3QuestionMeta?.category ? (
-                  <span className="font-semibold text-[#1f6ac6]">{round3QuestionMeta.category}</span>
-                ) : (
-                  <span className="text-[#142a45]/40">Категория появится позже</span>
-                )}
-              </div>
-              <p className="text-sm font-semibold text-[#142a45] leading-snug">
-                {round3QuestionMeta?.text || 'Ведущий уже озвучил этот факт — если не слышно, спросите повтор.'}
-              </p>
-            </div>
-
-            <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/70">
-                  Ответы игроков
-                </p>
-                <span className="text-xs font-semibold text-[#1f6ac6]">{round3Answers.length}</span>
-              </div>
-
-              {round3Answers.filter((answer) => answer.player_id !== playerId).length === 0 ? (
-                <p className="text-sm text-[#142a45]/70">
-                  Ждём ответы других игроков. Как только появятся варианты, сможете проголосовать.
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {round3Answers
-                    .filter((answer) => answer.player_id !== playerId)
-                    .map((answer) => {
-                      const isSelected = round3VoteSelection === answer.id;
-                      return (
-                        <button
-                          key={answer.id}
-                          type="button"
-                          disabled={isRound3VoteSubmitting || isRound3VoteClosed}
-                          onClick={() => submitRound3Vote(answer.id)}
-                          className={`w-full text-left rounded-2xl border-[3px] px-4 py-3 transition font-semibold tracking-[0.1em] uppercase ${
-                            isSelected
-                              ? 'border-[#1f6ac6] bg-[#e9f0ff] text-[#1f6ac6]'
-                              : 'border-[#142a45]/20 bg-white text-[#142a45]'
-                          } disabled:opacity-50 disabled:cursor-not-allowed`}
-                        >
-                          {answer.answer}
-                        </button>
-                      );
-                    })}
-                </div>
-              )}
-            </div>
-
-            {round3Error && (
-              <div className="rounded-2xl border-[3px] border-[#b23324] bg-[#ffd7d0] px-4 py-3 text-sm font-semibold text-[#7b1d16]">
-                {round3Error}
-              </div>
-            )}
-
-            {isRound3VoteClosed && (
-              <p className="text-xs text-center text-[#142a45]/60">Время вышло. Ведущий покажет результаты голосования.</p>
-            )}
           </section>
         )}
 
