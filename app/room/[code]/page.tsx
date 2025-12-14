@@ -1594,6 +1594,20 @@ export default function RoomPage() {
               <p className="text-xs text-[#142a45]/60">После окончания таймера голоса фиксируются автоматически.</p>
             </div>
 
+            <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-4 space-y-2">
+              <div className="flex items-center justify-between text-xs text-[#142a45]/60">
+                <span>Факт {round3QuestionIndex !== null ? round3QuestionIndex + 1 : '—'}</span>
+                {round3QuestionMeta?.category ? (
+                  <span className="font-semibold text-[#1f6ac6]">{round3QuestionMeta.category}</span>
+                ) : (
+                  <span className="text-[#142a45]/40">Категория появится позже</span>
+                )}
+              </div>
+              <p className="text-sm font-semibold text-[#142a45] leading-snug">
+                {round3QuestionMeta?.text || 'Ведущий уже озвучил этот факт — если не слышно, спросите повтор.'}
+              </p>
+            </div>
+
             <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/70">

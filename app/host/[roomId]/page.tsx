@@ -747,6 +747,13 @@ export default function HostRoomPage() {
     }
   }, []);
 
+  const stopAllRound3Audio = useCallback(() => {
+    stopRound3VoteAudio();
+    stopRound3TimerAudio();
+    stopRound3QuestionAudio();
+    stopRound3CommentAudio();
+  }, [stopRound3CommentAudio, stopRound3QuestionAudio, stopRound3TimerAudio, stopRound3VoteAudio]);
+
   const playRound3CommentAudio = useCallback(
     (questionId?: number | null) => {
       stopRound3CommentAudio();
@@ -906,6 +913,7 @@ export default function HostRoomPage() {
 
   const startRound3Reveal = useCallback(async () => {
     clearRound3Timer();
+    stopAllRound3Audio();
     setRound3Phase('reveal');
     // Локально показываем reveal, но в БД оставляем status = round3-running (constraint rooms_status_check)
     setRoomStatus('round3-reveal');
@@ -925,8 +933,7 @@ export default function HostRoomPage() {
     if (!questionId) return;
 
     clearRound3Timer();
-    stopRound3QuestionAudio(); // Останавливаем аудио вопроса
-    stopRound3TimerAudio(); // На всякий случай глушим таймер ввода
+    stopAllRound3Audio(); // Глушим все аудио перед голосованием
     
     const { iso } = await getServerIsoTimestamp();
     setRound3Phase('vote');
@@ -1042,7 +1049,7 @@ export default function HostRoomPage() {
 
   const resetRound3Flow = useCallback(() => {
     clearRound3Timer();
-    stopRound3QuestionAudio();
+    stopAllRound3Audio();
     setRound3ActiveQuestion(null);
     setRound3CurrentQuestionId(null);
     setRound3CurrentIndex(0);
