@@ -902,10 +902,11 @@ export default function HostRoomPage() {
   const startRound3Reveal = useCallback(async () => {
     clearRound3Timer();
     setRound3Phase('reveal');
+    // Локально показываем reveal, но в БД оставляем status = round3-running (constraint rooms_status_check)
     setRoomStatus('round3-reveal');
     const { error } = await supabase
       .from('rooms')
-      .update({ status: 'round3-reveal', round3_phase: 'reveal' })
+      .update({ status: 'round3-running', round3_phase: 'reveal' })
       .eq('id', roomId);
     if (error) {
       console.error('Не удалось переключить Раунд 3 в режим показа', error);
@@ -924,6 +925,7 @@ export default function HostRoomPage() {
     const { iso } = await getServerIsoTimestamp();
     setRound3Phase('vote');
     setRound3VoteStartedAt(iso);
+    // Локально помечаем голосование, в БД оставляем status = round3-running (constraint rooms_status_check)
     setRoomStatus('round3-voting');
 
     // Загружаем ответы перед переходом в голосование
@@ -932,7 +934,7 @@ export default function HostRoomPage() {
     const { error } = await supabase
       .from('rooms')
       .update({
-        status: 'round3-voting',
+        status: 'round3-running',
         round3_phase: 'vote',
         round3_vote_started_at: iso,
         round3_question_index: round3CurrentIndex,
