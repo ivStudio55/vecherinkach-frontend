@@ -855,8 +855,25 @@ export default function RoomPage() {
       setRound3SubmittedAnswer(null);
       return;
     }
+    // Подстрахуемся: если таймстамп старта вопроса не пришёл, запросим его
+    if (!round3QuestionStartedAt && roomIdRef.current) {
+      void (async () => {
+        const { data } = await supabase
+          .from('rooms')
+          .select('round3_question_started_at')
+          .eq('id', roomIdRef.current)
+          .single();
+        if (data?.round3_question_started_at) {
+          setRound3QuestionStartedAt(data.round3_question_started_at as string);
+        }
+      })();
+    }
+
+    // Синхронизируем время с сервером при смене факта, чтобы таймеры совпадали с ведущим
+    void syncServerTime();
+
     loadRound3Answers(round3QuestionIndex);
-  }, [roomStatus, round3QuestionIndex, loadRound3Answers]);
+  }, [roomStatus, round3QuestionIndex, round3QuestionStartedAt, loadRound3Answers, syncServerTime]);
 
   useEffect(() => {
     if (roomStatus === 'round3-running') {
@@ -928,6 +945,44 @@ export default function RoomPage() {
     const interval = setInterval(tick, 300);
     return () => clearInterval(interval);
   }, [roomStatus, round3VoteStartedAt, timeOffsetMs]);
+
+  // При входе в голосование подстрахуем стартовый таймстамп и подгрузку ответов
+  useEffect(() => {
+    if (roomStatus !== 'round3-voting') {
+      return;
+    }
+
+    if (!round3VoteStartedAt && roomIdRef.current) {
+      void (async () => {
+        const { data } = await supabase
+          .from('rooms')
+          .select('round3_vote_started_at')
+          .eq('id', roomIdRef.current)
+          .single();
+        if (data?.round3_vote_started_at) {
+          setRound3VoteStartedAt(data.round3_vote_started_at as string);
+        }
+      })();
+    }
+
+    // Быстрое опросное окно, чтобы вытянуть ответы, если они не успели попасть в стейт
+    let attempts = 0;
+    const maxAttempts = 10;
+    const poll = async () => {
+      const currentIndex = round3QuestionIndexRef.current;
+      if (currentIndex === null) return;
+      await loadRound3Answers(currentIndex);
+      attempts += 1;
+      if (attempts >= maxAttempts || round3Answers.length > 0) {
+        clearInterval(pollerId);
+      }
+    };
+
+    void syncServerTime();
+    poll();
+    const pollerId = setInterval(poll, 800);
+    return () => clearInterval(pollerId);
+  }, [roomStatus, round3VoteStartedAt, loadRound3Answers, round3Answers.length, syncServerTime]);
 
   const submitAnswer = async (optionKey: string) => {
     setError('');
