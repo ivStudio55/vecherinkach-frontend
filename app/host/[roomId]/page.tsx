@@ -3557,17 +3557,18 @@ export default function HostRoomPage() {
   ]);
 
   const handleRound3Start = useCallback(() => {
-    if (ROUND3_DISABLED) {
+    const isRound3Available = !ROUND3_DISABLED;
+    if (!isRound3Available) {
       setRound3Notice('Раунд 3 временно отключён. После правил игра продолжится с результатами.');
-      stopRound3RulesAudio();
-      setIsRound3RulesVisible(false);
-      return;
     }
+
     hasUserInteractedRef.current = true;
-    const preparedQuestions = round3QuestionsRef.current.length
-      ? round3QuestionsRef.current
-      : prepareRound3QuestionSet();
-    if (!preparedQuestions.length) {
+    const preparedQuestions = isRound3Available
+      ? round3QuestionsRef.current.length
+        ? round3QuestionsRef.current
+        : prepareRound3QuestionSet()
+      : [];
+    if (isRound3Available && !preparedQuestions.length) {
       return;
     }
 
@@ -3578,10 +3579,16 @@ export default function HostRoomPage() {
     }
     setIsRound3RulesVisible(false);
 
-    // Запускаем countdown, после которого стартует раунд
+    // Запускаем countdown, после которого стартует раунд (или повторит уведомление, если раунд отключён)
     clearCountdownTimeout();
     setCountdownContext('round3');
-    countdownCompleteActionRef.current = () => performRound3Start();
+    countdownCompleteActionRef.current = () => {
+      if (!isRound3Available) {
+        setRound3Notice('Раунд 3 временно отключён. После правил игра продолжится с результатами.');
+        return;
+      }
+      return performRound3Start();
+    };
     setIsCountdownVisible(true);
     runCountdownSequence(0);
   }, [
