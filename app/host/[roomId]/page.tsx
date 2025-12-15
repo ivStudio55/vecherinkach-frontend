@@ -1139,11 +1139,6 @@ export default function HostRoomPage() {
       bed.loop = true;
       bed.volume = 0.35;
       
-      // На случай если loop уберем или что-то пойдет не так
-      bed.onended = () => {
-        transitionToTimer();
-      };
-      
       bed.onerror = (e) => {
         console.error('Не удалось воспроизвести фон Раунда 3 (jingle)', e);
         // Fallback
