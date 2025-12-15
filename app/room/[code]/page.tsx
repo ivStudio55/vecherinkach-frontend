@@ -164,6 +164,7 @@ export default function RoomPage() {
   const [round3VoteSelection, setRound3VoteSelection] = useState<string | null>(null);
   const [isRound3Voting, setIsRound3Voting] = useState(false);
   const [isRound3VoteSubmitting, setIsRound3VoteSubmitting] = useState(false);
+  const [isRound3TimerVisible, setIsRound3TimerVisible] = useState(false);
   const roomIdRef = useRef('');
   const playerIdRef = useRef('');
   const roomStatusRef = useRef<RoomStatus>('waiting');
@@ -172,6 +173,7 @@ export default function RoomPage() {
   const round3AnswersCacheRef = useRef<Round3AnswerRow[]>([]);
   const loadRoomDataRef = useRef<() => Promise<void>>(async () => {});
   const round3TimerAudioRef = useRef<HTMLAudioElement | null>(null);
+  const hasUserInteractedRef = useRef(false);
 
   useEffect(() => {
     round3QuestionIndexRef.current = round3QuestionIndex;
@@ -1000,6 +1002,18 @@ export default function RoomPage() {
   }, [roomStatus, round3AnswerDraft]);
 
   useEffect(() => {
+    if (roomStatus !== 'round3-running') {
+      setIsRound3TimerVisible(false);
+      return;
+    }
+    if (round3AudioFinishedAt && round3InputTimeLeft > 0) {
+      setIsRound3TimerVisible(true);
+    } else {
+      setIsRound3TimerVisible(false);
+    }
+  }, [roomStatus, round3AudioFinishedAt, round3InputTimeLeft]);
+
+  useEffect(() => {
     if (roomStatus !== 'round3-running' || !round3QuestionStartedAt) {
       setRound3InputTimeLeft(QUESTION_DURATION_SECONDS);
       return;
@@ -1080,6 +1094,7 @@ export default function RoomPage() {
   }, [roomStatus, round3VoteStartedAt, loadRound3Answers, round3Answers.length, syncServerTime]);
 
   const submitAnswer = async (optionKey: string) => {
+    hasUserInteractedRef.current = true;
     setError('');
     setIsSubmitting(true);
 
@@ -1169,6 +1184,7 @@ export default function RoomPage() {
   };
 
   const submitRound2Answer = async (answerIsFact: boolean) => {
+    hasUserInteractedRef.current = true;
     setError('');
     if (roomStatus !== 'round2-running' || round2Phase !== 'fact') {
       setError('Подождите новое утверждение от ведущего');
@@ -1249,6 +1265,7 @@ export default function RoomPage() {
   };
 
   const submitRound3Answer = async () => {
+    hasUserInteractedRef.current = true;
     setRound3Error('');
     if (roomStatus !== 'round3-running') {
       setRound3Error('Ждём старт Раунда 3 от ведущего');
@@ -1316,6 +1333,7 @@ export default function RoomPage() {
   };
 
   const submitRound3Vote = async (answerId: string) => {
+    hasUserInteractedRef.current = true;
     if (roomStatus !== 'round3-voting') {
       setRound3Error('Сейчас нельзя голосовать');
       return;
@@ -1416,7 +1434,6 @@ export default function RoomPage() {
   const round3CategoryLabel = round3QuestionMeta?.category ?? null;
   // Ждём старта вопроса или окончания озвучки
   const isRound3WaitingForStart = roomStatus === 'round3-running' && (!round3QuestionStartedAt || !round3AudioFinishedAt);
-  const isRound3TimerVisible = !!round3AudioFinishedAt;
   const round3InputProgress = Math.max(0, Math.min(100, (round3InputTimeLeft / QUESTION_DURATION_SECONDS) * 100));
   const isRound3InputClosed = round3InputTimeLeft <= 0 && !isRound3WaitingForStart;
   const round3VoteProgress = Math.max(0, Math.min(100, (round3VoteTimeLeft / ROUND3_VOTE_SECONDS) * 100));
