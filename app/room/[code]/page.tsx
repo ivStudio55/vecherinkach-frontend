@@ -169,6 +169,10 @@ export default function RoomPage() {
   const round3AnswersCacheRef = useRef<Round3AnswerRow[]>([]);
   const loadRoomDataRef = useRef<() => Promise<void>>(async () => {});
 
+  useEffect(() => {
+    round3QuestionIndexRef.current = round3QuestionIndex;
+  }, [round3QuestionIndex]);
+
   const syncServerTime = useCallback(async () => {
     try {
       const { data } = await supabase.rpc('get_server_time');
@@ -1286,10 +1290,23 @@ export default function RoomPage() {
       setRound3Error('Данные игрока ещё загружаются');
       return;
     }
-    const currentIndex = round3QuestionIndexRef.current;
+    let currentIndex = round3QuestionIndexRef.current ?? round3QuestionIndex;
     if (currentIndex === null) {
-      setRound3Error('Голосование ещё не готово');
-      return;
+      const { data } = await supabase
+        .from('rooms')
+        .select('round3_question_index')
+        .eq('id', roomId)
+        .single();
+
+      const fetchedIndex = typeof data?.round3_question_index === 'number' ? data.round3_question_index : null;
+      setRound3QuestionIndex(fetchedIndex);
+      round3QuestionIndexRef.current = fetchedIndex;
+      currentIndex = fetchedIndex;
+
+      if (currentIndex === null) {
+        setRound3Error('Голосование ещё не готово');
+        return;
+      }
     }
     const chosenAnswer = round3Answers.find((row) => row.id === answerId);
     if (!chosenAnswer) {
