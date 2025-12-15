@@ -4130,9 +4130,6 @@ export default function HostRoomPage() {
                       <div className="space-y-2 max-h-80 overflow-y-auto pr-2">
                         {round3Answers.map((answer) => (
                           <div key={answer.id} className="rounded-2xl border-[3px] border-[#142a45]/15 bg-white p-3">
-                            <p className="text-xs font-semibold text-[#142a45]/60 uppercase tracking-[0.3em]">
-                              {getPlayerName(answer.player_id)}
-                            </p>
                             <p className="text-base font-semibold text-[#142a45] break-words">{answer.answer || '—'}</p>
                           </div>
                         ))}
@@ -4182,9 +4179,6 @@ export default function HostRoomPage() {
                       <div className="space-y-2 max-h-72 overflow-y-auto pr-2">
                         {round3Answers.map((answer) => (
                           <div key={answer.id} className="rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-3">
-                            <p className="text-xs font-semibold text-[#142a45]/60 uppercase tracking-[0.2em]">
-                              {getPlayerName(answer.player_id)}
-                            </p>
                             <p className="text-base font-semibold text-[#142a45] break-words">{answer.answer || '—'}</p>
                           </div>
                         ))}
@@ -4301,9 +4295,6 @@ export default function HostRoomPage() {
                               key={answer.id}
                               className="rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-3"
                             >
-                              <p className="text-xs font-semibold text-[#142a45]/60 uppercase tracking-[0.2em]">
-                                {getPlayerName(answer.player_id)}
-                              </p>
                               <p className="text-base font-semibold text-[#142a45] whitespace-pre-wrap break-words">
                                 {answer.answer || '—'}
                               </p>
