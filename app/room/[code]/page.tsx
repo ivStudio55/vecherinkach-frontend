@@ -200,10 +200,12 @@ export default function RoomPage() {
       return;
     }
     previousRound3QuestionIndexRef.current = round3QuestionIndex;
+    // Сбрасываем только draft и ошибки, НЕ ОТВЕТЫ!
+    // Ответы загружаются отдельно через loadRound3Answers
     setRound3AnswerDraft('');
     setRound3SubmittedAnswer(null);
     setRound3Error('');
-    setRound3Answers([]);
+    // НЕ сбрасываем round3Answers здесь - они загружаются асинхронно
   }, [round3QuestionIndex]);
 
   useEffect(() => {
@@ -1664,6 +1666,7 @@ export default function RoomPage() {
               </div>
             </div>
 
+            {console.log('[Round3-Render] round3Answers state:', round3Answers.length, round3Answers)}
             <Round3AnswersList
               answers={round3Answers}
               playerId={playerId}
