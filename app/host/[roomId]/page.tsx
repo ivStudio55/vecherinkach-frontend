@@ -1131,13 +1131,13 @@ export default function HostRoomPage() {
 
       // Используем прямой путь к файлу, минуя API, чтобы избежать проблем с кодировкой
       // Файл лежит в public/audio/round2/jingle (5).mp3
-      const bedUrl = `/audio/round2/jingle%20(5).mp3`;
+      const bedUrl = buildAudioUrl(ROUND3_VOICE_BG_FILE);
       const bed = new Audio(bedUrl);
       
       // Loop=true чтобы музыка не кончилась раньше голоса.
       // Мы остановим её вручную, когда закончится голос.
       bed.loop = true;
-      bed.volume = 0.35;
+      bed.volume = 0.5;
       
       bed.onerror = (e) => {
         console.error('Не удалось воспроизвести фон Раунда 3 (jingle)', e);
@@ -4347,12 +4347,14 @@ export default function HostRoomPage() {
                           {isRound3TimerVisible ? `${round3TimeLeft} c` : 'Ждём окончания озвучки'}
                         </span>
                       </div>
-                      <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
-                        <div
-                          className={`h-full ${round3TimeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
-                          style={{ width: `${round3ProgressPercent}%` }}
-                        />
-                      </div>
+                      {isRound3TimerVisible && (
+                        <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
+                          <div
+                            className={`h-full ${round3TimeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
+                            style={{ width: `${round3ProgressPercent}%` }}
+                          />
+                        </div>
+                      )}
                       {!isRound3TimerVisible && (
                         <p className="text-xs text-[#142a45]/70">Таймер появится автоматически после окончания аудиодорожки.</p>
                       )}
