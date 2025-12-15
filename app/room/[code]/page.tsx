@@ -112,6 +112,7 @@ type RoomUpdatePayload = {
     round3_question_index: number | null;
     round3_question_id: number | null;
     round3_question_started_at: string | null;
+    round3_audio_finished_at: string | null;
     round3_vote_started_at: string | null;
     round3_phase: 'input' | 'vote' | 'reveal' | null;
   };
@@ -156,6 +157,7 @@ export default function RoomPage() {
   const [round3Error, setRound3Error] = useState('');
   const [round3Phase, setRound3Phase] = useState<'input' | 'vote' | 'reveal' | null>(null);
   const [round3QuestionStartedAt, setRound3QuestionStartedAt] = useState<string | null>(null);
+  const [round3AudioFinishedAt, setRound3AudioFinishedAt] = useState<string | null>(null);
   const [round3VoteStartedAt, setRound3VoteStartedAt] = useState<string | null>(null);
   const [round3VoteTimeLeft, setRound3VoteTimeLeft] = useState(15);
   const [round3InputTimeLeft, setRound3InputTimeLeft] = useState(QUESTION_DURATION_SECONDS);
@@ -398,7 +400,7 @@ export default function RoomPage() {
         const { data: room, error: roomError } = await supabase
           .from('rooms')
           .select(
-            'id, current_question_index, is_active, status, question_started_at, all_players_answered, selected_question_ids, round2_item_index, round2_showing_fact, round2_phase, round3_question_index, round3_question_id, round3_question_started_at, round3_vote_started_at, round3_phase'
+            'id, current_question_index, is_active, status, question_started_at, all_players_answered, selected_question_ids, round2_item_index, round2_showing_fact, round2_phase, round3_question_index, round3_question_id, round3_question_started_at, round3_audio_finished_at, round3_vote_started_at, round3_phase'
           )
           .eq('code', roomCode)
           .single();
@@ -414,6 +416,7 @@ export default function RoomPage() {
         const initialRound3Id = typeof room.round3_question_id === 'number' ? room.round3_question_id : null;
         const initialRound3Phase = (room.round3_phase as 'input' | 'vote' | 'reveal' | null) ?? null;
         const initialRound3QuestionStartedAt = (room.round3_question_started_at as string | null) ?? null;
+        const initialRound3AudioFinishedAt = (room.round3_audio_finished_at as string | null) ?? null;
         const initialRound3VoteStartedAt = (room.round3_vote_started_at as string | null) ?? null;
         const selection = (room.selected_question_ids as number[] | null) || [];
         setSelectedQuestionIds(selection);
@@ -437,6 +440,7 @@ export default function RoomPage() {
         setRound3QuestionId(initialRound3Id);
         setRound3Phase(initialRound3Phase);
         setRound3QuestionStartedAt(initialRound3QuestionStartedAt);
+        setRound3AudioFinishedAt(initialRound3AudioFinishedAt);
         setRound3VoteStartedAt(initialRound3VoteStartedAt);
 
         if (effectiveDetectedStatus === 'waiting') {
@@ -656,11 +660,13 @@ export default function RoomPage() {
           const nextRound3Index = typeof payload.new.round3_question_index === 'number' ? payload.new.round3_question_index : null;
           const nextRound3Id = typeof payload.new.round3_question_id === 'number' ? payload.new.round3_question_id : null;
           const nextRound3QuestionStartedAt = (payload.new.round3_question_started_at as string | null) ?? null;
+          const nextRound3AudioFinishedAt = (payload.new.round3_audio_finished_at as string | null) ?? null;
           const nextRound3VoteStartedAt = (payload.new.round3_vote_started_at as string | null) ?? null;
           setRound3QuestionIndex(nextRound3Index);
           setRound3QuestionId(nextRound3Id);
           setRound3Phase(nextRound3Phase);
           setRound3QuestionStartedAt(nextRound3QuestionStartedAt);
+          setRound3AudioFinishedAt(nextRound3AudioFinishedAt);
           setRound3VoteStartedAt(nextRound3VoteStartedAt);
 
           if (effectiveStatus === 'waiting') {
@@ -1380,6 +1386,7 @@ export default function RoomPage() {
   const round3CategoryLabel = round3QuestionMeta?.category ?? null;
   // Таймер ещё не стартовал (ведущий ещё не дал старт через round3_question_started_at)
   const isRound3WaitingForStart = roomStatus === 'round3-running' && !round3QuestionStartedAt;
+  const isRound3TimerVisible = !!round3AudioFinishedAt;
   const round3InputProgress = Math.max(0, Math.min(100, (round3InputTimeLeft / QUESTION_DURATION_SECONDS) * 100));
   const isRound3InputClosed = round3InputTimeLeft <= 0 && !isRound3WaitingForStart;
   const round3VoteProgress = Math.max(0, Math.min(100, (round3VoteTimeLeft / ROUND3_VOTE_SECONDS) * 100));

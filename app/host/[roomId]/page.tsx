@@ -1124,6 +1124,7 @@ export default function HostRoomPage() {
         console.log('Round 3: Audio finished, starting 30s timer');
         stopRound3BedAudio();
         setRound3AudioState('finished');
+        void supabase.from('rooms').update({ round3_audio_finished_at: new Date().toISOString() }).eq('code', roomCode);
         startRound3Timer(ROUND3_INPUT_SECONDS, () => {
           void startRound3Voting();
         });
@@ -2057,7 +2058,7 @@ export default function HostRoomPage() {
         const { data: room, error: roomError } = await supabase
           .from('rooms')
           .select(
-            'code, current_question_index, question_started_at, status, all_players_answered, selected_question_ids, is_active, round2_item_index, round2_showing_fact, round2_phase, round3_question_index, round3_question_id, round3_question_started_at, round3_vote_started_at, round3_phase'
+            'code, current_question_index, question_started_at, status, all_players_answered, selected_question_ids, is_active, round2_item_index, round2_showing_fact, round2_phase, round3_question_index, round3_question_id, round3_question_started_at, round3_audio_finished_at, round3_vote_started_at, round3_phase'
           )
           .eq('id', roomId)
           .single();

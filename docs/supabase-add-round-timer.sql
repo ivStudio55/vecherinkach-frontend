@@ -124,7 +124,8 @@
     ALTER TABLE rooms
     ADD COLUMN IF NOT EXISTS round3_question_id integer,
     ADD COLUMN IF NOT EXISTS round3_question_index integer,
-    ADD COLUMN IF NOT EXISTS round3_question_started_at timestamptz;
+    ADD COLUMN IF NOT EXISTS round3_question_started_at timestamptz,
+    ADD COLUMN IF NOT EXISTS round3_audio_finished_at timestamptz;
 
     CREATE TABLE IF NOT EXISTS public.round3_answers (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
