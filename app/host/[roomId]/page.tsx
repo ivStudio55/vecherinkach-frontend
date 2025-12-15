@@ -970,10 +970,24 @@ export default function HostRoomPage() {
 
     // Когда комментарий закончился -> останавливаем фон и переходим к следующему вопросу
     commentVoice.onended = () => {
+        console.log('Round 3: Comment finished, moving to next question');
         commentBg.pause();
         commentBg.currentTime = 0; // Сбрасываем позицию
         // Автоматический переход к следующему факту
-        void moveToRound3QuestionRef.current?.(round3CurrentIndexRef.current + 1);
+        const nextIndex = round3CurrentIndexRef.current + 1;
+        console.log('Moving from index', round3CurrentIndexRef.current, 'to', nextIndex);
+        moveToRound3QuestionRef.current?.(nextIndex).catch(err => {
+          console.error('Error moving to next question:', err);
+        });
+    };
+    
+    commentVoice.onerror = (e) => {
+      console.error('Comment voice error:', e);
+      // Fallback: if voice fails, transition anyway
+      const nextIndex = round3CurrentIndexRef.current + 1;
+      moveToRound3QuestionRef.current?.(nextIndex).catch(err => {
+        console.error('Error moving to next question (fallback):', err);
+      });
     };
   }, [clearRound3Timer, roomId, stopAllRound3Audio]);
 
@@ -4302,18 +4316,11 @@ export default function HostRoomPage() {
                     <div className="flex flex-col gap-3 sm:flex-row">
                       <button
                         type="button"
-                        onClick={handleRound3SkipQuestion}
-                        className="flex-1 py-4 rounded-2xl border-[3px] border-dashed border-[#142a45] text-[#142a45] font-semibold"
-                      >
-                        Пропустить
-                      </button>
-                      <button
-                        type="button"
                         onClick={() => {
                           void startRound3Voting();
                         }}
                         disabled={round3Phase !== 'input' || isRound3TimerRunning || round3TimeLeft > 0}
-                        className="flex-1 py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#1f6ac6] text-white border-[3px] border-[#142a45] transition disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="w-full py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#1f6ac6] text-white border-[3px] border-[#142a45] transition disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         Запустить голосование
                       </button>
