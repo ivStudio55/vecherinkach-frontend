@@ -1813,8 +1813,16 @@ function Round3AnswersList({
   isVoteSubmitting,
 }: Round3AnswersListProps) {
   const visibleAnswers = useMemo(() => {
+    console.log('[Round3AnswersList] Filtering', { 
+      totalAnswers: answers.length, 
+      playerId, 
+      isSelfVisible,
+      answerPlayerIds: answers.map(a => a.player_id)
+    });
     if (!isSelfVisible && playerId) {
-      return answers.filter((answer) => answer.player_id !== playerId);
+      const filtered = answers.filter((answer) => answer.player_id !== playerId);
+      console.log('[Round3AnswersList] After filter:', filtered.length);
+      return filtered;
     }
     return answers;
   }, [answers, isSelfVisible, playerId]);
