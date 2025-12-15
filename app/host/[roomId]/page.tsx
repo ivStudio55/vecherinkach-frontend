@@ -1114,6 +1114,11 @@ export default function HostRoomPage() {
   const playRound3QuestionAudio = useCallback(
     (question: Round3Question) => {
       stopAllRound3Audio(); // Сброс всего перед стартом
+      if (!hasUserInteractedRef.current) {
+        console.log('No user interaction for Round 3 question audio');
+        transitionToTimer();
+        return;
+      }
       setRound3AudioState('playing');
       setIsRound3TimerVisible(false);
       setIsRound3TimerRunning(false);
@@ -1151,10 +1156,11 @@ export default function HostRoomPage() {
         transitionToTimer();
       });
 
-      const audio = new Audio('/audio/round3/questions3/' + question.audioFile);
+      const audio = new Audio('/audio/' + question.audioFile);
       audio.volume = 0.95;
       
       audio.onended = () => {
+        console.log('Round 3 question audio ended');
         round3QuestionAudioRef.current = null;
         // Голос закончился -> останавливаем музыку -> запускаем таймер
         transitionToTimer();
@@ -1168,6 +1174,7 @@ export default function HostRoomPage() {
       };
       
       round3QuestionAudioRef.current = audio;
+      console.log('Playing Round 3 question audio:', '/audio/' + question.audioFile);
       audio
         .play()
         .catch((error) => {
