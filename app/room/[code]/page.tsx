@@ -166,6 +166,7 @@ export default function RoomPage() {
   const roomStatusRef = useRef<RoomStatus>('waiting');
   const round3QuestionIndexRef = useRef<number | null>(null);
   const previousRound3QuestionIndexRef = useRef<number | null>(null);
+  const round3AnswersCacheRef = useRef<Round3AnswerRow[]>([]);
   const loadRoomDataRef = useRef<() => Promise<void>>(async () => {});
 
   const syncServerTime = useCallback(async () => {
@@ -194,6 +195,13 @@ export default function RoomPage() {
   useEffect(() => {
     round3QuestionIndexRef.current = round3QuestionIndex;
   }, [round3QuestionIndex]);
+
+  useEffect(() => {
+    console.log('[Round3State] round3Answers updated', round3Answers.length, round3Answers);
+    if (round3Answers.length > 0) {
+      round3AnswersCacheRef.current = round3Answers;
+    }
+  }, [round3Answers]);
 
   useEffect(() => {
     if (previousRound3QuestionIndexRef.current === round3QuestionIndex) {
@@ -261,6 +269,9 @@ export default function RoomPage() {
     const rows = data || [];
     console.log('[Round3] Loaded answers:', rows.length, rows);
     setRound3Answers(rows);
+    if (rows.length > 0) {
+      round3AnswersCacheRef.current = rows;
+    }
     const currentPlayerId = playerIdRef.current;
     if (currentPlayerId) {
       const ownAnswer = rows.find((row) => row.player_id === currentPlayerId);
@@ -916,6 +927,7 @@ export default function RoomPage() {
       return;
     }
     setRound3Answers([]);
+    round3AnswersCacheRef.current = [];
     setRound3SubmittedAnswer(null);
     setIsRound3Submitting(false);
     setRound3Error('');
@@ -1667,7 +1679,7 @@ export default function RoomPage() {
             </div>
 
             <Round3AnswersList
-              answers={round3Answers}
+              answers={round3Answers.length > 0 ? round3Answers : round3AnswersCacheRef.current}
               playerId={playerId}
               isSelfVisible={false} // Скрываем свой ответ
               roomStatus={roomStatus}
