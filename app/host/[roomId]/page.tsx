@@ -376,6 +376,7 @@ export default function HostRoomPage() {
   const persistRound3StateRef = useRef<PersistRound3StateFn | null>(null);
   const round3PhaseRef = useRef<'input' | 'vote' | 'reveal'>('input');
   const round3VoteStartedAtRef = useRef<string | null>(null);
+  const moveToRound3QuestionRef = useRef<((index: number) => Promise<void>) | null>(null);
 
   const setRound2Phase = useCallback(
     (nextPhase: Round2Phase) => {
@@ -972,10 +973,10 @@ export default function HostRoomPage() {
         commentBg.pause();
         // Автоматический переход к следующему факту
         setTimeout(() => {
-             void moveToRound3Question(round3CurrentIndexRef.current + 1);
+             void moveToRound3QuestionRef.current?.(round3CurrentIndexRef.current + 1);
         }, 1000); // Небольшая пауза перед переходом
     };
-  }, [clearRound3Timer, roomId, stopAllRound3Audio, moveToRound3Question]);
+  }, [clearRound3Timer, roomId, stopAllRound3Audio]);
 
   const startRound3Voting = useCallback(async () => {
     // if (round3Phase !== 'input') return; // Убираем проверку, чтобы можно было форсировать
@@ -1271,6 +1272,10 @@ export default function HostRoomPage() {
       stopRound3QuestionAudio,
     ]
   );
+
+  useEffect(() => {
+    moveToRound3QuestionRef.current = moveToRound3Question;
+  }, [moveToRound3Question]);
 
   useEffect(() => {
     if (roomStatus !== 'round3-ready') {
