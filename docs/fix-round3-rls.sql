@@ -11,8 +11,8 @@ DO $$
 BEGIN
     -- Удаляем политику для ответов, если есть
     IF EXISTS (
-        SELECT 1 FROM pg_policies 
-        WHERE tablename = 'round3_answers' 
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'round3_answers'
         AND policyname = 'Allow all operations on round3_answers'
     ) THEN
         DROP POLICY "Allow all operations on round3_answers" ON round3_answers;
@@ -20,8 +20,8 @@ BEGIN
 
     -- Удаляем политику для голосов, если есть
     IF EXISTS (
-        SELECT 1 FROM pg_policies 
-        WHERE tablename = 'round3_votes' 
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'round3_votes'
         AND policyname = 'Allow all operations on round3_votes'
     ) THEN
         DROP POLICY "Allow all operations on round3_votes" ON round3_votes;
