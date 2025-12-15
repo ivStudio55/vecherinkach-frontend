@@ -1006,12 +1006,12 @@ export default function RoomPage() {
       setIsRound3TimerVisible(false);
       return;
     }
-    if (round3AudioFinishedAt && round3InputTimeLeft > 0) {
+    if (round3AudioFinishedAt && round3QuestionStartedAt) {
       setIsRound3TimerVisible(true);
     } else {
       setIsRound3TimerVisible(false);
     }
-  }, [roomStatus, round3AudioFinishedAt, round3InputTimeLeft]);
+  }, [roomStatus, round3AudioFinishedAt, round3QuestionStartedAt]);
 
   useEffect(() => {
     if (roomStatus !== 'round3-running' || !round3QuestionStartedAt) {

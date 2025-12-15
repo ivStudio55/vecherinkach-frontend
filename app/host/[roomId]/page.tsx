@@ -2157,8 +2157,8 @@ export default function HostRoomPage() {
           const elapsed = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
           const remaining = Math.max(0, ROUND3_INPUT_SECONDS - elapsed);
           setRound3TimeLeft(remaining);
-          setIsRound3TimerVisible(true);
-          setIsRound3TimerRunning(remaining > 0);
+          setIsRound3TimerVisible(!!round3AudioFinishedAt);
+          setIsRound3TimerRunning(remaining > 0 && !!round3AudioFinishedAt);
           const hasQuestion = dbRound3Index !== null && dbRound3QuestionId !== null;
           const withinGrace = elapsed <= ROUND3_INPUT_SECONDS + 5;
           if (hasQuestion && remaining <= 0 && withinGrace && dbRound3Phase !== 'vote' && dbRound3Phase !== 'reveal') {
