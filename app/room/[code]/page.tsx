@@ -1575,11 +1575,11 @@ export default function RoomPage() {
                 Раунд 3 · «МозгоШтурм»
               </span>
               <h2 className="text-3xl font-black leading-tight">
-                {isRound3WaitingForStart ? 'Внимание на экран!' : 'Введите слово с пропуском'}
+                {isRound3WaitingForStart ? 'Слушаем внимательно' : 'Введите слово с пропуском'}
               </h2>
               <p className="text-sm text-[#142a45]/80">
                 {isRound3WaitingForStart
-                  ? 'Слушайте вопрос и музыку. Таймер запустится автоматически.'
+                  ? 'Ведущий озвучивает вопрос. Слушайте внимательно — скоро появится таймер для ввода слова.'
                   : 'Ведущий озвучил факт с пропущенным словом. Напишите свою версию без пробелов, дефисов и знаков препинания — одно слово целиком.'}
               </p>
             </div>
@@ -1596,8 +1596,8 @@ export default function RoomPage() {
               {isRound3WaitingForStart ? (
                 <>
                   <div className="flex items-center justify-center gap-2 py-4">
-                    <span className="text-4xl animate-pulse">🎤</span>
-                    <span className="text-lg font-black text-[#1f6ac6]">Озвучка...</span>
+                    <span className="text-4xl animate-pulse">🎧</span>
+                    <span className="text-lg font-black text-[#1f6ac6]">Слушаем внимательно</span>
                   </div>
                   <p className="text-[11px] text-[#142a45]/60 text-center">
                     Внимательно слушайте факт. После окончания озвучки у вас будет 30 секунд на ввод ответа.
