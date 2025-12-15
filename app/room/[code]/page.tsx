@@ -815,9 +815,6 @@ export default function RoomPage() {
           if (!mounted) {
             return;
           }
-          if (roomStatusRef.current !== 'round3-running') {
-            return;
-          }
 
           const currentIndex = round3QuestionIndexRef.current;
           if (currentIndex === null) {
