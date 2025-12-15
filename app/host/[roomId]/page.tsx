@@ -334,6 +334,7 @@ export default function HostRoomPage() {
   const round3CommentAudioRef = useRef<HTMLAudioElement | null>(null);
   const round3CommentBgAudioRef = useRef<HTMLAudioElement | null>(null);
   const round3RevealInProgressRef = useRef(false);
+  const round3QuestionTransitioningRef = useRef(false);
   const round3TimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const round3AnswersRef = useRef<Round3AnswerRow[]>([]);
   const round2AnswersRef = useRef<Round2AnswerRow[]>([]);
@@ -1239,8 +1240,14 @@ export default function HostRoomPage() {
 
   const moveToRound3Question = useCallback(
     async (targetIndex: number) => {
+      if (round3QuestionTransitioningRef.current) {
+        console.log('Round 3: transition already in progress, skipping move');
+        return;
+      }
+      round3QuestionTransitioningRef.current = true;
       const questions = round3QuestionsRef.current;
       if (!questions.length) {
+        round3QuestionTransitioningRef.current = false;
         return;
       }
       round3RevealInProgressRef.current = false;
@@ -1260,6 +1267,7 @@ export default function HostRoomPage() {
           await persistFn(null);
         }
         playRoundEndAudio(3);
+        round3QuestionTransitioningRef.current = false;
         return;
       }
       stopRound3CommentAudio();
@@ -1296,6 +1304,7 @@ export default function HostRoomPage() {
         });
       }
       beginRound3Question(questions[targetIndex]);
+      round3QuestionTransitioningRef.current = false;
     },
     [
       beginRound3Question,
