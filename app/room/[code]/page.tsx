@@ -171,6 +171,7 @@ export default function RoomPage() {
   const previousRound3QuestionIndexRef = useRef<number | null>(null);
   const round3AnswersCacheRef = useRef<Round3AnswerRow[]>([]);
   const loadRoomDataRef = useRef<() => Promise<void>>(async () => {});
+  const round3TimerAudioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     round3QuestionIndexRef.current = round3QuestionIndex;
@@ -202,6 +203,31 @@ export default function RoomPage() {
   useEffect(() => {
     round3QuestionIndexRef.current = round3QuestionIndex;
   }, [round3QuestionIndex]);
+
+  // Воспроизведение фоновой музыки таймера Round 3
+  useEffect(() => {
+    if (isRound3TimerVisible && hasUserInteractedRef.current) {
+      const timerAudio = new Audio('/audio/30_sec.mp3');
+      timerAudio.loop = false; // файл 30 сек
+      timerAudio.volume = 0.5;
+      timerAudio.onended = () => {
+        round3TimerAudioRef.current = null;
+      };
+      timerAudio.onerror = () => {
+        round3TimerAudioRef.current = null;
+      };
+      round3TimerAudioRef.current = timerAudio;
+      timerAudio.play().catch((error) => {
+        console.error('Не удалось воспроизвести таймер музыку на игроке', error);
+        round3TimerAudioRef.current = null;
+      });
+    } else {
+      if (round3TimerAudioRef.current) {
+        round3TimerAudioRef.current.pause();
+        round3TimerAudioRef.current = null;
+      }
+    }
+  }, [isRound3TimerVisible]);
 
   useEffect(() => {
     console.log('[Round3State] round3Answers updated', round3Answers.length, round3Answers);
@@ -982,6 +1008,10 @@ export default function RoomPage() {
     const tick = () => {
       const remaining = getRound3InputRemainingSeconds(round3QuestionStartedAt, timeOffsetMs);
       setRound3InputTimeLeft(remaining);
+      if (remaining <= 0 && round3TimerAudioRef.current) {
+        round3TimerAudioRef.current.pause();
+        round3TimerAudioRef.current = null;
+      }
     };
 
     tick();

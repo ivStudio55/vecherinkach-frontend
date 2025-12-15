@@ -880,7 +880,7 @@ export default function HostRoomPage() {
     });
 
     // Таймер audio (30_sec.mp3, но ограничен 15 сек)
-    const timerAudio = new Audio(buildAudioUrl(ROUND3_TIMER_AUDIO_FILE));
+    const timerAudio = new Audio('/audio/' + ROUND3_TIMER_AUDIO_FILE);
     timerAudio.volume = 0.5;
     round3VoteTimerAudioRef.current = timerAudio;
     timerAudio.play().catch((err) => {
@@ -936,7 +936,7 @@ export default function HostRoomPage() {
       // Таймер аудио используем только для стадии ввода (30 сек),
       // на голосовании (15 сек) воспроизводится отдельное vote audio
       if (duration >= ROUND3_INPUT_SECONDS) {
-        const timerAudio = new Audio(buildAudioUrl(ROUND3_TIMER_AUDIO_FILE));
+        const timerAudio = new Audio('/audio/' + ROUND3_TIMER_AUDIO_FILE);
         timerAudio.loop = false;
         timerAudio.volume = 0.95;
         timerAudio.onended = () => {
