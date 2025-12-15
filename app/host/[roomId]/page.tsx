@@ -2098,6 +2098,7 @@ export default function HostRoomPage() {
         const dbRound3StartedAt = (room.round3_question_started_at as string | null) ?? null;
         const dbRound3VoteStartedAt = (room.round3_vote_started_at as string | null) ?? null;
         const dbRound3Phase = (room.round3_phase as 'input' | 'vote' | 'reveal' | null) ?? null;
+        const round3AudioFinishedAt = (room.round3_audio_finished_at as string | null) ?? null;
 
       if (detectedStatus === 'running') {
         setRound3CurrentQuestionId(null);
