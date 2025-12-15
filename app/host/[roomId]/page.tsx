@@ -792,7 +792,7 @@ export default function HostRoomPage() {
       }
 
       // Фоновая музыка (round2/jingle (5).mp3 по аналогии с explanation)
-      const bgAudio = new Audio(buildAudioUrl(ROUND2_EXPLANATION_BG_FILE));
+      const bgAudio = new Audio('/audio/' + ROUND2_EXPLANATION_BG_FILE);
       bgAudio.loop = true;
       bgAudio.volume = 0.35;
       round3CommentBgAudioRef.current = bgAudio;
@@ -802,7 +802,7 @@ export default function HostRoomPage() {
 
       // Голосовой комментарий
       const audioPath = `${ROUND3_COMMENTS_AUDIO_DIR}/${questionId}.mp3`;
-      const audio = new Audio(buildAudioUrl(audioPath));
+      const audio = new Audio('/audio/round3/comments/' + questionId + '.mp3');
       audio.volume = 0.95;
       audio.onended = () => {
         round3CommentAudioRef.current = null;
@@ -995,11 +995,10 @@ export default function HostRoomPage() {
     }
 
     // Аудио: Комментарий + Фон (explanation)
-    const commentFile = `round3/comments/${(round3CurrentIndexRef.current || 0) + 1}.mp3`;
-    const commentVoice = new Audio(buildAudioUrl(commentFile));
+    const commentVoice = new Audio('/audio/round3/comments/' + ((round3CurrentIndexRef.current || 0) + 1) + '.mp3');
     round3CommentAudioRef.current = commentVoice;
 
-    const commentBg = new Audio(buildAudioUrl(ROUND2_EXPLANATION_BG_FILE));
+    const commentBg = new Audio('/audio/' + ROUND2_EXPLANATION_BG_FILE);
     round3CommentBgAudioRef.current = commentBg;
     commentBg.volume = 0.3; // Чуть тише, чтобы слышно голос
 
@@ -1130,9 +1129,8 @@ export default function HostRoomPage() {
         });
       };
 
-      // Используем прямой путь к файлу, минуя API, чтобы избежать проблем с кодировкой
       // Файл лежит в public/audio/round2/jingle (5).mp3
-      const bedUrl = buildAudioUrl(ROUND3_VOICE_BG_FILE);
+      const bedUrl = '/audio/' + ROUND3_VOICE_BG_FILE;
       const bed = new Audio(bedUrl);
       
       // Loop=true чтобы музыка не кончилась раньше голоса.
@@ -1153,7 +1151,7 @@ export default function HostRoomPage() {
         transitionToTimer();
       });
 
-      const audio = new Audio(buildAudioUrl(question.audioFile));
+      const audio = new Audio('/audio/round3/questions3/' + question.audioFile);
       audio.volume = 0.95;
       
       audio.onended = () => {
@@ -1721,13 +1719,13 @@ export default function HostRoomPage() {
       }
       stopRound2Audio();
 
-      const bg = new Audio(buildAudioUrl(ROUND2_EXPLANATION_BG_FILE));
+      const bg = new Audio('/audio/' + ROUND2_EXPLANATION_BG_FILE);
       bg.volume = 0.3;
       bg.loop = true;
       round2ExplanationBgAudioRef.current = bg;
 
       const ordinal = index + 1;
-      const voice = new Audio(buildAudioUrl(`round2/explanation/${ordinal}.mp3`));
+      const voice = new Audio('/audio/round2/explanation/' + ordinal + '.mp3');
       console.log('Loading round2 explanation audio:', `round2/explanation/${ordinal}.mp3`);
       voice.volume = 0.95;
 
@@ -1769,13 +1767,13 @@ export default function HostRoomPage() {
       }
       stopRound2Audio();
 
-      const bg = new Audio(buildAudioUrl(ROUND2_EXPLANATION_BG_FILE));
+      const bg = new Audio('/audio/' + ROUND2_EXPLANATION_BG_FILE);
       bg.volume = 0.3;
       bg.loop = true;
       round2ExplanationBgAudioRef.current = bg;
 
       const ordinal = index + 1;
-      const voice = new Audio(buildAudioUrl(`round2/fictionExplanation/${ordinal}.mp3`));
+      const voice = new Audio('/audio/round2/fictionExplanation/' + ordinal + '.mp3');
       console.log('Loading round2 fiction explanation audio:', `round2/fictionExplanation/${ordinal}.mp3`);
       voice.volume = 0.95;
 
