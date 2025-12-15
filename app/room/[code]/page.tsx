@@ -14,7 +14,7 @@ import { getRound3QuestionById, type Round3Question } from '@/lib/round3';
 
 const QUESTION_DURATION_SECONDS = 30;
 const ROUND3_VOTE_SECONDS = 15;
-const ROUND3_DISABLED = true; // Раунд 3 временно отключён, оставляем только правила на стороне ведущего
+const ROUND3_DISABLED = false; // Раунд 3 включён
 const APP_VERSION = '1.0.4'; // Инкрементируйте при важных изменениях
 
 type Round3AnswerRow = {
