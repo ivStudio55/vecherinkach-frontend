@@ -1384,8 +1384,8 @@ export default function RoomPage() {
   const round2ChoiceLabel = round2AnsweredChoice === null ? '' : round2AnsweredChoice ? 'Правда' : 'Вымысел';
   const round3QuestionNumber = round3QuestionIndex !== null ? round3QuestionIndex + 1 : null;
   const round3CategoryLabel = round3QuestionMeta?.category ?? null;
-  // Таймер ещё не стартовал (ведущий ещё не дал старт через round3_question_started_at)
-  const isRound3WaitingForStart = roomStatus === 'round3-running' && !round3QuestionStartedAt;
+  // Ждём старта вопроса или окончания озвучки
+  const isRound3WaitingForStart = roomStatus === 'round3-running' && (!round3QuestionStartedAt || !round3AudioFinishedAt);
   const isRound3TimerVisible = !!round3AudioFinishedAt;
   const round3InputProgress = Math.max(0, Math.min(100, (round3InputTimeLeft / QUESTION_DURATION_SECONDS) * 100));
   const isRound3InputClosed = round3InputTimeLeft <= 0 && !isRound3WaitingForStart;
