@@ -965,30 +965,36 @@ export default function HostRoomPage() {
     round3CommentBgAudioRef.current = commentBg;
     commentBg.volume = 0.3; // Чуть тише, чтобы слышно голос
 
-    commentVoice.play().catch(e => console.error("Comment voice error:", e));
-    commentBg.play().catch(e => console.error("Comment bg error:", e));
-
-    // Когда комментарий закончился -> останавливаем фон и переходим к следующему вопросу
-    commentVoice.onended = () => {
-        console.log('Round 3: Comment finished, moving to next question');
-        commentBg.pause();
-        commentBg.currentTime = 0; // Сбрасываем позицию
-        // Автоматический переход к следующему факту
-        const nextIndex = round3CurrentIndexRef.current + 1;
-        console.log('Moving from index', round3CurrentIndexRef.current, 'to', nextIndex);
-        moveToRound3QuestionRef.current?.(nextIndex).catch(err => {
-          console.error('Error moving to next question:', err);
-        });
-    };
-    
-    commentVoice.onerror = (e) => {
-      console.error('Comment voice error:', e);
-      // Fallback: if voice fails, transition anyway
+    let advanced = false;
+    const advanceToNext = () => {
+      if (advanced) return;
+      advanced = true;
+      commentBg.pause();
+      commentBg.currentTime = 0;
       const nextIndex = round3CurrentIndexRef.current + 1;
-      moveToRound3QuestionRef.current?.(nextIndex).catch(err => {
-        console.error('Error moving to next question (fallback):', err);
+      console.log('Round 3: moving from', round3CurrentIndexRef.current, 'to', nextIndex);
+      moveToRound3QuestionRef.current?.(nextIndex).catch((err) => {
+        console.error('Error moving to next question:', err);
       });
     };
+
+    commentVoice.onended = advanceToNext;
+    commentVoice.onerror = (e) => {
+      console.error('Comment voice error:', e);
+      advanceToNext();
+    };
+
+    commentBg.onerror = (e) => {
+      console.error('Comment bg error:', e);
+    };
+
+    commentVoice.play().catch((e) => {
+      console.error('Comment voice error (play):', e);
+      advanceToNext();
+    });
+    commentBg.play().catch((e) => {
+      console.error('Comment bg error (play):', e);
+    });
   }, [clearRound3Timer, roomId, stopAllRound3Audio]);
 
   const startRound3Voting = useCallback(async () => {
