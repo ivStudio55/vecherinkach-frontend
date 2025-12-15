@@ -236,7 +236,9 @@ export default function RoomPage() {
   );
 
   const loadRound3Answers = useCallback(async (questionIndex: number | null) => {
+    console.log('[Round3] loadRound3Answers called', { roomId: roomIdRef.current, questionIndex });
     if (!roomIdRef.current || questionIndex === null) {
+      console.log('[Round3] Skipping load - missing roomId or questionIndex');
       setRound3Answers([]);
       setRound3SubmittedAnswer(null);
       return;
@@ -250,11 +252,12 @@ export default function RoomPage() {
       .order('submitted_at', { ascending: true });
 
     if (error) {
-      console.error('Не удалось загрузить ответы Раунда 3', error);
+      console.error('[Round3] Не удалось загрузить ответы Раунда 3', error);
       return;
     }
 
     const rows = data || [];
+    console.log('[Round3] Loaded answers:', rows.length, rows);
     setRound3Answers(rows);
     const currentPlayerId = playerIdRef.current;
     if (currentPlayerId) {
@@ -880,8 +883,28 @@ export default function RoomPage() {
     if (round3QuestionIndex === null) {
       return;
     }
-    // Загружаем ответы для голосования
+    // Загружаем ответы для голосования сразу
     loadRound3Answers(round3QuestionIndex);
+  }, [roomStatus, round3QuestionIndex, loadRound3Answers]);
+
+  // Polling для round3-voting: принудительно обновляем ответы каждые 2 секунды
+  useEffect(() => {
+    if (roomStatus !== 'round3-voting') {
+      return;
+    }
+    if (round3QuestionIndex === null) {
+      return;
+    }
+
+    // Первоначальная загрузка
+    loadRound3Answers(round3QuestionIndex);
+
+    // Polling каждые 2 секунды для гарантии получения ответов
+    const pollInterval = setInterval(() => {
+      loadRound3Answers(round3QuestionIndex);
+    }, 2000);
+
+    return () => clearInterval(pollInterval);
   }, [roomStatus, round3QuestionIndex, loadRound3Answers]);
 
   useEffect(() => {
