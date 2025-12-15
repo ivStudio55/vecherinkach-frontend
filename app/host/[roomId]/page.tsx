@@ -971,10 +971,9 @@ export default function HostRoomPage() {
     // Когда комментарий закончился -> останавливаем фон и переходим к следующему вопросу
     commentVoice.onended = () => {
         commentBg.pause();
+        commentBg.currentTime = 0; // Сбрасываем позицию
         // Автоматический переход к следующему факту
-        setTimeout(() => {
-             void moveToRound3QuestionRef.current?.(round3CurrentIndexRef.current + 1);
-        }, 1000); // Небольшая пауза перед переходом
+        void moveToRound3QuestionRef.current?.(round3CurrentIndexRef.current + 1);
     };
   }, [clearRound3Timer, roomId, stopAllRound3Audio]);
 
