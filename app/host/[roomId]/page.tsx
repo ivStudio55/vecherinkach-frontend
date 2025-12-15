@@ -129,6 +129,7 @@ const ROUND3_RULES_TEXT = [
   'Время на ввод — 30 секунд, на голосование — 15 секунд. Синонимы может засчитать ведущий.',
   'Готовы угадывать и голосовать? Давайте устроим настоящий мозговой штурм!',
 ];
+const ROUND3_DISABLED = true; // временно отключаем механику Раунда 3, оставляя только правила
 const ROUND3_MIN_PLAYERS = 3;
 const ROUND3_INPUT_SECONDS = 30;
 const ROUND3_VOTE_SECONDS = 15;
@@ -945,6 +946,9 @@ export default function HostRoomPage() {
   );
 
   const startRound3Reveal = useCallback(async () => {
+    if (ROUND3_DISABLED) {
+      return;
+    }
     if (round3RevealInProgressRef.current) {
       console.log('Round 3 reveal already in progress, skipping duplicate trigger');
       return;
@@ -1012,6 +1016,9 @@ export default function HostRoomPage() {
   }, [clearRound3Timer, roomId, stopAllRound3Audio]);
 
   const startRound3Voting = useCallback(async () => {
+    if (ROUND3_DISABLED) {
+      return;
+    }
     // if (round3Phase !== 'input') return; // Убираем проверку, чтобы можно было форсировать
     if (round3CurrentIndex == null) return;
     const questionId = round3ActiveQuestion?.id;
@@ -1181,6 +1188,9 @@ export default function HostRoomPage() {
 
   const beginRound3Question = useCallback(
     (question: Round3Question) => {
+      if (ROUND3_DISABLED) {
+        return;
+      }
       if (!question) {
         return;
       }
@@ -3475,22 +3485,24 @@ export default function HostRoomPage() {
   }, [handleRound2NextQuestion]);
 
   const handleRound3Button = useCallback(() => {
+    // Раунд 3 временно отключён: показываем только правила
     if (players.length < ROUND3_MIN_PLAYERS) {
-      setRound3Notice('К сожалению, если вас меньше трёх, игра считается разминочной — доступны только первые два раунда.');
+      setRound3Notice('Раунд 3 временно отключён. Пока только правила (нужно минимум 3 игрока).');
       playRound3TooFewAudio();
       return;
     }
-    setRound3Notice('');
+    setRound3Notice('Раунд 3 временно отключён. Доступно только прослушивание правил.');
     stopRound3TooFewAudio();
-    if (!round3QuestionsRef.current.length) {
-      prepareRound3QuestionSet();
-    }
     setIsRound3RulesAudioFinished(false);
     setIsRound3RulesVisible(true);
-  }, [players.length, playRound3TooFewAudio, prepareRound3QuestionSet, stopRound3TooFewAudio]);
+  }, [players.length, playRound3TooFewAudio, stopRound3TooFewAudio]);
 
   // Реальный запуск раунда 3 (вызывается после countdown)
   const performRound3Start = useCallback(async () => {
+    if (ROUND3_DISABLED) {
+      setRound3Notice('Раунд 3 временно отключён. Доступно только прослушивание правил.');
+      return;
+    }
     const preparedQuestions = round3QuestionsRef.current.length
       ? round3QuestionsRef.current
       : prepareRound3QuestionSet();
@@ -3518,6 +3530,12 @@ export default function HostRoomPage() {
   ]);
 
   const handleRound3Start = useCallback(() => {
+    if (ROUND3_DISABLED) {
+      setRound3Notice('Раунд 3 временно отключён. После правил игра продолжится с результатами.');
+      stopRound3RulesAudio();
+      setIsRound3RulesVisible(false);
+      return;
+    }
     hasUserInteractedRef.current = true;
     const preparedQuestions = round3QuestionsRef.current.length
       ? round3QuestionsRef.current

@@ -14,6 +14,7 @@ import { getRound3QuestionById, type Round3Question } from '@/lib/round3';
 
 const QUESTION_DURATION_SECONDS = 30;
 const ROUND3_VOTE_SECONDS = 15;
+const ROUND3_DISABLED = true; // Раунд 3 временно отключён, оставляем только правила на стороне ведущего
 const APP_VERSION = '1.0.4'; // Инкрементируйте при важных изменениях
 
 type Round3AnswerRow = {
@@ -1386,6 +1387,24 @@ export default function RoomPage() {
 
   const isResultsStatus =
     roomStatus === 'waiting' || roomStatus === 'round2-ready' || roomStatus === 'round3-ready' || roomStatus === 'finished';
+
+  if (ROUND3_DISABLED && (roomStatus === 'round3-running' || roomStatus === 'round3-voting' || roomStatus === 'round3-reveal')) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#fef4dc] text-[#142a45] px-4">
+        <div className="rounded-3xl border-[4px] border-[#142a45] bg-white px-6 py-6 text-center space-y-3 max-w-lg w-full">
+          <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Раунд 3</p>
+          <h2 className="text-2xl font-black">Временно отключён</h2>
+          <p className="text-sm text-[#142a45]/75">Ведущий пока показывает только правила. Ждите объявления результатов.</p>
+          <button
+            onClick={() => router.push('/join')}
+            className="w-full py-3 rounded-2xl border-[3px] border-[#142a45] bg-[#ffe184] font-black"
+          >
+            Вернуться на экран подключения
+          </button>
+        </div>
+      </div>
+    );
+  }
   const shouldShowResultsScreen = showResults && isResultsStatus;
 
   if (shouldShowResultsScreen) {
