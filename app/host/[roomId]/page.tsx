@@ -129,6 +129,7 @@ const ROUND3_RULES_TEXT = [
   'Время на ввод — 30 секунд, на голосование — 15 секунд. Синонимы может засчитать ведущий.',
   'Готовы угадывать и голосовать? Давайте устроим настоящий мозговой штурм!',
 ];
+const ROUND3_SKIP_AUDIO_FILES = ['skip/skip.mp3', 'skip/skip2.mp3', 'skip/skip4.mp3', 'skip/skip5.mp3', 'skip/skip6.mp3', 'skip/skip7.mp3', 'skip/skip8.mp3'] as const;
 const ROUND3_DISABLED = true; // временно отключаем механику Раунда 3, оставляя только правила
 const ROUND3_MIN_PLAYERS = 3;
 const ROUND3_INPUT_SECONDS = 30;
@@ -325,6 +326,7 @@ export default function HostRoomPage() {
   const round2RulesMusicAudioRef = useRef<HTMLAudioElement | null>(null);
   const round2RulesVoiceAudioRef = useRef<HTMLAudioElement | null>(null);
   const round3RulesAudioRef = useRef<HTMLAudioElement | null>(null);
+  const round3SkipAudioRef = useRef<HTMLAudioElement | null>(null);
   const round3TooFewAudioRef = useRef<HTMLAudioElement | null>(null);
   const round3TransitionAudioRef = useRef<HTMLAudioElement | null>(null);
   const round3QuestionAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -624,6 +626,14 @@ export default function HostRoomPage() {
     }
   }, []);
 
+  const stopRound3SkipAudio = useCallback(() => {
+    if (round3SkipAudioRef.current) {
+      round3SkipAudioRef.current.pause();
+      round3SkipAudioRef.current.currentTime = 0;
+      round3SkipAudioRef.current = null;
+    }
+  }, []);
+
   const playRound3RulesAudio = useCallback(() => {
     if (!hasUserInteractedRef.current) {
       return;
@@ -658,6 +668,23 @@ export default function HostRoomPage() {
       setIsRound3RulesAudioFinished(true);
     });
   }, [stopRound3RulesAudio]);
+
+  const playRound3SkipAudio = useCallback(() => {
+    if (!hasUserInteractedRef.current) {
+      return;
+    }
+    if (!ROUND3_SKIP_AUDIO_FILES.length) {
+      return;
+    }
+    stopRound3SkipAudio();
+    const file = pickRandomItem(ROUND3_SKIP_AUDIO_FILES);
+    const audio = new Audio(buildAudioUrl(file));
+    audio.volume = 0.95;
+    round3SkipAudioRef.current = audio;
+    audio.play().catch((error) => {
+      console.error('Не удалось проиграть skip аудио Раунда 3', error);
+    });
+  }, [stopRound3SkipAudio]);
 
   const stopRound3TooFewAudio = useCallback(() => {
     if (round3TooFewAudioRef.current) {
@@ -3544,12 +3571,11 @@ export default function HostRoomPage() {
       return;
     }
 
-    // Если правила ещё не закончились — проиграть skip
-    if (!isRound3RulesAudioFinished) {
-      playSkipAudio();
-    }
-
+    const shouldPlaySkip = !isRound3RulesAudioFinished;
     stopRound3RulesAudio();
+    if (shouldPlaySkip) {
+      playRound3SkipAudio();
+    }
     setIsRound3RulesVisible(false);
 
     // Запускаем countdown, после которого стартует раунд
@@ -3562,11 +3588,12 @@ export default function HostRoomPage() {
     clearCountdownTimeout,
     isRound3RulesAudioFinished,
     performRound3Start,
-    playSkipAudio,
+    playRound3SkipAudio,
     prepareRound3QuestionSet,
     runCountdownSequence,
     setCountdownContext,
     setIsCountdownVisible,
+    setIsRound3RulesVisible,
     stopRound3RulesAudio,
   ]);
 
