@@ -1114,14 +1114,6 @@ export default function HostRoomPage() {
   const playRound3QuestionAudio = useCallback(
     (question: Round3Question) => {
       stopAllRound3Audio(); // Сброс всего перед стартом
-      if (!hasUserInteractedRef.current) {
-        console.log('No user interaction for Round 3 question audio');
-        transitionToTimer();
-        return;
-      }
-      setRound3AudioState('playing');
-      setIsRound3TimerVisible(false);
-      setIsRound3TimerRunning(false);
 
       // Helper to transition to timer phase
       const transitionToTimer = () => {
@@ -1133,6 +1125,15 @@ export default function HostRoomPage() {
           void startRound3Voting();
         });
       };
+
+      if (!hasUserInteractedRef.current) {
+        console.log('No user interaction for Round 3 question audio');
+        transitionToTimer();
+        return;
+      }
+      setRound3AudioState('playing');
+      setIsRound3TimerVisible(false);
+      setIsRound3TimerRunning(false);
 
       // Файл лежит в public/audio/round2/jingle (5).mp3
       const bedUrl = '/audio/' + ROUND3_VOICE_BG_FILE;
