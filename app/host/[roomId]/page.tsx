@@ -333,6 +333,7 @@ export default function HostRoomPage() {
   const round3VoteTimerAudioRef = useRef<HTMLAudioElement | null>(null);
   const round3CommentAudioRef = useRef<HTMLAudioElement | null>(null);
   const round3CommentBgAudioRef = useRef<HTMLAudioElement | null>(null);
+  const round3RevealInProgressRef = useRef(false);
   const round3TimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const round3AnswersRef = useRef<Round3AnswerRow[]>([]);
   const round2AnswersRef = useRef<Round2AnswerRow[]>([]);
@@ -943,6 +944,11 @@ export default function HostRoomPage() {
   );
 
   const startRound3Reveal = useCallback(async () => {
+    if (round3RevealInProgressRef.current) {
+      console.log('Round 3 reveal already in progress, skipping duplicate trigger');
+      return;
+    }
+    round3RevealInProgressRef.current = true;
     clearRound3Timer();
     stopAllRound3Audio();
     setRound3Phase('reveal');
@@ -1147,6 +1153,7 @@ export default function HostRoomPage() {
   const resetRound3Flow = useCallback(() => {
     clearRound3Timer();
     stopAllRound3Audio();
+    round3RevealInProgressRef.current = false;
     setRound3ActiveQuestion(null);
     setRound3CurrentQuestionId(null);
     setRound3CurrentIndex(0);
@@ -1236,6 +1243,7 @@ export default function HostRoomPage() {
       if (!questions.length) {
         return;
       }
+      round3RevealInProgressRef.current = false;
       if (targetIndex >= questions.length) {
         clearRound3Timer();
         stopRound3QuestionAudio();
