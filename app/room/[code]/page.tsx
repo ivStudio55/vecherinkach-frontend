@@ -872,8 +872,22 @@ export default function RoomPage() {
     loadRound3Answers(round3QuestionIndex);
   }, [roomStatus, round3QuestionIndex, round3QuestionStartedAt, loadRound3Answers, syncServerTime]);
 
+  // Загружаем ответы при переходе в round3-voting (голосование)
   useEffect(() => {
-    if (roomStatus === 'round3-running') {
+    if (roomStatus !== 'round3-voting') {
+      return;
+    }
+    if (round3QuestionIndex === null) {
+      return;
+    }
+    // Загружаем ответы для голосования
+    loadRound3Answers(round3QuestionIndex);
+  }, [roomStatus, round3QuestionIndex, loadRound3Answers]);
+
+  useEffect(() => {
+    // Сбрасываем состояние только когда выходим из раунда 3 полностью
+    const isRound3Active = roomStatus === 'round3-running' || roomStatus === 'round3-voting' || roomStatus === 'round3-reveal';
+    if (isRound3Active) {
       return;
     }
     setRound3Answers([]);
