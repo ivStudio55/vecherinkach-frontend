@@ -969,13 +969,20 @@ export default function HostRoomPage() {
     const advanceToNext = () => {
       if (advanced) return;
       advanced = true;
+
+      // Останавливаем озвучку ответа/комментария, затем с небольшой паузой запускаем следующий факт
+      commentVoice.pause();
+      commentVoice.currentTime = 0;
       commentBg.pause();
       commentBg.currentTime = 0;
+
       const nextIndex = round3CurrentIndexRef.current + 1;
       console.log('Round 3: moving from', round3CurrentIndexRef.current, 'to', nextIndex);
-      moveToRound3QuestionRef.current?.(nextIndex).catch((err) => {
-        console.error('Error moving to next question:', err);
-      });
+      setTimeout(() => {
+        moveToRound3QuestionRef.current?.(nextIndex).catch((err) => {
+          console.error('Error moving to next question:', err);
+        });
+      }, 800);
     };
 
     commentVoice.onended = advanceToNext;
