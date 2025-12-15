@@ -1666,7 +1666,6 @@ export default function RoomPage() {
               </div>
             </div>
 
-            {console.log('[Round3-Render] round3Answers state:', round3Answers.length, round3Answers)}
             <Round3AnswersList
               answers={round3Answers}
               playerId={playerId}
