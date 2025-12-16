@@ -1120,13 +1120,26 @@ export default function HostRoomPage() {
       stopAllRound3Audio(); // Сброс всего перед стартом
 
       // Helper to transition to timer phase
-      const transitionToTimer = () => {
+      const transitionToTimer = async () => {
         console.log('Round 3: Audio finished, starting 30s timer');
         stopRound3BedAudio();
         setRound3AudioState('finished');
         const finishedAt = new Date().toISOString();
         setRound3AudioFinishedAt(finishedAt);
-        void supabase.from('rooms').update({ round3_audio_finished_at: finishedAt }).eq('code', roomCode);
+
+        // Пишем в БД по roomId (code может быть пустым при гонках)
+        // + стараемся выставить старт таймера атомарно, чтобы у игроков не было "мигания".
+        const { iso: startedAt } = await getServerIsoTimestamp();
+        setRound3QuestionStartedAt(startedAt);
+        void supabase
+          .from('rooms')
+          .update({
+            status: 'round3-running',
+            round3_phase: 'input',
+            round3_audio_finished_at: finishedAt,
+            round3_question_started_at: startedAt,
+          })
+          .eq('id', roomId);
         startRound3Timer(ROUND3_INPUT_SECONDS, () => {
           void startRound3Voting();
         });
@@ -1134,7 +1147,7 @@ export default function HostRoomPage() {
 
       if (!hasUserInteractedRef.current) {
         console.log('No user interaction for Round 3 question audio');
-        transitionToTimer();
+        void transitionToTimer();
         return;
       }
       setRound3AudioState('playing');
@@ -1170,14 +1183,14 @@ export default function HostRoomPage() {
         console.log('Round 3 question audio ended');
         round3QuestionAudioRef.current = null;
         // Голос закончился -> останавливаем музыку -> запускаем таймер
-        transitionToTimer();
+        void transitionToTimer();
       };
       
       audio.onerror = () => {
         console.error('Ошибка воспроизведения вопроса');
         round3QuestionAudioRef.current = null;
         // Fallback
-        transitionToTimer();
+        void transitionToTimer();
       };
       
       round3QuestionAudioRef.current = audio;
@@ -2151,10 +2164,15 @@ export default function HostRoomPage() {
         const dbRound3StartedAt = (room.round3_question_started_at as string | null) ?? null;
         const dbRound3VoteStartedAt = (room.round3_vote_started_at as string | null) ?? null;
         const dbRound3Phase = (room.round3_phase as 'input' | 'vote' | 'reveal' | null) ?? null;
-        const initialRound3QuestionStartedAt = (room.round3_question_started_at as string | null) ?? null;
-        const initialRound3AudioFinishedAt = (room.round3_audio_finished_at as string | null) ?? null;
-        setRound3QuestionStartedAt(initialRound3QuestionStartedAt);
-        setRound3AudioFinishedAt(initialRound3AudioFinishedAt);
+        const dbRound3AudioFinishedAt = (room.round3_audio_finished_at as string | null) ?? null;
+
+        // Важно: realtime update может прийти раньше, чем UPDATE в БД заполнит timestamps.
+        // Чтобы таймер не "мигал", не перезатираем локальные не-null значения null'ом
+        // для текущего вопроса.
+        const currentIndex = round3CurrentIndexRef.current;
+        const isSameQuestion = typeof dbRound3Index === 'number' && dbRound3Index === currentIndex;
+        setRound3QuestionStartedAt((prev) => (isSameQuestion && prev && !dbRound3StartedAt ? prev : dbRound3StartedAt));
+        setRound3AudioFinishedAt((prev) => (isSameQuestion && prev && !dbRound3AudioFinishedAt ? prev : dbRound3AudioFinishedAt));
 
       if (detectedStatus === 'running') {
         setRound3CurrentQuestionId(null);
@@ -2214,7 +2232,7 @@ export default function HostRoomPage() {
           const elapsed = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
           const remaining = Math.max(0, ROUND3_INPUT_SECONDS - elapsed);
           setRound3TimeLeft(remaining);
-          if (!!initialRound3AudioFinishedAt) {
+          if (!!dbRound3AudioFinishedAt) {
             setIsRound3TimerVisible(true);
             const shouldRun = remaining > 0;
             setIsRound3TimerRunning(shouldRun);
