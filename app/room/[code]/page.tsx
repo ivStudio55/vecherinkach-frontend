@@ -1004,20 +1004,18 @@ export default function RoomPage() {
   useEffect(() => {
     if (roomStatus !== 'round3-running') {
       setIsRound3TimerVisible(false);
-      return;
-    }
-    if (round3AudioFinishedAt && round3QuestionStartedAt) {
-      setIsRound3TimerVisible(true);
-    } else {
-      setIsRound3TimerVisible(false);
-    }
-  }, [roomStatus, round3AudioFinishedAt, round3QuestionStartedAt]);
-
-  useEffect(() => {
-    if (roomStatus !== 'round3-running' || !round3QuestionStartedAt) {
       setRound3InputTimeLeft(QUESTION_DURATION_SECONDS);
       return;
     }
+    
+    // Таймер показываем только после окончания озвучки
+    if (!round3AudioFinishedAt || !round3QuestionStartedAt) {
+      setIsRound3TimerVisible(false);
+      setRound3InputTimeLeft(QUESTION_DURATION_SECONDS);
+      return;
+    }
+
+    setIsRound3TimerVisible(true);
 
     const tick = () => {
       const remaining = getRound3InputRemainingSeconds(round3QuestionStartedAt, timeOffsetMs);
@@ -1031,7 +1029,7 @@ export default function RoomPage() {
     tick();
     const interval = setInterval(tick, 300);
     return () => clearInterval(interval);
-  }, [roomStatus, round3QuestionStartedAt, timeOffsetMs]);
+  }, [roomStatus, round3QuestionStartedAt, round3AudioFinishedAt, timeOffsetMs]);
 
   useEffect(() => {
     if (roomStatus !== 'round3-voting' || !round3VoteStartedAt) {

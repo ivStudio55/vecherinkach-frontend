@@ -1483,11 +1483,10 @@ export default function HostRoomPage() {
     if (!round3ActiveQuestion) return;
     if (round3QuestionAudioRef.current) return;
     if (round3AudioState !== 'idle') return;
-    if (isRound3TimerVisible || isRound3TimerRunning) return;
+    // Проверяем ref напрямую, чтобы избежать циклических зависимостей
+    if (round3TimerRef.current) return;
     playRound3QuestionAudio(round3ActiveQuestion);
   }, [
-    isRound3TimerRunning,
-    isRound3TimerVisible,
     playRound3QuestionAudio,
     roomStatus,
     round3ActiveQuestion,
@@ -1507,6 +1506,54 @@ export default function HostRoomPage() {
       setRound3Notice('');
     }
   }, [roomStatus, round3Notice]);
+
+  // Синхронизация таймера Раунда 3 на основе timestamps
+  useEffect(() => {
+    if (roomStatus !== 'round3-running') {
+      setIsRound3TimerVisible(false);
+      setIsRound3TimerRunning(false);
+      return;
+    }
+    if (round3Phase !== 'input') {
+      return;
+    }
+    
+    // Таймер показываем только после окончания озвучки
+    if (!round3AudioFinishedAt || !round3QuestionStartedAt) {
+      setIsRound3TimerVisible(false);
+      setIsRound3TimerRunning(false);
+      return;
+    }
+
+    // Вычисляем оставшееся время
+    const startMs = new Date(round3QuestionStartedAt).getTime();
+    const elapsed = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
+    const remaining = Math.max(0, ROUND3_INPUT_SECONDS - elapsed);
+    
+    setRound3TimeLeft(remaining);
+    setIsRound3TimerVisible(true);
+    
+    if (remaining > 0) {
+      setIsRound3TimerRunning(true);
+      
+      // Запускаем интервал только если его еще нет
+      if (!round3TimerRef.current) {
+        round3TimerRef.current = setInterval(() => {
+          setRound3TimeLeft((prev) => {
+            const newRemaining = prev - 1;
+            if (newRemaining <= 0) {
+              clearRound3Timer();
+              void startRound3Voting();
+              return 0;
+            }
+            return newRemaining;
+          });
+        }, 1000);
+      }
+    } else {
+      setIsRound3TimerRunning(false);
+    }
+  }, [roomStatus, round3Phase, round3QuestionStartedAt, round3AudioFinishedAt, clearRound3Timer, startRound3Voting]);
 
   const round3LastPlayedCommentIdRef = useRef<number | null>(null);
 
