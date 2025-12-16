@@ -158,9 +158,7 @@ export default function RoomPage() {
   const [round3Phase, setRound3Phase] = useState<'input' | 'vote' | 'reveal' | null>(null);
   const [round3QuestionStartedAt, setRound3QuestionStartedAt] = useState<string | null>(null);
   const [round3AudioFinishedAt, setRound3AudioFinishedAt] = useState<string | null>(null);
-  // Для защиты от race condition
-  const round3QuestionIndexRef = useRef<number | null>(null);
-  useEffect(() => { round3QuestionIndexRef.current = round3QuestionIndex; }, [round3QuestionIndex]);
+
 
   // Защита от сброса таймера: если пришёл null для текущего вопроса, не затираем локальное значение
   const safeSetRound3QuestionStartedAt = useCallback((val: string | null, idx: number | null) => {
