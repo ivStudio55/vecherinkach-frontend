@@ -341,7 +341,11 @@ export default function HostRoomPage() {
   const round3RevealInProgressRef = useRef(false);
   const round3QuestionTransitioningRef = useRef(false);
   const round3TimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const round3LastQuestionStartedAtSetRef = useRef<number | null>(null);
+  const round3LastAudioFinishedAtSetRef = useRef<number | null>(null);
   const round3AnswersRef = useRef<Round3AnswerRow[]>([]);
+  const round3QuestionStartedAtRef = useRef<string | null>(null);
+  const round3AudioFinishedAtRef = useRef<string | null>(null);
   const round2AnswersRef = useRef<Round2AnswerRow[]>([]);
   const round2StatsRef = useRef<Map<string, Round2PlayerStats>>(new Map());
   const round2CorrectTotalRef = useRef(0);
@@ -912,6 +916,7 @@ export default function HostRoomPage() {
     if (!roomId) return null;
     const { iso } = await getServerIsoTimestamp();
     setRound3QuestionStartedAt(iso);
+    round3LastQuestionStartedAtSetRef.current = Date.now();
     const { error } = await supabase
       .from('rooms')
       .update({ round3_question_started_at: iso })
@@ -934,8 +939,8 @@ export default function HostRoomPage() {
       setIsRound3TimerVisible(true);
       setRound3TimeLeft(duration);
 
-      // Обновляем timestamp в БД, чтобы игроки синхронизировались
-      void updateRound3TimerStartInDb();
+      // Timestamp is written to DB by the audio transition (atomic write).
+      // Avoid duplicate writes here to prevent races that can briefly clear local timestamps.
 
       // Таймер аудио используем только для стадии ввода (30 сек),
       // на голосовании (15 сек) воспроизводится отдельное vote audio
@@ -1126,11 +1131,13 @@ export default function HostRoomPage() {
         setRound3AudioState('finished');
         const finishedAt = new Date().toISOString();
         setRound3AudioFinishedAt(finishedAt);
+        round3LastAudioFinishedAtSetRef.current = Date.now();
 
         // Пишем в БД по roomId (code может быть пустым при гонках)
         // + стараемся выставить старт таймера атомарно, чтобы у игроков не было "мигания".
         const { iso: startedAt } = await getServerIsoTimestamp();
         setRound3QuestionStartedAt(startedAt);
+        round3LastQuestionStartedAtSetRef.current = Date.now();
         void supabase
           .from('rooms')
           .update({
@@ -2168,11 +2175,30 @@ export default function HostRoomPage() {
 
         // Важно: realtime update может прийти раньше, чем UPDATE в БД заполнит timestamps.
         // Чтобы таймер не "мигал", не перезатираем локальные не-null значения null'ом
-        // для текущего вопроса.
+        // для текущего вопроса. Кроме того, если локально мы только что выставили
+        // timestamp (в течение последних нескольких секунд), считаем локальное
+        // значение авторитетным и не перезаписываем его null'ом.
         const currentIndex = round3CurrentIndexRef.current;
         const isSameQuestion = typeof dbRound3Index === 'number' && dbRound3Index === currentIndex;
-        setRound3QuestionStartedAt((prev) => (isSameQuestion && prev && !dbRound3StartedAt ? prev : dbRound3StartedAt));
-        setRound3AudioFinishedAt((prev) => (isSameQuestion && prev && !dbRound3AudioFinishedAt ? prev : dbRound3AudioFinishedAt));
+        const now = Date.now();
+        const keepRecentQuestionStart = () => {
+          const t = round3LastQuestionStartedAtSetRef.current;
+          return typeof t === 'number' && now - t < 3000;
+        };
+        const keepRecentAudioFinished = () => {
+          const t = round3LastAudioFinishedAtSetRef.current;
+          return typeof t === 'number' && now - t < 3000;
+        };
+
+        setRound3QuestionStartedAt((prev) => {
+          if (prev && !dbRound3StartedAt && (isSameQuestion || keepRecentQuestionStart())) return prev;
+          return dbRound3StartedAt;
+        });
+
+        setRound3AudioFinishedAt((prev) => {
+          if (prev && !dbRound3AudioFinishedAt && (isSameQuestion || keepRecentAudioFinished())) return prev;
+          return dbRound3AudioFinishedAt;
+        });
 
       if (detectedStatus === 'running') {
         setRound3CurrentQuestionId(null);
@@ -2227,12 +2253,16 @@ export default function HostRoomPage() {
           setRound3ActiveQuestion(null);
           setRound3Answers([]);
         }
-        if (dbRound3StartedAt) {
-          const startMs = new Date(dbRound3StartedAt).getTime() - effectiveOffset;
+        // Use local values as fallback in case DB hasn't been updated yet
+        const effectiveStartedAt = dbRound3StartedAt ?? round3QuestionStartedAtRef.current;
+        const effectiveAudioFinishedAt = dbRound3AudioFinishedAt ?? round3AudioFinishedAtRef.current;
+
+        if (effectiveStartedAt) {
+          const startMs = new Date(effectiveStartedAt).getTime() - effectiveOffset;
           const elapsed = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
           const remaining = Math.max(0, ROUND3_INPUT_SECONDS - elapsed);
           setRound3TimeLeft(remaining);
-          if (!!dbRound3AudioFinishedAt) {
+          if (!!effectiveAudioFinishedAt) {
             setIsRound3TimerVisible(true);
             const shouldRun = remaining > 0;
             setIsRound3TimerRunning(shouldRun);
@@ -2405,6 +2435,14 @@ export default function HostRoomPage() {
   useEffect(() => {
     round2CurrentIndexRef.current = round2CurrentIndex;
   }, [round2CurrentIndex]);
+
+  useEffect(() => {
+    round3QuestionStartedAtRef.current = round3QuestionStartedAt;
+  }, [round3QuestionStartedAt]);
+
+  useEffect(() => {
+    round3AudioFinishedAtRef.current = round3AudioFinishedAt;
+  }, [round3AudioFinishedAt]);
 
   useEffect(() => {
     isLobbySoundOnRef.current = isLobbySoundOn;

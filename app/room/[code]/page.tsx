@@ -158,6 +158,31 @@ export default function RoomPage() {
   const [round3Phase, setRound3Phase] = useState<'input' | 'vote' | 'reveal' | null>(null);
   const [round3QuestionStartedAt, setRound3QuestionStartedAt] = useState<string | null>(null);
   const [round3AudioFinishedAt, setRound3AudioFinishedAt] = useState<string | null>(null);
+  // Для защиты от race condition
+  const round3QuestionIndexRef = useRef<number | null>(null);
+  useEffect(() => { round3QuestionIndexRef.current = round3QuestionIndex; }, [round3QuestionIndex]);
+
+  // Защита от сброса таймера: если пришёл null для текущего вопроса, не затираем локальное значение
+  const safeSetRound3QuestionStartedAt = useCallback((val: string | null, idx: number | null) => {
+    setRound3QuestionStartedAt(prev => {
+      const recentObserved = round3LastObservedQuestionStartedAtRef.current && Date.now() - round3LastObservedQuestionStartedAtRef.current < 3000;
+      if (idx !== null && round3QuestionIndexRef.current === idx && prev && !val && recentObserved) {
+        return prev;
+      }
+      if (val) round3LastObservedQuestionStartedAtRef.current = Date.now();
+      return val;
+    });
+  }, []);
+  const safeSetRound3AudioFinishedAt = useCallback((val: string | null, idx: number | null) => {
+    setRound3AudioFinishedAt(prev => {
+      const recentObserved = round3LastObservedAudioFinishedAtRef.current && Date.now() - round3LastObservedAudioFinishedAtRef.current < 3000;
+      if (idx !== null && round3QuestionIndexRef.current === idx && prev && !val && recentObserved) {
+        return prev;
+      }
+      if (val) round3LastObservedAudioFinishedAtRef.current = Date.now();
+      return val;
+    });
+  }, []);
   const [round3VoteStartedAt, setRound3VoteStartedAt] = useState<string | null>(null);
   const [round3VoteTimeLeft, setRound3VoteTimeLeft] = useState(15);
   const [round3InputTimeLeft, setRound3InputTimeLeft] = useState(QUESTION_DURATION_SECONDS);
@@ -169,6 +194,8 @@ export default function RoomPage() {
   const playerIdRef = useRef('');
   const roomStatusRef = useRef<RoomStatus>('waiting');
   const round3QuestionIndexRef = useRef<number | null>(null);
+  const round3LastObservedQuestionStartedAtRef = useRef<number | null>(null);
+  const round3LastObservedAudioFinishedAtRef = useRef<number | null>(null);
   const previousRound3QuestionIndexRef = useRef<number | null>(null);
   const round3AnswersCacheRef = useRef<Round3AnswerRow[]>([]);
   const loadRoomDataRef = useRef<() => Promise<void>>(async () => {});
@@ -468,7 +495,9 @@ export default function RoomPage() {
         setRound3QuestionId(initialRound3Id);
         setRound3Phase(initialRound3Phase);
         setRound3QuestionStartedAt(initialRound3QuestionStartedAt);
+        if (initialRound3QuestionStartedAt) round3LastObservedQuestionStartedAtRef.current = Date.now();
         setRound3AudioFinishedAt(initialRound3AudioFinishedAt);
+        if (initialRound3AudioFinishedAt) round3LastObservedAudioFinishedAtRef.current = Date.now();
         setRound3VoteStartedAt(initialRound3VoteStartedAt);
 
         if (effectiveDetectedStatus === 'waiting') {
@@ -693,8 +722,8 @@ export default function RoomPage() {
           setRound3QuestionIndex(nextRound3Index);
           setRound3QuestionId(nextRound3Id);
           setRound3Phase(nextRound3Phase);
-          setRound3QuestionStartedAt(nextRound3QuestionStartedAt);
-          setRound3AudioFinishedAt(nextRound3AudioFinishedAt);
+          safeSetRound3QuestionStartedAt(nextRound3QuestionStartedAt, nextRound3Index);
+          safeSetRound3AudioFinishedAt(nextRound3AudioFinishedAt, nextRound3Index);
           setRound3VoteStartedAt(nextRound3VoteStartedAt);
 
           if (effectiveStatus === 'waiting') {
@@ -912,11 +941,11 @@ export default function RoomPage() {
       void (async () => {
         const { data } = await supabase
           .from('rooms')
-          .select('round3_question_started_at')
+          .select('round3_question_started_at,round3_question_index')
           .eq('id', roomIdRef.current)
           .single();
         if (data?.round3_question_started_at) {
-          setRound3QuestionStartedAt(data.round3_question_started_at as string);
+          safeSetRound3QuestionStartedAt(data.round3_question_started_at as string, data.round3_question_index ?? null);
         }
       })();
     }
