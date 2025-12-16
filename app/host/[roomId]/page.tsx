@@ -306,6 +306,7 @@ export default function HostRoomPage() {
   const [round3Answers, setRound3Answers] = useState<Round3AnswerRow[]>([]);
   const [round3Phase, setRound3Phase] = useState<'input' | 'vote' | 'reveal'>('input');
   const [round3VoteStartedAt, setRound3VoteStartedAt] = useState<string | null>(null);
+  const [round3QuestionStartedAt, setRound3QuestionStartedAt] = useState<string | null>(null);
   const [round3AudioFinishedAt, setRound3AudioFinishedAt] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -908,8 +909,9 @@ export default function HostRoomPage() {
 
   // Обновляет timestamp старта таймера в БД (вызывается после окончания озвучки)
   const updateRound3TimerStartInDb = useCallback(async () => {
-    if (!roomId) return;
+    if (!roomId) return null;
     const { iso } = await getServerIsoTimestamp();
+    setRound3QuestionStartedAt(iso);
     const { error } = await supabase
       .from('rooms')
       .update({ round3_question_started_at: iso })
@@ -917,6 +919,7 @@ export default function HostRoomPage() {
     if (error) {
       console.error('Не удалось обновить round3_question_started_at', error);
     }
+    return iso;
   }, [getServerIsoTimestamp, roomId]);
 
   const startRound3Timer = useCallback(
@@ -2101,7 +2104,9 @@ export default function HostRoomPage() {
         const dbRound3StartedAt = (room.round3_question_started_at as string | null) ?? null;
         const dbRound3VoteStartedAt = (room.round3_vote_started_at as string | null) ?? null;
         const dbRound3Phase = (room.round3_phase as 'input' | 'vote' | 'reveal' | null) ?? null;
+        const initialRound3QuestionStartedAt = (room.round3_question_started_at as string | null) ?? null;
         const initialRound3AudioFinishedAt = (room.round3_audio_finished_at as string | null) ?? null;
+        setRound3QuestionStartedAt(initialRound3QuestionStartedAt);
         setRound3AudioFinishedAt(initialRound3AudioFinishedAt);
 
       if (detectedStatus === 'running') {
@@ -2162,7 +2167,7 @@ export default function HostRoomPage() {
           const elapsed = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
           const remaining = Math.max(0, ROUND3_INPUT_SECONDS - elapsed);
           setRound3TimeLeft(remaining);
-          if (!!round3AudioFinishedAt) {
+          if (!!initialRound3AudioFinishedAt) {
             setIsRound3TimerVisible(true);
             const shouldRun = remaining > 0;
             setIsRound3TimerRunning(shouldRun);
