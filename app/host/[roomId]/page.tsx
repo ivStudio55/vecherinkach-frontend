@@ -2221,22 +2221,22 @@ export default function HostRoomPage() {
           const elapsed = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
           const remaining = Math.max(0, ROUND3_INPUT_SECONDS - elapsed);
           setRound3TimeLeft(remaining);
-          if (!!dbRound3AudioFinishedAt) {
-            setIsRound3TimerVisible(true);
-            const shouldRun = remaining > 0;
-            setIsRound3TimerRunning(shouldRun);
-            if (shouldRun && !round3TimerRef.current) {
-              round3TimerRef.current = setInterval(() => {
-                setRound3TimeLeft((prev) => {
-                  const newRemaining = prev - 1;
-                  if (newRemaining <= 0) {
-                    clearRound3Timer();
-                    void startRound3Voting();
-                  }
-                  return newRemaining;
-                });
-              }, 1000);
-            }
+          // started_at появляется после озвучки и является источником правды для таймера.
+          // Не блокируем шкалу из-за возможной задержки/нулевого round3_audio_finished_at.
+          setIsRound3TimerVisible(true);
+          const shouldRun = remaining > 0;
+          setIsRound3TimerRunning(shouldRun);
+          if (shouldRun && !round3TimerRef.current) {
+            round3TimerRef.current = setInterval(() => {
+              setRound3TimeLeft((prev) => {
+                const newRemaining = prev - 1;
+                if (newRemaining <= 0) {
+                  clearRound3Timer();
+                  void startRound3Voting();
+                }
+                return newRemaining;
+              });
+            }, 1000);
           }
           const hasQuestion = dbRound3Index !== null && dbRound3QuestionId !== null;
           const withinGrace = elapsed <= ROUND3_INPUT_SECONDS + 5;
