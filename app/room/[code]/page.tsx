@@ -158,26 +158,24 @@ export default function RoomPage() {
   const [round3Phase, setRound3Phase] = useState<'input' | 'vote' | 'reveal' | null>(null);
   const [round3QuestionStartedAt, setRound3QuestionStartedAt] = useState<string | null>(null);
   const [round3AudioFinishedAt, setRound3AudioFinishedAt] = useState<string | null>(null);
-
+  // Для защиты от race condition
+  const round3QuestionIndexRef = useRef<number | null>(null);
+  useEffect(() => { round3QuestionIndexRef.current = round3QuestionIndex; }, [round3QuestionIndex]);
 
   // Защита от сброса таймера: если пришёл null для текущего вопроса, не затираем локальное значение
   const safeSetRound3QuestionStartedAt = useCallback((val: string | null, idx: number | null) => {
     setRound3QuestionStartedAt(prev => {
-      const recentObserved = round3LastObservedQuestionStartedAtRef.current && Date.now() - round3LastObservedQuestionStartedAtRef.current < 3000;
-      if (idx !== null && round3QuestionIndexRef.current === idx && prev && !val && recentObserved) {
+      if (idx !== null && round3QuestionIndexRef.current === idx && prev && !val) {
         return prev;
       }
-      if (val) round3LastObservedQuestionStartedAtRef.current = Date.now();
       return val;
     });
   }, []);
   const safeSetRound3AudioFinishedAt = useCallback((val: string | null, idx: number | null) => {
     setRound3AudioFinishedAt(prev => {
-      const recentObserved = round3LastObservedAudioFinishedAtRef.current && Date.now() - round3LastObservedAudioFinishedAtRef.current < 3000;
-      if (idx !== null && round3QuestionIndexRef.current === idx && prev && !val && recentObserved) {
+      if (idx !== null && round3QuestionIndexRef.current === idx && prev && !val) {
         return prev;
       }
-      if (val) round3LastObservedAudioFinishedAtRef.current = Date.now();
       return val;
     });
   }, []);
@@ -191,9 +189,6 @@ export default function RoomPage() {
   const roomIdRef = useRef('');
   const playerIdRef = useRef('');
   const roomStatusRef = useRef<RoomStatus>('waiting');
-  const round3QuestionIndexRef = useRef<number | null>(null);
-  const round3LastObservedQuestionStartedAtRef = useRef<number | null>(null);
-  const round3LastObservedAudioFinishedAtRef = useRef<number | null>(null);
   const previousRound3QuestionIndexRef = useRef<number | null>(null);
   const round3AnswersCacheRef = useRef<Round3AnswerRow[]>([]);
   const loadRoomDataRef = useRef<() => Promise<void>>(async () => {});
@@ -492,10 +487,9 @@ export default function RoomPage() {
         setRound3QuestionIndex(initialRound3Index);
         setRound3QuestionId(initialRound3Id);
         setRound3Phase(initialRound3Phase);
-        setRound3QuestionStartedAt(initialRound3QuestionStartedAt);
-        if (initialRound3QuestionStartedAt) round3LastObservedQuestionStartedAtRef.current = Date.now();
-        setRound3AudioFinishedAt(initialRound3AudioFinishedAt);
-        if (initialRound3AudioFinishedAt) round3LastObservedAudioFinishedAtRef.current = Date.now();
+        // Важно: не перезатираем локальные метки времени null'ом для текущего факта
+        safeSetRound3QuestionStartedAt(initialRound3QuestionStartedAt, initialRound3Index);
+        safeSetRound3AudioFinishedAt(initialRound3AudioFinishedAt, initialRound3Index);
         setRound3VoteStartedAt(initialRound3VoteStartedAt);
 
         if (effectiveDetectedStatus === 'waiting') {
@@ -1034,9 +1028,9 @@ export default function RoomPage() {
       setRound3InputTimeLeft(QUESTION_DURATION_SECONDS);
       return;
     }
-    
-    // Таймер показываем только после окончания озвучки
-    if (!round3AudioFinishedAt || !round3QuestionStartedAt) {
+
+    // Старт таймера наступает после озвучки, поэтому достаточно started_at
+    if (!round3QuestionStartedAt) {
       setIsRound3TimerVisible(false);
       setRound3InputTimeLeft(QUESTION_DURATION_SECONDS);
       return;
@@ -1056,7 +1050,7 @@ export default function RoomPage() {
     tick();
     const interval = setInterval(tick, 300);
     return () => clearInterval(interval);
-  }, [roomStatus, round3QuestionStartedAt, round3AudioFinishedAt, timeOffsetMs]);
+  }, [roomStatus, round3QuestionStartedAt, timeOffsetMs]);
 
   useEffect(() => {
     if (roomStatus !== 'round3-voting' || !round3VoteStartedAt) {
