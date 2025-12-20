@@ -3808,6 +3808,76 @@ export default function HostRoomPage() {
   const isRound3Voting = roomStatus === 'round3-voting';
   const isRound3Reveal = roomStatus === 'round3-reveal';
   const isRound3FlowActive = isRound3Running || isRound3Voting || isRound3Reveal;
+  const round3FactScoreboard = useMemo(() => {
+    if (!isRound3Reveal) {
+      return [] as Array<{
+        playerId: string;
+        name: string;
+        total: number;
+        correctBonus: number;
+        voteBonus: number;
+        voteCount: number;
+        missedVotePenalty: number;
+      }>;
+    }
+
+    const correct = (round3ActiveQuestion?.answer || '').trim().toUpperCase();
+    if (!correct) {
+      return [] as Array<{
+        playerId: string;
+        name: string;
+        total: number;
+        correctBonus: number;
+        voteBonus: number;
+        voteCount: number;
+        missedVotePenalty: number;
+      }>;
+    }
+
+    const voteCountByAnswerId = new Map<string, number>();
+    const votedByPlayerId = new Set<string>();
+    const correctByPlayerId = new Map<string, number>();
+    const voteBonusByPlayerId = new Map<string, number>();
+
+    for (const vote of round3Votes) {
+      votedByPlayerId.add(vote.player_id);
+      voteCountByAnswerId.set(vote.answer_id, (voteCountByAnswerId.get(vote.answer_id) || 0) + 1);
+    }
+
+    for (const answerRow of round3Answers) {
+      const normalized = (answerRow.answer || '').trim().toUpperCase();
+      const isCorrect = normalized === correct;
+      const voteCount = voteCountByAnswerId.get(answerRow.id) || 0;
+      const voteBonus = voteCount * 50;
+      if (isCorrect) {
+        correctByPlayerId.set(answerRow.player_id, 200);
+      }
+      voteBonusByPlayerId.set(answerRow.player_id, (voteBonusByPlayerId.get(answerRow.player_id) || 0) + voteBonus);
+    }
+
+    return players
+      .map((player) => {
+        const correctBonus = correctByPlayerId.get(player.id) || 0;
+        const voteBonus = voteBonusByPlayerId.get(player.id) || 0;
+        const missedVotePenalty = votedByPlayerId.has(player.id) ? 0 : -50;
+        const total = correctBonus + voteBonus + missedVotePenalty;
+
+        // voteCount: восстанавливаем из бонуса (кратно 50)
+        const voteCount = voteBonus > 0 ? Math.round(voteBonus / 50) : 0;
+
+        return {
+          playerId: player.id,
+          name: player.name,
+          total,
+          correctBonus,
+          voteBonus,
+          voteCount,
+          missedVotePenalty,
+        };
+      })
+      .filter((row) => row.total !== 0)
+      .sort((a, b) => b.total - a.total);
+  }, [isRound3Reveal, players, round3ActiveQuestion?.answer, round3Answers, round3Votes]);
   const isLastRound3Fact = round3QuestionNumber >= totalRound3Questions;
   const round3TimerTotalSeconds = round3Phase === 'vote' ? ROUND3_VOTE_SECONDS : ROUND3_INPUT_SECONDS;
   const round3ProgressPercent = Math.max(0, Math.min(100, round3TimerTotalSeconds ? (round3TimeLeft / round3TimerTotalSeconds) * 100 : 0));
@@ -3824,6 +3894,9 @@ export default function HostRoomPage() {
   const round1CorrectText = question ? question.options[question.correctIndex] ?? '' : '';
   const shouldShowRound1Answer = Boolean(question && canAdvance && round1CorrectLabel && round1CorrectText);
   const summaryRoundLabel = roomStatus === 'round3-ready' ? 'Раунда 2' : 'Раунда 1';
+
+  const getPlayerName = (playerId: string) =>
+    players.find((player) => player.id === playerId)?.name || 'Неизвестный игрок';
 
   const handlePrimaryHeaderAction = () => {
     if (isRound3Ready) {
@@ -3935,79 +4008,6 @@ export default function HostRoomPage() {
       </div>
     );
   }
-
-  const getPlayerName = (playerId: string) =>
-    players.find((player) => player.id === playerId)?.name || 'Неизвестный игрок';
-
-  const round3FactScoreboard = useMemo(() => {
-    if (!isRound3Reveal) {
-      return [] as Array<{
-        playerId: string;
-        name: string;
-        total: number;
-        correctBonus: number;
-        voteBonus: number;
-        voteCount: number;
-        missedVotePenalty: number;
-      }>;
-    }
-    const correct = (round3ActiveQuestion?.answer || '').trim().toUpperCase();
-    if (!correct) {
-      return [] as Array<{
-        playerId: string;
-        name: string;
-        total: number;
-        correctBonus: number;
-        voteBonus: number;
-        voteCount: number;
-        missedVotePenalty: number;
-      }>;
-    }
-
-    const voteCountByAnswerId = new Map<string, number>();
-    const votedByPlayerId = new Set<string>();
-    const correctByPlayerId = new Map<string, number>();
-    const voteBonusByPlayerId = new Map<string, number>();
-
-    for (const vote of round3Votes) {
-      votedByPlayerId.add(vote.player_id);
-      voteCountByAnswerId.set(vote.answer_id, (voteCountByAnswerId.get(vote.answer_id) || 0) + 1);
-    }
-
-    for (const answerRow of round3Answers) {
-      const normalized = (answerRow.answer || '').trim().toUpperCase();
-      const isCorrect = normalized === correct;
-      const voteCount = voteCountByAnswerId.get(answerRow.id) || 0;
-      const voteBonus = voteCount * 50;
-      if (isCorrect) {
-        correctByPlayerId.set(answerRow.player_id, 200);
-      }
-      voteBonusByPlayerId.set(answerRow.player_id, (voteBonusByPlayerId.get(answerRow.player_id) || 0) + voteBonus);
-    }
-
-    return players
-      .map((player) => {
-        const correctBonus = correctByPlayerId.get(player.id) || 0;
-        const voteBonus = voteBonusByPlayerId.get(player.id) || 0;
-        const missedVotePenalty = votedByPlayerId.has(player.id) ? 0 : -50;
-        const total = correctBonus + voteBonus + missedVotePenalty;
-
-        // voteCount: восстанавливаем из бонуса (кратно 50)
-        const voteCount = voteBonus > 0 ? Math.round(voteBonus / 50) : 0;
-
-        return {
-          playerId: player.id,
-          name: player.name,
-          total,
-          correctBonus,
-          voteBonus,
-          voteCount,
-          missedVotePenalty,
-        };
-      })
-      .filter((row) => row.total !== 0)
-      .sort((a, b) => b.total - a.total);
-  }, [isRound3Reveal, players, round3ActiveQuestion?.answer, round3Answers, round3Votes]);
 
   const statusLabel =
     roomStatus === 'waiting'
