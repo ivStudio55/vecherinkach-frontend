@@ -1142,7 +1142,7 @@ export default function HostRoomPage() {
       setIsRound3TimerRunning(false);
 
       // Файл лежит в public/audio/round2/jingle (5).mp3
-      const bedUrl = '/audio/' + ROUND3_VOICE_BG_FILE;
+      const bedUrl = encodeURI('/audio/' + ROUND3_VOICE_BG_FILE);
       const bed = new Audio(bedUrl);
       
       // Loop=true чтобы музыка не кончилась раньше голоса.
@@ -4428,25 +4428,20 @@ export default function HostRoomPage() {
                       </p>
                     </div>
 
-                    <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-4 space-y-3">
-                      <div className="flex items-center justify-between text-xs text-[#142a45]/70">
-                        <span>Таймер · 30 сек</span>
-                        <span className="font-black text-[#142a45]">
-                          {isRound3TimerVisible ? `${round3TimeLeft} c` : 'Ждём окончания озвучки'}
-                        </span>
-                      </div>
-                      {isRound3TimerVisible && (
+                    {isRound3TimerVisible && (
+                      <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-4 space-y-3">
+                        <div className="flex items-center justify-between text-xs text-[#142a45]/70">
+                          <span>Таймер · 30 сек</span>
+                          <span className="font-black text-[#142a45]">{round3TimeLeft} c</span>
+                        </div>
                         <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
                           <div
                             className={`h-full ${round3TimeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
                             style={{ width: `${round3ProgressPercent}%` }}
                           />
                         </div>
-                      )}
-                      {!isRound3TimerVisible && (
-                        <p className="text-xs text-[#142a45]/70">Таймер появится автоматически после окончания аудиодорожки.</p>
-                      )}
-                    </div>
+                      </div>
+                    )}
 
                     <div className="space-y-3">
                       <p className="text-xs font-semibold text-[#142a45]/70 uppercase tracking-[0.3em]">Заполните пропуск</p>
