@@ -2172,10 +2172,6 @@ export default function HostRoomPage() {
         setRoomCode(room.code);
         setCurrentQuestionIndex(room.current_question_index);
         const detectedStatus = (room.status as RoomStatus) || 'waiting';
-        updateRoomStatus(detectedStatus);
-        const isLiveRound =
-          detectedStatus === 'running' || detectedStatus === 'round2-running' || detectedStatus === 'round3-running';
-        setServerAllPlayersAnswered(isLiveRound ? !!room.all_players_answered : false);
         const nextRound2Index = (room.round2_item_index as number | null) ?? room.current_question_index ?? null;
         if (nextRound2Index !== null) {
           setRound2CurrentIndex(nextRound2Index);
@@ -2192,6 +2188,24 @@ export default function HostRoomPage() {
         const dbRound3Phase = (room.round3_phase as 'input' | 'vote' | 'reveal' | null) ?? null;
         const dbRound3AudioFinishedAt = (room.round3_audio_finished_at as string | null) ?? null;
 
+        const effectiveDetectedStatus: RoomStatus =
+          detectedStatus === 'round3-running'
+            ? dbRound3Phase === 'vote'
+              ? 'round3-voting'
+              : dbRound3Phase === 'reveal'
+                ? 'round3-reveal'
+                : 'round3-running'
+            : detectedStatus;
+
+        updateRoomStatus(effectiveDetectedStatus);
+        const isLiveRound =
+          effectiveDetectedStatus === 'running' ||
+          effectiveDetectedStatus === 'round2-running' ||
+          effectiveDetectedStatus === 'round3-running' ||
+          effectiveDetectedStatus === 'round3-voting' ||
+          effectiveDetectedStatus === 'round3-reveal';
+        setServerAllPlayersAnswered(isLiveRound ? !!room.all_players_answered : false);
+
         // Важно: realtime update может прийти раньше, чем UPDATE в БД заполнит timestamps.
         // Чтобы таймер не "мигал", не перезатираем локальные не-null значения null'ом
         // для текущего вопроса.
@@ -2200,7 +2214,7 @@ export default function HostRoomPage() {
         setRound3QuestionStartedAt((prev) => (isSameQuestion && prev && !dbRound3StartedAt ? prev : dbRound3StartedAt));
         setRound3AudioFinishedAt((prev) => (isSameQuestion && prev && !dbRound3AudioFinishedAt ? prev : dbRound3AudioFinishedAt));
 
-      if (detectedStatus === 'running') {
+      if (effectiveDetectedStatus === 'running') {
         setRound3CurrentQuestionId(null);
         syncTimerWithStart(room.question_started_at, effectiveOffset);
         if (room.all_players_answered) {
@@ -2209,7 +2223,7 @@ export default function HostRoomPage() {
         loadQuestionFromSelection(room.current_question_index, selection);
         await loadAnswerCount(room.current_question_index);
         await loadRound2AnswerStats(null, { preserveRound1Counters: true });
-      } else if (detectedStatus === 'round2-running') {
+      } else if (effectiveDetectedStatus === 'round2-running') {
         setRound3CurrentQuestionId(null);
         if (nextRound2Index !== round2CurrentIndexRef.current) {
           setShowResults(false);
@@ -2223,7 +2237,7 @@ export default function HostRoomPage() {
           setTimeLeft(0);
         }
         await loadRound2AnswerStats(nextRound2Index);
-      } else if (detectedStatus === 'round3-running') {
+      } else if (effectiveDetectedStatus === 'round3-running') {
         setShowResults(false);
         setQuestion(null);
         setAnswerCount(0);
@@ -2292,7 +2306,7 @@ export default function HostRoomPage() {
           setIsRound3TimerVisible(false);
           setIsRound3TimerRunning(false);
         }
-      } else if (detectedStatus === 'round3-voting') {
+      } else if (effectiveDetectedStatus === 'round3-voting') {
         stopRound3QuestionAudio(); // Останавливаем аудио вопроса при входе в голосование
         setShowResults(false);
         setQuestion(null);
@@ -2336,7 +2350,7 @@ export default function HostRoomPage() {
           setIsRound3TimerVisible(false);
           setIsRound3TimerRunning(false);
         }
-      } else if (detectedStatus === 'round3-reveal') {
+      } else if (effectiveDetectedStatus === 'round3-reveal') {
         stopRound3QuestionAudio(); // Останавливаем аудио вопроса при входе в reveal
         stopRound3VoteAudio(); // Останавливаем vote audio
         setShowResults(false);
@@ -2368,14 +2382,14 @@ export default function HostRoomPage() {
         setRound3TimeLeft(0);
         setIsRound3TimerVisible(false);
         setIsRound3TimerRunning(false);
-      } else if (detectedStatus === 'round2-ready' || detectedStatus === 'round3-ready') {
+      } else if (effectiveDetectedStatus === 'round2-ready' || effectiveDetectedStatus === 'round3-ready') {
         setShowResults(true);
         setAnswerCount(0);
         setAnsweredPlayerIds([]);
         setServerAllPlayersAnswered(false);
         setRound3CurrentQuestionId(null);
         await loadRound2AnswerStats(null);
-      } else if (detectedStatus === 'finished') {
+      } else if (effectiveDetectedStatus === 'finished') {
         setShowResults(true);
         setAnswerCount(0);
         setAnsweredPlayerIds([]);
