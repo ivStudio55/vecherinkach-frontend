@@ -3941,16 +3941,33 @@ export default function HostRoomPage() {
 
   const round3FactScoreboard = useMemo(() => {
     if (!isRound3Reveal) {
-      return [] as Array<{ playerId: string; name: string; points: number }>;
+      return [] as Array<{
+        playerId: string;
+        name: string;
+        total: number;
+        correctBonus: number;
+        voteBonus: number;
+        voteCount: number;
+        missedVotePenalty: number;
+      }>;
     }
     const correct = (round3ActiveQuestion?.answer || '').trim().toUpperCase();
     if (!correct) {
-      return [] as Array<{ playerId: string; name: string; points: number }>;
+      return [] as Array<{
+        playerId: string;
+        name: string;
+        total: number;
+        correctBonus: number;
+        voteBonus: number;
+        voteCount: number;
+        missedVotePenalty: number;
+      }>;
     }
 
-    const pointsByPlayerId = new Map<string, number>();
     const voteCountByAnswerId = new Map<string, number>();
     const votedByPlayerId = new Set<string>();
+    const correctByPlayerId = new Map<string, number>();
+    const voteBonusByPlayerId = new Map<string, number>();
 
     for (const vote of round3Votes) {
       votedByPlayerId.add(vote.player_id);
@@ -3960,26 +3977,36 @@ export default function HostRoomPage() {
     for (const answerRow of round3Answers) {
       const normalized = (answerRow.answer || '').trim().toUpperCase();
       const isCorrect = normalized === correct;
-      const voteBonus = (voteCountByAnswerId.get(answerRow.id) || 0) * 50;
-      const base = (pointsByPlayerId.get(answerRow.player_id) || 0) + voteBonus + (isCorrect ? 200 : 0);
-      pointsByPlayerId.set(answerRow.player_id, base);
-    }
-
-    // -50 за пропущенное голосование
-    for (const player of players) {
-      if (!votedByPlayerId.has(player.id)) {
-        pointsByPlayerId.set(player.id, (pointsByPlayerId.get(player.id) || 0) - 50);
+      const voteCount = voteCountByAnswerId.get(answerRow.id) || 0;
+      const voteBonus = voteCount * 50;
+      if (isCorrect) {
+        correctByPlayerId.set(answerRow.player_id, 200);
       }
+      voteBonusByPlayerId.set(answerRow.player_id, (voteBonusByPlayerId.get(answerRow.player_id) || 0) + voteBonus);
     }
 
     return players
-      .map((player) => ({
-        playerId: player.id,
-        name: player.name,
-        points: pointsByPlayerId.get(player.id) || 0,
-      }))
-      .filter((row) => row.points !== 0)
-      .sort((a, b) => b.points - a.points);
+      .map((player) => {
+        const correctBonus = correctByPlayerId.get(player.id) || 0;
+        const voteBonus = voteBonusByPlayerId.get(player.id) || 0;
+        const missedVotePenalty = votedByPlayerId.has(player.id) ? 0 : -50;
+        const total = correctBonus + voteBonus + missedVotePenalty;
+
+        // voteCount: восстанавливаем из бонуса (кратно 50)
+        const voteCount = voteBonus > 0 ? Math.round(voteBonus / 50) : 0;
+
+        return {
+          playerId: player.id,
+          name: player.name,
+          total,
+          correctBonus,
+          voteBonus,
+          voteCount,
+          missedVotePenalty,
+        };
+      })
+      .filter((row) => row.total !== 0)
+      .sort((a, b) => b.total - a.total);
   }, [isRound3Reveal, players, round3ActiveQuestion?.answer, round3Answers, round3Votes]);
 
   const statusLabel =
@@ -4368,9 +4395,20 @@ export default function HostRoomPage() {
                     ) : (
                       <div className="space-y-2">
                         {round3FactScoreboard.map((row) => (
-                          <div key={row.playerId} className="rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] px-4 py-3 flex items-center justify-between">
-                            <span className="text-sm font-semibold text-[#142a45]">{row.name}</span>
-                            <span className={`text-sm font-black ${row.points >= 0 ? 'text-[#1f6ac6]' : 'text-[#b23324]'}`}>{row.points > 0 ? `+${row.points}` : `${row.points}`}</span>
+                          <div key={row.playerId} className="rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] px-4 py-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-semibold text-[#142a45]">{row.name}</span>
+                              <span className={`text-sm font-black ${row.total >= 0 ? 'text-[#1f6ac6]' : 'text-[#b23324]'}`}>{row.total > 0 ? `+${row.total}` : `${row.total}`}</span>
+                            </div>
+                            <p className="text-xs text-[#142a45]/70 mt-1">
+                              {[
+                                row.correctBonus ? `+${row.correctBonus} за слово` : null,
+                                row.voteBonus ? `+${row.voteBonus} за ${row.voteCount} голос(а)` : null,
+                                row.missedVotePenalty ? `${row.missedVotePenalty} пропуск` : null,
+                              ]
+                                .filter(Boolean)
+                                .join(' · ')}
+                            </p>
                           </div>
                         ))}
                       </div>
