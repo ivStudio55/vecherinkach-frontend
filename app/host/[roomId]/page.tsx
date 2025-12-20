@@ -2217,8 +2217,9 @@ export default function HostRoomPage() {
           setRound3Answers([]);
         }
         if (dbRound3StartedAt) {
-          const startMs = new Date(dbRound3StartedAt).getTime() - effectiveOffset;
-          const elapsed = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
+          const startMs = new Date(dbRound3StartedAt).getTime();
+          const nowServerMs = Date.now() - effectiveOffset;
+          const elapsed = Math.max(0, Math.floor((nowServerMs - startMs) / 1000));
           const remaining = Math.max(0, ROUND3_INPUT_SECONDS - elapsed);
           setRound3TimeLeft(remaining);
           // started_at появляется после озвучки и является источником правды для таймера.
@@ -2283,8 +2284,9 @@ export default function HostRoomPage() {
           await loadRound3Answers(effectiveIndex);
         }
         if (dbRound3VoteStartedAt) {
-          const startMs = new Date(dbRound3VoteStartedAt).getTime() - effectiveOffset;
-          const elapsed = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
+          const startMs = new Date(dbRound3VoteStartedAt).getTime();
+          const nowServerMs = Date.now() - effectiveOffset;
+          const elapsed = Math.max(0, Math.floor((nowServerMs - startMs) / 1000));
           const remaining = Math.max(0, ROUND3_VOTE_SECONDS - elapsed);
           setRound3TimeLeft(remaining);
           setIsRound3TimerVisible(true);
