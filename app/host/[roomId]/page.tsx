@@ -1265,6 +1265,10 @@ export default function HostRoomPage() {
       }
       clearRound3Timer();
       setRound3ActiveQuestion(question);
+      // Важно: сбрасываем локальные timestamps, иначе на первом факте (index=0)
+      // можно "унаследовать" старый started_at и показать таймер во время озвучки.
+      setRound3QuestionStartedAt(null);
+      setRound3AudioFinishedAt(null);
       setRound3TimeLeft(ROUND3_INPUT_SECONDS);
       setIsRound3TimerVisible(false);
       setIsRound3TimerRunning(false);
@@ -1298,6 +1302,7 @@ export default function HostRoomPage() {
         round3_question_index: null,
         round3_question_id: null,
         round3_question_started_at: null,
+        round3_audio_finished_at: null,
         round3_vote_started_at: null,
       })
       .eq('id', roomId);
@@ -1398,7 +1403,8 @@ export default function HostRoomPage() {
         await supabase
           .from('rooms')
           .update({
-            round3_phase: 'input',
+            // Пока идёт озвучка нового факта — phase=null
+            round3_phase: null,
             round3_question_started_at: null,
             round3_audio_finished_at: null,
             round3_vote_started_at: null,
@@ -1911,10 +1917,14 @@ export default function HostRoomPage() {
       const payload: Record<string, unknown> = {
         round3_question_index: questionIndex,
         round3_question_id: options?.questionId ?? null,
-        round3_phase: 'input',
+        // Пока идёт озвучка, держим phase=null. После озвучки
+        // `playRound3QuestionAudio` выставит `round3_question_started_at` и `round3_phase='input'`.
+        round3_phase: null,
         round3_vote_started_at: null,
         // НЕ устанавливаем round3_question_started_at здесь — он будет установлен после озвучки
         round3_question_started_at: null,
+        // Сбрасываем флаги озвучки для нового факта
+        round3_audio_finished_at: null,
       };
 
       if (questionIndex === null) {

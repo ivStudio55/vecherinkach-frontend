@@ -190,6 +190,7 @@ export default function RoomPage() {
   const playerIdRef = useRef('');
   const roomStatusRef = useRef<RoomStatus>('waiting');
   const previousRound3QuestionIndexRef = useRef<number | null>(null);
+  const previousRound3QuestionIdRef = useRef<number | null>(null);
   const round3AnswersCacheRef = useRef<Round3AnswerRow[]>([]);
   const loadRoomDataRef = useRef<() => Promise<void>>(async () => {});
   
@@ -235,17 +236,33 @@ export default function RoomPage() {
   }, [round3Answers]);
 
   useEffect(() => {
-    if (previousRound3QuestionIndexRef.current === round3QuestionIndex) {
+    const previousIndex = previousRound3QuestionIndexRef.current;
+    const previousQuestionId = previousRound3QuestionIdRef.current;
+    const indexChanged = previousIndex !== round3QuestionIndex;
+    const idChanged = previousQuestionId !== round3QuestionId;
+    if (!indexChanged && !idChanged) {
       return;
     }
+
     previousRound3QuestionIndexRef.current = round3QuestionIndex;
+    previousRound3QuestionIdRef.current = round3QuestionId;
+
     // Сбрасываем только draft и ошибки, НЕ ОТВЕТЫ!
     // Ответы загружаются отдельно через loadRound3Answers
     setRound3AnswerDraft('');
     setRound3SubmittedAnswer(null);
     setRound3Error('');
+    // Сбрасываем локальные метки времени, иначе первый факт (index=0)
+    // может унаследовать старые timestamps и показать таймер во время озвучки.
+    setRound3QuestionStartedAt(null);
+    setRound3AudioFinishedAt(null);
+    setRound3VoteStartedAt(null);
+    setIsRound3Voting(false);
+    setRound3VoteSelection(null);
+    setRound3InputTimeLeft(QUESTION_DURATION_SECONDS);
+    setRound3VoteTimeLeft(ROUND3_VOTE_SECONDS);
     // НЕ сбрасываем round3Answers здесь - они загружаются асинхронно
-  }, [round3QuestionIndex]);
+  }, [round3QuestionId, round3QuestionIndex]);
 
   useEffect(() => {
     roomStatusRef.current = roomStatus;
