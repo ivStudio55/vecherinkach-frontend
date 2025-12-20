@@ -242,6 +242,12 @@ type Round3AnswerRow = {
   submitted_at: string;
 };
 
+type Round3VoteRow = {
+  player_id: string;
+  answer_id: string;
+  question_index: number;
+};
+
 type PersistRound3StateFn = (
   questionIndex: number | null,
   options?: { questionId?: number | null; status?: RoomStatus }
@@ -304,6 +310,7 @@ export default function HostRoomPage() {
   const [round3AudioState, setRound3AudioState] = useState<'idle' | 'playing' | 'finished'>('idle');
   const [isRound3Complete, setIsRound3Complete] = useState(false);
   const [round3Answers, setRound3Answers] = useState<Round3AnswerRow[]>([]);
+  const [round3Votes, setRound3Votes] = useState<Round3VoteRow[]>([]);
   const [round3Phase, setRound3Phase] = useState<'input' | 'vote' | 'reveal'>('input');
   const [round3VoteStartedAt, setRound3VoteStartedAt] = useState<string | null>(null);
   const [round3QuestionStartedAt, setRound3QuestionStartedAt] = useState<string | null>(null);
@@ -342,6 +349,7 @@ export default function HostRoomPage() {
   const round3QuestionTransitioningRef = useRef(false);
   const round3TimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const round3AnswersRef = useRef<Round3AnswerRow[]>([]);
+  const round3VotesRef = useRef<Round3VoteRow[]>([]);
   const round2AnswersRef = useRef<Round2AnswerRow[]>([]);
   const round2StatsRef = useRef<Map<string, Round2PlayerStats>>(new Map());
   const round2CorrectTotalRef = useRef(0);
@@ -460,6 +468,10 @@ export default function HostRoomPage() {
   useEffect(() => {
     round3AnswersRef.current = round3Answers;
   }, [round3Answers]);
+
+  useEffect(() => {
+    round3VotesRef.current = round3Votes;
+  }, [round3Votes]);
 
   useEffect(() => {
     round3CurrentIndexRef.current = round3CurrentIndex;
@@ -891,10 +903,8 @@ export default function HostRoomPage() {
 
     // Остановим таймер audio через ROUND3_VOTE_SECONDS
     setTimeout(() => {
-      if (round3VoteTimerAudioRef.current) {
-        round3VoteTimerAudioRef.current.pause();
-        round3VoteTimerAudioRef.current.currentTime = 0;
-      }
+      // По окончании 15 секундного таймера все звуки отключаются
+      stopRound3VoteAudio();
     }, ROUND3_VOTE_SECONDS * 1000);
   }, [stopRound3VoteAudio]);
 
@@ -979,53 +989,80 @@ export default function HostRoomPage() {
     if (error) {
       console.error('Не удалось переключить Раунд 3 в режим показа', error);
     }
-
-    // Аудио: Комментарий + Фон (explanation)
-    const commentVoice = new Audio('/audio/round3/comments/' + ((round3CurrentIndexRef.current || 0) + 1) + '.mp3');
-    round3CommentAudioRef.current = commentVoice;
-
-    const commentBg = new Audio('/audio/' + ROUND2_EXPLANATION_BG_FILE);
-    round3CommentBgAudioRef.current = commentBg;
-    commentBg.volume = 0.3; // Чуть тише, чтобы слышно голос
-
-    let advanced = false;
-    const advanceToNext = () => {
-      if (advanced) return;
-      advanced = true;
-
-      // Останавливаем озвучку ответа/комментария, затем с небольшой паузой запускаем следующий факт
-      commentVoice.pause();
-      commentVoice.currentTime = 0;
-      commentBg.pause();
-      commentBg.currentTime = 0;
-
-      const nextIndex = round3CurrentIndexRef.current + 1;
-      console.log('Round 3: moving from', round3CurrentIndexRef.current, 'to', nextIndex);
-      setTimeout(() => {
-        moveToRound3QuestionRef.current?.(nextIndex).catch((err) => {
-          console.error('Error moving to next question:', err);
-        });
-      }, 800);
-    };
-
-    commentVoice.onended = advanceToNext;
-    commentVoice.onerror = (e) => {
-      console.error('Comment voice error:', e);
-      advanceToNext();
-    };
-
-    commentBg.onerror = (e) => {
-      console.error('Comment bg error:', e);
-    };
-
-    commentVoice.play().catch((e) => {
-      console.error('Comment voice error (play):', e);
-      advanceToNext();
-    });
-    commentBg.play().catch((e) => {
-      console.error('Comment bg error (play):', e);
-    });
   }, [clearRound3Timer, roomId, stopAllRound3Audio]);
+
+  const loadRound3Votes = useCallback(
+    async (questionIndex: number | null) => {
+      if (questionIndex === null) {
+        setRound3Votes([]);
+        return;
+      }
+      const { data, error } = await supabase
+        .from('round3_votes')
+        .select('player_id, answer_id, question_index')
+        .eq('room_id', roomId)
+        .eq('question_index', questionIndex);
+
+      if (error) {
+        console.error('[Round3] Не удалось загрузить голоса', error);
+        return;
+      }
+      setRound3Votes((data as Round3VoteRow[]) || []);
+    },
+    [roomId]
+  );
+
+  const loadRound3VotesRef = useRef(loadRound3Votes);
+  useEffect(() => {
+    loadRound3VotesRef.current = loadRound3Votes;
+  }, [loadRound3Votes]);
+
+  // Автотаймер голосования на основе round3_vote_started_at (устойчиво к обновлению страницы ведущего)
+  useEffect(() => {
+    if (roomStatus !== 'round3-voting') {
+      return;
+    }
+    if (!round3VoteStartedAt) {
+      return;
+    }
+    if (round3TimerRef.current) {
+      return;
+    }
+
+    setIsRound3TimerVisible(true);
+    setIsRound3TimerRunning(true);
+
+    const tick = () => {
+      const startMs = new Date(round3VoteStartedAt).getTime();
+      const nowServerMs = Date.now() - timeOffsetMs;
+      const elapsed = Math.max(0, Math.floor((nowServerMs - startMs) / 1000));
+      const remaining = Math.max(0, ROUND3_VOTE_SECONDS - elapsed);
+      setRound3TimeLeft(remaining);
+
+      if (remaining <= 0) {
+        clearRound3Timer();
+        stopRound3VoteAudio();
+        void startRound3Reveal();
+      }
+    };
+
+    tick();
+    round3TimerRef.current = setInterval(tick, 250);
+    return () => {
+      if (round3TimerRef.current) {
+        clearInterval(round3TimerRef.current);
+        round3TimerRef.current = null;
+      }
+    };
+  }, [clearRound3Timer, roomStatus, round3VoteStartedAt, startRound3Reveal, stopRound3VoteAudio, timeOffsetMs]);
+
+  // При входе в reveal подгружаем голоса, чтобы посчитать очки тура
+  useEffect(() => {
+    if (roomStatus !== 'round3-reveal') {
+      return;
+    }
+    void loadRound3VotesRef.current?.(round3CurrentIndexRef.current);
+  }, [roomStatus]);
 
   const startRound3Voting = useCallback(async () => {
     if (ROUND3_DISABLED) {
@@ -3902,6 +3939,49 @@ export default function HostRoomPage() {
   const getPlayerName = (playerId: string) =>
     players.find((player) => player.id === playerId)?.name || 'Неизвестный игрок';
 
+  const round3FactScoreboard = useMemo(() => {
+    if (!isRound3Reveal) {
+      return [] as Array<{ playerId: string; name: string; points: number }>;
+    }
+    const correct = (round3ActiveQuestion?.answer || '').trim().toUpperCase();
+    if (!correct) {
+      return [] as Array<{ playerId: string; name: string; points: number }>;
+    }
+
+    const pointsByPlayerId = new Map<string, number>();
+    const voteCountByAnswerId = new Map<string, number>();
+    const votedByPlayerId = new Set<string>();
+
+    for (const vote of round3Votes) {
+      votedByPlayerId.add(vote.player_id);
+      voteCountByAnswerId.set(vote.answer_id, (voteCountByAnswerId.get(vote.answer_id) || 0) + 1);
+    }
+
+    for (const answerRow of round3Answers) {
+      const normalized = (answerRow.answer || '').trim().toUpperCase();
+      const isCorrect = normalized === correct;
+      const voteBonus = (voteCountByAnswerId.get(answerRow.id) || 0) * 50;
+      const base = (pointsByPlayerId.get(answerRow.player_id) || 0) + voteBonus + (isCorrect ? 200 : 0);
+      pointsByPlayerId.set(answerRow.player_id, base);
+    }
+
+    // -50 за пропущенное голосование
+    for (const player of players) {
+      if (!votedByPlayerId.has(player.id)) {
+        pointsByPlayerId.set(player.id, (pointsByPlayerId.get(player.id) || 0) - 50);
+      }
+    }
+
+    return players
+      .map((player) => ({
+        playerId: player.id,
+        name: player.name,
+        points: pointsByPlayerId.get(player.id) || 0,
+      }))
+      .filter((row) => row.points !== 0)
+      .sort((a, b) => b.points - a.points);
+  }, [isRound3Reveal, players, round3ActiveQuestion?.answer, round3Answers, round3Votes]);
+
   const statusLabel =
     roomStatus === 'waiting'
       ? 'Ожидание игроков'
@@ -4276,6 +4356,28 @@ export default function HostRoomPage() {
                     ) : (
                       <p className="text-xs text-[#142a45]/60">Если нужен контекст, добавьте короткое пояснение голосом.</p>
                     )}
+                  </div>
+
+                  <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-white p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/70">Итоги тура · Очки (Раунд 3)</p>
+                      <span className="text-xs font-semibold text-[#1f6ac6]">{round3FactScoreboard.length ? 'готово' : 'ждём данные'}</span>
+                    </div>
+                    {round3FactScoreboard.length === 0 ? (
+                      <p className="text-sm text-[#142a45]/70">Очки появятся после завершения голосования.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {round3FactScoreboard.map((row) => (
+                          <div key={row.playerId} className="rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] px-4 py-3 flex items-center justify-between">
+                            <span className="text-sm font-semibold text-[#142a45]">{row.name}</span>
+                            <span className={`text-sm font-black ${row.points >= 0 ? 'text-[#1f6ac6]' : 'text-[#b23324]'}`}>{row.points > 0 ? `+${row.points}` : `${row.points}`}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-xs text-[#142a45]/60">
+                      Правила: точное слово +200, каждый голос +50, пропуск голосования -50.
+                    </p>
                   </div>
 
                   <div className="flex flex-col gap-3 sm:flex-row">
