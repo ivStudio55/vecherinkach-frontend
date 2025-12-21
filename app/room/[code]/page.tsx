@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { TrueFalseItem, ROUND2_POINTS } from '@/lib/round2';
 import {
   ActiveRoundQuestion,
   OPTION_LABELS,
@@ -30,7 +31,9 @@ const getRemainingSeconds = (startedAt: string | null, offsetMs = 0) => {
 
 type Question = ActiveRoundQuestion;
 
-type RoomStatus = 'waiting' | 'running' | 'finished';
+type RoomStatus = 'waiting' | 'running' | 'finished' | 'round2-running';
+
+type Round2Phase = 'idle' | 'fact' | 'explanation';
 
 type RoomUpdatePayload = {
   new: {
@@ -40,6 +43,9 @@ type RoomUpdatePayload = {
     is_active: boolean;
     all_players_answered: boolean;
     selected_question_ids: number[] | null;
+    round2_item_index?: number | null;
+    round2_showing_fact?: boolean | null;
+    round2_phase?: Round2Phase | string | null;
   };
 };
 
@@ -63,8 +69,95 @@ export default function RoomPage() {
   const [allPlayersAnswered, setAllPlayersAnswered] = useState(false);
   const [timeOffsetMs, setTimeOffsetMs] = useState(0);
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<number[]>([]);
+  const [round2Items, setRound2Items] = useState<TrueFalseItem[]>([]);
+  const [round2ItemIndex, setRound2ItemIndex] = useState<number | null>(null);
+  const [round2ShowingFact, setRound2ShowingFact] = useState(true);
+  const [round2Phase, setRound2Phase] = useState<Round2Phase>('idle');
   const roomIdRef = useRef('');
   const playerIdRef = useRef('');
+
+  useEffect(() => {
+    const loadRound2Data = async () => {
+      try {
+        const res = await fetch('/round2/true_false_explanation.json', { cache: 'no-store' });
+        if (!res.ok) {
+          return;
+        }
+        const json = (await res.json()) as TrueFalseItem[];
+        setRound2Items(json);
+      } catch (e) {
+        console.error('Failed to load round2 data', e);
+      }
+    };
+    void loadRound2Data();
+  }, []);
+
+  const submitRound2Answer = useCallback(
+    async (answerIsFact: boolean) => {
+      if (isSubmitting || round2ItemIndex === null) {
+        return;
+      }
+      if (roomStatus !== 'round2-running') {
+        setError('Дождитесь начала раунда, чтобы отвечать');
+        return;
+      }
+      if (allPlayersAnswered) {
+        setError('Этот вопрос уже закрыт — ждём следующий.');
+        return;
+      }
+      const currentTimeLeft = allPlayersAnswered ? 0 : timeLeft;
+      if (currentTimeLeft <= 0) {
+        setError('Время на ответ истекло');
+        return;
+      }
+      if (!playerIdRef.current || !roomIdRef.current) {
+        setError('Ошибка: данные игрока не найдены');
+        return;
+      }
+
+      setError('');
+      setIsSubmitting(true);
+
+      try {
+        const isCorrect = answerIsFact === !!round2ShowingFact;
+        const pointsEarned = isCorrect ? ROUND2_POINTS : 0;
+
+        const { error: insertError } = await supabase.from('round2_answers').insert({
+          player_id: playerIdRef.current,
+          room_id: roomIdRef.current,
+          item_index: round2ItemIndex,
+          answer_is_fact: answerIsFact,
+          is_correct: isCorrect,
+          points_earned: pointsEarned,
+        });
+
+        if (insertError) {
+          const message = (insertError as { message?: string } | null)?.message ?? '';
+          const isDuplicate = message.toLowerCase().includes('duplicate');
+          if (!isDuplicate) {
+            setError('Ошибка при отправке ответа');
+            setIsSubmitting(false);
+            return;
+          }
+        }
+
+        setHasAnswered(true);
+        setIsSubmitting(false);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
+        setError(`Ошибка: ${message}`);
+        setIsSubmitting(false);
+      }
+    },
+    [
+      allPlayersAnswered,
+      isSubmitting,
+      roomStatus,
+      round2ItemIndex,
+      round2ShowingFact,
+      timeLeft,
+    ]
+  );
 
   const syncServerTime = useCallback(async () => {
     try {
@@ -133,7 +226,7 @@ export default function RoomPage() {
       const name = localStorage.getItem('playerName');
 
       if (!storedPlayerId || !name) {
-        router.push('/');
+        router.push('/join');
         return;
       }
 
@@ -148,7 +241,7 @@ export default function RoomPage() {
       const { data: room, error: roomError } = await supabase
         .from('rooms')
         .select(
-          'id, current_question_index, is_active, status, question_started_at, all_players_answered, selected_question_ids'
+          'id, current_question_index, is_active, status, question_started_at, all_players_answered, selected_question_ids, round2_item_index, round2_showing_fact, round2_phase'
         )
         .eq('code', roomCode)
         .single();
@@ -165,20 +258,57 @@ export default function RoomPage() {
       setSelectedQuestionIds(selection);
       const detectedStatus = (room.status as RoomStatus) || (room.is_active ? 'waiting' : 'finished');
       setRoomStatus(detectedStatus);
-      setAllPlayersAnswered(detectedStatus === 'running' ? !!room.all_players_answered : false);
+      setAllPlayersAnswered(detectedStatus === 'running' || detectedStatus === 'round2-running' ? !!room.all_players_answered : false);
+
+      const dbRound2ItemIndex = (room.round2_item_index as number | null) ?? null;
+      const dbRound2ShowingFact = typeof room.round2_showing_fact === 'boolean' ? (room.round2_showing_fact as boolean) : true;
+      const dbRound2Phase = (room.round2_phase as Round2Phase) || 'idle';
 
       if (detectedStatus === 'waiting') {
         setShowResults(false);
         setHasAnswered(false);
         setQuestion(null);
+        setRound2ItemIndex(null);
+        setRound2Phase('idle');
         setQuestionStartedAt(null);
         setTimeLeft(QUESTION_DURATION_SECONDS);
         setIsLoading(false);
       } else if (!room.is_active || detectedStatus === 'finished') {
         setShowResults(true);
         setQuestion(null);
+        setRound2ItemIndex(null);
+        setRound2Phase('idle');
         setQuestionStartedAt(null);
         setIsLoading(false);
+      } else if (detectedStatus === 'round2-running') {
+        setShowResults(false);
+        setQuestion(null);
+        setRound2ItemIndex(dbRound2ItemIndex);
+        setRound2ShowingFact(dbRound2ShowingFact);
+        setRound2Phase(dbRound2Phase);
+
+        const startTime = room.question_started_at;
+        setQuestionStartedAt(startTime);
+        const initialTime = getRemainingSeconds(startTime, offset);
+        setTimeLeft(room.all_players_answered ? 0 : initialTime);
+
+        if (dbRound2ItemIndex !== null) {
+          const { data: existingRound2Answer } = await supabase
+            .from('round2_answers')
+            .select('id')
+            .eq('player_id', storedPlayerId)
+            .eq('room_id', room.id)
+            .eq('item_index', dbRound2ItemIndex)
+            .single();
+
+          setHasAnswered(!!existingRound2Answer);
+        } else {
+          setHasAnswered(false);
+        }
+
+        if (!cancelled) {
+          setIsLoading(false);
+        }
       } else {
         const startTime = room.question_started_at;
         setQuestionStartedAt(startTime);
@@ -186,6 +316,9 @@ export default function RoomPage() {
         setTimeLeft(room.all_players_answered ? 0 : initialTime);
 
         loadQuestionFromSelectionRef.current?.(room.current_question_index, selection);
+
+        setRound2ItemIndex(null);
+        setRound2Phase('idle');
 
         // Проверяем, ответил ли игрок на текущий вопрос
         const { data: existingAnswer } = await supabase
@@ -239,15 +372,23 @@ export default function RoomPage() {
           const startedAt = payload.new.question_started_at as string | null;
           const newStatus = (payload.new.status as RoomStatus) || (payload.new.is_active ? 'waiting' : 'finished');
           setRoomStatus(newStatus);
-          const everyoneAnsweredFlag = newStatus === 'running' ? !!payload.new.all_players_answered : false;
+          const everyoneAnsweredFlag =
+            newStatus === 'running' || newStatus === 'round2-running' ? !!payload.new.all_players_answered : false;
           setAllPlayersAnswered(everyoneAnsweredFlag);
           const selection = (payload.new.selected_question_ids as number[] | null) || [];
           setSelectedQuestionIds(selection);
+
+          const nextRound2ItemIndex = (payload.new.round2_item_index as number | null | undefined) ?? null;
+          const nextRound2ShowingFact =
+            typeof payload.new.round2_showing_fact === 'boolean' ? !!payload.new.round2_showing_fact : round2ShowingFact;
+          const nextRound2Phase = ((payload.new.round2_phase as Round2Phase) || 'idle') as Round2Phase;
 
           if (newStatus === 'waiting') {
             setShowResults(false);
             setHasAnswered(false);
             setQuestion(null);
+            setRound2ItemIndex(null);
+            setRound2Phase('idle');
             setQuestionStartedAt(null);
             setTimeLeft(QUESTION_DURATION_SECONDS);
             return;
@@ -256,13 +397,49 @@ export default function RoomPage() {
           if (newStatus === 'finished' || !payload.new.is_active) {
             setShowResults(true);
             setQuestion(null);
+            setRound2ItemIndex(null);
+            setRound2Phase('idle');
             setQuestionStartedAt(null);
             setTimeLeft(QUESTION_DURATION_SECONDS);
             return;
           }
 
+          if (newStatus === 'round2-running') {
+            setShowResults(false);
+            setQuestion(null);
+            setRound2ItemIndex(nextRound2ItemIndex);
+            setRound2ShowingFact(nextRound2ShowingFact);
+            setRound2Phase(nextRound2Phase);
+            setQuestionStartedAt(startedAt);
+
+            const offset = await syncServerTimeRef.current?.();
+            if (everyoneAnsweredFlag) {
+              setTimeLeft(0);
+            } else {
+              setTimeLeft(startedAt ? getRemainingSeconds(startedAt, offset || 0) : QUESTION_DURATION_SECONDS);
+            }
+
+            const currentPlayerId = playerIdRef.current;
+            const currentRoomId = roomIdRef.current;
+            if (currentPlayerId && currentRoomId && nextRound2ItemIndex !== null) {
+              const { data: newAnswer } = await supabase
+                .from('round2_answers')
+                .select('id')
+                .eq('player_id', currentPlayerId)
+                .eq('room_id', currentRoomId)
+                .eq('item_index', nextRound2ItemIndex)
+                .single();
+              setHasAnswered(!!newAnswer);
+            } else {
+              setHasAnswered(false);
+            }
+            return;
+          }
+
           const offset = await syncServerTimeRef.current?.();
           loadQuestionFromSelectionRef.current?.(newQuestionIndex, selection);
+          setRound2ItemIndex(null);
+          setRound2Phase('idle');
           setQuestionStartedAt(startedAt);
           if (everyoneAnsweredFlag) {
             setTimeLeft(0);
@@ -299,7 +476,10 @@ export default function RoomPage() {
 
   const effectiveTimeLeft = allPlayersAnswered ? 0 : timeLeft;
   const timerActive =
-    !allPlayersAnswered && !showResults && roomStatus === 'running' && Boolean(questionStartedAt);
+    !allPlayersAnswered &&
+    !showResults &&
+    (roomStatus === 'running' || roomStatus === 'round2-running') &&
+    Boolean(questionStartedAt);
 
   useEffect(() => {
     if (!timerActive || !questionStartedAt) {
@@ -428,10 +608,10 @@ export default function RoomPage() {
             Ведущий сейчас озвучит правильные ответы и начисленные баллы. Не закрывайте вкладку, чтобы не потерять прогресс.
           </p>
           <button
-            onClick={() => router.push('/')}
+            onClick={() => router.push('/join')}
             className="w-full py-3 rounded-2xl border-[3px] border-[#142a45] bg-[#ffe184] font-black"
           >
-            Вернуться на главную
+            Вернуться на экран подключения
           </button>
         </div>
       </div>
@@ -446,10 +626,10 @@ export default function RoomPage() {
           <h1 className="text-2xl font-black text-[#b23324]">❌ Что-то пошло не так</h1>
           <p className="text-sm text-[#142a45]/80">{error}</p>
           <button
-            onClick={() => router.push('/')}
+            onClick={() => router.push('/join')}
             className="w-full py-3 rounded-2xl border-[3px] border-[#142a45] bg-[#ffe184] font-black"
           >
-            На главную
+            На экран подключения
           </button>
         </div>
       </div>
@@ -554,6 +734,96 @@ export default function RoomPage() {
                 <div className="text-5xl">✅</div>
                 <h3 className="text-2xl font-black text-[#1f6ac6]">Ответ отправлен!</h3>
                 <p className="text-sm text-[#142a45]/70">Ждём, пока ведущий запустит следующий вопрос.</p>
+              </div>
+            )}
+          </section>
+        )}
+
+        {roomStatus === 'round2-running' && (
+          <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
+            <div className="flex flex-col gap-3 text-center">
+              <span className="mx-auto px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
+                Раунд 2 · Фейколов
+              </span>
+              <h2 className="text-3xl font-black leading-tight">
+                {round2ItemIndex !== null && round2Items[round2ItemIndex]
+                  ? round2ShowingFact
+                    ? round2Items[round2ItemIndex].fact
+                    : round2Items[round2ItemIndex].fiction
+                  : 'Подождите, факт загружается…'}
+              </h2>
+            </div>
+
+            <div>
+              <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
+                <span>Осталось времени</span>
+                <span className={`font-black ${allPlayersAnswered ? 'text-[#1f6ac6]' : 'text-[#142a45]'}`}>
+                  {timerLabel}
+                </span>
+              </div>
+              <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
+                <div
+                  className={`h-full ${effectiveTimeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+              {allPlayersAnswered && (
+                <p className="text-xs text-[#1f6ac6] font-semibold mt-2">Все уже ответили — ждём следующий факт.</p>
+              )}
+            </div>
+
+            {round2Phase !== 'fact' ? (
+              <div className="rounded-3xl border-[3px] border-[#142a45]/20 bg-[#fff6da] p-6 text-center space-y-2">
+                <div className="text-5xl">🎙️</div>
+                <h3 className="text-2xl font-black">Ждём объяснение ведущего</h3>
+                <p className="text-sm text-[#142a45]/70">Голосование закрыто — скоро начнётся следующий факт.</p>
+              </div>
+            ) : hasAnswered ? (
+              <div className="rounded-3xl border-[3px] border-[#1f6ac6] bg-[#e9f0ff] p-6 text-center space-y-2">
+                <div className="text-5xl">✅</div>
+                <h3 className="text-2xl font-black text-[#1f6ac6]">Ответ отправлен!</h3>
+                <p className="text-sm text-[#142a45]/70">Ждём следующий факт.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-xs font-semibold tracking-[0.3em] text-[#142a45]/60">Это правда или вымысел?</p>
+                <div className="space-y-3">
+                  <button
+                    onClick={() => void submitRound2Answer(true)}
+                    disabled={isSubmitting || effectiveTimeLeft <= 0 || roomStatus !== 'round2-running'}
+                    className="w-full flex items-center gap-3 rounded-2xl border-[3px] border-[#142a45] px-4 py-4 text-left font-semibold bg-white hover:bg-[#fff6da] transition disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <span className="w-10 h-10 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black bg-[#ffeccd]">
+                      ✅
+                    </span>
+                    <span className="flex-1 text-sm">Правда</span>
+                  </button>
+                  <button
+                    onClick={() => void submitRound2Answer(false)}
+                    disabled={isSubmitting || effectiveTimeLeft <= 0 || roomStatus !== 'round2-running'}
+                    className="w-full flex items-center gap-3 rounded-2xl border-[3px] border-[#142a45] px-4 py-4 text-left font-semibold bg-white hover:bg-[#fff6da] transition disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <span className="w-10 h-10 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black bg-[#ffeccd]">
+                      ❌
+                    </span>
+                    <span className="flex-1 text-sm">Вымысел</span>
+                  </button>
+                </div>
+
+                <div className="rounded-2xl border-[3px] border-dashed border-[#142a45]/40 bg-[#fff6da] px-4 py-3 text-sm flex items-center justify-between">
+                  <span className="font-semibold">Награда за точный ответ</span>
+                  <span className="font-black text-[#f1532f]">+{ROUND2_POINTS} баллов</span>
+                </div>
+
+                {error && (
+                  <div className="rounded-2xl border-[3px] border-[#b23324] bg-[#ffd7d0] px-4 py-3 text-sm font-semibold text-[#7b1d16]">
+                    {error}
+                  </div>
+                )}
+
+                {effectiveTimeLeft <= 0 && (
+                  <p className="text-xs text-center text-[#142a45]/60">⏱ Время истекло. Следующий факт появится автоматически.</p>
+                )}
               </div>
             )}
           </section>
