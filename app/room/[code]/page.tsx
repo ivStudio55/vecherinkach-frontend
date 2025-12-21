@@ -12,7 +12,7 @@ import {
 } from '@/lib/questions';
 
 const QUESTION_DURATION_SECONDS = 30;
-const APP_VERSION = '1.0.7'; // Инкрементируйте при важных изменениях
+const APP_VERSION = '1.0.8'; // Инкрементируйте при важных изменениях
 
 const ROUND3_QUESTIONS_AUDIO_DIR = 'round3/questions3';
 const ROUND3_BG_JINGLE_FILE = 'round2/jingle (5).mp3';
@@ -952,11 +952,13 @@ export default function RoomPage() {
               <span className="mx-auto px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
                 Раунд 3 · МозгоШтурм
               </span>
-              <h2 className="text-3xl font-black leading-tight">
-                {round3QuestionIndex !== null && round3Questions[round3QuestionIndex]
-                  ? round3Questions[round3QuestionIndex].question
-                  : 'Подождите, факт загружается…'}
-              </h2>
+              <div className="mx-auto w-16 h-16 rounded-full border-[4px] border-[#142a45] bg-[#ffeccd] flex items-center justify-center text-3xl">
+                🔊
+              </div>
+              <h2 className="text-2xl font-black leading-tight">Внимательно слушай ведущего!</h2>
+              <p className="text-sm text-[#142a45]/70">
+                Сейчас идёт озвучка факта. Текст появится позже.
+              </p>
             </div>
 
             <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] px-4 py-3 text-sm font-semibold flex items-center justify-between">

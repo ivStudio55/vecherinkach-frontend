@@ -611,16 +611,12 @@ export default function HostRoomPage() {
 
   const playRound3Audio = useCallback(
     (index: number) => {
-      if (!hasUserInteractedRef.current) {
-        return;
-      }
-
       stopRound3Audio();
       setRound3AudioBlocked(false);
 
       const bg = new Audio(buildAudioUrl(ROUND3_BG_JINGLE_FILE));
       bg.loop = true;
-      bg.volume = 0.35;
+      bg.volume = 0.55;
       round3BgAudioRef.current = bg;
 
       const voice = new Audio(buildAudioUrl(`${ROUND3_QUESTIONS_AUDIO_DIR}/${index + 1}.mp3`));
