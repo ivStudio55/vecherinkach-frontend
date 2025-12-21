@@ -99,6 +99,27 @@ const ROUND2_BETWEEN_AUDIO_VARIANTS = {
 const ROUND2_RULES_VOICE_FILES = ['round2/ruels/1.wav', 'round2/ruels/2.wav'] as const;
 const ROUND2_RULES_SKIP_WINDOW_MS = 20000;
 
+const ROUND3_RULES_VOICE_FILES = ['round3/ruels3/ruels1.mp3', 'round3/ruels3/ruels2.mp3', 'round3/ruels3/ruels3.mp3'] as const;
+
+const ROUND3_RULES_TEXT = `Раунд «МозгоШтурм»
+Перед вами появятся 6 интересных фактов с одним пропущенным словом.
+Ваша задача:
+
+Ввести в поле на телефоне то слово, которое идеально подходит (одно слово, без дефисов, пробелов и знаков).
+После каждого тура на экране появятся ответы всех игроков.
+Каждый выбирает понравившийся ответ (кроме своего).
+
+Подсчёт очков:
+
+Угадал точное слово — 200 очков.
+За каждый голос за ваш ответ — +50 очков.
+Не проголосовал — –50 очков.
+
+Время на ввод ответа — 60 секунд.
+Время на голосование — 30 секунд.
+Синонимы могут засчитаться (на усмотрение ведущего).
+Готовы угадывать и голосовать? Давайте устроим настоящий мозговой штурм!`;
+
 const buildAudioUrl = (relativePath: string) => `/api/audio?file=${encodeURIComponent(relativePath)}&t=${Date.now()}`;
 const buildJingleUrl = (fileName: string) => `/api/jingle/audio?file=${encodeURIComponent(fileName)}&t=${Date.now()}`;
 const pickRandomItem = <T,>(items: readonly T[]) => items[Math.floor(Math.random() * items.length)];
@@ -204,7 +225,7 @@ export default function HostRoomPage() {
   const [isPrestartVisible, setIsPrestartVisible] = useState(false);
   const [isRulesVisible, setIsRulesVisible] = useState(false);
   const [isCountdownVisible, setIsCountdownVisible] = useState(false);
-  const [countdownContext, setCountdownContext] = useState<'round1' | 'round2'>('round1');
+  const [countdownContext, setCountdownContext] = useState<'round1' | 'round2' | 'round3'>('round1');
   const [countdownValue, setCountdownValue] = useState<string>(COUNTDOWN_STEPS[0]);
   const [isRoomOpened, setIsRoomOpened] = useState(false);
   const [isPrestartNextEnabled, setIsPrestartNextEnabled] = useState(true);
@@ -216,6 +237,7 @@ export default function HostRoomPage() {
   const [round2PhaseState, setRound2PhaseState] = useState<Round2Phase>('idle');
   const round2Phase = round2PhaseState;
   const [isRound2RulesVisible, setIsRound2RulesVisible] = useState(false);
+  const [isRound3RulesVisible, setIsRound3RulesVisible] = useState(false);
   const [round2Answers, setRound2Answers] = useState<Round2AnswerRow[]>([]);
   const [round2AskedIndices, setRound2AskedIndices] = useState<number[]>([]);
   const [round2QuestionCounter, setRound2QuestionCounter] = useState(0);
@@ -239,12 +261,15 @@ export default function HostRoomPage() {
   const round2BetweenAudioRef = useRef<HTMLAudioElement | null>(null);
   const round2RulesMusicAudioRef = useRef<HTMLAudioElement | null>(null);
   const round2RulesVoiceAudioRef = useRef<HTMLAudioElement | null>(null);
+  const round3RulesVoiceAudioRef = useRef<HTMLAudioElement | null>(null);
   const round2AnswersRef = useRef<Round2AnswerRow[]>([]);
   const round2StatsRef = useRef<Map<string, Round2PlayerStats>>(new Map());
   const round2CorrectTotalRef = useRef(0);
   const round2PossibleTotalRef = useRef(0);
   const round2LastAccuracyRef = useRef(0);
   const isLastRound2QuestionRef = useRef(false);
+  const round3RulesAudioCompletedRef = useRef(true);
+  const round3StartLockRef = useRef(false);
   const playersRef = useRef<Player[]>(players);
   const hasUserInteractedRef = useRef(false);
   const lastJoinAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -430,6 +455,17 @@ export default function HostRoomPage() {
     }
   }, []);
 
+  const stopRound3RulesAudio = useCallback(() => {
+    const voiceCue = round3RulesVoiceAudioRef.current;
+    if (voiceCue) {
+      voiceCue.pause();
+      voiceCue.currentTime = 0;
+      voiceCue.onended = null;
+      round3RulesVoiceAudioRef.current = null;
+    }
+    round3RulesAudioCompletedRef.current = true;
+  }, []);
+
   const stopRoundEndAudio = useCallback(() => {
     const mainCue = roundEndAudioRef.current;
     if (mainCue) {
@@ -494,6 +530,29 @@ export default function HostRoomPage() {
     });
   }, [stopRound2RulesAudio]);
 
+  const playRound3RulesAudio = useCallback(() => {
+    if (!hasUserInteractedRef.current) {
+      return;
+    }
+
+    stopRound3RulesAudio();
+    round3RulesAudioCompletedRef.current = false;
+
+    const voiceSource = pickRandomItem(ROUND3_RULES_VOICE_FILES);
+    const voice = new Audio(buildAudioUrl(voiceSource));
+    voice.volume = 0.95;
+    round3RulesVoiceAudioRef.current = voice;
+
+    voice.onended = () => {
+      round3RulesAudioCompletedRef.current = true;
+    };
+
+    voice.play().catch((err) => {
+      round3RulesAudioCompletedRef.current = true;
+      console.error('Не удалось воспроизвести озвучку правил Раунда 3', err);
+    });
+  }, [stopRound3RulesAudio]);
+
   useEffect(() => {
     const loadRound2Data = async () => {
       try {
@@ -516,6 +575,16 @@ export default function HostRoomPage() {
       stopRound2RulesAudio();
     }
   }, [isRound2RulesVisible, playRound2RulesAudio, stopRound2RulesAudio, stopRoundEndAudio]);
+
+  useEffect(() => {
+    if (isRound3RulesVisible) {
+      stopRoundEndAudio();
+      stopRound2RulesAudio();
+      playRound3RulesAudio();
+    } else {
+      stopRound3RulesAudio();
+    }
+  }, [isRound3RulesVisible, playRound3RulesAudio, stopRound2RulesAudio, stopRound3RulesAudio, stopRoundEndAudio]);
 
   useEffect(() => {
     round2RulesReadyAtRef.current = isRound2RulesVisible ? Date.now() : null;
@@ -1259,6 +1328,28 @@ export default function HostRoomPage() {
     skipAudioRef.current = audio;
     audio.play().catch((error) => {
       console.error('Не удалось проиграть skip-озвучку', error);
+    });
+  }, [stopSkipAudio]);
+
+  const playSkipAudioAndWait = useCallback(() => {
+    if (!hasUserInteractedRef.current) {
+      return Promise.resolve();
+    }
+
+    stopSkipAudio();
+    const file = pickRandomItem(SKIP_AUDIO_FILES);
+    const audio = new Audio(buildAudioUrl(file));
+    audio.volume = 0.95;
+    skipAudioRef.current = audio;
+
+    return new Promise<void>((resolve) => {
+      audio.onended = () => {
+        resolve();
+      };
+      audio.play().catch((error) => {
+        console.error('Не удалось проиграть skip-озвучку', error);
+        resolve();
+      });
     });
   }, [stopSkipAudio]);
 
@@ -2225,6 +2316,41 @@ export default function HostRoomPage() {
     stopRound2RulesAudio,
   ]);
 
+  const startRound3Countdown = useCallback(async () => {
+    if (round3StartLockRef.current || isCountdownVisible) {
+      return;
+    }
+    round3StartLockRef.current = true;
+    hasUserInteractedRef.current = true;
+
+    const shouldPlaySkip = !round3RulesAudioCompletedRef.current;
+
+    setIsRound3RulesVisible(false);
+    stopRound3RulesAudio();
+
+    if (shouldPlaySkip) {
+      await playSkipAudioAndWait();
+    }
+
+    clearCountdownTimeout();
+    setCountdownContext('round3');
+    countdownCompleteActionRef.current = () => {
+      // Round 3 gameplay will be implemented step-by-step later.
+      round3StartLockRef.current = false;
+    };
+    setIsCountdownVisible(true);
+    runCountdownSequence(0);
+  }, [
+    clearCountdownTimeout,
+    isCountdownVisible,
+    playSkipAudioAndWait,
+    runCountdownSequence,
+    setCountdownContext,
+    setIsCountdownVisible,
+    setIsRound3RulesVisible,
+    stopRound3RulesAudio,
+  ]);
+
   const completeRound2 = useCallback(async () => {
     handleRound2NextQuestionRef.current = null;
     clearRound2Timer();
@@ -2529,7 +2655,19 @@ export default function HostRoomPage() {
                       <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Финальные результаты</p>
                       <h2 className="text-3xl font-black">🏆 Рейтинг Раунда 2</h2>
                     </div>
-                    <span className="text-sm font-semibold text-[#1f6ac6]">Очки уже начислены игрокам</span>
+                      <div className="flex flex-wrap items-center justify-end gap-3">
+                        <span className="text-sm font-semibold text-[#1f6ac6]">Очки уже начислены игрокам</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            hasUserInteractedRef.current = true;
+                            setIsRound3RulesVisible(true);
+                          }}
+                          className="px-4 py-2 rounded-2xl border-[3px] border-[#142a45] bg-[#ffe184] text-[#142a45] font-black tracking-[0.2em] hover:bg-[#142a45] hover:text-[#ffeccd] transition-colors"
+                        >
+                          Раунд 3
+                        </button>
+                      </div>
                   </div>
                   <div className="space-y-4">
                     {round2Leaderboard.length === 0 ? (
@@ -3114,7 +3252,7 @@ export default function HostRoomPage() {
       {shouldShowCountdownOverlay && (
         <div className="fixed inset-0 z-50 bg-[#142a45]/90 flex flex-col items-center justify-center text-center text-[#ffeccd] px-4">
           <p className="text-sm uppercase tracking-[0.5em] text-[#ffeccd]/70 mb-4">
-            {countdownContext === 'round2' ? 'Запуск Раунда 2' : 'Запуск раунда'}
+            {countdownContext === 'round2' ? 'Запуск Раунда 2' : countdownContext === 'round3' ? 'Запуск Раунда 3' : 'Запуск раунда'}
           </p>
           <div className="text-7xl sm:text-8xl font-black drop-shadow-lg">
             {countdownValue.toUpperCase()}
@@ -3122,8 +3260,38 @@ export default function HostRoomPage() {
           <p className="mt-6 text-sm text-[#ffeccd]/80">
             {countdownContext === 'round2'
               ? 'Фейколов уже на подходе — готовим новое утверждение для игроков.'
+              : countdownContext === 'round3'
+                ? 'Готовимся к мозговому штурму — скоро включим следующий этап.'
               : 'Звук уже пошёл — готовим вопросы на экране игроков.'}
           </p>
+        </div>
+      )}
+
+      {isRound3RulesVisible && (
+        <div className="fixed inset-0 z-50 bg-[#142a45]/70 backdrop-blur-sm flex items-center justify-center px-4">
+          <div className="max-w-lg w-full rounded-3xl border-[4px] border-[#142a45] bg-[#fff6da] p-6 space-y-4 shadow-2xl">
+            <div>
+              <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Раунд 3 · «МозгоШтурм»</p>
+              <h3 className="text-2xl font-black text-[#142a45]">Правила</h3>
+            </div>
+            <div className="text-sm text-[#142a45]/80 whitespace-pre-line leading-relaxed">{ROUND3_RULES_TEXT}</div>
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={() => void startRound3Countdown()}
+                className="w-full py-3 rounded-2xl font-black text-lg tracking-[0.3em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45]"
+              >
+                Старт
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsRound3RulesVisible(false)}
+                className="w-full py-3 rounded-2xl border-[3px] border-dashed border-[#142a45] bg-white font-semibold text-[#142a45]"
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
