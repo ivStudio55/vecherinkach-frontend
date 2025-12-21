@@ -264,6 +264,7 @@ export default function HostRoomPage() {
   const [round2LastAccuracy, setRound2LastAccuracy] = useState(0);
   const [isRatingVisible, setIsRatingVisible] = useState(false);
   const [round3AudioBlocked, setRound3AudioBlocked] = useState(false);
+  const [isJingleMuted, setIsJingleMuted] = useState(false);
 
   const meetAudioRef = useRef<HTMLAudioElement | null>(null);
   const connectAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -667,15 +668,18 @@ export default function HostRoomPage() {
     setRound3AudioBlocked(false);
   }, []);
 
+  const toggleJingleMute = useCallback(() => {
+    const newMuted = !isJingleMuted;
+    setIsJingleMuted(newMuted);
+    const bgGain = round3BgGainNodeRef.current;
+    if (bgGain) {
+      bgGain.gain.value = newMuted ? 0 : 0.7;
+    }
+  }, [isJingleMuted]);
+
   const playRound3Audio = useCallback(
     (index: number) => {
       console.log(`Round 3: playRound3Audio called with index ${index}`);
-      if (!hasUserInteractedRef.current) {
-        console.log('Round 3: no user interaction, blocking');
-        setRound3AudioBlocked(true);
-        return;
-      }
-
       stopRound3Audio();
       setRound3AudioBlocked(false);
 
@@ -747,7 +751,7 @@ export default function HostRoomPage() {
           bgSource.loop = true;
 
           const bgGain = context.createGain();
-          bgGain.gain.value = 0.7; // increased from 0.55
+          bgGain.gain.value = isJingleMuted ? 0 : 0.7;
 
           const voiceSource = context.createBufferSource();
           voiceSource.buffer = voiceBuffer;
@@ -3461,7 +3465,16 @@ export default function HostRoomPage() {
 
                 <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-white px-4 py-3 text-sm font-semibold flex items-center justify-between">
                   <span>Фоновая музыка</span>
-                  <span className="font-black text-[#f1532f]">{ROUND3_BG_JINGLE_FILE}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-black text-[#f1532f]">{ROUND3_BG_JINGLE_FILE}</span>
+                    <button
+                      type="button"
+                      onClick={toggleJingleMute}
+                      className="px-2 py-1 rounded-lg bg-gray-200 text-gray-700 text-xs hover:bg-gray-300"
+                    >
+                      {isJingleMuted ? '🔊 Включить' : '🔇 Выключить'}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex flex-col gap-3 sm:flex-row">
