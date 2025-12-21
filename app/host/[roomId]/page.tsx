@@ -1075,18 +1075,8 @@ export default function HostRoomPage() {
 
     clearRound3Timer();
     stopAllRound3Audio(); // Глушим все аудио перед голосованием
-    
+ 
     const { iso } = await getServerIsoTimestamp();
-    setRound3Phase('vote');
-    setRound3VoteStartedAt(iso);
-    // Локально помечаем голосование, в БД оставляем status = round3-running (constraint rooms_status_check)
-    setRoomStatus('round3-voting');
-
-    // Загружаем ответы перед переходом в голосование
-    // Добавляем задержку, чтобы убедиться, что ответы дошли
-    setTimeout(async () => {
-        await loadRound3AnswersRef.current?.(round3CurrentIndex);
-    }, 500);
 
     const { error } = await supabase
       .from('rooms')
@@ -1101,6 +1091,14 @@ export default function HostRoomPage() {
     if (error) {
       console.error('Не удалось перевести Раунд 3 в голосование', error);
     }
+
+    // Загружаем ответы перед отображением голосования (после того как комната в БД уже в phase=vote)
+    await loadRound3AnswersRef.current?.(round3CurrentIndex);
+
+    setRound3Phase('vote');
+    setRound3VoteStartedAt(iso);
+    // Локально помечаем голосование, в БД оставляем status = round3-running (constraint rooms_status_check)
+    setRoomStatus('round3-voting');
     
     // Воспроизводим vote audio вместо таймер audio
     playRound3VoteAudio();
@@ -1189,15 +1187,16 @@ export default function HostRoomPage() {
       
       bed.onerror = (e) => {
         console.error('Не удалось воспроизвести фон Раунда 3 (jingle)', e);
-        // Fallback
-        transitionToTimer();
+        // Важно: не запускаем таймер раньше времени — переход в input должен происходить
+        // только после окончания озвучки вопроса. Если фон не играет, продолжаем без него.
+        round3QuestionBgAudioRef.current = null;
       };
       
       round3QuestionBgAudioRef.current = bed;
       bed.play().catch((error) => {
         console.error('Не удалось запустить фон Раунда 3', error);
-        // Fallback
-        transitionToTimer();
+        // Важно: не запускаем таймер раньше времени — продолжаем без фона.
+        round3QuestionBgAudioRef.current = null;
       });
 
       const audio = new Audio('/audio/' + question.audioFile);
