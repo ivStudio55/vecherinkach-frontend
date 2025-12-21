@@ -2606,6 +2606,23 @@ export default function HostRoomPage() {
     setShowResults(true);
     setQuestion(null);
     setQuestionStartedAt(null);
+
+    // Тестовый режим: после входа в Раунд 3 локальный рейтинг Раунда 2 может быть пустым.
+    // Нам важно вернуться на экран, где доступна кнопка старта Раунда 3, поэтому
+    // формируем fallback-рейтинг из текущих игроков.
+    if (round2Leaderboard.length === 0) {
+      const snapshot = playersRef.current;
+      const fallback = snapshot
+        .map((player) => ({
+          playerId: player.id,
+          name: player.name,
+          points: player.total_points,
+          correct: 0,
+          attempts: 0,
+        }))
+        .sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
+      setRound2Leaderboard(fallback);
+    }
   }, [roomId, setQuestion, stopRound3Audio]);
 
   const completeRound2 = useCallback(async () => {

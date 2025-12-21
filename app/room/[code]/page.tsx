@@ -12,7 +12,7 @@ import {
 } from '@/lib/questions';
 
 const QUESTION_DURATION_SECONDS = 30;
-const APP_VERSION = '1.0.6'; // Инкрементируйте при важных изменениях
+const APP_VERSION = '1.0.7'; // Инкрементируйте при важных изменениях
 
 const ROUND3_QUESTIONS_AUDIO_DIR = 'round3/questions3';
 const ROUND3_BG_JINGLE_FILE = 'round2/jingle (5).mp3';
