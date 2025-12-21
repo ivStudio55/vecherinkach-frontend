@@ -263,6 +263,7 @@ export default function HostRoomPage() {
   const [round2Leaderboard, setRound2Leaderboard] = useState<Round2LeaderboardEntry[]>([]);
   const [round2LastAccuracy, setRound2LastAccuracy] = useState(0);
   const [isRatingVisible, setIsRatingVisible] = useState(false);
+  const [round3AudioBlocked, setRound3AudioBlocked] = useState(false);
 
   const meetAudioRef = useRef<HTMLAudioElement | null>(null);
   const connectAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -281,7 +282,10 @@ export default function HostRoomPage() {
   const round2RulesMusicAudioRef = useRef<HTMLAudioElement | null>(null);
   const round2RulesVoiceAudioRef = useRef<HTMLAudioElement | null>(null);
   const round3RulesVoiceAudioRef = useRef<HTMLAudioElement | null>(null);
+  const round3BgAudioRef = useRef<HTMLAudioElement | null>(null);
+  const round3VoiceAudioRef = useRef<HTMLAudioElement | null>(null);
   const round2AnswersRef = useRef<Round2AnswerRow[]>([]);
+  const lastRound3PlaybackKeyRef = useRef<string | null>(null);
   const round2StatsRef = useRef<Map<string, Round2PlayerStats>>(new Map());
   const round2CorrectTotalRef = useRef(0);
   const round2PossibleTotalRef = useRef(0);
@@ -574,6 +578,114 @@ export default function HostRoomPage() {
       console.error('Не удалось воспроизвести озвучку правил Раунда 3', err);
     });
   }, [stopRound3RulesAudio]);
+
+  const stopRound3Audio = useCallback(() => {
+    const voice = round3VoiceAudioRef.current;
+    const bg = round3BgAudioRef.current;
+
+    if (voice) {
+      try {
+        voice.pause();
+        voice.currentTime = 0;
+      } catch (e) {
+        console.error('Ошибка остановки озвучки Раунда 3', e);
+      }
+      voice.onended = null;
+      voice.onerror = null;
+      round3VoiceAudioRef.current = null;
+    }
+
+    if (bg) {
+      try {
+        bg.pause();
+        bg.currentTime = 0;
+      } catch (e) {
+        console.error('Ошибка остановки фона Раунда 3', e);
+      }
+      bg.onended = null;
+      round3BgAudioRef.current = null;
+    }
+
+    setRound3AudioBlocked(false);
+  }, []);
+
+  const playRound3Audio = useCallback(
+    (index: number) => {
+      if (!hasUserInteractedRef.current) {
+        return;
+      }
+
+      stopRound3Audio();
+      setRound3AudioBlocked(false);
+
+      const bg = new Audio(buildAudioUrl(ROUND3_BG_JINGLE_FILE));
+      bg.loop = true;
+      bg.volume = 0.35;
+      round3BgAudioRef.current = bg;
+
+      const voice = new Audio(buildAudioUrl(`${ROUND3_QUESTIONS_AUDIO_DIR}/${index + 1}.mp3`));
+      voice.volume = 1;
+      round3VoiceAudioRef.current = voice;
+
+      const stopBg = () => {
+        const currentBg = round3BgAudioRef.current;
+        if (currentBg) {
+          try {
+            currentBg.pause();
+            currentBg.currentTime = 0;
+          } catch {
+            // ignore
+          }
+          round3BgAudioRef.current = null;
+        }
+      };
+
+      voice.onended = () => {
+        stopBg();
+      };
+      voice.onerror = () => {
+        stopBg();
+      };
+
+      bg.play().catch((err) => {
+        console.error('Не удалось воспроизвести фон Раунда 3 (ведущий)', err);
+        setRound3AudioBlocked(true);
+      });
+
+      voice.play().catch((err) => {
+        console.error('Не удалось воспроизвести озвучку Раунда 3 (ведущий)', err);
+        setRound3AudioBlocked(true);
+        stopBg();
+      });
+    },
+    [stopRound3Audio]
+  );
+
+  useEffect(() => {
+    if (roomStatus !== 'round3-running') {
+      stopRound3Audio();
+      lastRound3PlaybackKeyRef.current = null;
+    }
+  }, [roomStatus, stopRound3Audio]);
+
+  useEffect(() => {
+    if (roomStatus !== 'round3-running') {
+      return;
+    }
+    if (!questionStartedAt) {
+      return;
+    }
+    if (!currentRound3Question) {
+      return;
+    }
+
+    const key = `${currentQuestionIndex}-${questionStartedAt}`;
+    if (lastRound3PlaybackKeyRef.current === key) {
+      return;
+    }
+    lastRound3PlaybackKeyRef.current = key;
+    playRound3Audio(currentQuestionIndex);
+  }, [currentQuestionIndex, currentRound3Question, playRound3Audio, questionStartedAt, roomStatus]);
 
   useEffect(() => {
     const loadRound2Data = async () => {
@@ -2470,6 +2582,32 @@ export default function HostRoomPage() {
     syncTimerWithStart(startedAt, offset);
   }, [currentQuestionIndex, getServerIsoTimestamp, roomId, roomStatus, round3Questions.length, syncTimerWithStart]);
 
+  const handleRound3BackToEndOfRound2 = useCallback(async () => {
+    stopRound3Audio();
+    lastRound3PlaybackKeyRef.current = null;
+
+    const { error } = await supabase
+      .from('rooms')
+      .update({
+        status: 'finished',
+        is_active: false,
+        all_players_answered: true,
+        question_started_at: null,
+        round2_phase: 'idle',
+      })
+      .eq('id', roomId);
+
+    if (error) {
+      setError('Не удалось вернуться к концу Раунда 2');
+      return;
+    }
+
+    setRoomStatus('finished');
+    setShowResults(true);
+    setQuestion(null);
+    setQuestionStartedAt(null);
+  }, [roomId, setQuestion, stopRound3Audio]);
+
   const completeRound2 = useCallback(async () => {
     handleRound2NextQuestionRef.current = null;
     clearRound2Timer();
@@ -3140,12 +3278,12 @@ export default function HostRoomPage() {
                     <span>
                       Факт <span className="font-black">{currentQuestionIndex + 1}</span>/{round3QuestionCount || ROUND3_TOTAL_QUESTIONS}
                     </span>
-                    <span className="text-xs text-[#142a45]/70">Озвучка и музыка идут на экранах игроков</span>
+                    <span className="text-xs text-[#142a45]/70">Озвучка и музыка идут у ведущего</span>
                   </div>
                 </div>
 
                 <div className="rounded-3xl border-[3px] border-[#f1532f]/20 bg-[#fff6da] p-5 space-y-2">
-                  <p className="text-[11px] tracking-[0.4em] text-[#f1532f]/60">Сейчас на экранах игроков</p>
+                  <p className="text-[11px] tracking-[0.4em] text-[#f1532f]/60">Сейчас звучит у ведущего</p>
                   <p className="text-2xl font-black leading-snug">
                     {currentRound3Question?.question ?? 'Подождите, факты загружаются…'}
                   </p>
@@ -3156,14 +3294,33 @@ export default function HostRoomPage() {
                   <span className="font-black text-[#f1532f]">{ROUND3_BG_JINGLE_FILE}</span>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => void handleRound3NextQuestion()}
-                  disabled={!currentRound3Question || currentQuestionIndex + 1 >= Math.min(ROUND3_TOTAL_QUESTIONS, round3Questions.length || ROUND3_TOTAL_QUESTIONS)}
-                  className="w-full py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#f1532f] text-white border-[3px] border-[#142a45] transition disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  Следующий факт
-                </button>
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={() => void handleRound3BackToEndOfRound2()}
+                    className="sm:w-1/2 w-full py-4 rounded-2xl font-black text-base tracking-[0.16em] bg-white text-[#142a45] border-[3px] border-[#142a45]"
+                  >
+                    ← Назад (тест)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleRound3NextQuestion()}
+                    disabled={!currentRound3Question || currentQuestionIndex + 1 >= Math.min(ROUND3_TOTAL_QUESTIONS, round3Questions.length || ROUND3_TOTAL_QUESTIONS)}
+                    className="sm:w-1/2 w-full py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#f1532f] text-white border-[3px] border-[#142a45] transition disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Следующий факт
+                  </button>
+                </div>
+
+                {round3AudioBlocked && (
+                  <button
+                    type="button"
+                    onClick={() => playRound3Audio(currentQuestionIndex)}
+                    className="w-full py-3 rounded-2xl font-black text-base tracking-[0.16em] bg-[#ffeccd] text-[#142a45] border-[3px] border-[#142a45]"
+                  >
+                    Включить звук
+                  </button>
+                )}
 
                 <p className="text-xs text-[#142a45]/70">
                   Голос вопроса играет из {ROUND3_QUESTIONS_AUDIO_DIR}/(N).mp3. Как только озвучка закончится — {ROUND3_BG_JINGLE_FILE} остановится автоматически.
