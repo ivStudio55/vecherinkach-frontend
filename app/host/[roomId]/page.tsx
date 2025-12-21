@@ -58,13 +58,13 @@ const RULES_ROUND1_FILES = [
   'ruels/round1/ruelsround(1)3.wav',
 ] as const;
 const SKIP_AUDIO_FILES = [
-  'skip/skip.wav',
-  'skip/skip2.wav',
-  'skip/skip4.wav',
-  'skip/skip5.wav',
-  'skip/skip6.wav',
-  'skip/skip7.wav',
-  'skip/skip8.wav',
+  'skip/skip.mp3',
+  'skip/skip2.mp3',
+  'skip/skip4.mp3',
+  'skip/skip5.mp3',
+  'skip/skip6.mp3',
+  'skip/skip7.mp3',
+  'skip/skip8.mp3',
 ] as const;
 const BETWEEN_AUDIO_VARIANTS = {
   zero: ['between/0%/1.wav', 'between/0%/2.wav', 'between/0%/3.wav'],
@@ -1529,7 +1529,7 @@ export default function HostRoomPage() {
       jingle.volume = 0.45;
       questionJingleAudioRef.current = jingle;
 
-      const voice = new Audio(buildAudioUrl(`questions/${questionId}.wav`));
+      const voice = new Audio(buildAudioUrl(`questions/${questionId}.mp3`));
       voice.loop = false;
       voice.volume = 0.95;
       questionVoiceAudioRef.current = voice;
@@ -2657,16 +2657,18 @@ export default function HostRoomPage() {
                     </div>
                       <div className="flex flex-wrap items-center justify-end gap-3">
                         <span className="text-sm font-semibold text-[#1f6ac6]">Очки уже начислены игрокам</span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            hasUserInteractedRef.current = true;
-                            setIsRound3RulesVisible(true);
-                          }}
-                          className="px-4 py-2 rounded-2xl border-[3px] border-[#142a45] bg-[#ffe184] text-[#142a45] font-black tracking-[0.2em] hover:bg-[#142a45] hover:text-[#ffeccd] transition-colors"
-                        >
-                          Раунд 3
-                        </button>
+                        {round2Leaderboard.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              hasUserInteractedRef.current = true;
+                              setIsRound3RulesVisible(true);
+                            }}
+                            className="px-4 py-2 rounded-2xl border-[3px] border-[#142a45] bg-[#ffe184] text-[#142a45] font-black tracking-[0.2em] hover:bg-[#142a45] hover:text-[#ffeccd] transition-colors"
+                          >
+                            Раунд 3
+                          </button>
+                        )}
                       </div>
                   </div>
                   <div className="space-y-4">
