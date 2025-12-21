@@ -102,6 +102,9 @@ const ROUND2_RULES_SKIP_WINDOW_MS = 20000;
 const ROUND3_TOTAL_QUESTIONS = 6;
 const ROUND3_QUESTIONS_AUDIO_DIR = 'round3/questions3';
 const ROUND3_BG_JINGLE_FILE = 'round2/jingle (5).mp3';
+const ROUND3_BG_VOLUME = 0.18;
+const ROUND3_TIMER_JINGLE_FILE = '30_sec.mp3';
+const ROUND3_TIMER_VOLUME = 0.35;
 
 const ROUND3_RULES_VOICE_FILES = ['round3/ruels3/ruels1.mp3', 'round3/ruels3/ruels2.mp3', 'round3/ruels3/ruels3.mp3'] as const;
 
@@ -264,7 +267,12 @@ export default function HostRoomPage() {
   const [round2LastAccuracy, setRound2LastAccuracy] = useState(0);
   const [isRatingVisible, setIsRatingVisible] = useState(false);
   const [round3AudioBlocked, setRound3AudioBlocked] = useState(false);
-  const [isJingleMuted, setIsJingleMuted] = useState(false);
+  const [isMusicMuted, setIsMusicMuted] = useState(false);
+
+  const isMusicMutedRef = useRef(isMusicMuted);
+  useEffect(() => {
+    isMusicMutedRef.current = isMusicMuted;
+  }, [isMusicMuted]);
 
   const meetAudioRef = useRef<HTMLAudioElement | null>(null);
   const connectAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -287,8 +295,10 @@ export default function HostRoomPage() {
   const round3VoiceAudioRef = useRef<HTMLAudioElement | null>(null);
   const round3BgBufferSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const round3VoiceBufferSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const round3TimerBufferSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const round3BgGainNodeRef = useRef<GainNode | null>(null);
   const round3VoiceGainNodeRef = useRef<GainNode | null>(null);
+  const round3TimerGainNodeRef = useRef<GainNode | null>(null);
   const round3PlaybackTokenRef = useRef(0);
   const round2AnswersRef = useRef<Round2AnswerRow[]>([]);
   const lastRound3PlaybackKeyRef = useRef<string | null>(null);
@@ -619,6 +629,22 @@ export default function HostRoomPage() {
       round3BgBufferSourceRef.current = null;
     }
 
+    const timerSource = round3TimerBufferSourceRef.current;
+    if (timerSource) {
+      try {
+        timerSource.onended = null;
+        timerSource.stop(0);
+      } catch {
+        // ignore
+      }
+      try {
+        timerSource.disconnect();
+      } catch {
+        // ignore
+      }
+      round3TimerBufferSourceRef.current = null;
+    }
+
     const voiceGain = round3VoiceGainNodeRef.current;
     if (voiceGain) {
       try {
@@ -637,6 +663,16 @@ export default function HostRoomPage() {
         // ignore
       }
       round3BgGainNodeRef.current = null;
+    }
+
+    const timerGain = round3TimerGainNodeRef.current;
+    if (timerGain) {
+      try {
+        timerGain.disconnect();
+      } catch {
+        // ignore
+      }
+      round3TimerGainNodeRef.current = null;
     }
 
     const voice = round3VoiceAudioRef.current;
@@ -668,28 +704,33 @@ export default function HostRoomPage() {
     setRound3AudioBlocked(false);
   }, []);
 
-  const toggleJingleMute = useCallback(() => {
-    const newMuted = !isJingleMuted;
-    setIsJingleMuted(newMuted);
+  const toggleMusicMute = useCallback(() => {
+    const newMuted = !isMusicMuted;
+    setIsMusicMuted(newMuted);
+    isMusicMutedRef.current = newMuted;
+
     const bgGain = round3BgGainNodeRef.current;
     if (bgGain) {
-      bgGain.gain.value = newMuted ? 0 : 0.7;
+      bgGain.gain.value = newMuted ? 0 : ROUND3_BG_VOLUME;
     }
-  }, [isJingleMuted]);
+
+    const timerGain = round3TimerGainNodeRef.current;
+    if (timerGain) {
+      timerGain.gain.value = newMuted ? 0 : ROUND3_TIMER_VOLUME;
+    }
+  }, [isMusicMuted]);
 
   const playRound3Audio = useCallback(
     (index: number) => {
-      console.log(`Round 3: playRound3Audio called with index ${index}`);
       stopRound3Audio();
       setRound3AudioBlocked(false);
 
       const token = round3PlaybackTokenRef.current + 1;
       round3PlaybackTokenRef.current = token;
-      console.log(`Round 3: new token ${token}`);
 
       const bgUrl = buildAudioUrl(ROUND3_BG_JINGLE_FILE);
       const voiceUrl = buildAudioUrl(`${ROUND3_QUESTIONS_AUDIO_DIR}/${index + 1}.mp3`);
-      console.log(`Round 3: bgUrl=${bgUrl}, voiceUrl=${voiceUrl}`);
+      const timerUrl = buildAudioUrl(ROUND3_TIMER_JINGLE_FILE);
 
       void (async () => {
         if (typeof window === 'undefined') {
@@ -726,23 +767,22 @@ export default function HostRoomPage() {
         }
 
         const decodeFromUrl = async (url: string) => {
-          console.log(`Round 3: fetching audio from ${url}`);
           const res = await fetch(url, { cache: 'no-store' });
           if (!res.ok) {
             throw new Error(`HTTP ${res.status} for ${url}`);
           }
           const bytes = await res.arrayBuffer();
-          console.log(`Round 3: fetched ${bytes.byteLength} bytes for ${url}`);
           return await context.decodeAudioData(bytes.slice(0));
         };
 
         try {
-          console.log('Round 3: starting decode of bg and voice');
-          const [bgBuffer, voiceBuffer] = await Promise.all([decodeFromUrl(bgUrl), decodeFromUrl(voiceUrl)]);
-          console.log('Round 3: decode successful');
+          const [bgBuffer, voiceBuffer, timerBuffer] = await Promise.all([
+            decodeFromUrl(bgUrl),
+            decodeFromUrl(voiceUrl),
+            decodeFromUrl(timerUrl),
+          ]);
 
           if (round3PlaybackTokenRef.current !== token) {
-            console.log('Round 3: token mismatch, aborting');
             return;
           }
 
@@ -751,7 +791,7 @@ export default function HostRoomPage() {
           bgSource.loop = true;
 
           const bgGain = context.createGain();
-          bgGain.gain.value = isJingleMuted ? 0 : 0.7;
+          bgGain.gain.value = isMusicMutedRef.current ? 0 : ROUND3_BG_VOLUME;
 
           const voiceSource = context.createBufferSource();
           voiceSource.buffer = voiceBuffer;
@@ -760,19 +800,30 @@ export default function HostRoomPage() {
           const voiceGain = context.createGain();
           voiceGain.gain.value = 1;
 
+          const timerSource = context.createBufferSource();
+          timerSource.buffer = timerBuffer;
+          timerSource.loop = false;
+
+          const timerGain = context.createGain();
+          timerGain.gain.value = isMusicMutedRef.current ? 0 : ROUND3_TIMER_VOLUME;
+
           bgSource.connect(bgGain);
           bgGain.connect(context.destination);
 
           voiceSource.connect(voiceGain);
           voiceGain.connect(context.destination);
 
+          timerSource.connect(timerGain);
+          timerGain.connect(context.destination);
+
           round3BgBufferSourceRef.current = bgSource;
           round3VoiceBufferSourceRef.current = voiceSource;
+          round3TimerBufferSourceRef.current = timerSource;
           round3BgGainNodeRef.current = bgGain;
           round3VoiceGainNodeRef.current = voiceGain;
+          round3TimerGainNodeRef.current = timerGain;
 
           const stopBg = () => {
-            console.log('Round 3: stopping bg');
             const currentBg = round3BgBufferSourceRef.current;
             if (currentBg) {
               try {
@@ -800,15 +851,35 @@ export default function HostRoomPage() {
           };
 
           voiceSource.onended = () => {
-            console.log('Round 3: voice ended, stopping bg');
             stopBg();
           };
 
-          console.log(`Round 3: starting playback at ${context.currentTime + 0.01}, context state: ${context.state}`);
+          timerSource.onended = () => {
+            const currentTimer = round3TimerBufferSourceRef.current;
+            if (currentTimer) {
+              try {
+                currentTimer.disconnect();
+              } catch {
+                // ignore
+              }
+              round3TimerBufferSourceRef.current = null;
+            }
+
+            const currentTimerGain = round3TimerGainNodeRef.current;
+            if (currentTimerGain) {
+              try {
+                currentTimerGain.disconnect();
+              } catch {
+                // ignore
+              }
+              round3TimerGainNodeRef.current = null;
+            }
+          };
+
           const startAt = context.currentTime + 0.01;
           bgSource.start(startAt);
           voiceSource.start(startAt);
-          console.log('Round 3: playback started');
+          timerSource.start(startAt);
         } catch (err) {
           console.error('Не удалось воспроизвести аудио Раунда 3 через AudioContext', err);
           setRound3AudioBlocked(true);
@@ -2074,7 +2145,7 @@ export default function HostRoomPage() {
   const everyoneAnswered = players.length > 0 && answerCount >= players.length;
   const shouldForceZero = serverAllPlayersAnswered || everyoneAnswered;
   const isRound2FactPhase = roomStatus === 'round2-running' && round2Phase === 'fact';
-  const isTimerRoundActive = roomStatus === 'running' || isRound2FactPhase;
+  const isTimerRoundActive = roomStatus === 'running' || isRound2FactPhase || roomStatus === 'round3-running';
   const timerActive = !showResults && isTimerRoundActive && Boolean(questionStartedAt) && !shouldForceZero;
 
   useEffect(() => {
@@ -3464,17 +3535,33 @@ export default function HostRoomPage() {
                 </div>
 
                 <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-white px-4 py-3 text-sm font-semibold flex items-center justify-between">
-                  <span>Фоновая музыка</span>
-                  <div className="flex items-center gap-2">
+                  <span>Музыка</span>
+                  <div className="flex items-center gap-3">
                     <span className="font-black text-[#f1532f]">{ROUND3_BG_JINGLE_FILE}</span>
                     <button
                       type="button"
-                      onClick={toggleJingleMute}
-                      className="px-2 py-1 rounded-lg bg-gray-200 text-gray-700 text-xs hover:bg-gray-300"
+                      onClick={toggleMusicMute}
+                      className="px-3 py-1 rounded-xl border-[3px] border-[#142a45]/20 bg-[#fff6da] text-[#142a45] text-xs font-black tracking-[0.16em]"
                     >
-                      {isJingleMuted ? '🔊 Включить' : '🔇 Выключить'}
+                      {isMusicMuted ? 'ВКЛЮЧИТЬ' : 'ВЫКЛЮЧИТЬ'}
                     </button>
                   </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
+                    <span>Таймер · 30 сек</span>
+                    <span className={`font-black ${allPlayersAnswered ? 'text-[#1f6ac6]' : 'text-[#142a45]'}`}>
+                      {allPlayersAnswered ? 'Все ответили' : `${effectiveTimeLeft} c`}
+                    </span>
+                  </div>
+                  <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
+                    <div
+                      className={`h-full ${effectiveTimeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
+                      style={{ width: `${progressPercent}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-[#142a45]/60 mt-2">На время ответа у ведущего играет {ROUND3_TIMER_JINGLE_FILE}.</p>
                 </div>
 
                 <div className="flex flex-col gap-3 sm:flex-row">
@@ -3501,12 +3588,12 @@ export default function HostRoomPage() {
                     onClick={() => playRound3Audio(currentQuestionIndex)}
                     className="w-full py-3 rounded-2xl font-black text-base tracking-[0.16em] bg-[#ffeccd] text-[#142a45] border-[3px] border-[#142a45]"
                   >
-                    Включить звук
+                    Включить музыку
                   </button>
                 )}
 
                 <p className="text-xs text-[#142a45]/70">
-                  Голос вопроса играет из {ROUND3_QUESTIONS_AUDIO_DIR}/(N).mp3. Как только озвучка закончится — {ROUND3_BG_JINGLE_FILE} остановится автоматически.
+                  Голос вопроса играет из {ROUND3_QUESTIONS_AUDIO_DIR}/(N).mp3. Фон {ROUND3_BG_JINGLE_FILE} играет тихо, а таймер сопровождается {ROUND3_TIMER_JINGLE_FILE}.
                 </p>
               </div>
             ) : question ? (

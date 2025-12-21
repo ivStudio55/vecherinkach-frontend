@@ -966,6 +966,19 @@ export default function RoomPage() {
               <span className="font-black text-[#f1532f]">#{(round3QuestionIndex ?? 0) + 1}</span>
             </div>
 
+            <div>
+              <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
+                <span>Таймер · 30 сек</span>
+                <span className={`font-black ${allPlayersAnswered ? 'text-[#1f6ac6]' : 'text-[#142a45]'}`}>{timerLabel}</span>
+              </div>
+              <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
+                <div
+                  className={`h-full ${effectiveTimeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+            </div>
+
             <p className="text-sm text-[#142a45]/70 text-center">
               Слушайте ведущего: озвучка факта и фоновая музыка звучат у него.
             </p>
