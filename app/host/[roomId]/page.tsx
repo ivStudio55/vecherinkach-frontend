@@ -33,29 +33,29 @@ const JOIN_SOUND_FILES = [
 
 const QUESTION_JINGLE_FILE = '30_sec.mp3';
 const MEET_AUDIO_FILES = [
-  'meet/meetText1.wav',
-  'meet/meetText2.wav',
-  'meet/meetText3.wav',
-  'meet/meetText4.wav',
-  'meet/meetText5.wav',
-  'meet/meetText6.wav',
-  'meet/meetText7.wav',
-  'meet/meetText8.wav',
+  'meet/meetText1.mp3',
+  'meet/meetText2.mp3',
+  'meet/meetText3.mp3',
+  'meet/meetText4.mp3',
+  'meet/meetText5.mp3',
+  'meet/meetText6.mp3',
+  'meet/meetText7.mp3',
+  'meet/meetText8.mp3',
 ] as const;
 const CONNECT_AUDIO_CLIPS: Record<number, readonly string[]> = (() => {
   const base: Record<number, readonly string[]> = {
-    1: ['connect/1/one_connected.wav', 'connect/1/one_connected2.wav', 'connect/1/one_connected3.wav'],
+    1: ['connect/1/one_connected.mp3', 'connect/1/one_connected2.mp3', 'connect/1/one_connected3.mp3'],
   };
 
   for (let count = 2; count <= 10; count += 1) {
-    base[count] = Array.from({ length: 3 }, (_, variant) => `connect/${count}/${count}_connected${variant + 1}.wav`);
+    base[count] = Array.from({ length: 3 }, (_, variant) => `connect/${count}/${count}_connected${variant + 1}.mp3`);
   }
 
   return base;
 })();
 const RULES_ROUND1_FILES = [
-  'ruels/round1/ruelsround(1)2.wav',
-  'ruels/round1/ruelsround(1)3.wav',
+  'ruels/round1/ruelsround(1)2.mp3',
+  'ruels/round1/ruelsround(1)3.mp3',
 ] as const;
 const SKIP_AUDIO_FILES = [
   'skip/skip.mp3',
@@ -67,21 +67,21 @@ const SKIP_AUDIO_FILES = [
   'skip/skip8.mp3',
 ] as const;
 const BETWEEN_AUDIO_VARIANTS = {
-  zero: ['between/0%/1.wav', 'between/0%/2.wav', 'between/0%/3.wav'],
-  low: ['between/1-49%/1.wav', 'between/1-49%/2.wav', 'between/1-49%/3.wav', 'between/1-49%/4.wav'],
-  mid: ['between/50-99%/1.wav', 'between/50-99%/2.wav', 'between/50-99%/3.wav', 'between/50-99%/4.wav'],
-  full: ['between/100%/1.wav', 'between/100%/2.wav', 'between/100%/3.wav', 'between/100%/4.wav'],
+  zero: ['between/0%/1.mp3', 'between/0%/2.mp3', 'between/0%/3.mp3'],
+  low: ['between/1-49%/1.mp3', 'between/1-49%/2.mp3', 'between/1-49%/3.mp3', 'between/1-49%/4.mp3'],
+  mid: ['between/50-99%/1.mp3', 'between/50-99%/2.mp3', 'between/50-99%/3.mp3', 'between/50-99%/4.mp3'],
+  full: ['between/100%/1.mp3', 'between/100%/2.mp3', 'between/100%/3.mp3', 'between/100%/4.mp3'],
 } as const;
 const ROUND1_END_AUDIO_FILES = [
-  'round1end/1.wav',
-  'round1end/2.wav',
-  'round1end/3.wav',
-  'round1end/4.wav',
-  'round1end/5.wav',
-  'round1end/6.wav',
-  'round1end/7.wav',
-  'round1end/8.wav',
-  'round1end/9.wav',
+  'round1end/1.mp3',
+  'round1end/2.mp3',
+  'round1end/3.mp3',
+  'round1end/4.mp3',
+  'round1end/5.mp3',
+  'round1end/6.mp3',
+  'round1end/7.mp3',
+  'round1end/8.mp3',
+  'round1end/9.mp3',
 ] as const;
 const ROUND1_END_JINGLE_FILE = 'round1_end/jingle_(after_round1).mp3';
 const ROUND2_RULES_JINGLE_FILE = 'round2/jingle (5).mp3';
@@ -91,12 +91,12 @@ const ROUND2_EXPLANATION_FALLBACK = 'Озвучка рассказывает п�
 const ROUND2_FAKE_LABEL = 'Это фейк';
 const ROUND2_ANSWER_POLL_INTERVAL_MS = 5000;
 const ROUND2_BETWEEN_AUDIO_VARIANTS = {
-  zero: ['round2/between/0/1.wav', 'round2/between/0/2.wav', 'round2/between/0/3.wav', 'round2/between/0/4.wav'],
-  low: ['round2/between/1-49%/1.wav', 'round2/between/1-49%/2.wav', 'round2/between/1-49%/3.wav'],
-  mid: ['round2/between/50-99%/1.wav', 'round2/between/50-99%/2.wav', 'round2/between/50-99%/3.wav'],
-  full: ['round2/between/100%/1.wav', 'round2/between/100%/2.wav', 'round2/between/100%/4.wav', 'round2/between/100%/5.wav'],
+  zero: ['round2/between/0/1.mp3', 'round2/between/0/2.mp3', 'round2/between/0/3.mp3', 'round2/between/0/4.mp3'],
+  low: ['round2/between/1-49%/1.mp3', 'round2/between/1-49%/2.mp3', 'round2/between/1-49%/3.mp3'],
+  mid: ['round2/between/50-99%/1.mp3', 'round2/between/50-99%/2.mp3', 'round2/between/50-99%/3.mp3'],
+  full: ['round2/between/100%/1.mp3', 'round2/between/100%/2.mp3', 'round2/between/100%/4.mp3', 'round2/between/100%/5.mp3'],
 } as const;
-const ROUND2_RULES_VOICE_FILES = ['round2/ruels/1.wav', 'round2/ruels/2.wav'] as const;
+const ROUND2_RULES_VOICE_FILES = ['round2/ruels/1.mp3', 'round2/ruels/2.mp3'] as const;
 const ROUND2_RULES_SKIP_WINDOW_MS = 20000;
 
 const ROUND3_RULES_VOICE_FILES = ['round3/ruels3/ruels1.mp3', 'round3/ruels3/ruels2.mp3', 'round3/ruels3/ruels3.mp3'] as const;
@@ -669,7 +669,7 @@ export default function HostRoomPage() {
       const folder = isFact ? 'round2/true' : 'round2/false';
       const ordinal = index + 1;
       const prefix = isFact ? 'true' : 'false';
-      const filePath = `${folder}/${prefix}${ordinal}.wav`;
+      const filePath = `${folder}/${prefix}${ordinal}.mp3`;
       const audio = new Audio(buildAudioUrl(filePath));
       audio.volume = 0.95;
       round2FactAudioRef.current = audio;
@@ -748,7 +748,7 @@ export default function HostRoomPage() {
       round2ExplanationBgAudioRef.current = bg;
 
       const ordinal = index + 1;
-      const voice = new Audio(buildAudioUrl(`round2/explanation/${ordinal}.wav`));
+      const voice = new Audio(buildAudioUrl(`round2/explanation/${ordinal}.mp3`));
       voice.volume = 0.95;
 
       round2ExplanationAudioRef.current = voice;
@@ -791,7 +791,7 @@ export default function HostRoomPage() {
       round2ExplanationBgAudioRef.current = bg;
 
       const ordinal = index + 1;
-      const voice = new Audio(buildAudioUrl(`round2/fictionExplanation/${ordinal}.wav`));
+      const voice = new Audio(buildAudioUrl(`round2/fictionExplanation/${ordinal}.mp3`));
       voice.volume = 0.95;
 
       round2ExplanationAudioRef.current = voice;
