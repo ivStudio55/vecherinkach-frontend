@@ -94,6 +94,7 @@ export default function RoomPage() {
   const [round2Phase, setRound2Phase] = useState<Round2Phase>('idle');
   const [round3Questions, setRound3Questions] = useState<Round3Question[]>([]);
   const [round3QuestionIndex, setRound3QuestionIndex] = useState<number | null>(null);
+  const [round3AnswerText, setRound3AnswerText] = useState('');
   const roomIdRef = useRef('');
   const playerIdRef = useRef('');
   const round3VoiceRef = useRef<HTMLAudioElement | null>(null);
@@ -599,6 +600,14 @@ export default function RoomPage() {
   }, [roomStatus, stopRound3Audio]);
 
   useEffect(() => {
+    if (roomStatus !== 'round3-running') {
+      setRound3AnswerText('');
+      return;
+    }
+    setRound3AnswerText('');
+  }, [roomStatus, round3QuestionIndex]);
+
+  useEffect(() => {
     if (!timerActive || !questionStartedAt) {
       return;
     }
@@ -978,6 +987,22 @@ export default function RoomPage() {
                 />
               </div>
             </div>
+
+            {timerActive && effectiveTimeLeft > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold tracking-[0.3em] text-[#142a45]/60 text-center">ВВЕДИ ВАРИАНТ ОТВЕТА</p>
+                <input
+                  value={round3AnswerText}
+                  onChange={(e) => setRound3AnswerText(e.target.value)}
+                  placeholder="Напиши одно слово"
+                  className="w-full rounded-2xl border-[3px] border-[#142a45] bg-white px-4 py-3 text-sm font-semibold outline-none"
+                  autoComplete="off"
+                  inputMode="text"
+                  maxLength={60}
+                />
+                <p className="text-xs text-center text-[#142a45]/60">Поле доступно только пока идёт таймер.</p>
+              </div>
+            )}
 
             <p className="text-sm text-[#142a45]/70 text-center">
               Слушайте ведущего: озвучка факта и фоновая музыка звучат у него.
