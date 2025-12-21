@@ -22,6 +22,16 @@ const ROUND3_BG_JINGLE_FILE = 'round2/jingle (5).mp3';
 
 const buildAudioUrl = (relativePath: string) => `/api/audio?file=${encodeURIComponent(relativePath)}&t=${Date.now()}`;
 
+// Fisher-Yates shuffle algorithm
+const shuffleArray = <T,>(array: T[]): T[] => {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+};
+
 const getRemainingSeconds = (startedAt: string | null, offsetMs = 0) => {
   if (!startedAt) {
     return QUESTION_DURATION_SECONDS;
@@ -72,6 +82,7 @@ type Round3Question = {
   category?: string;
   acceptable?: string[];
   comment?: string;
+  originalIndex: number;
 };
 
 type Round3QuestionsPayload = {
@@ -163,7 +174,8 @@ export default function RoomPage() {
         }
         const payload = (await res.json()) as Round3QuestionsPayload;
         const questions = Array.isArray(payload?.questions) ? payload.questions : [];
-        setRound3Questions(questions);
+        const withIndex = questions.map((q, i) => ({ ...q, originalIndex: i }));
+        setRound3Questions(shuffleArray(withIndex));
       } catch (e) {
         console.error('Failed to load round3 data', e);
       }

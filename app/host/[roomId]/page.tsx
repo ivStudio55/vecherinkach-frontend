@@ -135,6 +135,16 @@ const buildAudioUrl = (relativePath: string) => `/api/audio?file=${encodeURIComp
 const buildJingleUrl = (fileName: string) => `/api/jingle/audio?file=${encodeURIComponent(fileName)}&t=${Date.now()}`;
 const pickRandomItem = <T,>(items: readonly T[]) => items[Math.floor(Math.random() * items.length)];
 
+// Fisher-Yates shuffle algorithm
+const shuffleArray = <T,>(array: T[]): T[] => {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+};
+
 const getRemainingSeconds = (startedAt: string | null, offsetMs = 0) => {
   if (!startedAt) {
     return QUESTION_DURATION_SECONDS;
@@ -176,6 +186,7 @@ type Round3Question = {
   category?: string;
   acceptable?: string[];
   comment?: string;
+  originalIndex: number;
 };
 
 type Round3QuestionsPayload = {
@@ -768,7 +779,8 @@ export default function HostRoomPage() {
       round3PlaybackTokenRef.current = token;
 
       const bgUrl = buildAudioUrl(ROUND3_BG_JINGLE_FILE);
-      const voiceUrl = buildAudioUrl(`${ROUND3_QUESTIONS_AUDIO_DIR}/${index + 1}.mp3`);
+      const currentQ = round3Questions[index];
+      const voiceUrl = currentQ ? buildAudioUrl(`${ROUND3_QUESTIONS_AUDIO_DIR}/${currentQ.originalIndex + 1}.mp3`) : '';
       const timerUrl = buildAudioUrl(ROUND3_TIMER_JINGLE_FILE);
 
       void (async () => {
@@ -1222,7 +1234,8 @@ export default function HostRoomPage() {
         if (!res.ok) return;
         const payload = (await res.json()) as Round3QuestionsPayload;
         const questions = Array.isArray(payload?.questions) ? payload.questions : [];
-        setRound3Questions(questions);
+        const withIndex = questions.map((q, i) => ({ ...q, originalIndex: i }));
+        setRound3Questions(shuffleArray(withIndex));
       } catch (e) {
         console.error('Failed to load round3 questions', e);
       }
