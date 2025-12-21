@@ -15,6 +15,7 @@ const QUESTION_DURATION_SECONDS = 30;
 const APP_VERSION = '1.0.8'; // Инкрементируйте при важных изменениях
 
 const ROUND3_ANSWER_SECONDS = 30;
+const ROUND3_VOTE_COUNTDOWN_SECONDS = 3;
 const ROUND3_VOTE_SECONDS = 15;
 
 const ROUND3_QUESTIONS_AUDIO_DIR = 'round3/questions3';
@@ -722,7 +723,10 @@ export default function RoomPage() {
     if (elapsed < ROUND3_ANSWER_SECONDS) {
       return 'answer' as const;
     }
-    if (elapsed < ROUND3_ANSWER_SECONDS + ROUND3_VOTE_SECONDS) {
+    if (elapsed < ROUND3_ANSWER_SECONDS + ROUND3_VOTE_COUNTDOWN_SECONDS) {
+      return 'vote-countdown' as const;
+    }
+    if (elapsed < ROUND3_ANSWER_SECONDS + ROUND3_VOTE_COUNTDOWN_SECONDS + ROUND3_VOTE_SECONDS) {
       return 'vote' as const;
     }
     return 'post' as const;
@@ -793,7 +797,7 @@ export default function RoomPage() {
     if (roomStatus !== 'round3-running') {
       return;
     }
-    if (round3Phase !== 'vote') {
+    if (round3Phase !== 'vote' && round3Phase !== 'vote-countdown') {
       return;
     }
     if (hasAnswered) {
@@ -834,7 +838,7 @@ export default function RoomPage() {
   }, [roomId, roomStatus, round3QuestionIndex]);
 
   useEffect(() => {
-    if (round3Phase !== 'vote') {
+    if (round3Phase !== 'vote' && round3Phase !== 'vote-countdown') {
       return;
     }
     void loadRound3VoteOptions();
@@ -867,7 +871,7 @@ export default function RoomPage() {
   }, [playerId, roomId, roomStatus, round3QuestionIndex]);
 
   useEffect(() => {
-    if (round3Phase !== 'vote') {
+    if (round3Phase !== 'vote' && round3Phase !== 'vote-countdown') {
       return;
     }
     void loadRound3VoteState();
@@ -1013,6 +1017,11 @@ export default function RoomPage() {
   }
 
   const round3VoteStartedAt =
+    roomStatus === 'round3-running' && questionStartedAt
+      ? addSecondsToIso(questionStartedAt, ROUND3_ANSWER_SECONDS + ROUND3_VOTE_COUNTDOWN_SECONDS)
+      : null;
+
+  const round3VoteCountdownStartedAt =
     roomStatus === 'round3-running' && questionStartedAt ? addSecondsToIso(questionStartedAt, ROUND3_ANSWER_SECONDS) : null;
 
   const round3AnswerTimeLeft =
@@ -1025,8 +1034,23 @@ export default function RoomPage() {
       ? getRemainingSecondsWithDuration(round3VoteStartedAt, ROUND3_VOTE_SECONDS, timeOffsetMs)
       : ROUND3_VOTE_SECONDS;
 
-  const activeTimerSeconds = roomStatus === 'round3-running' && round3Phase === 'vote' ? round3VoteTimeLeft : effectiveTimeLeft;
-  const activeTimerDuration = roomStatus === 'round3-running' && round3Phase === 'vote' ? ROUND3_VOTE_SECONDS : QUESTION_DURATION_SECONDS;
+  const round3VoteCountdownTimeLeft =
+    roomStatus === 'round3-running' && round3VoteCountdownStartedAt
+      ? getRemainingSecondsWithDuration(round3VoteCountdownStartedAt, ROUND3_VOTE_COUNTDOWN_SECONDS, timeOffsetMs)
+      : ROUND3_VOTE_COUNTDOWN_SECONDS;
+
+  const activeTimerSeconds =
+    roomStatus === 'round3-running' && round3Phase === 'vote'
+      ? round3VoteTimeLeft
+      : roomStatus === 'round3-running' && round3Phase === 'vote-countdown'
+        ? round3VoteCountdownTimeLeft
+        : effectiveTimeLeft;
+  const activeTimerDuration =
+    roomStatus === 'round3-running' && round3Phase === 'vote'
+      ? ROUND3_VOTE_SECONDS
+      : roomStatus === 'round3-running' && round3Phase === 'vote-countdown'
+        ? ROUND3_VOTE_COUNTDOWN_SECONDS
+        : QUESTION_DURATION_SECONDS;
   const progressPercent = Math.max(0, Math.min(100, (activeTimerSeconds / activeTimerDuration) * 100));
   const timerLabel = allPlayersAnswered ? 'Все ответили' : `${activeTimerSeconds} c`;
 
@@ -1276,9 +1300,11 @@ export default function RoomPage() {
                   ? 'Сейчас идёт озвучка факта. Поле для ответа появится во время таймера.'
                   : round3Phase === 'answer'
                     ? 'Во время таймера введи свой вариант ответа.'
-                    : round3Phase === 'vote'
-                      ? 'Идёт голосование — выбери лучший ответ.'
-                      : 'Голосование завершено — ждём ведущего.'}
+                    : round3Phase === 'vote-countdown'
+                      ? 'Сейчас начнётся голосование: приготовься выбрать лучший ответ.'
+                      : round3Phase === 'vote'
+                        ? 'Идёт голосование — выбери лучший ответ.'
+                        : 'Голосование завершено — ждём ведущего.'}
               </p>
             </div>
 
@@ -1289,16 +1315,28 @@ export default function RoomPage() {
 
             <div>
               <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
-                <span>{round3Phase === 'vote' ? 'Голосование · 15 сек' : 'Таймер · 30 сек'}</span>
+                <span>
+                  {round3Phase === 'vote'
+                    ? 'Голосование · 15 сек'
+                    : round3Phase === 'vote-countdown'
+                      ? 'Голосуем через…'
+                      : 'Таймер · 30 сек'}
+                </span>
                 <span className={`font-black ${allPlayersAnswered ? 'text-[#1f6ac6]' : 'text-[#142a45]'}`}>{timerLabel}</span>
               </div>
               <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
                 <div
-                  className={`h-full ${effectiveTimeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
+                  className={`h-full ${activeTimerSeconds > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
                   style={{ width: `${progressPercent}%` }}
                 />
               </div>
             </div>
+
+            {round3Phase === 'vote-countdown' && (
+              <div className="rounded-2xl border-[3px] border-[#142a45] bg-[#ffe184] px-4 py-3 text-center font-black">
+                Голосуем через {Math.max(1, round3VoteCountdownTimeLeft)}
+              </div>
+            )}
 
             {round3Phase === 'answer' && timerActive && round3AnswerTimeLeft > 0 && (
               <div className="space-y-2">

@@ -107,6 +107,7 @@ const ROUND3_TIMER_JINGLE_FILE = '30_sec.mp3';
 const ROUND3_TIMER_VOLUME = 0.35;
 
 const ROUND3_ANSWER_SECONDS = 30;
+const ROUND3_VOTE_COUNTDOWN_SECONDS = 3;
 const ROUND3_VOTE_SECONDS = 15;
 const ROUND3_VOTE_AUDIO_DIR = 'vote';
 
@@ -291,6 +292,7 @@ export default function HostRoomPage() {
   const [round3AudioBlocked, setRound3AudioBlocked] = useState(false);
   const [isMusicMuted, setIsMusicMuted] = useState(false);
   const [round3VoteAnswers, setRound3VoteAnswers] = useState<Round3AnswerRow[]>([]);
+  const [isRound3VoteAnswersLoading, setIsRound3VoteAnswersLoading] = useState(false);
 
   const isMusicMutedRef = useRef(isMusicMuted);
   useEffect(() => {
@@ -326,6 +328,7 @@ export default function HostRoomPage() {
   const round2AnswersRef = useRef<Round2AnswerRow[]>([]);
   const lastRound3PlaybackKeyRef = useRef<string | null>(null);
   const lastRound3VoteKeyRef = useRef<string | null>(null);
+  const lastRound3VoteAnswersKeyRef = useRef<string | null>(null);
   const round2StatsRef = useRef<Map<string, Round2PlayerStats>>(new Map());
   const round2CorrectTotalRef = useRef(0);
   const round2PossibleTotalRef = useRef(0);
@@ -381,16 +384,31 @@ export default function HostRoomPage() {
     [timeOffsetMs]
   );
 
-  const isRound3VoteWindow = useMemo(() => {
-    if (roomStatus !== 'round3-running' || !questionStartedAt) {
-      return false;
+  const round3Phase = useMemo(() => {
+    if (roomStatus !== 'round3-running') {
+      return 'none' as const;
+    }
+    if (!questionStartedAt) {
+      return 'fact' as const;
     }
     const elapsed = getRound3ElapsedSeconds(questionStartedAt);
     if (elapsed === null) {
-      return false;
+      return 'fact' as const;
     }
-    return elapsed >= ROUND3_ANSWER_SECONDS && elapsed < ROUND3_ANSWER_SECONDS + ROUND3_VOTE_SECONDS;
+    if (elapsed < ROUND3_ANSWER_SECONDS) {
+      return 'answer' as const;
+    }
+    if (elapsed < ROUND3_ANSWER_SECONDS + ROUND3_VOTE_COUNTDOWN_SECONDS) {
+      return 'vote-countdown' as const;
+    }
+    if (elapsed < ROUND3_ANSWER_SECONDS + ROUND3_VOTE_COUNTDOWN_SECONDS + ROUND3_VOTE_SECONDS) {
+      return 'vote' as const;
+    }
+    return 'post' as const;
   }, [getRound3ElapsedSeconds, questionStartedAt, roomStatus]);
+
+  const isRound3VoteCountdown = round3Phase === 'vote-countdown';
+  const isRound3VotePhase = round3Phase === 'vote';
 
   const setRound2Phase = useCallback(
     (nextPhase: Round2Phase) => {
@@ -1147,6 +1165,7 @@ export default function HostRoomPage() {
       return;
     }
     try {
+      setIsRound3VoteAnswersLoading(true);
       const { data, error } = await supabase
         .from('round3_answers')
         .select('id, player_id, text, submitted_at')
@@ -1164,33 +1183,46 @@ export default function HostRoomPage() {
     } catch (err) {
       console.error('Не удалось загрузить ответы Раунда 3', err);
       setRound3VoteAnswers([]);
+    } finally {
+      setIsRound3VoteAnswersLoading(false);
     }
   }, [currentQuestionIndex, roomId, roomStatus]);
 
   useEffect(() => {
     if (roomStatus !== 'round3-running' || !questionStartedAt) {
       setRound3VoteAnswers([]);
+      setIsRound3VoteAnswersLoading(false);
       lastRound3VoteKeyRef.current = null;
+      lastRound3VoteAnswersKeyRef.current = null;
       stopRound3VoteAudio();
       return;
     }
 
-    const key = `${currentQuestionIndex}-${questionStartedAt}`;
-    if (!isRound3VoteWindow) {
-      if (lastRound3VoteKeyRef.current === key) {
-        // We were in vote window and left it
+    const baseKey = `${currentQuestionIndex}-${questionStartedAt}`;
+    const answersKey = `${baseKey}-answers`;
+    const voteKey = `${baseKey}-vote`;
+
+    // Preload answers right after answer timer ends (during 3..2..1 countdown).
+    if (isRound3VoteCountdown || isRound3VotePhase) {
+      if (lastRound3VoteAnswersKeyRef.current !== answersKey) {
+        lastRound3VoteAnswersKeyRef.current = answersKey;
+        void loadRound3VoteAnswers();
+      }
+    }
+
+    if (!isRound3VotePhase) {
+      if (lastRound3VoteKeyRef.current === voteKey) {
         stopRound3VoteAudio();
       }
       return;
     }
 
-    // Entering vote window: load answers + play vote audio once.
-    if (lastRound3VoteKeyRef.current !== key) {
-      lastRound3VoteKeyRef.current = key;
-      void loadRound3VoteAnswers();
+    // Entering vote phase: play vote audio once.
+    if (lastRound3VoteKeyRef.current !== voteKey) {
+      lastRound3VoteKeyRef.current = voteKey;
       playRound3VoteAudio(currentQuestionIndex);
     }
-  }, [currentQuestionIndex, isRound3VoteWindow, loadRound3VoteAnswers, playRound3VoteAudio, questionStartedAt, roomStatus, stopRound3VoteAudio]);
+  }, [currentQuestionIndex, isRound3VoteCountdown, isRound3VotePhase, loadRound3VoteAnswers, playRound3VoteAudio, questionStartedAt, roomStatus, stopRound3VoteAudio]);
 
   useEffect(() => {
     if (roomStatus !== 'round3-running') {
@@ -3250,14 +3282,26 @@ export default function HostRoomPage() {
   const nextButtonDisabled = !canAdvance || (isLastQuestion && (isSummaryLoading || isRoundEndButtonLocked));
   const progressPercent = Math.max(0, Math.min(100, (effectiveTimeLeft / QUESTION_DURATION_SECONDS) * 100));
   const round3ElapsedSeconds = isRound3Running ? getRound3ElapsedSeconds(questionStartedAt) : null;
+  const round3CountdownTimeLeft =
+    round3ElapsedSeconds === null
+      ? ROUND3_VOTE_COUNTDOWN_SECONDS
+      : Math.max(0, ROUND3_ANSWER_SECONDS + ROUND3_VOTE_COUNTDOWN_SECONDS - round3ElapsedSeconds);
   const round3VoteTimeLeft =
     round3ElapsedSeconds === null
       ? ROUND3_VOTE_SECONDS
-      : Math.max(0, ROUND3_ANSWER_SECONDS + ROUND3_VOTE_SECONDS - round3ElapsedSeconds);
-  const round3TimerTimeLeft = isRound3VoteWindow ? round3VoteTimeLeft : effectiveTimeLeft;
-  const round3ProgressPercent = isRound3VoteWindow
-    ? Math.max(0, Math.min(100, (round3VoteTimeLeft / ROUND3_VOTE_SECONDS) * 100))
-    : progressPercent;
+      : Math.max(0, ROUND3_ANSWER_SECONDS + ROUND3_VOTE_COUNTDOWN_SECONDS + ROUND3_VOTE_SECONDS - round3ElapsedSeconds);
+
+  const round3TimerDuration = isRound3VotePhase
+    ? ROUND3_VOTE_SECONDS
+    : isRound3VoteCountdown
+      ? ROUND3_VOTE_COUNTDOWN_SECONDS
+      : ROUND3_ANSWER_SECONDS;
+  const round3TimerTimeLeft = isRound3VotePhase
+    ? round3VoteTimeLeft
+    : isRound3VoteCountdown
+      ? round3CountdownTimeLeft
+      : effectiveTimeLeft;
+  const round3ProgressPercent = Math.max(0, Math.min(100, (round3TimerTimeLeft / round3TimerDuration) * 100));
   const questionsForSummary = summaryQuestions.length ? summaryQuestions : question ? [question] : [];
   const isWaiting = roomStatus === 'waiting' && !showResults;
   const shouldShowRulesModal = isWaiting && isRulesVisible;
@@ -3865,7 +3909,13 @@ export default function HostRoomPage() {
 
                 <div>
                   <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
-                    <span>{isRound3VoteWindow ? `Голосование · ${ROUND3_VOTE_SECONDS} сек` : `Таймер · ${ROUND3_ANSWER_SECONDS} сек`}</span>
+                    <span>
+                      {isRound3VotePhase
+                        ? `Голосование · ${ROUND3_VOTE_SECONDS} сек`
+                        : isRound3VoteCountdown
+                          ? 'Голосуем через…'
+                          : `Таймер · ${ROUND3_ANSWER_SECONDS} сек`}
+                    </span>
                     <span className={`font-black ${allPlayersAnswered ? 'text-[#1f6ac6]' : 'text-[#142a45]'}`}>
                       {allPlayersAnswered ? 'Все ответили' : `${round3TimerTimeLeft} c`}
                     </span>
@@ -3877,16 +3927,20 @@ export default function HostRoomPage() {
                     />
                   </div>
                   <p className="text-xs text-[#142a45]/60 mt-2">
-                    {isRound3VoteWindow
+                    {isRound3VotePhase
                       ? `На время голосования у ведущего играет ${ROUND3_TIMER_JINGLE_FILE} + случайный файл из ${ROUND3_VOTE_AUDIO_DIR}/.`
-                      : `На время ответа у ведущего играет ${ROUND3_TIMER_JINGLE_FILE}.`}
+                      : isRound3VoteCountdown
+                        ? 'Готовимся голосовать: 3..2..1.'
+                        : `На время ответа у ведущего играет ${ROUND3_TIMER_JINGLE_FILE}.`}
                   </p>
                 </div>
 
                 {round3ElapsedSeconds !== null && round3ElapsedSeconds >= ROUND3_ANSWER_SECONDS && (
                   <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-white p-5 space-y-3">
                     <p className="retro-heading text-[11px] tracking-[0.5em] text-[#142a45]/70">Ответы игроков</p>
-                    {round3VoteAnswers.length > 0 ? (
+                    {isRound3VoteAnswersLoading ? (
+                      <p className="text-sm text-[#142a45]/70">Ответы загружаются…</p>
+                    ) : round3VoteAnswers.length > 0 ? (
                       <ol className="space-y-2">
                         {round3VoteAnswers.map((answer, idx) => (
                           <li
@@ -3899,7 +3953,7 @@ export default function HostRoomPage() {
                         ))}
                       </ol>
                     ) : (
-                      <p className="text-sm text-[#142a45]/70">Ответы загружаются…</p>
+                      <p className="text-sm text-[#142a45]/70">Пока нет ответов для голосования.</p>
                     )}
                   </div>
                 )}
