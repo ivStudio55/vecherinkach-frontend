@@ -359,7 +359,11 @@ export default function RoomPage() {
       setSelectedQuestionIds(selection);
       const detectedStatus = (room.status as RoomStatus) || (room.is_active ? 'waiting' : 'finished');
       setRoomStatus(detectedStatus);
-      setAllPlayersAnswered(detectedStatus === 'running' || detectedStatus === 'round2-running' ? !!room.all_players_answered : false);
+      setAllPlayersAnswered(
+        detectedStatus === 'running' || detectedStatus === 'round2-running' || detectedStatus === 'round3-running'
+          ? !!room.all_players_answered
+          : false
+      );
 
       const dbRound2ItemIndex = (room.round2_item_index as number | null) ?? null;
       const dbRound2ShowingFact = typeof room.round2_showing_fact === 'boolean' ? (room.round2_showing_fact as boolean) : true;
