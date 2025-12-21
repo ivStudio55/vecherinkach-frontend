@@ -27,8 +27,6 @@
             'running',
             'round2-running',
             'round2-ready',
-            'round3-ready',
-            'round3-running',
             'finished'
         )
     );
@@ -44,8 +42,6 @@
         'running',
         'round2-running',
         'round2-ready',
-        'round3-ready',
-        'round3-running',
         'finished'
     );
 
@@ -120,26 +116,4 @@
     SET round2_phase = 'idle'
     WHERE round2_phase IS NULL OR round2_phase NOT IN ('idle', 'fact', 'explanation');
 
-    -- Поля для Раунда 3 «МозгоШтурм»
-    ALTER TABLE rooms
-    ADD COLUMN IF NOT EXISTS round3_question_id integer,
-    ADD COLUMN IF NOT EXISTS round3_question_index integer,
-    ADD COLUMN IF NOT EXISTS round3_question_started_at timestamptz,
-    ADD COLUMN IF NOT EXISTS round3_audio_finished_at timestamptz;
 
-    CREATE TABLE IF NOT EXISTS public.round3_answers (
-        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-        room_id uuid NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
-        player_id uuid NOT NULL REFERENCES players(id) ON DELETE CASCADE,
-        question_index integer NOT NULL,
-        answer text NOT NULL,
-        submitted_at timestamptz NOT NULL DEFAULT timezone('utc', now()),
-        updated_at timestamptz NOT NULL DEFAULT timezone('utc', now()),
-        UNIQUE (room_id, player_id, question_index)
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_round3_answers_room_question
-        ON public.round3_answers (room_id, question_index);
-
-    CREATE INDEX IF NOT EXISTS idx_round3_answers_room_player
-        ON public.round3_answers (room_id, player_id);
