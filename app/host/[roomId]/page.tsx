@@ -669,7 +669,9 @@ export default function HostRoomPage() {
 
   const playRound3Audio = useCallback(
     (index: number) => {
+      console.log(`Round 3: playRound3Audio called with index ${index}`);
       if (!hasUserInteractedRef.current) {
+        console.log('Round 3: no user interaction, blocking');
         setRound3AudioBlocked(true);
         return;
       }
@@ -679,9 +681,11 @@ export default function HostRoomPage() {
 
       const token = round3PlaybackTokenRef.current + 1;
       round3PlaybackTokenRef.current = token;
+      console.log(`Round 3: new token ${token}`);
 
       const bgUrl = buildAudioUrl(ROUND3_BG_JINGLE_FILE);
       const voiceUrl = buildAudioUrl(`${ROUND3_QUESTIONS_AUDIO_DIR}/${index + 1}.mp3`);
+      console.log(`Round 3: bgUrl=${bgUrl}, voiceUrl=${voiceUrl}`);
 
       void (async () => {
         if (typeof window === 'undefined') {
@@ -718,18 +722,23 @@ export default function HostRoomPage() {
         }
 
         const decodeFromUrl = async (url: string) => {
+          console.log(`Round 3: fetching audio from ${url}`);
           const res = await fetch(url, { cache: 'no-store' });
           if (!res.ok) {
             throw new Error(`HTTP ${res.status} for ${url}`);
           }
           const bytes = await res.arrayBuffer();
+          console.log(`Round 3: fetched ${bytes.byteLength} bytes for ${url}`);
           return await context.decodeAudioData(bytes.slice(0));
         };
 
         try {
+          console.log('Round 3: starting decode of bg and voice');
           const [bgBuffer, voiceBuffer] = await Promise.all([decodeFromUrl(bgUrl), decodeFromUrl(voiceUrl)]);
+          console.log('Round 3: decode successful');
 
           if (round3PlaybackTokenRef.current !== token) {
+            console.log('Round 3: token mismatch, aborting');
             return;
           }
 
@@ -738,7 +747,7 @@ export default function HostRoomPage() {
           bgSource.loop = true;
 
           const bgGain = context.createGain();
-          bgGain.gain.value = 0.55;
+          bgGain.gain.value = 0.7; // increased from 0.55
 
           const voiceSource = context.createBufferSource();
           voiceSource.buffer = voiceBuffer;
@@ -759,6 +768,7 @@ export default function HostRoomPage() {
           round3VoiceGainNodeRef.current = voiceGain;
 
           const stopBg = () => {
+            console.log('Round 3: stopping bg');
             const currentBg = round3BgBufferSourceRef.current;
             if (currentBg) {
               try {
@@ -786,12 +796,15 @@ export default function HostRoomPage() {
           };
 
           voiceSource.onended = () => {
+            console.log('Round 3: voice ended, stopping bg');
             stopBg();
           };
 
+          console.log(`Round 3: starting playback at ${context.currentTime + 0.01}, context state: ${context.state}`);
           const startAt = context.currentTime + 0.01;
           bgSource.start(startAt);
           voiceSource.start(startAt);
+          console.log('Round 3: playback started');
         } catch (err) {
           console.error('Не удалось воспроизвести аудио Раунда 3 через AudioContext', err);
           setRound3AudioBlocked(true);
