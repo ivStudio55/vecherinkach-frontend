@@ -99,6 +99,10 @@ const ROUND2_BETWEEN_AUDIO_VARIANTS = {
 const ROUND2_RULES_VOICE_FILES = ['round2/ruels/1.mp3', 'round2/ruels/2.mp3'] as const;
 const ROUND2_RULES_SKIP_WINDOW_MS = 20000;
 
+const ROUND3_TOTAL_QUESTIONS = 6;
+const ROUND3_QUESTIONS_AUDIO_DIR = 'round3/questions3';
+const ROUND3_BG_JINGLE_FILE = 'round2/jingle (5).mp3';
+
 const ROUND3_RULES_VOICE_FILES = ['round3/ruels3/ruels1.mp3', 'round3/ruels3/ruels2.mp3', 'round3/ruels3/ruels3.mp3'] as const;
 
 const ROUND3_RULES_TEXT = `Раунд «МозгоШтурм»
@@ -159,7 +163,21 @@ interface Player {
   total_points: number;
 }
 
-type RoomStatus = 'waiting' | 'running' | 'finished' | 'round2-running';
+type Round3Question = {
+  question: string;
+  answer?: string;
+  category?: string;
+  acceptable?: string[];
+  comment?: string;
+};
+
+type Round3QuestionsPayload = {
+  name?: string;
+  description?: string;
+  questions?: Round3Question[];
+};
+
+type RoomStatus = 'waiting' | 'running' | 'finished' | 'round2-running' | 'round3-running';
 
 interface RoundAnswer {
   player_id: string;
@@ -238,6 +256,7 @@ export default function HostRoomPage() {
   const round2Phase = round2PhaseState;
   const [isRound2RulesVisible, setIsRound2RulesVisible] = useState(false);
   const [isRound3RulesVisible, setIsRound3RulesVisible] = useState(false);
+  const [round3Questions, setRound3Questions] = useState<Round3Question[]>([]);
   const [round2Answers, setRound2Answers] = useState<Round2AnswerRow[]>([]);
   const [round2AskedIndices, setRound2AskedIndices] = useState<number[]>([]);
   const [round2QuestionCounter, setRound2QuestionCounter] = useState(0);
@@ -299,6 +318,9 @@ export default function HostRoomPage() {
   const round2RulesReadyAtRef = useRef<number | null>(null);
   const round2ShowingFactRef = useRef(round2ShowingFact);
   const round2PhaseRef = useRef<Round2Phase>(round2PhaseState);
+  const round3QuestionCount = Math.min(ROUND3_TOTAL_QUESTIONS, round3Questions.length);
+  const currentRound3Question =
+    roomStatus === 'round3-running' ? round3Questions[currentQuestionIndex] ?? null : null;
 
   const setRound2Phase = useCallback(
     (nextPhase: Round2Phase) => {
@@ -565,6 +587,22 @@ export default function HostRoomPage() {
       }
     };
     loadRound2Data();
+  }, []);
+
+  useEffect(() => {
+    const loadRound3Data = async () => {
+      try {
+        const res = await fetch('/api/round3/questions', { cache: 'no-store' });
+        if (!res.ok) return;
+        const payload = (await res.json()) as Round3QuestionsPayload;
+        const questions = Array.isArray(payload?.questions) ? payload.questions : [];
+        setRound3Questions(questions);
+      } catch (e) {
+        console.error('Failed to load round3 questions', e);
+      }
+    };
+
+    void loadRound3Data();
   }, []);
 
   useEffect(() => {
@@ -1055,7 +1093,7 @@ export default function HostRoomPage() {
         setCurrentQuestionIndex(room.current_question_index);
         const detectedStatus = (room.status as RoomStatus) || 'waiting';
         updateRoomStatus(detectedStatus);
-        const isLiveRound = detectedStatus === 'running' || detectedStatus === 'round2-running';
+        const isLiveRound = detectedStatus === 'running' || detectedStatus === 'round2-running' || detectedStatus === 'round3-running';
         setServerAllPlayersAnswered(isLiveRound ? !!room.all_players_answered : false);
         const nextRound2Index = (room.round2_item_index as number | null) ?? room.current_question_index ?? null;
         if (nextRound2Index !== null) {
@@ -1088,6 +1126,17 @@ export default function HostRoomPage() {
           setTimeLeft(0);
         }
         await loadRound2AnswerStats(nextRound2Index);
+      } else if (detectedStatus === 'round3-running') {
+        setShowResults(false);
+        setQuestion(null);
+        setAnswerCount(0);
+        setCorrectAnswerCount(0);
+        setAnsweredPlayerIds([]);
+        syncTimerWithStart(room.question_started_at, effectiveOffset);
+        if (room.all_players_answered) {
+          setTimeLeft(0);
+        }
+        await loadRound2AnswerStats(null, { preserveRound1Counters: true });
       } else if (detectedStatus === 'finished') {
         setShowResults(true);
         setAnswerCount(0);
@@ -2334,22 +2383,90 @@ export default function HostRoomPage() {
 
     clearCountdownTimeout();
     setCountdownContext('round3');
-    countdownCompleteActionRef.current = () => {
-      // Round 3 gameplay will be implemented step-by-step later.
-      round3StartLockRef.current = false;
+    countdownCompleteActionRef.current = async () => {
+      try {
+        if (!round3Questions.length) {
+          setError('Вопросы для Раунда 3 ещё не загружены');
+          return;
+        }
+
+        const { iso: startedAt, offset } = await getServerIsoTimestamp();
+        const { error: updateError } = await supabase
+          .from('rooms')
+          .update({
+            status: 'round3-running',
+            current_question_index: 0,
+            question_started_at: startedAt,
+            all_players_answered: false,
+            round2_phase: 'idle',
+          })
+          .eq('id', roomId);
+
+        if (updateError) {
+          setError('Не удалось запустить Раунд 3');
+          return;
+        }
+
+        updateRoomStatus('round3-running');
+        setShowResults(false);
+        setQuestion(null);
+        setCurrentQuestionIndex(0);
+        syncTimerWithStart(startedAt, offset);
+      } finally {
+        round3StartLockRef.current = false;
+      }
     };
     setIsCountdownVisible(true);
     runCountdownSequence(0);
   }, [
     clearCountdownTimeout,
     isCountdownVisible,
+    getServerIsoTimestamp,
     playSkipAudioAndWait,
+    roomId,
+    round3Questions.length,
     runCountdownSequence,
     setCountdownContext,
     setIsCountdownVisible,
     setIsRound3RulesVisible,
+    syncTimerWithStart,
     stopRound3RulesAudio,
+    updateRoomStatus,
   ]);
+
+  const handleRound3NextQuestion = useCallback(async () => {
+    if (roomStatus !== 'round3-running') {
+      return;
+    }
+    if (!round3Questions.length) {
+      setError('Вопросы для Раунда 3 ещё не загружены');
+      return;
+    }
+
+    const max = Math.min(ROUND3_TOTAL_QUESTIONS, round3Questions.length);
+    const nextIndex = currentQuestionIndex + 1;
+    if (nextIndex >= max) {
+      return;
+    }
+
+    const { iso: startedAt, offset } = await getServerIsoTimestamp();
+    const { error: updateError } = await supabase
+      .from('rooms')
+      .update({
+        current_question_index: nextIndex,
+        question_started_at: startedAt,
+        all_players_answered: false,
+      })
+      .eq('id', roomId);
+
+    if (updateError) {
+      setError('Не удалось открыть следующий факт');
+      return;
+    }
+
+    setCurrentQuestionIndex(nextIndex);
+    syncTimerWithStart(startedAt, offset);
+  }, [currentQuestionIndex, getServerIsoTimestamp, roomId, roomStatus, round3Questions.length, syncTimerWithStart]);
 
   const completeRound2 = useCallback(async () => {
     handleRound2NextQuestionRef.current = null;
@@ -2437,6 +2554,7 @@ export default function HostRoomPage() {
   const isLastQuestion = totalQuestions > 0 ? currentQuestionIndex >= totalQuestions - 1 : false;
   const isRound1Active = roomStatus === 'running';
   const isRound2Running = roomStatus === 'round2-running';
+  const isRound3Running = roomStatus === 'round3-running';
   const canAdvance = isRound1Active && (effectiveTimeLeft === 0 || allPlayersAnswered);
   const nextButtonDisabled = !canAdvance || (isLastQuestion && (isSummaryLoading || isRoundEndButtonLocked));
   const progressPercent = Math.max(0, Math.min(100, (effectiveTimeLeft / QUESTION_DURATION_SECONDS) * 100));
@@ -3009,6 +3127,46 @@ export default function HostRoomPage() {
                   )}
                 </div>
               </div>
+            ) : isRound3Running ? (
+              <div className="rounded-3xl border-[4px] border-[#f1532f] bg-white shadow-xl p-6 space-y-5">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="retro-heading text-xs tracking-[0.4em] text-[#f1532f]/70">Раунд 3 · «МозгоШтурм»</p>
+                    <h2 className="text-3xl font-black">🧠 Факт с пропуском</h2>
+                  </div>
+                  <div className="flex flex-col items-start sm:items-end text-sm font-semibold text-[#f1532f]">
+                    <span>
+                      Факт <span className="font-black">{currentQuestionIndex + 1}</span>/{round3QuestionCount || ROUND3_TOTAL_QUESTIONS}
+                    </span>
+                    <span className="text-xs text-[#142a45]/70">Озвучка и музыка идут на экранах игроков</span>
+                  </div>
+                </div>
+
+                <div className="rounded-3xl border-[3px] border-[#f1532f]/20 bg-[#fff6da] p-5 space-y-2">
+                  <p className="text-[11px] tracking-[0.4em] text-[#f1532f]/60">Сейчас на экранах игроков</p>
+                  <p className="text-2xl font-black leading-snug">
+                    {currentRound3Question?.question ?? 'Подождите, факты загружаются…'}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-white px-4 py-3 text-sm font-semibold flex items-center justify-between">
+                  <span>Фоновая музыка</span>
+                  <span className="font-black text-[#f1532f]">{ROUND3_BG_JINGLE_FILE}</span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => void handleRound3NextQuestion()}
+                  disabled={!currentRound3Question || currentQuestionIndex + 1 >= Math.min(ROUND3_TOTAL_QUESTIONS, round3Questions.length || ROUND3_TOTAL_QUESTIONS)}
+                  className="w-full py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#f1532f] text-white border-[3px] border-[#142a45] transition disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Следующий факт
+                </button>
+
+                <p className="text-xs text-[#142a45]/70">
+                  Голос вопроса играет из {ROUND3_QUESTIONS_AUDIO_DIR}/(N).mp3. Как только озвучка закончится — {ROUND3_BG_JINGLE_FILE} остановится автоматически.
+                </p>
+              </div>
             ) : question ? (
               <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -3097,7 +3255,8 @@ export default function HostRoomPage() {
                 <span className="text-sm font-semibold text-[#1f6ac6]">
                   {roomStatus === 'running' ? 'Раунд 1'
                     : roomStatus === 'round2-running' ? 'Раунд 2'
-                      : 'Подготовка'}
+                      : roomStatus === 'round3-running' ? 'Раунд 3'
+                        : 'Подготовка'}
                 </span>
               </div>
 
@@ -3128,6 +3287,8 @@ export default function HostRoomPage() {
                               <p className={`text-xs font-semibold ${hasAnswered ? 'text-[#b4007f]' : 'text-[#142a45]/50'}`}>
                                 {hasAnswered ? 'Выбор сделан' : 'Ждём выбор'}
                               </p>
+                            ) : roomStatus === 'round3-running' ? (
+                              <p className="text-xs font-semibold text-[#142a45]/50">Раунд 3</p>
                             ) : null}
                           </div>
                         </div>
@@ -3146,7 +3307,15 @@ export default function HostRoomPage() {
               <div className="grid grid-cols-2 gap-3 text-sm font-semibold">
                 <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-[#fff6da] px-4 py-3">
                   <p className="text-[11px] text-[#142a45]/60">Вопрос</p>
-                  <p className="text-2xl font-black">{question ? question.order : showResults ? totalQuestions : 0}</p>
+                  <p className="text-2xl font-black">
+                    {isRound3Running
+                      ? currentQuestionIndex + 1
+                      : question
+                        ? question.order
+                        : showResults
+                          ? totalQuestions
+                          : 0}
+                  </p>
                 </div>
                 <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-[#ffe184] px-4 py-3">
                   <p className="text-[11px] text-[#142a45]/60">Игроки</p>

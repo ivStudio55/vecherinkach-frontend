@@ -14,6 +14,11 @@ import {
 const QUESTION_DURATION_SECONDS = 30;
 const APP_VERSION = '1.0.4'; // Инкрементируйте при важных изменениях
 
+const ROUND3_QUESTIONS_AUDIO_DIR = 'round3/questions3';
+const ROUND3_BG_JINGLE_FILE = 'round2/jingle (5).mp3';
+
+const buildAudioUrl = (relativePath: string) => `/api/audio?file=${encodeURIComponent(relativePath)}&t=${Date.now()}`;
+
 const getRemainingSeconds = (startedAt: string | null, offsetMs = 0) => {
   if (!startedAt) {
     return QUESTION_DURATION_SECONDS;
@@ -31,9 +36,23 @@ const getRemainingSeconds = (startedAt: string | null, offsetMs = 0) => {
 
 type Question = ActiveRoundQuestion;
 
-type RoomStatus = 'waiting' | 'running' | 'finished' | 'round2-running';
+type RoomStatus = 'waiting' | 'running' | 'finished' | 'round2-running' | 'round3-running';
 
 type Round2Phase = 'idle' | 'fact' | 'explanation';
+
+type Round3Question = {
+  question: string;
+  answer?: string;
+  category?: string;
+  acceptable?: string[];
+  comment?: string;
+};
+
+type Round3QuestionsPayload = {
+  name?: string;
+  description?: string;
+  questions?: Round3Question[];
+};
 
 type RoomUpdatePayload = {
   new: {
@@ -73,8 +92,13 @@ export default function RoomPage() {
   const [round2ItemIndex, setRound2ItemIndex] = useState<number | null>(null);
   const [round2ShowingFact, setRound2ShowingFact] = useState(true);
   const [round2Phase, setRound2Phase] = useState<Round2Phase>('idle');
+  const [round3Questions, setRound3Questions] = useState<Round3Question[]>([]);
+  const [round3QuestionIndex, setRound3QuestionIndex] = useState<number | null>(null);
   const roomIdRef = useRef('');
   const playerIdRef = useRef('');
+  const round3VoiceRef = useRef<HTMLAudioElement | null>(null);
+  const round3BgRef = useRef<HTMLAudioElement | null>(null);
+  const lastRound3PlaybackKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     const loadRound2Data = async () => {
@@ -91,6 +115,83 @@ export default function RoomPage() {
     };
     void loadRound2Data();
   }, []);
+
+  useEffect(() => {
+    const loadRound3Data = async () => {
+      try {
+        const res = await fetch('/api/round3/questions', { cache: 'no-store' });
+        if (!res.ok) {
+          return;
+        }
+        const payload = (await res.json()) as Round3QuestionsPayload;
+        const questions = Array.isArray(payload?.questions) ? payload.questions : [];
+        setRound3Questions(questions);
+      } catch (e) {
+        console.error('Failed to load round3 data', e);
+      }
+    };
+
+    void loadRound3Data();
+  }, []);
+
+  const stopRound3Audio = useCallback(() => {
+    const voice = round3VoiceRef.current;
+    const bg = round3BgRef.current;
+
+    if (voice) {
+      voice.onended = null;
+      voice.onerror = null;
+      voice.pause();
+      voice.currentTime = 0;
+      round3VoiceRef.current = null;
+    }
+
+    if (bg) {
+      bg.pause();
+      bg.currentTime = 0;
+      round3BgRef.current = null;
+    }
+  }, []);
+
+  const playRound3Audio = useCallback(
+    (index: number) => {
+      stopRound3Audio();
+
+      const bg = new Audio(buildAudioUrl(ROUND3_BG_JINGLE_FILE));
+      bg.loop = true;
+      bg.volume = 0.35;
+      round3BgRef.current = bg;
+
+      const voice = new Audio(buildAudioUrl(`${ROUND3_QUESTIONS_AUDIO_DIR}/${index + 1}.mp3`));
+      voice.volume = 1;
+      round3VoiceRef.current = voice;
+
+      const stopBg = () => {
+        const currentBg = round3BgRef.current;
+        if (currentBg) {
+          currentBg.pause();
+          currentBg.currentTime = 0;
+          round3BgRef.current = null;
+        }
+      };
+
+      voice.onended = () => {
+        stopBg();
+      };
+      voice.onerror = () => {
+        stopBg();
+      };
+
+      bg.play().catch((err) => {
+        console.error('Не удалось воспроизвести фон Раунда 3', err);
+      });
+      voice.play().catch((err) => {
+        console.error('Не удалось воспроизвести озвучку вопроса Раунда 3', err);
+        stopBg();
+      });
+    },
+    [stopRound3Audio]
+  );
 
   const submitRound2Answer = useCallback(
     async (answerIsFact: boolean) => {
@@ -270,6 +371,7 @@ export default function RoomPage() {
         setQuestion(null);
         setRound2ItemIndex(null);
         setRound2Phase('idle');
+        setRound3QuestionIndex(null);
         setQuestionStartedAt(null);
         setTimeLeft(QUESTION_DURATION_SECONDS);
         setIsLoading(false);
@@ -278,6 +380,7 @@ export default function RoomPage() {
         setQuestion(null);
         setRound2ItemIndex(null);
         setRound2Phase('idle');
+        setRound3QuestionIndex(null);
         setQuestionStartedAt(null);
         setIsLoading(false);
       } else if (detectedStatus === 'round2-running') {
@@ -286,6 +389,7 @@ export default function RoomPage() {
         setRound2ItemIndex(dbRound2ItemIndex);
         setRound2ShowingFact(dbRound2ShowingFact);
         setRound2Phase(dbRound2Phase);
+        setRound3QuestionIndex(null);
 
         const startTime = room.question_started_at;
         setQuestionStartedAt(startTime);
@@ -309,6 +413,23 @@ export default function RoomPage() {
         if (!cancelled) {
           setIsLoading(false);
         }
+      } else if (detectedStatus === 'round3-running') {
+        setShowResults(false);
+        setQuestion(null);
+        setRound2ItemIndex(null);
+        setRound2Phase('idle');
+        setRound3QuestionIndex(room.current_question_index);
+
+        const startTime = room.question_started_at;
+        setQuestionStartedAt(startTime);
+        const initialTime = getRemainingSeconds(startTime, offset);
+        setTimeLeft(room.all_players_answered ? 0 : initialTime);
+
+        setHasAnswered(false);
+
+        if (!cancelled) {
+          setIsLoading(false);
+        }
       } else {
         const startTime = room.question_started_at;
         setQuestionStartedAt(startTime);
@@ -319,6 +440,7 @@ export default function RoomPage() {
 
         setRound2ItemIndex(null);
         setRound2Phase('idle');
+        setRound3QuestionIndex(null);
 
         // Проверяем, ответил ли игрок на текущий вопрос
         const { data: existingAnswer } = await supabase
@@ -373,7 +495,9 @@ export default function RoomPage() {
           const newStatus = (payload.new.status as RoomStatus) || (payload.new.is_active ? 'waiting' : 'finished');
           setRoomStatus(newStatus);
           const everyoneAnsweredFlag =
-            newStatus === 'running' || newStatus === 'round2-running' ? !!payload.new.all_players_answered : false;
+            newStatus === 'running' || newStatus === 'round2-running' || newStatus === 'round3-running'
+              ? !!payload.new.all_players_answered
+              : false;
           setAllPlayersAnswered(everyoneAnsweredFlag);
           const selection = (payload.new.selected_question_ids as number[] | null) || [];
           setSelectedQuestionIds(selection);
@@ -389,6 +513,7 @@ export default function RoomPage() {
             setQuestion(null);
             setRound2ItemIndex(null);
             setRound2Phase('idle');
+            setRound3QuestionIndex(null);
             setQuestionStartedAt(null);
             setTimeLeft(QUESTION_DURATION_SECONDS);
             return;
@@ -399,6 +524,7 @@ export default function RoomPage() {
             setQuestion(null);
             setRound2ItemIndex(null);
             setRound2Phase('idle');
+            setRound3QuestionIndex(null);
             setQuestionStartedAt(null);
             setTimeLeft(QUESTION_DURATION_SECONDS);
             return;
@@ -410,6 +536,7 @@ export default function RoomPage() {
             setRound2ItemIndex(nextRound2ItemIndex);
             setRound2ShowingFact(nextRound2ShowingFact);
             setRound2Phase(nextRound2Phase);
+            setRound3QuestionIndex(null);
             setQuestionStartedAt(startedAt);
 
             const offset = await syncServerTimeRef.current?.();
@@ -436,10 +563,30 @@ export default function RoomPage() {
             return;
           }
 
+          if (newStatus === 'round3-running') {
+            setShowResults(false);
+            setQuestion(null);
+            setRound2ItemIndex(null);
+            setRound2Phase('idle');
+            setRound3QuestionIndex(newQuestionIndex);
+            setQuestionStartedAt(startedAt);
+
+            const offset = await syncServerTimeRef.current?.();
+            if (everyoneAnsweredFlag) {
+              setTimeLeft(0);
+            } else {
+              setTimeLeft(startedAt ? getRemainingSeconds(startedAt, offset || 0) : QUESTION_DURATION_SECONDS);
+            }
+
+            setHasAnswered(false);
+            return;
+          }
+
           const offset = await syncServerTimeRef.current?.();
           loadQuestionFromSelectionRef.current?.(newQuestionIndex, selection);
           setRound2ItemIndex(null);
           setRound2Phase('idle');
+          setRound3QuestionIndex(null);
           setQuestionStartedAt(startedAt);
           if (everyoneAnsweredFlag) {
             setTimeLeft(0);
@@ -478,8 +625,31 @@ export default function RoomPage() {
   const timerActive =
     !allPlayersAnswered &&
     !showResults &&
-    (roomStatus === 'running' || roomStatus === 'round2-running') &&
+    (roomStatus === 'running' || roomStatus === 'round2-running' || roomStatus === 'round3-running') &&
     Boolean(questionStartedAt);
+
+  useEffect(() => {
+    if (roomStatus !== 'round3-running') {
+      stopRound3Audio();
+      lastRound3PlaybackKeyRef.current = null;
+    }
+  }, [roomStatus, stopRound3Audio]);
+
+  useEffect(() => {
+    if (roomStatus !== 'round3-running') {
+      return;
+    }
+    if (round3QuestionIndex === null || !questionStartedAt) {
+      return;
+    }
+
+    const key = `${round3QuestionIndex}-${questionStartedAt}`;
+    if (lastRound3PlaybackKeyRef.current === key) {
+      return;
+    }
+    lastRound3PlaybackKeyRef.current = key;
+    playRound3Audio(round3QuestionIndex);
+  }, [playRound3Audio, questionStartedAt, roomStatus, round3QuestionIndex]);
 
   useEffect(() => {
     if (!timerActive || !questionStartedAt) {
@@ -826,6 +996,30 @@ export default function RoomPage() {
                 )}
               </div>
             )}
+          </section>
+        )}
+
+        {roomStatus === 'round3-running' && (
+          <section className="rounded-3xl border-[4px] border-[#f1532f] bg-white shadow-xl p-6 space-y-6">
+            <div className="flex flex-col gap-3 text-center">
+              <span className="mx-auto px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
+                Раунд 3 · МозгоШтурм
+              </span>
+              <h2 className="text-3xl font-black leading-tight">
+                {round3QuestionIndex !== null && round3Questions[round3QuestionIndex]
+                  ? round3Questions[round3QuestionIndex].question
+                  : 'Подождите, факт загружается…'}
+              </h2>
+            </div>
+
+            <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] px-4 py-3 text-sm font-semibold flex items-center justify-between">
+              <span>Сейчас идёт озвучка</span>
+              <span className="font-black text-[#f1532f]">#{(round3QuestionIndex ?? 0) + 1}</span>
+            </div>
+
+            <p className="text-sm text-[#142a45]/70 text-center">
+              Слушайте ведущего: сначала звучит озвучка факта, а фоновая музыка выключится сразу после неё.
+            </p>
           </section>
         )}
       </div>
