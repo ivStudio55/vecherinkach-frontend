@@ -780,7 +780,8 @@ export default function HostRoomPage() {
 
       const bgUrl = buildAudioUrl(ROUND3_BG_JINGLE_FILE);
       const currentQ = round3Questions[index];
-      const voiceUrl = currentQ ? buildAudioUrl(`${ROUND3_QUESTIONS_AUDIO_DIR}/${currentQ.originalIndex + 1}.mp3`) : '';
+      const voiceFileNumber = (currentQ?.originalIndex ?? index) + 1;
+      const voiceUrl = buildAudioUrl(`${ROUND3_QUESTIONS_AUDIO_DIR}/${voiceFileNumber}.mp3`);
       const timerUrl = buildAudioUrl(ROUND3_TIMER_JINGLE_FILE);
 
       void (async () => {
@@ -992,7 +993,7 @@ export default function HostRoomPage() {
         }
       })();
     },
-    [roomId, stopRound3Audio, timeOffsetMs]
+    [roomId, round3Questions, stopRound3Audio, timeOffsetMs]
   );
 
   const stopRound3VoteAudio = useCallback(() => {
