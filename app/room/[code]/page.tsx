@@ -162,23 +162,49 @@ export default function RoomPage() {
   const round3QuestionIndexRef = useRef<number | null>(null);
   useEffect(() => { round3QuestionIndexRef.current = round3QuestionIndex; }, [round3QuestionIndex]);
 
-  // Защита от сброса таймера: если пришёл null для текущего вопроса, не затираем локальное значение
-  const safeSetRound3QuestionStartedAt = useCallback((val: string | null, idx: number | null) => {
-    setRound3QuestionStartedAt(prev => {
-      if (idx !== null && round3QuestionIndexRef.current === idx && prev && !val) {
-        return prev;
-      }
-      return val;
-    });
-  }, []);
-  const safeSetRound3AudioFinishedAt = useCallback((val: string | null, idx: number | null) => {
-    setRound3AudioFinishedAt(prev => {
-      if (idx !== null && round3QuestionIndexRef.current === idx && prev && !val) {
-        return prev;
-      }
-      return val;
-    });
-  }, []);
+  const round3QuestionIdRef = useRef<number | null>(null);
+  useEffect(() => {
+    round3QuestionIdRef.current = round3QuestionId;
+  }, [round3QuestionId]);
+
+  // Защита от сброса таймера: если пришёл null для ТОГО ЖЕ вопроса (idx+id), не затираем локальное значение.
+  // Важно: если phase=null (озвучка) или вопрос сменился (id изменился), null должен перезаписать локальный стейт.
+  const safeSetRound3QuestionStartedAt = useCallback(
+    (val: string | null, idx: number | null, questionId: number | null, phase: Round3Phase | null) => {
+      setRound3QuestionStartedAt((prev) => {
+        const isSameQuestion =
+          idx !== null &&
+          questionId !== null &&
+          round3QuestionIndexRef.current === idx &&
+          round3QuestionIdRef.current === questionId;
+        const isNarration = phase === null;
+
+        if (isSameQuestion && !isNarration && prev && !val) {
+          return prev;
+        }
+        return val;
+      });
+    },
+    []
+  );
+  const safeSetRound3AudioFinishedAt = useCallback(
+    (val: string | null, idx: number | null, questionId: number | null, phase: Round3Phase | null) => {
+      setRound3AudioFinishedAt((prev) => {
+        const isSameQuestion =
+          idx !== null &&
+          questionId !== null &&
+          round3QuestionIndexRef.current === idx &&
+          round3QuestionIdRef.current === questionId;
+        const isNarration = phase === null;
+
+        if (isSameQuestion && !isNarration && prev && !val) {
+          return prev;
+        }
+        return val;
+      });
+    },
+    []
+  );
   const [round3VoteStartedAt, setRound3VoteStartedAt] = useState<string | null>(null);
   const [round3VoteTimeLeft, setRound3VoteTimeLeft] = useState(15);
   const [round3InputTimeLeft, setRound3InputTimeLeft] = useState(QUESTION_DURATION_SECONDS);
@@ -192,6 +218,7 @@ export default function RoomPage() {
   const previousRound3QuestionIndexRef = useRef<number | null>(null);
   const previousRound3QuestionIdRef = useRef<number | null>(null);
   const round3AnswersCacheRef = useRef<Round3AnswerRow[]>([]);
+  const round3AnswersCacheKeyRef = useRef<string>('');
   const loadRoomDataRef = useRef<() => Promise<void>>(async () => {});
   
 
@@ -232,6 +259,7 @@ export default function RoomPage() {
     console.log('[Round3State] round3Answers updated', round3Answers.length, round3Answers);
     if (round3Answers.length > 0) {
       round3AnswersCacheRef.current = round3Answers;
+      round3AnswersCacheKeyRef.current = `${round3QuestionIndexRef.current ?? 'null'}:${round3QuestionIdRef.current ?? 'null'}`;
     }
   }, [round3Answers]);
 
@@ -261,7 +289,9 @@ export default function RoomPage() {
     setRound3VoteSelection(null);
     setRound3InputTimeLeft(QUESTION_DURATION_SECONDS);
     setRound3VoteTimeLeft(ROUND3_VOTE_SECONDS);
-    // НЕ сбрасываем round3Answers здесь - они загружаются асинхронно
+    // Сбрасываем кэш ответов по ключу вопроса, чтобы не показывать чужие ответы от прошлого факта
+    round3AnswersCacheRef.current = [];
+    round3AnswersCacheKeyRef.current = '';
   }, [round3QuestionId, round3QuestionIndex]);
 
   useEffect(() => {
@@ -302,6 +332,8 @@ export default function RoomPage() {
       return;
     }
 
+    const cacheKey = `${questionIndex}:${round3QuestionIdRef.current ?? 'null'}`;
+
     const { data, error } = await supabase
       .from('round3_answers')
       .select('id, player_id, answer, question_index, submitted_at')
@@ -319,6 +351,7 @@ export default function RoomPage() {
     setRound3Answers(rows);
     if (rows.length > 0) {
       round3AnswersCacheRef.current = rows;
+      round3AnswersCacheKeyRef.current = cacheKey;
     }
     const currentPlayerId = playerIdRef.current;
     if (currentPlayerId) {
@@ -481,8 +514,8 @@ export default function RoomPage() {
         setRound3QuestionId(initialRound3Id);
         setRound3Phase(initialRound3Phase);
         // Важно: не перезатираем локальные метки времени null'ом для текущего факта
-        safeSetRound3QuestionStartedAt(initialRound3QuestionStartedAt, initialRound3Index);
-        safeSetRound3AudioFinishedAt(initialRound3AudioFinishedAt, initialRound3Index);
+        safeSetRound3QuestionStartedAt(initialRound3QuestionStartedAt, initialRound3Index, initialRound3Id, initialRound3Phase);
+        safeSetRound3AudioFinishedAt(initialRound3AudioFinishedAt, initialRound3Index, initialRound3Id, initialRound3Phase);
         setRound3VoteStartedAt(initialRound3VoteStartedAt);
 
         if (effectiveDetectedStatus === 'waiting') {
@@ -707,8 +740,8 @@ export default function RoomPage() {
           setRound3QuestionIndex(nextRound3Index);
           setRound3QuestionId(nextRound3Id);
           setRound3Phase(nextRound3Phase);
-          safeSetRound3QuestionStartedAt(nextRound3QuestionStartedAt, nextRound3Index);
-          safeSetRound3AudioFinishedAt(nextRound3AudioFinishedAt, nextRound3Index);
+          safeSetRound3QuestionStartedAt(nextRound3QuestionStartedAt, nextRound3Index, nextRound3Id, nextRound3Phase);
+          safeSetRound3AudioFinishedAt(nextRound3AudioFinishedAt, nextRound3Index, nextRound3Id, nextRound3Phase);
           setRound3VoteStartedAt(nextRound3VoteStartedAt);
 
           if (effectiveStatus === 'waiting') {
@@ -926,11 +959,15 @@ export default function RoomPage() {
       void (async () => {
         const { data } = await supabase
           .from('rooms')
-          .select('round3_question_started_at,round3_question_index')
+          .select('round3_question_started_at,round3_question_index,round3_question_id,round3_phase,round3_audio_finished_at')
           .eq('id', roomIdRef.current)
           .single();
         if (data?.round3_question_started_at) {
-          safeSetRound3QuestionStartedAt(data.round3_question_started_at as string, data.round3_question_index ?? null);
+          const idx = typeof data.round3_question_index === 'number' ? (data.round3_question_index as number) : null;
+          const qid = typeof data.round3_question_id === 'number' ? (data.round3_question_id as number) : null;
+          const ph = (data.round3_phase as Round3Phase | null) ?? null;
+          safeSetRound3QuestionStartedAt(data.round3_question_started_at as string, idx, qid, ph);
+          safeSetRound3AudioFinishedAt((data.round3_audio_finished_at as string | null) ?? null, idx, qid, ph);
         }
       })();
     }
@@ -1367,9 +1404,23 @@ export default function RoomPage() {
         return;
       }
     }
-    const chosenAnswer = round3Answers.find((row) => row.id === answerId);
+    const currentCacheKey = `${currentIndex}:${round3QuestionIdRef.current ?? 'null'}`;
+    const effectiveAnswers =
+      round3Answers.length > 0
+        ? round3Answers
+        : round3AnswersCacheKeyRef.current === currentCacheKey
+          ? round3AnswersCacheRef.current
+          : [];
+
+    let chosenAnswer = effectiveAnswers.find((row) => row.id === answerId);
     if (!chosenAnswer) {
-      setRound3Error('Ответ не найден');
+      // Подстрахуем: ответы могли ещё не успеть попасть в state
+      await loadRound3Answers(currentIndex);
+      const refreshed = round3AnswersCacheKeyRef.current === currentCacheKey ? round3AnswersCacheRef.current : [];
+      chosenAnswer = refreshed.find((row) => row.id === answerId);
+    }
+    if (!chosenAnswer) {
+      setRound3Error('Ответы ещё загружаются. Попробуйте ещё раз через секунду.');
       return;
     }
     if (chosenAnswer.player_id === playerId) {
