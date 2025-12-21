@@ -284,6 +284,11 @@ export default function HostRoomPage() {
   const round3RulesVoiceAudioRef = useRef<HTMLAudioElement | null>(null);
   const round3BgAudioRef = useRef<HTMLAudioElement | null>(null);
   const round3VoiceAudioRef = useRef<HTMLAudioElement | null>(null);
+  const round3BgBufferSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const round3VoiceBufferSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const round3BgGainNodeRef = useRef<GainNode | null>(null);
+  const round3VoiceGainNodeRef = useRef<GainNode | null>(null);
+  const round3PlaybackTokenRef = useRef(0);
   const round2AnswersRef = useRef<Round2AnswerRow[]>([]);
   const lastRound3PlaybackKeyRef = useRef<string | null>(null);
   const round2StatsRef = useRef<Map<string, Round2PlayerStats>>(new Map());
@@ -580,6 +585,59 @@ export default function HostRoomPage() {
   }, [stopRound3RulesAudio]);
 
   const stopRound3Audio = useCallback(() => {
+    round3PlaybackTokenRef.current += 1;
+
+    const voiceSource = round3VoiceBufferSourceRef.current;
+    if (voiceSource) {
+      try {
+        voiceSource.onended = null;
+        voiceSource.stop(0);
+      } catch {
+        // ignore
+      }
+      try {
+        voiceSource.disconnect();
+      } catch {
+        // ignore
+      }
+      round3VoiceBufferSourceRef.current = null;
+    }
+
+    const bgSource = round3BgBufferSourceRef.current;
+    if (bgSource) {
+      try {
+        bgSource.stop(0);
+      } catch {
+        // ignore
+      }
+      try {
+        bgSource.disconnect();
+      } catch {
+        // ignore
+      }
+      round3BgBufferSourceRef.current = null;
+    }
+
+    const voiceGain = round3VoiceGainNodeRef.current;
+    if (voiceGain) {
+      try {
+        voiceGain.disconnect();
+      } catch {
+        // ignore
+      }
+      round3VoiceGainNodeRef.current = null;
+    }
+
+    const bgGain = round3BgGainNodeRef.current;
+    if (bgGain) {
+      try {
+        bgGain.disconnect();
+      } catch {
+        // ignore
+      }
+      round3BgGainNodeRef.current = null;
+    }
+
     const voice = round3VoiceAudioRef.current;
     const bg = round3BgAudioRef.current;
 
@@ -611,48 +669,134 @@ export default function HostRoomPage() {
 
   const playRound3Audio = useCallback(
     (index: number) => {
+      if (!hasUserInteractedRef.current) {
+        setRound3AudioBlocked(true);
+        return;
+      }
+
       stopRound3Audio();
       setRound3AudioBlocked(false);
 
-      const bg = new Audio(buildAudioUrl(ROUND3_BG_JINGLE_FILE));
-      bg.loop = true;
-      bg.volume = 0.55;
-      round3BgAudioRef.current = bg;
+      const token = round3PlaybackTokenRef.current + 1;
+      round3PlaybackTokenRef.current = token;
 
-      const voice = new Audio(buildAudioUrl(`${ROUND3_QUESTIONS_AUDIO_DIR}/${index + 1}.mp3`));
-      voice.volume = 1;
-      round3VoiceAudioRef.current = voice;
+      const bgUrl = buildAudioUrl(ROUND3_BG_JINGLE_FILE);
+      const voiceUrl = buildAudioUrl(`${ROUND3_QUESTIONS_AUDIO_DIR}/${index + 1}.mp3`);
 
-      const stopBg = () => {
-        const currentBg = round3BgAudioRef.current;
-        if (currentBg) {
-          try {
-            currentBg.pause();
-            currentBg.currentTime = 0;
-          } catch {
-            // ignore
-          }
-          round3BgAudioRef.current = null;
+      void (async () => {
+        if (typeof window === 'undefined') {
+          setRound3AudioBlocked(true);
+          return;
         }
-      };
 
-      voice.onended = () => {
-        stopBg();
-      };
-      voice.onerror = () => {
-        stopBg();
-      };
+        const AudioContextCtor =
+          window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
 
-      bg.play().catch((err) => {
-        console.error('Не удалось воспроизвести фон Раунда 3 (ведущий)', err);
-        setRound3AudioBlocked(true);
-      });
+        if (!AudioContextCtor) {
+          setRound3AudioBlocked(true);
+          return;
+        }
 
-      voice.play().catch((err) => {
-        console.error('Не удалось воспроизвести озвучку Раунда 3 (ведущий)', err);
-        setRound3AudioBlocked(true);
-        stopBg();
-      });
+        let context = audioContextRef.current;
+        if (!context) {
+          context = new AudioContextCtor();
+          audioContextRef.current = context;
+        }
+
+        if (context.state === 'suspended') {
+          try {
+            await context.resume();
+          } catch (error) {
+            console.error('Не удалось активировать аудиоконтекст для Раунда 3', error);
+            setRound3AudioBlocked(true);
+            return;
+          }
+        }
+
+        if (round3PlaybackTokenRef.current !== token) {
+          return;
+        }
+
+        const decodeFromUrl = async (url: string) => {
+          const res = await fetch(url, { cache: 'no-store' });
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status} for ${url}`);
+          }
+          const bytes = await res.arrayBuffer();
+          return await context.decodeAudioData(bytes.slice(0));
+        };
+
+        try {
+          const [bgBuffer, voiceBuffer] = await Promise.all([decodeFromUrl(bgUrl), decodeFromUrl(voiceUrl)]);
+
+          if (round3PlaybackTokenRef.current !== token) {
+            return;
+          }
+
+          const bgSource = context.createBufferSource();
+          bgSource.buffer = bgBuffer;
+          bgSource.loop = true;
+
+          const bgGain = context.createGain();
+          bgGain.gain.value = 0.55;
+
+          const voiceSource = context.createBufferSource();
+          voiceSource.buffer = voiceBuffer;
+          voiceSource.loop = false;
+
+          const voiceGain = context.createGain();
+          voiceGain.gain.value = 1;
+
+          bgSource.connect(bgGain);
+          bgGain.connect(context.destination);
+
+          voiceSource.connect(voiceGain);
+          voiceGain.connect(context.destination);
+
+          round3BgBufferSourceRef.current = bgSource;
+          round3VoiceBufferSourceRef.current = voiceSource;
+          round3BgGainNodeRef.current = bgGain;
+          round3VoiceGainNodeRef.current = voiceGain;
+
+          const stopBg = () => {
+            const currentBg = round3BgBufferSourceRef.current;
+            if (currentBg) {
+              try {
+                currentBg.stop(0);
+              } catch {
+                // ignore
+              }
+              try {
+                currentBg.disconnect();
+              } catch {
+                // ignore
+              }
+              round3BgBufferSourceRef.current = null;
+            }
+
+            const currentBgGain = round3BgGainNodeRef.current;
+            if (currentBgGain) {
+              try {
+                currentBgGain.disconnect();
+              } catch {
+                // ignore
+              }
+              round3BgGainNodeRef.current = null;
+            }
+          };
+
+          voiceSource.onended = () => {
+            stopBg();
+          };
+
+          const startAt = context.currentTime + 0.01;
+          bgSource.start(startAt);
+          voiceSource.start(startAt);
+        } catch (err) {
+          console.error('Не удалось воспроизвести аудио Раунда 3 через AudioContext', err);
+          setRound3AudioBlocked(true);
+        }
+      })();
     },
     [stopRound3Audio]
   );
