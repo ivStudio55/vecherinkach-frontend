@@ -1110,6 +1110,7 @@ export default function HostRoomPage() {
           }
           try {
             voteSource.start(startAt);
+            voteSource.stop(startAt + ROUND3_VOTE_SECONDS);
           } catch {
             // ignore
           }
