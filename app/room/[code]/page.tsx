@@ -684,10 +684,11 @@ export default function RoomPage() {
 
   const effectiveTimeLeft = allPlayersAnswered ? 0 : timeLeft;
   const timerActive =
-    !allPlayersAnswered &&
     !showResults &&
-    (roomStatus === 'running' || roomStatus === 'round2-running' || roomStatus === 'round3-running') &&
-    Boolean(questionStartedAt);
+    ((roomStatus === 'round3-running' && Boolean(questionStartedAt)) ||
+      (!allPlayersAnswered &&
+        (roomStatus === 'running' || roomStatus === 'round2-running') &&
+        Boolean(questionStartedAt)));
 
   useEffect(() => {
     // На экранах игроков Раунд 3 не воспроизводит аудио — всё звучит у ведущего.
@@ -740,6 +741,23 @@ export default function RoomPage() {
     }
 
     const tick = () => {
+      if (roomStatus === 'round3-running') {
+        const startMs = new Date(questionStartedAt).getTime();
+        if (isNaN(startMs)) {
+          setTimeLeft(QUESTION_DURATION_SECONDS);
+          return;
+        }
+        const now = Date.now() - timeOffsetMs;
+        const elapsed = Math.floor((now - startMs) / 1000);
+
+        const totalRound3Seconds = ROUND3_ANSWER_SECONDS + ROUND3_VOTE_COUNTDOWN_SECONDS + ROUND3_VOTE_SECONDS;
+        const remainingTotal = Math.max(0, totalRound3Seconds - elapsed);
+
+        // timeLeft is used as a heartbeat for re-renders; keep it decreasing across all phases.
+        setTimeLeft(remainingTotal);
+        return;
+      }
+
       const remaining = getRemainingSeconds(questionStartedAt, timeOffsetMs);
       setTimeLeft(remaining);
     };
@@ -747,7 +765,7 @@ export default function RoomPage() {
     tick();
     const interval = setInterval(tick, 250);
     return () => clearInterval(interval);
-  }, [timerActive, questionStartedAt, timeOffsetMs]);
+  }, [roomStatus, timerActive, questionStartedAt, timeOffsetMs]);
 
   const submitRound3Answer = useCallback(
     async (text: string) => {
@@ -1333,8 +1351,12 @@ export default function RoomPage() {
             </div>
 
             {round3Phase === 'vote-countdown' && (
-              <div className="rounded-2xl border-[3px] border-[#142a45] bg-[#ffe184] px-4 py-3 text-center font-black">
-                Голосуем через {Math.max(1, round3VoteCountdownTimeLeft)}
+              <div className="rounded-3xl border-[4px] border-[#142a45] bg-[#ffe184] px-6 py-6 text-center space-y-2">
+                <p className="text-xs tracking-[0.4em] text-[#142a45]/70 font-black">ГОЛОСОВАНИЕ</p>
+                <div className="text-6xl font-black leading-none text-[#142a45]">
+                  {Math.max(1, round3VoteCountdownTimeLeft)}
+                </div>
+                <p className="text-sm font-semibold text-[#142a45]/80">Приготовься выбирать лучший ответ</p>
               </div>
             )}
 

@@ -2484,7 +2484,11 @@ export default function HostRoomPage() {
   const shouldForceZero = serverAllPlayersAnswered || everyoneAnswered;
   const isRound2FactPhase = roomStatus === 'round2-running' && round2Phase === 'fact';
   const isTimerRoundActive = roomStatus === 'running' || isRound2FactPhase || roomStatus === 'round3-running';
-  const timerActive = !showResults && isTimerRoundActive && Boolean(questionStartedAt) && !shouldForceZero;
+  const timerActive =
+    !showResults &&
+    isTimerRoundActive &&
+    Boolean(questionStartedAt) &&
+    (roomStatus === 'round3-running' ? true : !shouldForceZero);
 
   useEffect(() => {
     if (roomStatus !== 'running') {
@@ -2504,6 +2508,23 @@ export default function HostRoomPage() {
     }
 
     const tick = () => {
+      if (roomStatus === 'round3-running') {
+        const startMs = new Date(questionStartedAt).getTime();
+        if (isNaN(startMs)) {
+          setTimeLeft(QUESTION_DURATION_SECONDS);
+          return;
+        }
+
+        const now = Date.now() - timeOffsetMs;
+        const elapsed = Math.floor((now - startMs) / 1000);
+        const totalRound3Seconds = ROUND3_ANSWER_SECONDS + ROUND3_VOTE_COUNTDOWN_SECONDS + ROUND3_VOTE_SECONDS;
+        const remainingTotal = Math.max(0, totalRound3Seconds - elapsed);
+
+        // timeLeft is used as a heartbeat for re-renders; keep it decreasing across all phases.
+        setTimeLeft(remainingTotal);
+        return;
+      }
+
       const remaining = getRemainingSeconds(questionStartedAt, timeOffsetMs);
       setTimeLeft(remaining);
     };
@@ -2511,7 +2532,7 @@ export default function HostRoomPage() {
     tick();
     const interval = setInterval(tick, 250);
     return () => clearInterval(interval);
-  }, [timerActive, questionStartedAt, timeOffsetMs]);
+  }, [roomStatus, timerActive, questionStartedAt, timeOffsetMs]);
 
   useEffect(() => {
     if (!roomId || roomStatus !== 'running') {
