@@ -2394,6 +2394,7 @@ export default function HostRoomPage() {
         const { error: updateError } = await supabase
           .from('rooms')
           .update({
+            is_active: true,
             status: 'round3-running',
             current_question_index: 0,
             question_started_at: startedAt,
@@ -2453,6 +2454,7 @@ export default function HostRoomPage() {
     const { error: updateError } = await supabase
       .from('rooms')
       .update({
+        is_active: true,
         current_question_index: nextIndex,
         question_started_at: startedAt,
         all_players_answered: false,

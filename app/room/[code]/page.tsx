@@ -12,7 +12,7 @@ import {
 } from '@/lib/questions';
 
 const QUESTION_DURATION_SECONDS = 30;
-const APP_VERSION = '1.0.4'; // Инкрементируйте при важных изменениях
+const APP_VERSION = '1.0.5'; // Инкрементируйте при важных изменениях
 
 const ROUND3_QUESTIONS_AUDIO_DIR = 'round3/questions3';
 const ROUND3_BG_JINGLE_FILE = 'round2/jingle (5).mp3';
@@ -94,6 +94,7 @@ export default function RoomPage() {
   const [round2Phase, setRound2Phase] = useState<Round2Phase>('idle');
   const [round3Questions, setRound3Questions] = useState<Round3Question[]>([]);
   const [round3QuestionIndex, setRound3QuestionIndex] = useState<number | null>(null);
+  const [round3AudioBlocked, setRound3AudioBlocked] = useState(false);
   const roomIdRef = useRef('');
   const playerIdRef = useRef('');
   const round3VoiceRef = useRef<HTMLAudioElement | null>(null);
@@ -151,11 +152,14 @@ export default function RoomPage() {
       bg.currentTime = 0;
       round3BgRef.current = null;
     }
+
+    setRound3AudioBlocked(false);
   }, []);
 
   const playRound3Audio = useCallback(
     (index: number) => {
       stopRound3Audio();
+      setRound3AudioBlocked(false);
 
       const bg = new Audio(buildAudioUrl(ROUND3_BG_JINGLE_FILE));
       bg.loop = true;
@@ -184,9 +188,11 @@ export default function RoomPage() {
 
       bg.play().catch((err) => {
         console.error('Не удалось воспроизвести фон Раунда 3', err);
+        setRound3AudioBlocked(true);
       });
       voice.play().catch((err) => {
         console.error('Не удалось воспроизвести озвучку вопроса Раунда 3', err);
+        setRound3AudioBlocked(true);
         stopBg();
       });
     },
@@ -1024,6 +1030,20 @@ export default function RoomPage() {
             <p className="text-sm text-[#142a45]/70 text-center">
               Слушайте ведущего: сначала звучит озвучка факта, а фоновая музыка выключится сразу после неё.
             </p>
+
+            {round3AudioBlocked && round3QuestionIndex !== null && (
+              <div className="space-y-3">
+                <div className="rounded-2xl border-[3px] border-[#b23324] bg-[#ffd7d0] px-4 py-3 text-sm font-semibold text-[#7b1d16] text-center">
+                  Браузер мог заблокировать автозапуск аудио. Нажмите кнопку один раз, чтобы включить звук.
+                </div>
+                <button
+                  onClick={() => playRound3Audio(round3QuestionIndex)}
+                  className="w-full rounded-2xl border-[3px] border-[#142a45] px-4 py-4 font-black bg-[#ffeccd] hover:bg-[#fff6da] transition"
+                >
+                  Включить звук
+                </button>
+              </div>
+            )}
           </section>
         )}
       </div>
