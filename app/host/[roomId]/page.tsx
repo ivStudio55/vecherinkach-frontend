@@ -852,6 +852,62 @@ export default function HostRoomPage() {
 
           voiceSource.onended = () => {
             stopBg();
+
+            void (async () => {
+              if (round3PlaybackTokenRef.current !== token) {
+                return;
+              }
+              if (roomStatusRef.current !== 'round3-running') {
+                return;
+              }
+
+              // Таймер должен стартовать только после окончания озвучки.
+              let offset = timeOffsetMs;
+              try {
+                const { data } = await supabase.rpc('get_server_time');
+                if (data) {
+                  const serverNow = new Date(data as string).getTime();
+                  const nextOffset = Date.now() - serverNow;
+                  offset = nextOffset;
+                  setTimeOffsetMs(nextOffset);
+                }
+              } catch (error) {
+                console.error('Не удалось синхронизировать время сервера (round3 timer start)', error);
+              }
+
+              const startedAt = new Date(Date.now() - offset).toISOString();
+
+              if (round3PlaybackTokenRef.current !== token) {
+                return;
+              }
+
+              const { error: updateError } = await supabase
+                .from('rooms')
+                .update({
+                  question_started_at: startedAt,
+                  all_players_answered: false,
+                })
+                .eq('id', roomId);
+
+              if (updateError) {
+                console.error('Не удалось установить question_started_at для таймера Раунда 3', updateError);
+                return;
+              }
+
+              setQuestionStartedAt(startedAt);
+              setTimeLeft(getRemainingSeconds(startedAt, offset));
+
+              if (round3PlaybackTokenRef.current !== token) {
+                return;
+              }
+
+              try {
+                const startTimerAt = context.currentTime + 0.01;
+                timerSource.start(startTimerAt);
+              } catch (err) {
+                console.error('Не удалось запустить таймерный джингл Раунда 3', err);
+              }
+            })();
           };
 
           timerSource.onended = () => {
@@ -879,14 +935,13 @@ export default function HostRoomPage() {
           const startAt = context.currentTime + 0.01;
           bgSource.start(startAt);
           voiceSource.start(startAt);
-          timerSource.start(startAt);
         } catch (err) {
           console.error('Не удалось воспроизвести аудио Раунда 3 через AudioContext', err);
           setRound3AudioBlocked(true);
         }
       })();
     },
-    [stopRound3Audio]
+    [roomId, stopRound3Audio, timeOffsetMs]
   );
 
   useEffect(() => {
@@ -900,20 +955,17 @@ export default function HostRoomPage() {
     if (roomStatus !== 'round3-running') {
       return;
     }
-    if (!questionStartedAt) {
-      return;
-    }
     if (!currentRound3Question) {
       return;
     }
 
-    const key = `${currentQuestionIndex}-${questionStartedAt}`;
+    const key = `${currentQuestionIndex}`;
     if (lastRound3PlaybackKeyRef.current === key) {
       return;
     }
     lastRound3PlaybackKeyRef.current = key;
     playRound3Audio(currentQuestionIndex);
-  }, [currentQuestionIndex, currentRound3Question, playRound3Audio, questionStartedAt, roomStatus]);
+  }, [currentQuestionIndex, currentRound3Question, playRound3Audio, roomStatus]);
 
   useEffect(() => {
     const loadRound2Data = async () => {
@@ -1472,7 +1524,12 @@ export default function HostRoomPage() {
         setAnswerCount(0);
         setCorrectAnswerCount(0);
         setAnsweredPlayerIds([]);
-        syncTimerWithStart(room.question_started_at, effectiveOffset);
+        if (room.question_started_at) {
+          syncTimerWithStart(room.question_started_at, effectiveOffset);
+        } else {
+          setQuestionStartedAt(null);
+          setTimeLeft(QUESTION_DURATION_SECONDS);
+        }
         if (room.all_players_answered) {
           setTimeLeft(0);
         }
@@ -2730,14 +2787,14 @@ export default function HostRoomPage() {
           return;
         }
 
-        const { iso: startedAt, offset } = await getServerIsoTimestamp();
         const { error: updateError } = await supabase
           .from('rooms')
           .update({
             is_active: true,
             status: 'round3-running',
             current_question_index: 0,
-            question_started_at: startedAt,
+            // Таймер стартует после окончания озвучки.
+            question_started_at: null,
             all_players_answered: false,
             round2_phase: 'idle',
           })
@@ -2752,7 +2809,8 @@ export default function HostRoomPage() {
         setShowResults(false);
         setQuestion(null);
         setCurrentQuestionIndex(0);
-        syncTimerWithStart(startedAt, offset);
+        setQuestionStartedAt(null);
+        setTimeLeft(QUESTION_DURATION_SECONDS);
       } finally {
         round3StartLockRef.current = false;
       }
@@ -2762,7 +2820,6 @@ export default function HostRoomPage() {
   }, [
     clearCountdownTimeout,
     isCountdownVisible,
-    getServerIsoTimestamp,
     playSkipAudioAndWait,
     roomId,
     round3Questions.length,
@@ -2770,7 +2827,6 @@ export default function HostRoomPage() {
     setCountdownContext,
     setIsCountdownVisible,
     setIsRound3RulesVisible,
-    syncTimerWithStart,
     stopRound3RulesAudio,
     updateRoomStatus,
   ]);
@@ -2790,13 +2846,13 @@ export default function HostRoomPage() {
       return;
     }
 
-    const { iso: startedAt, offset } = await getServerIsoTimestamp();
     const { error: updateError } = await supabase
       .from('rooms')
       .update({
         is_active: true,
         current_question_index: nextIndex,
-        question_started_at: startedAt,
+        // Таймер стартует после окончания озвучки.
+        question_started_at: null,
         all_players_answered: false,
       })
       .eq('id', roomId);
@@ -2807,8 +2863,9 @@ export default function HostRoomPage() {
     }
 
     setCurrentQuestionIndex(nextIndex);
-    syncTimerWithStart(startedAt, offset);
-  }, [currentQuestionIndex, getServerIsoTimestamp, roomId, roomStatus, round3Questions.length, syncTimerWithStart]);
+    setQuestionStartedAt(null);
+    setTimeLeft(QUESTION_DURATION_SECONDS);
+  }, [currentQuestionIndex, roomId, roomStatus, round3Questions.length]);
 
   const handleRound3BackToEndOfRound2 = useCallback(async () => {
     stopRound3Audio();
