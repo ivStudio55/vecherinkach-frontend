@@ -14,6 +14,9 @@ import {
 const QUESTION_DURATION_SECONDS = 30;
 const APP_VERSION = '1.0.8'; // Инкрементируйте при важных изменениях
 
+const ROUND3_ANSWER_SECONDS = 30;
+const ROUND3_VOTE_SECONDS = 15;
+
 const ROUND3_QUESTIONS_AUDIO_DIR = 'round3/questions3';
 const ROUND3_BG_JINGLE_FILE = 'round2/jingle (5).mp3';
 
@@ -34,6 +37,29 @@ const getRemainingSeconds = (startedAt: string | null, offsetMs = 0) => {
   return Math.max(0, Math.min(QUESTION_DURATION_SECONDS, remaining));
 };
 
+const getRemainingSecondsWithDuration = (startedAt: string | null, durationSeconds: number, offsetMs = 0) => {
+  if (!startedAt) {
+    return durationSeconds;
+  }
+  const startTime = new Date(startedAt).getTime();
+  if (isNaN(startTime)) {
+    return durationSeconds;
+  }
+  const now = Date.now() - offsetMs;
+  const diffMs = now - startTime;
+  const elapsedSeconds = Math.floor(diffMs / 1000);
+  const remaining = durationSeconds - elapsedSeconds;
+  return Math.max(0, Math.min(durationSeconds, remaining));
+};
+
+const addSecondsToIso = (iso: string, seconds: number) => {
+  const ms = new Date(iso).getTime();
+  if (isNaN(ms)) {
+    return iso;
+  }
+  return new Date(ms + seconds * 1000).toISOString();
+};
+
 type Question = ActiveRoundQuestion;
 
 type RoomStatus = 'waiting' | 'running' | 'finished' | 'round2-running' | 'round3-running';
@@ -52,6 +78,15 @@ type Round3QuestionsPayload = {
   name?: string;
   description?: string;
   questions?: Round3Question[];
+};
+
+type Round3AnswerRow = {
+  id: string;
+  player_id: string;
+  room_id: string;
+  question_index: number;
+  text: string;
+  submitted_at: string;
 };
 
 type RoomUpdatePayload = {
@@ -95,6 +130,8 @@ export default function RoomPage() {
   const [round3Questions, setRound3Questions] = useState<Round3Question[]>([]);
   const [round3QuestionIndex, setRound3QuestionIndex] = useState<number | null>(null);
   const [round3AnswerText, setRound3AnswerText] = useState('');
+  const [round3AnswerOptions, setRound3AnswerOptions] = useState<Round3AnswerRow[]>([]);
+  const [round3HasVoted, setRound3HasVoted] = useState(false);
   const roomIdRef = useRef('');
   const playerIdRef = useRef('');
   const round3VoiceRef = useRef<HTMLAudioElement | null>(null);
@@ -390,7 +427,29 @@ export default function RoomPage() {
         const initialTime = getRemainingSeconds(startTime, offset);
         setTimeLeft(room.all_players_answered ? 0 : initialTime);
 
-        setHasAnswered(false);
+        if (room.current_question_index !== null && room.current_question_index !== undefined) {
+          try {
+            const { data: existingRound3Answer, error: existingRound3Error } = await supabase
+              .from('round3_answers')
+              .select('text')
+              .eq('player_id', storedPlayerId)
+              .eq('room_id', room.id)
+              .eq('question_index', room.current_question_index)
+              .single();
+
+            if (!existingRound3Error && existingRound3Answer) {
+              setHasAnswered(true);
+              setRound3AnswerText((existingRound3Answer.text ?? '').toString());
+            } else {
+              setHasAnswered(false);
+            }
+          } catch (e) {
+            console.warn('Round3 answer lookup failed (SQL might be missing)', e);
+            setHasAnswered(false);
+          }
+        } else {
+          setHasAnswered(false);
+        }
 
         if (!cancelled) {
           setIsLoading(false);
@@ -543,7 +602,31 @@ export default function RoomPage() {
               setTimeLeft(startedAt ? getRemainingSeconds(startedAt, offset || 0) : QUESTION_DURATION_SECONDS);
             }
 
-            setHasAnswered(false);
+            const currentPlayerId = playerIdRef.current;
+            const currentRoomId = roomIdRef.current;
+            if (currentPlayerId && currentRoomId && newQuestionIndex !== null && newQuestionIndex !== undefined) {
+              try {
+                const { data: existingRound3Answer, error: existingRound3Error } = await supabase
+                  .from('round3_answers')
+                  .select('text')
+                  .eq('player_id', currentPlayerId)
+                  .eq('room_id', currentRoomId)
+                  .eq('question_index', newQuestionIndex)
+                  .single();
+
+                if (!existingRound3Error && existingRound3Answer) {
+                  setHasAnswered(true);
+                  setRound3AnswerText((existingRound3Answer.text ?? '').toString());
+                } else {
+                  setHasAnswered(false);
+                }
+              } catch (e) {
+                console.warn('Round3 answer lookup failed (SQL might be missing)', e);
+                setHasAnswered(false);
+              }
+            } else {
+              setHasAnswered(false);
+            }
             return;
           }
 
@@ -602,10 +685,38 @@ export default function RoomPage() {
   useEffect(() => {
     if (roomStatus !== 'round3-running') {
       setRound3AnswerText('');
+      setRound3AnswerOptions([]);
+      setRound3HasVoted(false);
       return;
     }
     setRound3AnswerText('');
+    setRound3AnswerOptions([]);
+    setRound3HasVoted(false);
   }, [roomStatus, round3QuestionIndex]);
+
+  const getRound3Phase = useCallback(() => {
+    if (roomStatus !== 'round3-running') {
+      return 'none' as const;
+    }
+    if (!questionStartedAt) {
+      return 'fact' as const;
+    }
+    const startMs = new Date(questionStartedAt).getTime();
+    if (isNaN(startMs)) {
+      return 'fact' as const;
+    }
+    const now = Date.now() - timeOffsetMs;
+    const elapsed = Math.floor((now - startMs) / 1000);
+    if (elapsed < ROUND3_ANSWER_SECONDS) {
+      return 'answer' as const;
+    }
+    if (elapsed < ROUND3_ANSWER_SECONDS + ROUND3_VOTE_SECONDS) {
+      return 'vote' as const;
+    }
+    return 'post' as const;
+  }, [questionStartedAt, roomStatus, timeOffsetMs]);
+
+  const round3Phase = getRound3Phase();
 
   useEffect(() => {
     if (!timerActive || !questionStartedAt) {
@@ -621,6 +732,174 @@ export default function RoomPage() {
     const interval = setInterval(tick, 250);
     return () => clearInterval(interval);
   }, [timerActive, questionStartedAt, timeOffsetMs]);
+
+  const submitRound3Answer = useCallback(
+    async (text: string) => {
+      if (isSubmitting) {
+        return;
+      }
+      if (!roomId || !playerId) {
+        return;
+      }
+      if (roomStatus !== 'round3-running') {
+        return;
+      }
+      if (round3QuestionIndex === null) {
+        return;
+      }
+
+      setError('');
+      setIsSubmitting(true);
+      try {
+        const trimmed = (text ?? '').trim();
+        const { error: upsertError } = await supabase
+          .from('round3_answers')
+          .upsert(
+            {
+              room_id: roomId,
+              player_id: playerId,
+              question_index: round3QuestionIndex,
+              text: trimmed,
+            },
+            { onConflict: 'room_id,player_id,question_index' }
+          );
+
+        if (upsertError) {
+          console.error('Round3 answer submit failed', upsertError);
+          setError('Не удалось сохранить ответ (проверьте, что применён SQL для Раунда 3).');
+          return;
+        }
+        setHasAnswered(true);
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [isSubmitting, playerId, roomId, roomStatus, round3QuestionIndex]
+  );
+
+  useEffect(() => {
+    if (roomStatus !== 'round3-running') {
+      return;
+    }
+    if (round3Phase !== 'vote') {
+      return;
+    }
+    if (hasAnswered) {
+      return;
+    }
+
+    // Авто-фиксация ответа на границе перехода к голосованию.
+    void submitRound3Answer(round3AnswerText);
+  }, [hasAnswered, roomStatus, round3AnswerText, round3Phase, submitRound3Answer]);
+
+  const loadRound3VoteOptions = useCallback(async () => {
+    if (!roomId || roomStatus !== 'round3-running') {
+      return;
+    }
+    if (round3QuestionIndex === null) {
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('round3_answers')
+        .select('id, player_id, room_id, question_index, text, submitted_at')
+        .eq('room_id', roomId)
+        .eq('question_index', round3QuestionIndex)
+        .order('submitted_at', { ascending: true });
+
+      if (error) {
+        console.error('Failed to load round3 answers', error);
+        setRound3AnswerOptions([]);
+        return;
+      }
+      const rows = (data || []) as Round3AnswerRow[];
+      setRound3AnswerOptions(rows);
+    } catch (e) {
+      console.error('Failed to load round3 answers', e);
+      setRound3AnswerOptions([]);
+    }
+  }, [roomId, roomStatus, round3QuestionIndex]);
+
+  useEffect(() => {
+    if (round3Phase !== 'vote') {
+      return;
+    }
+    void loadRound3VoteOptions();
+  }, [loadRound3VoteOptions, round3Phase]);
+
+  const loadRound3VoteState = useCallback(async () => {
+    if (!roomId || !playerId || roomStatus !== 'round3-running') {
+      return;
+    }
+    if (round3QuestionIndex === null) {
+      return;
+    }
+    try {
+      const { data, error } = await supabase
+        .from('round3_votes')
+        .select('id')
+        .eq('room_id', roomId)
+        .eq('voter_player_id', playerId)
+        .eq('question_index', round3QuestionIndex)
+        .single();
+
+      if (error) {
+        setRound3HasVoted(false);
+        return;
+      }
+      setRound3HasVoted(!!data);
+    } catch {
+      setRound3HasVoted(false);
+    }
+  }, [playerId, roomId, roomStatus, round3QuestionIndex]);
+
+  useEffect(() => {
+    if (round3Phase !== 'vote') {
+      return;
+    }
+    void loadRound3VoteState();
+  }, [loadRound3VoteState, round3Phase]);
+
+  const submitRound3Vote = useCallback(
+    async (answerId: string) => {
+      if (isSubmitting || round3HasVoted) {
+        return;
+      }
+      if (!roomId || !playerId) {
+        return;
+      }
+      if (roomStatus !== 'round3-running') {
+        return;
+      }
+      if (round3QuestionIndex === null) {
+        return;
+      }
+      if (round3Phase !== 'vote') {
+        return;
+      }
+
+      setError('');
+      setIsSubmitting(true);
+      try {
+        const { error } = await supabase.from('round3_votes').insert({
+          room_id: roomId,
+          voter_player_id: playerId,
+          question_index: round3QuestionIndex,
+          answer_id: answerId,
+        });
+        if (error) {
+          console.error('Failed to submit round3 vote', error);
+          setError('Не удалось отправить голос (проверьте, что применён SQL для Раунда 3).');
+          return;
+        }
+        setRound3HasVoted(true);
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [isSubmitting, playerId, roomId, roomStatus, round3HasVoted, round3Phase, round3QuestionIndex]
+  );
 
   const submitAnswer = async (optionKey: string) => {
     setError('');
@@ -721,8 +1000,23 @@ export default function RoomPage() {
     );
   }
 
-  const progressPercent = Math.max(0, Math.min(100, (effectiveTimeLeft / QUESTION_DURATION_SECONDS) * 100));
-  const timerLabel = allPlayersAnswered ? 'Все ответили' : `${effectiveTimeLeft} c`;
+  const round3VoteStartedAt =
+    roomStatus === 'round3-running' && questionStartedAt ? addSecondsToIso(questionStartedAt, ROUND3_ANSWER_SECONDS) : null;
+
+  const round3AnswerTimeLeft =
+    roomStatus === 'round3-running' && questionStartedAt
+      ? getRemainingSecondsWithDuration(questionStartedAt, ROUND3_ANSWER_SECONDS, timeOffsetMs)
+      : effectiveTimeLeft;
+
+  const round3VoteTimeLeft =
+    roomStatus === 'round3-running' && round3VoteStartedAt
+      ? getRemainingSecondsWithDuration(round3VoteStartedAt, ROUND3_VOTE_SECONDS, timeOffsetMs)
+      : ROUND3_VOTE_SECONDS;
+
+  const activeTimerSeconds = roomStatus === 'round3-running' && round3Phase === 'vote' ? round3VoteTimeLeft : effectiveTimeLeft;
+  const activeTimerDuration = roomStatus === 'round3-running' && round3Phase === 'vote' ? ROUND3_VOTE_SECONDS : QUESTION_DURATION_SECONDS;
+  const progressPercent = Math.max(0, Math.min(100, (activeTimerSeconds / activeTimerDuration) * 100));
+  const timerLabel = allPlayersAnswered ? 'Все ответили' : `${activeTimerSeconds} c`;
 
   if (showResults) {
     return (
@@ -966,7 +1260,13 @@ export default function RoomPage() {
               </div>
               <h2 className="text-2xl font-black leading-tight">Внимательно слушай ведущего!</h2>
               <p className="text-sm text-[#142a45]/70">
-                Сейчас идёт озвучка факта. Текст появится позже.
+                {round3Phase === 'fact'
+                  ? 'Сейчас идёт озвучка факта. Поле для ответа появится во время таймера.'
+                  : round3Phase === 'answer'
+                    ? 'Во время таймера введи свой вариант ответа.'
+                    : round3Phase === 'vote'
+                      ? 'Идёт голосование — выбери лучший ответ.'
+                      : 'Голосование завершено — ждём ведущего.'}
               </p>
             </div>
 
@@ -977,7 +1277,7 @@ export default function RoomPage() {
 
             <div>
               <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
-                <span>Таймер · 30 сек</span>
+                <span>{round3Phase === 'vote' ? 'Голосование · 15 сек' : 'Таймер · 30 сек'}</span>
                 <span className={`font-black ${allPlayersAnswered ? 'text-[#1f6ac6]' : 'text-[#142a45]'}`}>{timerLabel}</span>
               </div>
               <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
@@ -988,7 +1288,7 @@ export default function RoomPage() {
               </div>
             </div>
 
-            {timerActive && effectiveTimeLeft > 0 && (
+            {round3Phase === 'answer' && timerActive && round3AnswerTimeLeft > 0 && (
               <div className="space-y-2">
                 <p className="text-xs font-semibold tracking-[0.3em] text-[#142a45]/60 text-center">ВВЕДИ ВАРИАНТ ОТВЕТА</p>
                 <input
@@ -1001,6 +1301,44 @@ export default function RoomPage() {
                   maxLength={60}
                 />
                 <p className="text-xs text-center text-[#142a45]/60">Поле доступно только пока идёт таймер.</p>
+              </div>
+            )}
+
+            {round3Phase === 'vote' && round3VoteTimeLeft > 0 && (
+              <div className="space-y-3">
+                <p className="text-xs font-semibold tracking-[0.3em] text-[#142a45]/60 text-center">ГОЛОСОВАНИЕ</p>
+                {round3AnswerOptions.filter((row) => row.player_id !== playerId && (row.text ?? '').trim().length > 0).length === 0 ? (
+                  <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-[#fff6da] px-4 py-3 text-sm font-semibold text-center">
+                    Нет вариантов для голосования.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {round3AnswerOptions
+                      .filter((row) => row.player_id !== playerId && (row.text ?? '').trim().length > 0)
+                      .map((row) => (
+                        <button
+                          key={row.id}
+                          onClick={() => void submitRound3Vote(row.id)}
+                          disabled={isSubmitting || round3HasVoted}
+                          className="w-full rounded-2xl border-[3px] border-[#142a45] bg-white px-4 py-3 text-left text-sm font-semibold hover:bg-[#fff6da] transition disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          {row.text}
+                        </button>
+                      ))}
+                  </div>
+                )}
+
+                {round3HasVoted && (
+                  <div className="rounded-2xl border-[3px] border-[#1f6ac6] bg-[#e9f0ff] px-4 py-3 text-sm font-semibold text-center">
+                    Голос принят!
+                  </div>
+                )}
+
+                {error && (
+                  <div className="rounded-2xl border-[3px] border-[#b23324] bg-[#ffd7d0] px-4 py-3 text-sm font-semibold text-[#7b1d16]">
+                    {error}
+                  </div>
+                )}
               </div>
             )}
 
