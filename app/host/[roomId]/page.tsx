@@ -320,6 +320,8 @@ export default function HostRoomPage() {
   const [round3ScoredAnswers, setRound3ScoredAnswers] = useState<Round3ScoredAnswer[]>([]);
   const [round3SkippedVoterIds, setRound3SkippedVoterIds] = useState<string[]>([]);
   const [round3VotersCount, setRound3VotersCount] = useState(0);
+  const [isTournamentVisible, setIsTournamentVisible] = useState(false);
+  const [tournamentLeaderboard, setTournamentLeaderboard] = useState<Player[]>([]);
 
   const isMusicMutedRef = useRef(isMusicMuted);
   useEffect(() => {
@@ -443,6 +445,7 @@ export default function HostRoomPage() {
   }, [getRound3ElapsedSeconds, questionStartedAt, roomStatus, timeLeft]);
 
   const isRound3ResultsPhase = round3Phase === 'results';
+  const tournamentJingleAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const setRound2Phase = useCallback(
     (nextPhase: Round2Phase) => {
@@ -631,6 +634,32 @@ export default function HostRoomPage() {
       roundEndJingleAudioRef.current = null;
     }
   }, []);
+
+  const stopTournamentJingle = useCallback(() => {
+    const cue = tournamentJingleAudioRef.current;
+    if (cue) {
+      cue.pause();
+      cue.currentTime = 0;
+      cue.onended = null;
+      tournamentJingleAudioRef.current = null;
+    }
+  }, []);
+
+  const playTournamentJingle = useCallback(() => {
+    if (!hasUserInteractedRef.current) {
+      return;
+    }
+
+    stopTournamentJingle();
+    const audio = new Audio(buildAudioUrl(ROUND1_END_JINGLE_FILE));
+    audio.loop = true;
+    audio.volume = 0.9;
+    tournamentJingleAudioRef.current = audio;
+
+    audio.play().catch((error) => {
+      console.error('Не удалось воспроизвести финальный джингл турнира', error);
+    });
+  }, [stopTournamentJingle]);
 
   const playRoundEndAudio = useCallback(() => {
     if (!hasUserInteractedRef.current) {
@@ -1474,7 +1503,21 @@ export default function HostRoomPage() {
           votesByAnswer.set(vote.answer_id, (votesByAnswer.get(vote.answer_id) ?? 0) + 1);
         }
 
-        const snapshotPlayers = playersRef.current;
+        let snapshotPlayers = playersRef.current;
+        if (!snapshotPlayers.length) {
+          const { data: playerRows, error: playersError } = await supabase
+            .from('players')
+            .select('id, name, total_points')
+            .eq('room_id', roomId);
+
+          if (playersError) {
+            console.error('Не удалось загрузить игроков для штрафа Раунда 3', playersError);
+            snapshotPlayers = [];
+          } else {
+            snapshotPlayers = (playerRows || []) as Player[];
+          }
+        }
+
         const skippedVoters = snapshotPlayers.map((p) => p.id).filter((playerId) => !voters.has(playerId));
 
         const scored: Round3ScoredAnswer[] = Array.from(deduped.values()).map((row) => {
@@ -2593,6 +2636,12 @@ export default function HostRoomPage() {
     roundEndLockQuestionRef.current = null;
   }, [question?.id, stopRoundEndAudio, clearRoundEndUnlockTimeout, clearRoundEndDelayTimeout]);
 
+  useEffect(() => {
+    return () => {
+      stopTournamentJingle();
+    };
+  }, [stopTournamentJingle]);
+
   const ensureAudioContext = useCallback(async () => {
     if (typeof window === 'undefined') {
       return null;
@@ -3504,6 +3553,9 @@ export default function HostRoomPage() {
     const shouldPlaySkip = !round3RulesAudioCompletedRef.current;
 
     setIsRound3RulesVisible(false);
+    setIsTournamentVisible(false);
+    setTournamentLeaderboard([]);
+    stopTournamentJingle();
     stopRound3RulesAudio();
 
     if (shouldPlaySkip) {
@@ -3559,8 +3611,61 @@ export default function HostRoomPage() {
     setCountdownContext,
     setIsCountdownVisible,
     setIsRound3RulesVisible,
+    setIsTournamentVisible,
+    setTournamentLeaderboard,
     stopRound3RulesAudio,
+    stopTournamentJingle,
     updateRoomStatus,
+  ]);
+
+  const completeRound3 = useCallback(async () => {
+    stopRound3Audio();
+    stopRound3VoteAudio();
+    stopRound3ResultsAudio();
+    stopTournamentJingle();
+    lastRound3PlaybackKeyRef.current = null;
+
+    const { error } = await supabase
+      .from('rooms')
+      .update({
+        status: 'finished',
+        is_active: false,
+        all_players_answered: true,
+        question_started_at: null,
+        round2_phase: 'idle',
+      })
+      .eq('id', roomId);
+
+    if (error) {
+      setError('Не удалось завершить Раунд 3');
+      return;
+    }
+
+    await loadPlayersRef.current?.();
+
+    const snapshot = (playersRef.current || []).slice().sort((a, b) => b.total_points - a.total_points || a.name.localeCompare(b.name));
+    setTournamentLeaderboard(snapshot);
+    setIsTournamentVisible(true);
+    setShowResults(true);
+    setRoomStatus('finished');
+    setQuestion(null);
+    setQuestionStartedAt(null);
+    setTimeLeft(QUESTION_DURATION_SECONDS);
+    playTournamentJingle();
+  }, [
+    loadPlayersRef,
+    playTournamentJingle,
+    roomId,
+    setQuestion,
+    setQuestionStartedAt,
+    setError,
+    setRoomStatus,
+    setShowResults,
+    setTimeLeft,
+    stopRound3Audio,
+    stopRound3ResultsAudio,
+    stopRound3VoteAudio,
+    stopTournamentJingle,
   ]);
 
   const handleRound3NextQuestion = useCallback(async () => {
@@ -3575,6 +3680,7 @@ export default function HostRoomPage() {
     const max = Math.min(ROUND3_TOTAL_QUESTIONS, round3Questions.length);
     const nextIndex = currentQuestionIndex + 1;
     if (nextIndex >= max) {
+      await completeRound3();
       return;
     }
 
@@ -3597,7 +3703,7 @@ export default function HostRoomPage() {
     setCurrentQuestionIndex(nextIndex);
     setQuestionStartedAt(null);
     setTimeLeft(QUESTION_DURATION_SECONDS);
-  }, [currentQuestionIndex, roomId, roomStatus, round3Questions.length]);
+  }, [completeRound3, currentQuestionIndex, roomId, roomStatus, round3Questions.length]);
 
   useEffect(() => {
     handleRound3NextQuestionRef.current = handleRound3NextQuestion;
@@ -3763,6 +3869,10 @@ export default function HostRoomPage() {
     }
     return Array.from(unique.values());
   }, [round2Answers]);
+  const finalLeaderboard = useMemo(() => {
+    const source = tournamentLeaderboard.length ? tournamentLeaderboard : players;
+    return source.slice().sort((a, b) => b.total_points - a.total_points || a.name.localeCompare(b.name));
+  }, [players, tournamentLeaderboard]);
   const headerActionLabel = roomStatus === 'finished' && showResults ? 'Раунд 2' : 'Завершить игру';
   const round2QuestionNumber = round2QuestionCounter > 0 ? round2QuestionCounter : 1;
   const clampedRound2QuestionNumber = Math.min(round2QuestionNumber, ROUND2_TOTAL_QUESTIONS);
@@ -3917,6 +4027,14 @@ export default function HostRoomPage() {
           ? 'bg-[#ffe184] text-[#142a45]'
           : 'bg-[#1f6ac6] text-white';
 
+  useEffect(() => {
+    if (isTournamentVisible) {
+      playTournamentJingle();
+    } else {
+      stopTournamentJingle();
+    }
+  }, [isTournamentVisible, playTournamentJingle, stopTournamentJingle]);
+
   return (
     <Fragment>
       <div className="min-h-screen bg-[#fef4dc] text-[#142a45] px-4 py-8 transition-opacity duration-1000 opacity-100">
@@ -3951,7 +4069,76 @@ export default function HostRoomPage() {
         <div className="grid gap-6 lg:grid-cols-[1.45fr,0.55fr]">
           <div className="space-y-6">
             {showResults ? (
-              roomStatus === 'finished' ? (
+              isTournamentVisible ? (
+                <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Финальный зачёт</p>
+                      <h2 className="text-3xl font-black">🏁 Турнирная таблица</h2>
+                      <p className="text-xs text-[#142a45]/70">Все 6 фактов Раунда 3 завершены, очки уже начислены.</p>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-end gap-3 text-xs font-semibold text-[#1f6ac6]">
+                      <span>Фон: {ROUND1_END_JINGLE_FILE}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          hasUserInteractedRef.current = true;
+                          playTournamentJingle();
+                        }}
+                        className="px-3 py-2 rounded-2xl border-[3px] border-[#142a45]/20 bg-[#ffe184] text-[#142a45] font-black tracking-[0.12em]"
+                      >
+                        Воспроизвести джингл
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          hasUserInteractedRef.current = true;
+                          stopTournamentJingle();
+                        }}
+                        className="px-3 py-2 rounded-2xl border-[3px] border-[#142a45]/20 bg-white text-[#142a45] font-semibold"
+                      >
+                        Остановить
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {finalLeaderboard.length === 0 ? (
+                      <p className="text-sm text-[#142a45]/70">Загружаем очки игроков…</p>
+                    ) : (
+                      <ol className="space-y-3">
+                        {finalLeaderboard.map((player, index) => (
+                          <li
+                            key={player.id}
+                            className="flex items-center justify-between rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-4"
+                          >
+                            <div className="flex items-center gap-4">
+                              <span
+                                className={`w-10 h-10 rounded-full border-[3px] flex items-center justify-center font-black text-lg ${
+                                  index === 0
+                                    ? 'border-[#f1532f] bg-[#f1532f] text-white'
+                                    : index === 1
+                                      ? 'border-[#b4007f] bg-[#b4007f] text-white'
+                                      : index === 2
+                                        ? 'border-[#1f6ac6] bg-[#1f6ac6] text-white'
+                                        : 'border-[#142a45]/30 bg-white text-[#142a45]'
+                                }`}
+                              >
+                                {index + 1}
+                              </span>
+                              <div>
+                                <p className="font-black text-[#142a45]">{player.name}</p>
+                                <p className="text-xs text-[#142a45]/70">Всего очков: {player.total_points}</p>
+                              </div>
+                            </div>
+                            <span className="font-black text-2xl text-[#f1532f]">{player.total_points} 💎</span>
+                          </li>
+                        ))}
+                      </ol>
+                    )}
+                  </div>
+                </div>
+              ) : roomStatus === 'finished' ? (
                 <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
                   <div className="flex items-center justify-between">
                     <div>
