@@ -320,11 +320,14 @@ export default function HostRoomPage() {
   const round3VoiceAudioRef = useRef<HTMLAudioElement | null>(null);
   const round3BgBufferSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const round3VoiceBufferSourceRef = useRef<AudioBufferSourceNode | null>(null);
-  const round3TimerBufferSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const round3AnswerTimerBufferSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const round3VoteTimerBufferSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const round3BgGainNodeRef = useRef<GainNode | null>(null);
   const round3VoiceGainNodeRef = useRef<GainNode | null>(null);
-  const round3TimerGainNodeRef = useRef<GainNode | null>(null);
+  const round3AnswerTimerGainNodeRef = useRef<GainNode | null>(null);
+  const round3VoteTimerGainNodeRef = useRef<GainNode | null>(null);
   const round3PlaybackTokenRef = useRef(0);
+  const round3VotePlaybackTokenRef = useRef(0);
   const round2AnswersRef = useRef<Round2AnswerRow[]>([]);
   const lastRound3PlaybackKeyRef = useRef<string | null>(null);
   const lastRound3VoteKeyRef = useRef<string | null>(null);
@@ -700,7 +703,7 @@ export default function HostRoomPage() {
       round3BgBufferSourceRef.current = null;
     }
 
-    const timerSource = round3TimerBufferSourceRef.current;
+    const timerSource = round3AnswerTimerBufferSourceRef.current;
     if (timerSource) {
       try {
         timerSource.onended = null;
@@ -713,7 +716,7 @@ export default function HostRoomPage() {
       } catch {
         // ignore
       }
-      round3TimerBufferSourceRef.current = null;
+      round3AnswerTimerBufferSourceRef.current = null;
     }
 
     const voiceGain = round3VoiceGainNodeRef.current;
@@ -736,14 +739,14 @@ export default function HostRoomPage() {
       round3BgGainNodeRef.current = null;
     }
 
-    const timerGain = round3TimerGainNodeRef.current;
+    const timerGain = round3AnswerTimerGainNodeRef.current;
     if (timerGain) {
       try {
         timerGain.disconnect();
       } catch {
         // ignore
       }
-      round3TimerGainNodeRef.current = null;
+      round3AnswerTimerGainNodeRef.current = null;
     }
 
     const voice = round3VoiceAudioRef.current;
@@ -785,9 +788,14 @@ export default function HostRoomPage() {
       bgGain.gain.value = newMuted ? 0 : ROUND3_BG_VOLUME;
     }
 
-    const timerGain = round3TimerGainNodeRef.current;
-    if (timerGain) {
-      timerGain.gain.value = newMuted ? 0 : ROUND3_TIMER_VOLUME;
+    const answerTimerGain = round3AnswerTimerGainNodeRef.current;
+    if (answerTimerGain) {
+      answerTimerGain.gain.value = newMuted ? 0 : ROUND3_TIMER_VOLUME;
+    }
+
+    const voteTimerGain = round3VoteTimerGainNodeRef.current;
+    if (voteTimerGain) {
+      voteTimerGain.gain.value = newMuted ? 0 : ROUND3_TIMER_VOLUME;
     }
   }, [isMusicMuted]);
 
@@ -897,10 +905,10 @@ export default function HostRoomPage() {
 
           round3BgBufferSourceRef.current = bgSource;
           round3VoiceBufferSourceRef.current = voiceSource;
-          round3TimerBufferSourceRef.current = timerSource;
+          round3AnswerTimerBufferSourceRef.current = timerSource;
           round3BgGainNodeRef.current = bgGain;
           round3VoiceGainNodeRef.current = voiceGain;
-          round3TimerGainNodeRef.current = timerGain;
+          round3AnswerTimerGainNodeRef.current = timerGain;
 
           const stopBg = () => {
             const currentBg = round3BgBufferSourceRef.current;
@@ -990,24 +998,24 @@ export default function HostRoomPage() {
           };
 
           timerSource.onended = () => {
-            const currentTimer = round3TimerBufferSourceRef.current;
+            const currentTimer = round3AnswerTimerBufferSourceRef.current;
             if (currentTimer) {
               try {
                 currentTimer.disconnect();
               } catch {
                 // ignore
               }
-              round3TimerBufferSourceRef.current = null;
+              round3AnswerTimerBufferSourceRef.current = null;
             }
 
-            const currentTimerGain = round3TimerGainNodeRef.current;
+            const currentTimerGain = round3AnswerTimerGainNodeRef.current;
             if (currentTimerGain) {
               try {
                 currentTimerGain.disconnect();
               } catch {
                 // ignore
               }
-              round3TimerGainNodeRef.current = null;
+              round3AnswerTimerGainNodeRef.current = null;
             }
           };
 
@@ -1024,7 +1032,9 @@ export default function HostRoomPage() {
   );
 
   const stopRound3VoteAudio = useCallback(() => {
-    const timerSource = round3TimerBufferSourceRef.current;
+    round3VotePlaybackTokenRef.current += 1;
+
+    const timerSource = round3VoteTimerBufferSourceRef.current;
     if (timerSource) {
       try {
         timerSource.onended = null;
@@ -1037,17 +1047,17 @@ export default function HostRoomPage() {
       } catch {
         // ignore
       }
-      round3TimerBufferSourceRef.current = null;
+      round3VoteTimerBufferSourceRef.current = null;
     }
 
-    const timerGain = round3TimerGainNodeRef.current;
+    const timerGain = round3VoteTimerGainNodeRef.current;
     if (timerGain) {
       try {
         timerGain.disconnect();
       } catch {
         // ignore
       }
-      round3TimerGainNodeRef.current = null;
+      round3VoteTimerGainNodeRef.current = null;
     }
 
     const voteSource = round3VoteVoiceBufferSourceRef.current;
@@ -1083,8 +1093,8 @@ export default function HostRoomPage() {
         return;
       }
 
-      const token = round3PlaybackTokenRef.current + 1;
-      round3PlaybackTokenRef.current = token;
+      const token = round3VotePlaybackTokenRef.current + 1;
+      round3VotePlaybackTokenRef.current = token;
 
       const voteVariant = Math.floor(Math.random() * 9) + 1;
       const voteUrl = buildAudioUrl(`${ROUND3_VOTE_AUDIO_DIR}/${voteVariant}.mp3`);
@@ -1112,7 +1122,7 @@ export default function HostRoomPage() {
           }
         }
 
-        if (round3PlaybackTokenRef.current !== token) {
+        if (round3VotePlaybackTokenRef.current !== token) {
           return;
         }
 
@@ -1127,7 +1137,7 @@ export default function HostRoomPage() {
 
         try {
           const voteBuffer = await decodeFromUrl(voteUrl);
-          if (round3PlaybackTokenRef.current !== token) {
+          if (round3VotePlaybackTokenRef.current !== token) {
             return;
           }
 
@@ -1212,8 +1222,8 @@ export default function HostRoomPage() {
       }
       stopRound3VoteAudio();
 
-      const token = round3PlaybackTokenRef.current + 1;
-      round3PlaybackTokenRef.current = token;
+      const token = round3VotePlaybackTokenRef.current + 1;
+      round3VotePlaybackTokenRef.current = token;
 
       const timerUrl = buildAudioUrl(ROUND3_TIMER_JINGLE_FILE);
       // Голос диктора (vote/*.mp3) стартует на фазе обратного отсчёта,
@@ -1240,7 +1250,7 @@ export default function HostRoomPage() {
           }
         }
 
-        if (round3PlaybackTokenRef.current !== token) {
+        if (round3VotePlaybackTokenRef.current !== token) {
           return;
         }
 
@@ -1256,7 +1266,7 @@ export default function HostRoomPage() {
         try {
           const timerBuffer = await decodeFromUrl(timerUrl);
 
-          if (round3PlaybackTokenRef.current !== token) {
+          if (round3VotePlaybackTokenRef.current !== token) {
             return;
           }
 
@@ -1277,8 +1287,8 @@ export default function HostRoomPage() {
           timerSource.connect(timerGain);
           timerGain.connect(context.destination);
 
-          round3TimerBufferSourceRef.current = timerSource;
-          round3TimerGainNodeRef.current = timerGain;
+          round3VoteTimerBufferSourceRef.current = timerSource;
+          round3VoteTimerGainNodeRef.current = timerGain;
 
           const startAt = context.currentTime + 0.01;
           try {
@@ -1299,11 +1309,11 @@ export default function HostRoomPage() {
             } catch {
               // ignore
             }
-            if (round3TimerBufferSourceRef.current === timerSource) {
-              round3TimerBufferSourceRef.current = null;
+            if (round3VoteTimerBufferSourceRef.current === timerSource) {
+              round3VoteTimerBufferSourceRef.current = null;
             }
-            if (round3TimerGainNodeRef.current === timerGain) {
-              round3TimerGainNodeRef.current = null;
+            if (round3VoteTimerGainNodeRef.current === timerGain) {
+              round3VoteTimerGainNodeRef.current = null;
             }
           };
         } catch (err) {
