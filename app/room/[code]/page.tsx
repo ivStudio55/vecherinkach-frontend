@@ -1039,6 +1039,11 @@ export default function RoomPage() {
       ? addSecondsToIso(questionStartedAt, ROUND3_ANSWER_SECONDS + ROUND3_VOTE_COUNTDOWN_SECONDS)
       : null;
 
+  const currentRound3Question =
+    roomStatus === 'round3-running' && round3QuestionIndex !== null
+      ? round3Questions[round3QuestionIndex] ?? null
+      : null;
+
   const round3VoteCountdownStartedAt =
     roomStatus === 'round3-running' && questionStartedAt ? addSecondsToIso(questionStartedAt, ROUND3_ANSWER_SECONDS) : null;
 
@@ -1323,6 +1328,13 @@ export default function RoomPage() {
                       : round3Phase === 'vote'
                         ? 'Идёт голосование — выбери лучший ответ.'
                         : 'Голосование завершено — ждём ведущего.'}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] px-4 py-3 text-center space-y-2">
+              <p className="text-[10px] font-black tracking-[0.35em] text-[#142a45]/60">ВОПРОС</p>
+              <p className="text-xl sm:text-2xl font-black leading-tight">
+                {currentRound3Question?.question ?? 'Вопрос загружается…'}
               </p>
             </div>
 
