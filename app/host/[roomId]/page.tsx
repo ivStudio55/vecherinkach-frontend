@@ -396,6 +396,7 @@ export default function HostRoomPage() {
   const round3VoteVoiceBufferSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const round3VoteVoiceGainNodeRef = useRef<GainNode | null>(null);
   const lastRound3VoteAudioKeyRef = useRef<string | null>(null);
+  const handleRound3NextQuestionRef = useRef<(() => void) | null>(null);
   const autoNextTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const round2TimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTransitioningRound2Ref = useRef(false);
@@ -1595,7 +1596,10 @@ export default function HostRoomPage() {
         const isSameQuestion = currentRound3QuestionIndexRef.current === index && roomStatusRef.current === 'round3-running';
         const hasNext = index + 1 < round3QuestionCount;
         if (isSameQuestion && hasNext) {
-          void handleRound3NextQuestion();
+          const next = handleRound3NextQuestionRef.current;
+          if (next) {
+            void next();
+          }
         }
       };
       comment.play().catch((err) => {
@@ -1603,7 +1607,7 @@ export default function HostRoomPage() {
         stopRound3ResultsAudio();
       });
     },
-    [handleRound3NextQuestion, round3QuestionCount, round3Questions, stopRound3ResultsAudio]
+    [round3QuestionCount, round3Questions, stopRound3ResultsAudio]
   );
 
   useEffect(() => {
@@ -3594,6 +3598,10 @@ export default function HostRoomPage() {
     setQuestionStartedAt(null);
     setTimeLeft(QUESTION_DURATION_SECONDS);
   }, [currentQuestionIndex, roomId, roomStatus, round3Questions.length]);
+
+  useEffect(() => {
+    handleRound3NextQuestionRef.current = handleRound3NextQuestion;
+  }, [handleRound3NextQuestion]);
 
   const handleRound3BackToEndOfRound2 = useCallback(async () => {
     stopRound3Audio();
