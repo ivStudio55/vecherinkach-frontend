@@ -357,6 +357,8 @@ export default function HostRoomPage() {
   const betweenCueQuestionRef = useRef<number | null>(null);
   const roundEndLockQuestionRef = useRef<number | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const round3VoteVoiceBufferSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const round3VoteVoiceGainNodeRef = useRef<GainNode | null>(null);
   const autoNextTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const round2TimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTransitioningRound2Ref = useRef(false);
@@ -873,10 +875,9 @@ export default function HostRoomPage() {
           const timerSource = context.createBufferSource();
           timerSource.buffer = timerBuffer;
           timerSource.loop = false;
-          // Во время голосования хотим уложить 30-сек джингл ровно в 15 секунд.
-          // AudioBufferSourceNode поддерживает playbackRate: 2x ≈ вдвое быстрее.
+          // Во время ответа таймерный джингл играет в обычной скорости.
           try {
-            timerSource.playbackRate.value = 2;
+            timerSource.playbackRate.value = 1;
           } catch {
             // ignore
           }
@@ -1047,6 +1048,32 @@ export default function HostRoomPage() {
       }
       round3TimerGainNodeRef.current = null;
     }
+
+    const voteSource = round3VoteVoiceBufferSourceRef.current;
+    if (voteSource) {
+      try {
+        voteSource.onended = null;
+        voteSource.stop(0);
+      } catch {
+        // ignore
+      }
+      try {
+        voteSource.disconnect();
+      } catch {
+        // ignore
+      }
+      round3VoteVoiceBufferSourceRef.current = null;
+    }
+
+    const voteGain = round3VoteVoiceGainNodeRef.current;
+    if (voteGain) {
+      try {
+        voteGain.disconnect();
+      } catch {
+        // ignore
+      }
+      round3VoteVoiceGainNodeRef.current = null;
+    }
   }, []);
 
   const playRound3VoteAudio = useCallback(
@@ -1107,6 +1134,13 @@ export default function HostRoomPage() {
           const timerSource = context.createBufferSource();
           timerSource.buffer = timerBuffer;
           timerSource.loop = false;
+          // Во время голосования хотим уложить 30-сек джингл ровно в 15 секунд.
+          // AudioBufferSourceNode поддерживает playbackRate: 2x ≈ вдвое быстрее.
+          try {
+            timerSource.playbackRate.value = 2;
+          } catch {
+            // ignore
+          }
 
           const timerGain = context.createGain();
           timerGain.gain.value = isMusicMutedRef.current ? 0 : ROUND3_TIMER_VOLUME;
@@ -1126,6 +1160,8 @@ export default function HostRoomPage() {
 
           round3TimerBufferSourceRef.current = timerSource;
           round3TimerGainNodeRef.current = timerGain;
+          round3VoteVoiceBufferSourceRef.current = voteSource;
+          round3VoteVoiceGainNodeRef.current = voteGain;
 
           const startAt = context.currentTime + 0.01;
           try {
@@ -1157,6 +1193,25 @@ export default function HostRoomPage() {
             }
             if (round3TimerGainNodeRef.current === timerGain) {
               round3TimerGainNodeRef.current = null;
+            }
+          };
+
+          voteSource.onended = () => {
+            try {
+              voteSource.disconnect();
+            } catch {
+              // ignore
+            }
+            try {
+              voteGain.disconnect();
+            } catch {
+              // ignore
+            }
+            if (round3VoteVoiceBufferSourceRef.current === voteSource) {
+              round3VoteVoiceBufferSourceRef.current = null;
+            }
+            if (round3VoteVoiceGainNodeRef.current === voteGain) {
+              round3VoteVoiceGainNodeRef.current = null;
             }
           };
         } catch (err) {
@@ -3959,7 +4014,7 @@ export default function HostRoomPage() {
                       ? `На время голосования у ведущего играет ${ROUND3_TIMER_JINGLE_FILE} (в 2 раза быстрее) + случайный файл из ${ROUND3_VOTE_AUDIO_DIR}/.`
                       : isRound3VoteCountdown
                         ? 'Готовимся голосовать: 3..2..1.'
-                        : `На время ответа у ведущего играет ${ROUND3_TIMER_JINGLE_FILE}.`}
+                        : `На время ответа у ведущего играет ${ROUND3_TIMER_JINGLE_FILE} (обычная скорость).`}
                   </p>
                 </div>
 
