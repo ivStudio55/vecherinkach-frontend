@@ -100,6 +100,8 @@ const ROUND3_COMMENTS_AUDIO_DIR = 'round3/comments';
 const ROUND3_RESULTS_BG_FILE = 'round2/explanation.mp3';
 const ROUND3_BG_VOLUME = 0.25;
 const ROUND3_TIMER_VOLUME = 0.6;
+const ROUND3_VOTE_LIKE_POINTS = 50;
+const ROUND3_VOTE_SKIP_PENALTY = 50;
 const ROUND3_RULES_VOICE_FILES = [
   'round3/ruels3/ruels1.mp3',
   'round3/ruels3/ruels2.mp3',
@@ -210,10 +212,18 @@ type Round3AnswerRow = {
   submitted_at: string;
 };
 
+type Round3VoteRow = {
+  voter_player_id: string;
+  answer_id: string;
+};
+
 type Round3ScoredAnswer = {
   playerId: string;
   text: string;
   isCorrect: boolean;
+  basePoints: number;
+  votePoints: number;
+  votes: number;
   pointsEarned: number;
 };
 
@@ -308,6 +318,8 @@ export default function HostRoomPage() {
   const [round3VoteAnswers, setRound3VoteAnswers] = useState<Round3AnswerRow[]>([]);
   const [isRound3VoteAnswersLoading, setIsRound3VoteAnswersLoading] = useState(false);
   const [round3ScoredAnswers, setRound3ScoredAnswers] = useState<Round3ScoredAnswer[]>([]);
+  const [round3SkippedVoterIds, setRound3SkippedVoterIds] = useState<string[]>([]);
+  const [round3VotersCount, setRound3VotersCount] = useState(0);
 
   const isMusicMutedRef = useRef(isMusicMuted);
   useEffect(() => {
@@ -347,6 +359,7 @@ export default function HostRoomPage() {
   const lastRound3ResultsScoringKeyRef = useRef<string | null>(null);
   const round3PlaybackTokenRef = useRef(0);
   const round3VotePlaybackTokenRef = useRef(0);
+  const currentRound3QuestionIndexRef = useRef(currentQuestionIndex);
   const round3AnswerTimerVoteVoiceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const round2AnswersRef = useRef<Round2AnswerRow[]>([]);
   const lastRound3PlaybackKeyRef = useRef<string | null>(null);
@@ -468,6 +481,10 @@ export default function HostRoomPage() {
   useEffect(() => {
     round2QuestionCounterRef.current = round2QuestionCounter;
   }, [round2QuestionCounter]);
+
+  useEffect(() => {
+    currentRound3QuestionIndexRef.current = currentQuestionIndex;
+  }, [currentQuestionIndex]);
 
   useEffect(() => {
     round2ShowingFactRef.current = round2ShowingFact;
@@ -1424,7 +1441,18 @@ export default function HostRoomPage() {
         if (error) {
           console.error('Не удалось загрузить ответы Раунда 3 для начисления', error);
           setRound3ScoredAnswers([]);
+          setRound3VotersCount(0);
+          setRound3SkippedVoterIds([]);
           return;
+        }
+        const { data: votesData, error: votesError } = await supabase
+          .from('round3_votes')
+          .select('voter_player_id, answer_id')
+          .eq('room_id', roomId)
+          .eq('question_index', currentQuestionIndex);
+
+        if (votesError) {
+          console.error('Не удалось загрузить голоса Раунда 3', votesError);
         }
 
         const acceptableRaw = [currentQ.answer ?? '', ...(currentQ.acceptable ?? [])].filter(Boolean);
@@ -1437,47 +1465,76 @@ export default function HostRoomPage() {
           }
         }
 
+        const votesByAnswer = new Map<string, number>();
+        const voters = new Set<string>();
+
+        for (const vote of (votesData || []) as Round3VoteRow[]) {
+          voters.add(vote.voter_player_id);
+          votesByAnswer.set(vote.answer_id, (votesByAnswer.get(vote.answer_id) ?? 0) + 1);
+        }
+
+        const snapshotPlayers = playersRef.current;
+        const skippedVoters = snapshotPlayers.map((p) => p.id).filter((playerId) => !voters.has(playerId));
+
         const scored: Round3ScoredAnswer[] = Array.from(deduped.values()).map((row) => {
           const normalized = normalizeRound3FreeText(row.text ?? '');
           const isCorrect = normalized.length > 0 && acceptable.has(normalized);
+          const basePoints = isCorrect ? ROUND3_POINTS : 0;
+          const votes = votesByAnswer.get(row.id) ?? 0;
+          const votePoints = votes * ROUND3_VOTE_LIKE_POINTS;
           return {
             playerId: row.player_id,
             text: row.text,
             isCorrect,
-            pointsEarned: isCorrect ? ROUND3_POINTS : 0,
+            basePoints,
+            votePoints,
+            votes,
+            pointsEarned: basePoints + votePoints,
           };
         });
 
         setRound3ScoredAnswers(scored);
+        setRound3VotersCount(voters.size);
+        setRound3SkippedVoterIds(skippedVoters);
 
-        const correctPlayerIds = scored.filter((s) => s.isCorrect).map((s) => s.playerId);
-        if (correctPlayerIds.length === 0) {
+        const updates = new Map<string, number>();
+
+        for (const entry of scored) {
+          if (entry.pointsEarned !== 0) {
+            updates.set(entry.playerId, (updates.get(entry.playerId) ?? 0) + entry.pointsEarned);
+          }
+        }
+
+        for (const playerId of skippedVoters) {
+          updates.set(playerId, (updates.get(playerId) ?? 0) - ROUND3_VOTE_SKIP_PENALTY);
+        }
+
+        if (updates.size === 0) {
           return;
         }
 
+        const totalMap = new Map<string, number>();
+        snapshotPlayers.forEach((player) => {
+          totalMap.set(player.id, player.total_points ?? 0);
+        });
+
         await Promise.all(
-          correctPlayerIds.map(async (playerId) => {
-            const { data: playerData, error: playerError } = await supabase
-              .from('players')
-              .select('total_points')
-              .eq('id', playerId)
-              .single();
-
-            if (playerError) {
-              console.error('Не удалось получить total_points для игрока (round3)', playerError);
-              return;
-            }
-
-            const nextTotal = (playerData?.total_points || 0) + ROUND3_POINTS;
+          Array.from(updates.entries()).map(async ([playerId, delta]) => {
+            const currentTotal = totalMap.get(playerId) ?? 0;
+            const nextTotal = currentTotal + delta;
             const { error: updateError } = await supabase.from('players').update({ total_points: nextTotal }).eq('id', playerId);
             if (updateError) {
-              console.error('Не удалось начислить очки игроку (round3)', updateError);
+              console.error('Не удалось обновить очки игрока (round3)', updateError);
             }
           })
         );
+
+        loadPlayersRef.current?.();
       } catch (err) {
         console.error('Не удалось начислить очки в Раунде 3', err);
         setRound3ScoredAnswers([]);
+        setRound3VotersCount(0);
+        setRound3SkippedVoterIds([]);
       }
     };
 
@@ -1535,13 +1592,18 @@ export default function HostRoomPage() {
 
       comment.onended = () => {
         stopRound3ResultsAudio();
+        const isSameQuestion = currentRound3QuestionIndexRef.current === index && roomStatusRef.current === 'round3-running';
+        const hasNext = index + 1 < round3QuestionCount;
+        if (isSameQuestion && hasNext) {
+          void handleRound3NextQuestion();
+        }
       };
       comment.play().catch((err) => {
         console.error('Не удалось воспроизвести комментарий Раунда 3', err);
         stopRound3ResultsAudio();
       });
     },
-    [round3Questions, stopRound3ResultsAudio]
+    [handleRound3NextQuestion, round3QuestionCount, round3Questions, stopRound3ResultsAudio]
   );
 
   useEffect(() => {
@@ -1549,6 +1611,8 @@ export default function HostRoomPage() {
       setRound3VoteAnswers([]);
       setIsRound3VoteAnswersLoading(false);
       setRound3ScoredAnswers([]);
+      setRound3SkippedVoterIds([]);
+      setRound3VotersCount(0);
       lastRound3VoteKeyRef.current = null;
       lastRound3VoteAnswersKeyRef.current = null;
       lastRound3VoteAudioKeyRef.current = null;
@@ -4317,32 +4381,45 @@ export default function HostRoomPage() {
                     <div className="rounded-3xl border-[3px] border-dashed border-[#142a45]/30 bg-[#fff6da] p-4 space-y-3">
                       <div className="flex items-center justify-between">
                         <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/70">Ответы игроков</p>
-                        <span className="text-xs font-semibold text-[#1f6ac6]">+{ROUND3_POINTS} за точный ответ</span>
+                        <span className="text-xs font-semibold text-[#1f6ac6]">
+                          +{ROUND3_POINTS} за точный ответ · +{ROUND3_VOTE_LIKE_POINTS} за лайк · -{ROUND3_VOTE_SKIP_PENALTY} за пропуск голосования
+                        </span>
                       </div>
                       {isRound3VoteAnswersLoading ? (
                         <p className="text-sm text-[#142a45]/70">Ответы загружаются…</p>
                       ) : round3ScoredAnswers.length > 0 ? (
-                        <div className="space-y-2">
-                          {round3ScoredAnswers
-                            .slice()
-                            .sort((a, b) => Number(b.isCorrect) - Number(a.isCorrect))
-                            .map((row) => (
-                              <div
-                                key={row.playerId}
-                                className={`rounded-2xl border-[3px] px-3 py-2 flex items-center justify-between ${
-                                  row.isCorrect ? 'border-[#1f6ac6]/30 bg-white' : 'border-[#f1532f]/30 bg-white'
-                                }`}
-                              >
-                                <div className="min-w-0">
-                                  <p className="font-semibold truncate">{getPlayerName(row.playerId)}</p>
-                                  <p className="text-xs text-[#142a45]/70 truncate">{row.text?.trim() ? row.text : '(пусто)'}</p>
+                        <>
+                          <div className="text-xs text-[#142a45]/70">
+                            Голосовали: <span className="font-semibold text-[#1f6ac6]">{round3VotersCount}</span>
+                            /{players.length}. Не проголосовали: <span className="font-semibold text-[#f1532f]">{round3SkippedVoterIds.length}</span>
+                            {round3SkippedVoterIds.length > 0 ? ` (−${ROUND3_VOTE_SKIP_PENALTY} каждому)` : ''}.
+                          </div>
+                          <div className="space-y-2">
+                            {round3ScoredAnswers
+                              .slice()
+                              .sort((a, b) => b.pointsEarned - a.pointsEarned || Number(b.isCorrect) - Number(a.isCorrect))
+                              .map((row) => (
+                                <div
+                                  key={row.playerId}
+                                  className={`rounded-2xl border-[3px] px-3 py-2 flex items-center justify-between ${
+                                    row.isCorrect ? 'border-[#1f6ac6]/30 bg-white' : 'border-[#f1532f]/30 bg-white'
+                                  }`}
+                                >
+                                  <div className="min-w-0">
+                                    <p className="font-semibold truncate">{getPlayerName(row.playerId)}</p>
+                                    <p className="text-xs text-[#142a45]/70 truncate">{row.text?.trim() ? row.text : '(пусто)'}</p>
+                                    <p className="text-[11px] text-[#142a45]/60">
+                                      Лайков: {row.votes} (+{row.votePoints})
+                                      {row.basePoints > 0 ? ` · Точный ответ: +${row.basePoints}` : ''}
+                                    </p>
+                                  </div>
+                                  <span className={`font-black ${row.pointsEarned > 0 ? 'text-[#1f6ac6]' : 'text-[#f1532f]'}`}>
+                                    {row.pointsEarned >= 0 ? `+${row.pointsEarned}` : row.pointsEarned}
+                                  </span>
                                 </div>
-                                <span className={`font-black ${row.isCorrect ? 'text-[#1f6ac6]' : 'text-[#f1532f]'}`}>
-                                  {row.isCorrect ? `+${row.pointsEarned}` : '+0'}
-                                </span>
-                              </div>
-                            ))}
-                        </div>
+                              ))}
+                          </div>
+                        </>
                       ) : (
                         <p className="text-sm text-[#142a45]/70">Пока нет ответов.</p>
                       )}
