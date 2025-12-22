@@ -873,6 +873,13 @@ export default function HostRoomPage() {
           const timerSource = context.createBufferSource();
           timerSource.buffer = timerBuffer;
           timerSource.loop = false;
+          // Во время голосования хотим уложить 30-сек джингл ровно в 15 секунд.
+          // AudioBufferSourceNode поддерживает playbackRate: 2x ≈ вдвое быстрее.
+          try {
+            timerSource.playbackRate.value = 2;
+          } catch {
+            // ignore
+          }
 
           const timerGain = context.createGain();
           timerGain.gain.value = isMusicMutedRef.current ? 0 : ROUND3_TIMER_VOLUME;
@@ -3949,7 +3956,7 @@ export default function HostRoomPage() {
                   </div>
                   <p className="text-xs text-[#142a45]/60 mt-2">
                     {isRound3VotePhase
-                      ? `На время голосования у ведущего играет ${ROUND3_TIMER_JINGLE_FILE} + случайный файл из ${ROUND3_VOTE_AUDIO_DIR}/.`
+                      ? `На время голосования у ведущего играет ${ROUND3_TIMER_JINGLE_FILE} (в 2 раза быстрее) + случайный файл из ${ROUND3_VOTE_AUDIO_DIR}/.`
                       : isRound3VoteCountdown
                         ? 'Готовимся голосовать: 3..2..1.'
                         : `На время ответа у ведущего играет ${ROUND3_TIMER_JINGLE_FILE}.`}
