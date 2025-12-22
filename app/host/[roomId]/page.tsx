@@ -425,7 +425,8 @@ export default function HostRoomPage() {
       return 'answer' as const;
     }
     return 'results' as const;
-  }, [getRound3ElapsedSeconds, questionStartedAt, roomStatus]);
+    // timeLeft is included to force re-evaluation as the timer ticks down.
+  }, [getRound3ElapsedSeconds, questionStartedAt, roomStatus, timeLeft]);
 
   const isRound3ResultsPhase = round3Phase === 'results';
 
