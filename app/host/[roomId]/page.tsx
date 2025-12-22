@@ -1143,6 +1143,14 @@ export default function HostRoomPage() {
               } catch (err) {
                 console.error('Не удалось запустить таймерный джингл Раунда 3', err);
               }
+
+              // Schedule vote voice audio after 30 seconds
+              round3AnswerTimerVoteVoiceTimeoutRef.current = setTimeout(() => {
+                if (round3PlaybackTokenRef.current !== token) {
+                  return;
+                }
+                playRound3VoteVoiceAudio();
+              }, 30000);
             })();
           };
 
