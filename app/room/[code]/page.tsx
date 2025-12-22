@@ -179,7 +179,10 @@ export default function RoomPage() {
         }
         const payload = (await res.json()) as Round3QuestionsPayload;
         const questions = Array.isArray(payload?.questions) ? payload.questions : [];
-        const withIndex = questions.map((q, i) => ({ ...q, originalIndex: i }));
+        const withIndex = questions.map((q, i) => ({
+          ...q,
+          originalIndex: typeof q.originalIndex === 'number' ? q.originalIndex : i,
+        }));
         // Используем порядок из API, чтобы совпадал у всех игроков и ведущего.
         setRound3Questions(withIndex);
       } catch (e) {

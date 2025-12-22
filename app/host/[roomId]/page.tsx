@@ -1756,7 +1756,10 @@ export default function HostRoomPage() {
         if (!res.ok) return;
         const payload = (await res.json()) as Round3QuestionsPayload;
         const questions = Array.isArray(payload?.questions) ? payload.questions : [];
-        const withIndex = questions.map((q, i) => ({ ...q, originalIndex: i }));
+        const withIndex = questions.map((q, i) => ({
+          ...q,
+          originalIndex: typeof q.originalIndex === 'number' ? q.originalIndex : i,
+        }));
         // Используем порядок из API, чтобы он совпадал с экранами игроков.
         setRound3Questions(withIndex);
       } catch (e) {

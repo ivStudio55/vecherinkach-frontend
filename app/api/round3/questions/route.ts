@@ -49,7 +49,14 @@ export async function GET(request: Request) {
     const parsed = JSON.parse(raw) as { questions?: unknown[] } | null;
 
     const questions = Array.isArray(parsed?.questions) ? parsed!.questions : [];
-    const shuffled = shuffleWithSeed(questions, roomId);
+    const indexed = questions.map((q, index) => {
+      if (q && typeof q === 'object') {
+        return { ...(q as Record<string, unknown>), originalIndex: index };
+      }
+      return q;
+    });
+
+    const shuffled = shuffleWithSeed(indexed, roomId);
     const count = Number.isFinite(requestedCount) && requestedCount > 0 ? requestedCount : DEFAULT_COUNT;
     const limited = shuffled.slice(0, count);
 
