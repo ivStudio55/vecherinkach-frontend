@@ -910,10 +910,16 @@ export default function HostRoomPage() {
         round3VoteVoiceGainNodeRef.current = voteGain;
 
         const startAt = context.currentTime + 0.01;
-        const playForSeconds = ROUND3_VOTE_COUNTDOWN_SECONDS + ROUND3_VOTE_SECONDS;
         try {
           voteSource.start(startAt);
-          voteSource.stop(startAt + playForSeconds);
+        } catch {
+          // ignore
+        }
+
+        // Play full clip duration (vote phase timers can be disabled).
+        const stopAt = startAt + Math.max(0.05, (voteBuffer?.duration ?? 0) + 0.05);
+        try {
+          voteSource.stop(stopAt);
         } catch {
           // ignore
         }
@@ -1132,6 +1138,17 @@ export default function HostRoomPage() {
                 round3AnswerTimerVoteVoiceTimeoutRef.current = null;
               }
 
+              // Через 30 секунд после старта таймера запускаем рандомный голос vote/*.mp3.
+              round3AnswerTimerVoteVoiceTimeoutRef.current = setTimeout(() => {
+                if (round3PlaybackTokenRef.current !== token) {
+                  return;
+                }
+                if (roomStatusRef.current !== 'round3-running') {
+                  return;
+                }
+                playRound3VoteVoiceAudio();
+              }, 30_000);
+
               if (round3PlaybackTokenRef.current !== token) {
                 return;
               }
@@ -1143,14 +1160,6 @@ export default function HostRoomPage() {
               } catch (err) {
                 console.error('Не удалось запустить таймерный джингл Раунда 3', err);
               }
-
-              // Schedule vote voice audio after 30 seconds
-              round3AnswerTimerVoteVoiceTimeoutRef.current = setTimeout(() => {
-                if (round3PlaybackTokenRef.current !== token) {
-                  return;
-                }
-                playRound3VoteVoiceAudio();
-              }, 30000);
             })();
           };
 
@@ -2837,9 +2846,9 @@ export default function HostRoomPage() {
   const isRound2FactPhase = roomStatus === 'round2-running' && round2Phase === 'fact';
   const isTimerRoundActive = roomStatus === 'running' || isRound2FactPhase || roomStatus === 'round3-running';
   const timerActive =
-    !showResults &&
     isTimerRoundActive &&
     Boolean(questionStartedAt) &&
+    (roomStatus === 'round3-running' ? true : !showResults) &&
     (roomStatus === 'round3-running' ? true : !shouldForceZero);
 
   useEffect(() => {
