@@ -4402,11 +4402,19 @@ export default function HostRoomPage() {
                     )}
                   </div>
                 ) : (
-                  <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-4 space-y-2">
+                  <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-4 space-y-3">
                     <p className="text-[11px] tracking-[0.3em] text-[#142a45]/60">Объяснение</p>
                     <p className="text-base font-semibold text-[#142a45]">
                       {round2ExplanationText}
                     </p>
+                    <div className="rounded-2xl border-[3px] border-[#b4007f]/30 bg-white px-4 py-3 text-center">
+                      <p className="text-[11px] tracking-[0.3em] text-[#142a45]/60">Ответ тура</p>
+                      <p
+                        className={`text-4xl font-black ${round2ShowingFact ? 'text-[#1f6ac6]' : 'text-[#b4007f]'}`}
+                      >
+                        {round2ShowingFact ? 'ПРАВДА' : 'ВЫМЫСЕЛ'}
+                      </p>
+                    </div>
                   </div>
                 )}
 
