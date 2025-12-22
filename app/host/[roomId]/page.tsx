@@ -359,6 +359,7 @@ export default function HostRoomPage() {
   const audioContextRef = useRef<AudioContext | null>(null);
   const round3VoteVoiceBufferSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const round3VoteVoiceGainNodeRef = useRef<GainNode | null>(null);
+  const lastRound3VoteAudioKeyRef = useRef<string | null>(null);
   const autoNextTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const round2TimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTransitioningRound2Ref = useRef(false);
@@ -1076,6 +1077,134 @@ export default function HostRoomPage() {
     }
   }, []);
 
+  const playRound3VoteVoiceAudio = useCallback(
+    () => {
+      if (typeof window === 'undefined') {
+        return;
+      }
+
+      const token = round3PlaybackTokenRef.current + 1;
+      round3PlaybackTokenRef.current = token;
+
+      const voteVariant = Math.floor(Math.random() * 9) + 1;
+      const voteUrl = buildAudioUrl(`${ROUND3_VOTE_AUDIO_DIR}/${voteVariant}.mp3`);
+
+      void (async () => {
+        const AudioContextCtor =
+          window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        if (!AudioContextCtor) {
+          setRound3AudioBlocked(true);
+          return;
+        }
+
+        let context = audioContextRef.current;
+        if (!context) {
+          context = new AudioContextCtor();
+          audioContextRef.current = context;
+        }
+
+        if (context.state === 'suspended') {
+          try {
+            await context.resume();
+          } catch {
+            setRound3AudioBlocked(true);
+            return;
+          }
+        }
+
+        if (round3PlaybackTokenRef.current !== token) {
+          return;
+        }
+
+        const decodeFromUrl = async (url: string) => {
+          const res = await fetch(url, { cache: 'no-store' });
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status} for ${url}`);
+          }
+          const bytes = await res.arrayBuffer();
+          return await context.decodeAudioData(bytes.slice(0));
+        };
+
+        try {
+          const voteBuffer = await decodeFromUrl(voteUrl);
+          if (round3PlaybackTokenRef.current !== token) {
+            return;
+          }
+
+          // Stop previous vote voice (but keep vote timer jingle if it is playing).
+          const prevVote = round3VoteVoiceBufferSourceRef.current;
+          if (prevVote) {
+            try {
+              prevVote.onended = null;
+              prevVote.stop(0);
+            } catch {
+              // ignore
+            }
+            try {
+              prevVote.disconnect();
+            } catch {
+              // ignore
+            }
+            round3VoteVoiceBufferSourceRef.current = null;
+          }
+          const prevVoteGain = round3VoteVoiceGainNodeRef.current;
+          if (prevVoteGain) {
+            try {
+              prevVoteGain.disconnect();
+            } catch {
+              // ignore
+            }
+            round3VoteVoiceGainNodeRef.current = null;
+          }
+
+          const voteSource = context.createBufferSource();
+          voteSource.buffer = voteBuffer;
+          voteSource.loop = false;
+
+          const voteGain = context.createGain();
+          voteGain.gain.value = 0.95;
+
+          voteSource.connect(voteGain);
+          voteGain.connect(context.destination);
+
+          round3VoteVoiceBufferSourceRef.current = voteSource;
+          round3VoteVoiceGainNodeRef.current = voteGain;
+
+          const startAt = context.currentTime + 0.01;
+          const playForSeconds = ROUND3_VOTE_COUNTDOWN_SECONDS + ROUND3_VOTE_SECONDS;
+          try {
+            voteSource.start(startAt);
+            voteSource.stop(startAt + playForSeconds);
+          } catch {
+            // ignore
+          }
+
+          voteSource.onended = () => {
+            try {
+              voteSource.disconnect();
+            } catch {
+              // ignore
+            }
+            try {
+              voteGain.disconnect();
+            } catch {
+              // ignore
+            }
+            if (round3VoteVoiceBufferSourceRef.current === voteSource) {
+              round3VoteVoiceBufferSourceRef.current = null;
+            }
+            if (round3VoteVoiceGainNodeRef.current === voteGain) {
+              round3VoteVoiceGainNodeRef.current = null;
+            }
+          };
+        } catch (err) {
+          console.error('Не удалось воспроизвести голос для голосования Раунда 3', err);
+        }
+      })();
+    },
+    []
+  );
+
   const playRound3VoteAudio = useCallback(
     (questionIndex: number) => {
       if (typeof window === 'undefined') {
@@ -1087,8 +1216,8 @@ export default function HostRoomPage() {
       round3PlaybackTokenRef.current = token;
 
       const timerUrl = buildAudioUrl(ROUND3_TIMER_JINGLE_FILE);
-      const voteVariant = Math.floor(Math.random() * 9) + 1;
-      const voteUrl = buildAudioUrl(`${ROUND3_VOTE_AUDIO_DIR}/${voteVariant}.mp3`);
+      // Голос диктора (vote/*.mp3) стартует на фазе обратного отсчёта,
+      // чтобы игроки слышали подготовку к голосованию.
 
       void (async () => {
         const AudioContextCtor =
@@ -1125,7 +1254,7 @@ export default function HostRoomPage() {
         };
 
         try {
-          const [timerBuffer, voteBuffer] = await Promise.all([decodeFromUrl(timerUrl), decodeFromUrl(voteUrl)]);
+          const timerBuffer = await decodeFromUrl(timerUrl);
 
           if (round3PlaybackTokenRef.current !== token) {
             return;
@@ -1148,31 +1277,13 @@ export default function HostRoomPage() {
           timerSource.connect(timerGain);
           timerGain.connect(context.destination);
 
-          const voteSource = context.createBufferSource();
-          voteSource.buffer = voteBuffer;
-          voteSource.loop = false;
-
-          const voteGain = context.createGain();
-          voteGain.gain.value = 0.95;
-
-          voteSource.connect(voteGain);
-          voteGain.connect(context.destination);
-
           round3TimerBufferSourceRef.current = timerSource;
           round3TimerGainNodeRef.current = timerGain;
-          round3VoteVoiceBufferSourceRef.current = voteSource;
-          round3VoteVoiceGainNodeRef.current = voteGain;
 
           const startAt = context.currentTime + 0.01;
           try {
             timerSource.start(startAt);
             timerSource.stop(startAt + ROUND3_VOTE_SECONDS);
-          } catch {
-            // ignore
-          }
-          try {
-            voteSource.start(startAt);
-            voteSource.stop(startAt + ROUND3_VOTE_SECONDS);
           } catch {
             // ignore
           }
@@ -1193,25 +1304,6 @@ export default function HostRoomPage() {
             }
             if (round3TimerGainNodeRef.current === timerGain) {
               round3TimerGainNodeRef.current = null;
-            }
-          };
-
-          voteSource.onended = () => {
-            try {
-              voteSource.disconnect();
-            } catch {
-              // ignore
-            }
-            try {
-              voteGain.disconnect();
-            } catch {
-              // ignore
-            }
-            if (round3VoteVoiceBufferSourceRef.current === voteSource) {
-              round3VoteVoiceBufferSourceRef.current = null;
-            }
-            if (round3VoteVoiceGainNodeRef.current === voteGain) {
-              round3VoteVoiceGainNodeRef.current = null;
             }
           };
         } catch (err) {
@@ -1256,6 +1348,7 @@ export default function HostRoomPage() {
       setIsRound3VoteAnswersLoading(false);
       lastRound3VoteKeyRef.current = null;
       lastRound3VoteAnswersKeyRef.current = null;
+      lastRound3VoteAudioKeyRef.current = null;
       stopRound3VoteAudio();
       return;
     }
@@ -1265,6 +1358,7 @@ export default function HostRoomPage() {
     const voteKey = `${baseKey}-vote`;
 
     // Preload answers right after answer timer ends (during 3..2..1 countdown).
+    // Also start vote voice at countdown start.
     if (isRound3VoteCountdown || isRound3VotePhase) {
       if (lastRound3VoteAnswersKeyRef.current !== answersKey) {
         lastRound3VoteAnswersKeyRef.current = answersKey;
@@ -1272,10 +1366,22 @@ export default function HostRoomPage() {
       }
     }
 
-    if (!isRound3VotePhase) {
-      if (lastRound3VoteKeyRef.current === voteKey) {
-        stopRound3VoteAudio();
+    if (isRound3VoteCountdown) {
+      const countdownAudioKey = `${baseKey}-countdown-audio`;
+      if (lastRound3VoteAudioKeyRef.current !== countdownAudioKey) {
+        lastRound3VoteAudioKeyRef.current = countdownAudioKey;
+        playRound3VoteVoiceAudio();
       }
+    }
+
+    if (!isRound3VoteCountdown && !isRound3VotePhase) {
+      stopRound3VoteAudio();
+      lastRound3VoteAudioKeyRef.current = null;
+      lastRound3VoteKeyRef.current = null;
+      return;
+    }
+
+    if (!isRound3VotePhase) {
       return;
     }
 
@@ -1284,7 +1390,7 @@ export default function HostRoomPage() {
       lastRound3VoteKeyRef.current = voteKey;
       playRound3VoteAudio(currentQuestionIndex);
     }
-  }, [currentQuestionIndex, isRound3VoteCountdown, isRound3VotePhase, loadRound3VoteAnswers, playRound3VoteAudio, questionStartedAt, roomStatus, stopRound3VoteAudio]);
+  }, [currentQuestionIndex, isRound3VoteCountdown, isRound3VotePhase, loadRound3VoteAnswers, playRound3VoteAudio, playRound3VoteVoiceAudio, questionStartedAt, roomStatus, stopRound3VoteAudio]);
 
   useEffect(() => {
     if (roomStatus !== 'round3-running') {
