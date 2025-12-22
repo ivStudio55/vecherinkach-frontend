@@ -4670,7 +4670,15 @@ export default function HostRoomPage() {
                   )}
                 </div>
 
-                <h2 className="text-3xl font-black leading-tight">{question.text}</h2>
+                <h2 className="text-3xl font-black leading-tight">
+                  {canAdvance ? (
+                    <span className="text-4xl font-black text-[#1f6ac6]">
+                      {getOptionText(question, question.correctIndex)}
+                    </span>
+                  ) : (
+                    question.text
+                  )}
+                </h2>
 
                 <button
                   onClick={isLastQuestion ? finishRound : nextQuestion}
@@ -4701,22 +4709,6 @@ export default function HostRoomPage() {
               </div>
             )}
 
-            <div className="rounded-3xl border-[4px] border-dashed border-[#142a45]/40 bg-[#fff6da] p-5 space-y-2">
-              <p className="retro-heading text-[11px] tracking-[0.5em] text-[#142a45]/70">Монитор ответов</p>
-              {showResults ? (
-                <p className="text-sm text-[#142a45]/80">Все ответы расшифрованы выше. Используйте карточки, чтобы обсудить вопросы и напомнить правила.</p>
-              ) : isWaiting ? (
-                <p className="text-sm text-[#142a45]/80">Ответы появятся, когда стартует раунд. Пока наблюдайте за количеством игроков.</p>
-              ) : isRound2Running ? (
-                <p className="text-sm text-[#142a45]/80">
-                  Игроки ловят фейк: {answeredCount}/{totalPlayers} уже ответили. Ниже показаны их выборы и кто попал в цель.
-                </p>
-              ) : (
-                <p className="text-sm text-[#142a45]/80">
-                  Ответы скрыты до окончания таймера. Уже ответили: <span className="font-black text-[#1f6ac6]">{answeredCount}/{totalPlayers}</span>
-                </p>
-              )}
-            </div>
           </div>
 
           <aside className="space-y-6">
