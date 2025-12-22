@@ -176,7 +176,8 @@ export default function RoomPage() {
         const payload = (await res.json()) as Round3QuestionsPayload;
         const questions = Array.isArray(payload?.questions) ? payload.questions : [];
         const withIndex = questions.map((q, i) => ({ ...q, originalIndex: i }));
-        setRound3Questions(shuffleArray(withIndex));
+        // Используем порядок из API, чтобы совпадал у всех игроков и ведущего.
+        setRound3Questions(withIndex);
       } catch (e) {
         console.error('Failed to load round3 data', e);
       }
