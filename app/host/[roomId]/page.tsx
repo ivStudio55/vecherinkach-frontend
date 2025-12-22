@@ -1751,7 +1751,8 @@ export default function HostRoomPage() {
   useEffect(() => {
     const loadRound3Data = async () => {
       try {
-        const res = await fetch('/api/round3/questions', { cache: 'no-store' });
+        const url = `/api/round3/questions?roomId=${encodeURIComponent(roomId)}&count=${ROUND3_TOTAL_QUESTIONS}`;
+        const res = await fetch(url, { cache: 'no-store' });
         if (!res.ok) return;
         const payload = (await res.json()) as Round3QuestionsPayload;
         const questions = Array.isArray(payload?.questions) ? payload.questions : [];
@@ -1763,8 +1764,10 @@ export default function HostRoomPage() {
       }
     };
 
-    void loadRound3Data();
-  }, []);
+    if (roomId) {
+      void loadRound3Data();
+    }
+  }, [roomId]);
 
   useEffect(() => {
     if (isRound2RulesVisible) {

@@ -17,6 +17,7 @@ const APP_VERSION = '1.0.8'; // Инкрементируйте при важны
 const ROUND3_ANSWER_SECONDS = 30;
 const ROUND3_VOTE_COUNTDOWN_SECONDS = 3;
 const ROUND3_VOTE_SECONDS = 15;
+const ROUND3_TOTAL_QUESTIONS = 6;
 
 const ROUND3_QUESTIONS_AUDIO_DIR = 'round3/questions3';
 const ROUND3_BG_JINGLE_FILE = 'round2/jingle (5).mp3';
@@ -167,9 +168,12 @@ export default function RoomPage() {
   }, []);
 
   useEffect(() => {
+    if (!roomId) return;
+
     const loadRound3Data = async () => {
       try {
-        const res = await fetch('/api/round3/questions', { cache: 'no-store' });
+        const url = `/api/round3/questions?roomId=${encodeURIComponent(roomId)}&count=${ROUND3_TOTAL_QUESTIONS}`;
+        const res = await fetch(url, { cache: 'no-store' });
         if (!res.ok) {
           return;
         }
@@ -184,7 +188,7 @@ export default function RoomPage() {
     };
 
     void loadRound3Data();
-  }, []);
+  }, [roomId]);
 
   const stopRound3Audio = useCallback(() => {
     const voice = round3VoiceRef.current;
