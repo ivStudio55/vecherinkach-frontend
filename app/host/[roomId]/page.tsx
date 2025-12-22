@@ -66,71 +66,45 @@ const SKIP_AUDIO_FILES = [
   'skip/skip7.mp3',
   'skip/skip8.mp3',
 ] as const;
-const BETWEEN_AUDIO_VARIANTS = {
-  zero: ['between/0%/1.mp3', 'between/0%/2.mp3', 'between/0%/3.mp3'],
-  low: ['between/1-49%/1.mp3', 'between/1-49%/2.mp3', 'between/1-49%/3.mp3', 'between/1-49%/4.mp3'],
-  mid: ['between/50-99%/1.mp3', 'between/50-99%/2.mp3', 'between/50-99%/3.mp3', 'between/50-99%/4.mp3'],
-  full: ['between/100%/1.mp3', 'between/100%/2.mp3', 'between/100%/3.mp3', 'between/100%/4.mp3'],
-} as const;
-const ROUND1_END_AUDIO_FILES = [
-  'round1end/1.mp3',
-  'round1end/2.mp3',
-  'round1end/3.mp3',
-  'round1end/4.mp3',
-  'round1end/5.mp3',
-  'round1end/6.mp3',
-  'round1end/7.mp3',
-  'round1end/8.mp3',
-  'round1end/9.mp3',
-] as const;
+const ROUND1_END_AUDIO_FILES: readonly string[] = Array.from({ length: 9 }, (_, i) => `round1end/${i + 1}.mp3`);
 const ROUND1_END_JINGLE_FILE = 'round1_end/jingle_(after_round1).mp3';
-const ROUND2_RULES_JINGLE_FILE = 'round2/jingle (5).mp3';
-const ROUND2_EXPLANATION_BG_FILE = 'round2/jingle (5).mp3';
-const ROUND2_TOTAL_QUESTIONS = 6;
-const ROUND2_EXPLANATION_FALLBACK = 'Озвучка рассказывает подробности — используйте текст, чтобы оттенить сюжет.';
-const ROUND2_FAKE_LABEL = 'Это фейк';
-const ROUND2_ANSWER_POLL_INTERVAL_MS = 5000;
-const ROUND2_BETWEEN_AUDIO_VARIANTS = {
-  zero: ['round2/between/0/1.mp3', 'round2/between/0/2.mp3', 'round2/between/0/3.mp3', 'round2/between/0/4.mp3'],
-  low: ['round2/between/1-49%/1.mp3', 'round2/between/1-49%/2.mp3', 'round2/between/1-49%/3.mp3'],
-  mid: ['round2/between/50-99%/1.mp3', 'round2/between/50-99%/2.mp3', 'round2/between/50-99%/3.mp3'],
-  full: ['round2/between/100%/1.mp3', 'round2/between/100%/2.mp3', 'round2/between/100%/4.mp3', 'round2/between/100%/5.mp3'],
-} as const;
+const ROUND2_RULES_JINGLE_FILE = 'round2/explanation.mp3';
 const ROUND2_RULES_VOICE_FILES = ['round2/ruels/1.mp3', 'round2/ruels/2.mp3'] as const;
-const ROUND2_RULES_SKIP_WINDOW_MS = 20000;
+const ROUND2_BETWEEN_AUDIO_VARIANTS = {
+  full: ['between/100%/1.mp3', 'between/100%/2.mp3', 'between/100%/3.mp3', 'between/100%/4.mp3'],
+  mid: ['between/50-99%/1.mp3', 'between/50-99%/2.mp3', 'between/50-99%/3.mp3', 'between/50-99%/4.mp3'],
+  low: ['between/1-49%/1.mp3', 'between/1-49%/2.mp3', 'between/1-49%/3.mp3', 'between/1-49%/4.mp3'],
+  none: ['between/0%/1.mp3', 'between/0%/2.mp3', 'between/0%/3.mp3'],
+  zero: ['between/0%/1.mp3', 'between/0%/2.mp3', 'between/0%/3.mp3'],
+} as const;
+const BETWEEN_AUDIO_VARIANTS = ROUND2_BETWEEN_AUDIO_VARIANTS;
+const ROUND2_EXPLANATION_BG_FILE = 'round2/explanation.mp3';
+const ROUND2_ANSWER_POLL_INTERVAL_MS = 1000;
+const ROUND2_TOTAL_QUESTIONS = ROUND_QUESTION_COUNT;
+const ROUND2_RULES_SKIP_WINDOW_MS = 10000;
+const ROUND2_EXPLANATION_FALLBACK = 'Без объяснения';
+const ROUND2_FAKE_LABEL = 'Вранье';
 
 const ROUND3_TOTAL_QUESTIONS = 6;
-const ROUND3_QUESTIONS_AUDIO_DIR = 'round3/questions3';
-const ROUND3_BG_JINGLE_FILE = 'round2/jingle (5).mp3';
-const ROUND3_BG_VOLUME = 0.18;
-const ROUND3_TIMER_JINGLE_FILE = '30_sec.mp3';
-const ROUND3_TIMER_VOLUME = 0.35;
-
 const ROUND3_ANSWER_SECONDS = 30;
 const ROUND3_VOTE_COUNTDOWN_SECONDS = 3;
 const ROUND3_VOTE_SECONDS = 15;
+const ROUND3_QUESTIONS_AUDIO_DIR = 'round3/questions3';
+const ROUND3_BG_JINGLE_FILE = 'round2/jingle (5).mp3';
+const ROUND3_ANSWER_TIMER_JINGLE_FILE = 'round3/60_sec.mp3';
+const ROUND3_VOTE_TIMER_JINGLE_FILE = '30_sec.mp3';
+const ROUND3_TIMER_JINGLE_FILE = ROUND3_ANSWER_TIMER_JINGLE_FILE;
 const ROUND3_VOTE_AUDIO_DIR = 'vote';
-
-const ROUND3_RULES_VOICE_FILES = ['round3/ruels3/ruels1.mp3', 'round3/ruels3/ruels2.mp3', 'round3/ruels3/ruels3.mp3'] as const;
-
-const ROUND3_RULES_TEXT = `Раунд «МозгоШтурм»
-Перед вами появятся 6 интересных фактов с одним пропущенным словом.
-Ваша задача:
-
-Ввести в поле на телефоне то слово, которое идеально подходит (одно слово, без дефисов, пробелов и знаков).
-После каждого тура на экране появятся ответы всех игроков.
-Каждый выбирает понравившийся ответ (кроме своего).
-
-Подсчёт очков:
-
-Угадал точное слово — 200 очков.
-За каждый голос за ваш ответ — +50 очков.
-Не проголосовал — –50 очков.
-
-Время на ввод ответа — 60 секунд.
-Время на голосование — 30 секунд.
-Синонимы могут засчитаться (на усмотрение ведущего).
-Готовы угадывать и голосовать? Давайте устроим настоящий мозговой штурм!`;
+const ROUND3_BG_VOLUME = 0.25;
+const ROUND3_TIMER_VOLUME = 0.6;
+const ROUND3_RULES_VOICE_FILES = [
+  'round3/ruels3/ruels1.mp3',
+  'round3/ruels3/ruels2.mp3',
+  'round3/ruels3/ruels3.mp3',
+] as const;
+const ROUND3_RULES_TEXT =
+  'Финальный раунд. Ведущий зачитывает факт и запускает 30 секунд на ответы. ' +
+  'Далее отсчет 3 секунды и 15 секунд на голосование. За правильный прогноз игрок получает очки.';
 
 const buildAudioUrl = (relativePath: string) => `/api/audio?file=${encodeURIComponent(relativePath)}&t=${Date.now()}`;
 const buildJingleUrl = (fileName: string) => `/api/jingle/audio?file=${encodeURIComponent(fileName)}&t=${Date.now()}`;
@@ -139,7 +113,7 @@ const pickRandomItem = <T,>(items: readonly T[]) => items[Math.floor(Math.random
 // Fisher-Yates shuffle algorithm
 const shuffleArray = <T,>(array: T[]): T[] => {
   const shuffled = [...array];
-  for (let i = shuffled.length - 1; i > 0; i--) {
+  for (let i = shuffled.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
@@ -151,7 +125,7 @@ const getRemainingSeconds = (startedAt: string | null, offsetMs = 0) => {
     return QUESTION_DURATION_SECONDS;
   }
   const startTime = new Date(startedAt).getTime();
-  if (isNaN(startTime)) {
+  if (Number.isNaN(startTime)) {
     return QUESTION_DURATION_SECONDS;
   }
   const now = Date.now() - offsetMs;
@@ -163,15 +137,15 @@ const getRemainingSeconds = (startedAt: string | null, offsetMs = 0) => {
 type Question = ActiveRoundQuestion;
 type Round2Phase = 'idle' | 'fact' | 'explanation';
 
-type AnswerInsertPayload = {
-  new: {
-    question_index: number;
-  };
-};
-
 type Round2AnswerInsertPayload = {
   new: {
     item_index: number;
+  };
+};
+
+type AnswerInsertPayload = {
+  new: {
+    question_index: number;
   };
 };
 
@@ -328,6 +302,7 @@ export default function HostRoomPage() {
   const round3VoteTimerGainNodeRef = useRef<GainNode | null>(null);
   const round3PlaybackTokenRef = useRef(0);
   const round3VotePlaybackTokenRef = useRef(0);
+  const round3AnswerTimerVoteVoiceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const round2AnswersRef = useRef<Round2AnswerRow[]>([]);
   const lastRound3PlaybackKeyRef = useRef<string | null>(null);
   const lastRound3VoteKeyRef = useRef<string | null>(null);
@@ -749,6 +724,11 @@ export default function HostRoomPage() {
       round3AnswerTimerGainNodeRef.current = null;
     }
 
+    if (round3AnswerTimerVoteVoiceTimeoutRef.current) {
+      clearTimeout(round3AnswerTimerVoteVoiceTimeoutRef.current);
+      round3AnswerTimerVoteVoiceTimeoutRef.current = null;
+    }
+
     const voice = round3VoiceAudioRef.current;
     const bg = round3BgAudioRef.current;
 
@@ -799,6 +779,131 @@ export default function HostRoomPage() {
     }
   }, [isMusicMuted]);
 
+  const playRound3VoteVoiceAudio = useCallback(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const token = round3VotePlaybackTokenRef.current + 1;
+    round3VotePlaybackTokenRef.current = token;
+
+    const voteVariant = Math.floor(Math.random() * 9) + 1;
+    const voteUrl = buildAudioUrl(`${ROUND3_VOTE_AUDIO_DIR}/${voteVariant}.mp3`);
+
+    void (async () => {
+      const AudioContextCtor =
+        window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioContextCtor) {
+        setRound3AudioBlocked(true);
+        return;
+      }
+
+      let context = audioContextRef.current;
+      if (!context) {
+        context = new AudioContextCtor();
+        audioContextRef.current = context;
+      }
+
+      if (context.state === 'suspended') {
+        try {
+          await context.resume();
+        } catch {
+          setRound3AudioBlocked(true);
+          return;
+        }
+      }
+
+      if (round3VotePlaybackTokenRef.current !== token) {
+        return;
+      }
+
+      const decodeFromUrl = async (url: string) => {
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status} for ${url}`);
+        }
+        const bytes = await res.arrayBuffer();
+        return await context.decodeAudioData(bytes.slice(0));
+      };
+
+      try {
+        const voteBuffer = await decodeFromUrl(voteUrl);
+        if (round3VotePlaybackTokenRef.current !== token) {
+          return;
+        }
+
+        // Stop previous vote voice (but keep vote timer jingle if it is playing).
+        const prevVote = round3VoteVoiceBufferSourceRef.current;
+        if (prevVote) {
+          try {
+            prevVote.onended = null;
+            prevVote.stop(0);
+          } catch {
+            // ignore
+          }
+          try {
+            prevVote.disconnect();
+          } catch {
+            // ignore
+          }
+          round3VoteVoiceBufferSourceRef.current = null;
+        }
+        const prevVoteGain = round3VoteVoiceGainNodeRef.current;
+        if (prevVoteGain) {
+          try {
+            prevVoteGain.disconnect();
+          } catch {
+            // ignore
+          }
+          round3VoteVoiceGainNodeRef.current = null;
+        }
+
+        const voteSource = context.createBufferSource();
+        voteSource.buffer = voteBuffer;
+        voteSource.loop = false;
+
+        const voteGain = context.createGain();
+        voteGain.gain.value = 0.95;
+
+        voteSource.connect(voteGain);
+        voteGain.connect(context.destination);
+
+        round3VoteVoiceBufferSourceRef.current = voteSource;
+        round3VoteVoiceGainNodeRef.current = voteGain;
+
+        const startAt = context.currentTime + 0.01;
+        const playForSeconds = ROUND3_VOTE_COUNTDOWN_SECONDS + ROUND3_VOTE_SECONDS;
+        try {
+          voteSource.start(startAt);
+          voteSource.stop(startAt + playForSeconds);
+        } catch {
+          // ignore
+        }
+
+        voteSource.onended = () => {
+          try {
+            voteSource.disconnect();
+          } catch {
+            // ignore
+          }
+          try {
+            voteGain.disconnect();
+          } catch {
+            // ignore
+          }
+          if (round3VoteVoiceBufferSourceRef.current === voteSource) {
+            round3VoteVoiceBufferSourceRef.current = null;
+          }
+          if (round3VoteVoiceGainNodeRef.current === voteGain) {
+            round3VoteVoiceGainNodeRef.current = null;
+          }
+        };
+      } catch (err) {
+        console.error('Не удалось воспроизвести голос для голосования Раунда 3', err);
+      }
+    })();
+  }, []);
+
   const playRound3Audio = useCallback(
     (index: number) => {
       stopRound3Audio();
@@ -811,7 +916,7 @@ export default function HostRoomPage() {
       const currentQ = round3Questions[index];
       const voiceFileNumber = (currentQ?.originalIndex ?? index) + 1;
       const voiceUrl = buildAudioUrl(`${ROUND3_QUESTIONS_AUDIO_DIR}/${voiceFileNumber}.mp3`);
-      const timerUrl = buildAudioUrl(ROUND3_TIMER_JINGLE_FILE);
+      const timerUrl = buildAudioUrl(ROUND3_ANSWER_TIMER_JINGLE_FILE);
 
       void (async () => {
         if (typeof window === 'undefined') {
@@ -984,6 +1089,18 @@ export default function HostRoomPage() {
               setQuestionStartedAt(startedAt);
               setTimeLeft(getRemainingSeconds(startedAt, offset));
 
+              if (round3AnswerTimerVoteVoiceTimeoutRef.current) {
+                clearTimeout(round3AnswerTimerVoteVoiceTimeoutRef.current);
+              }
+              const baseKey = `${index}-${startedAt}`;
+              const countdownAudioKey = `${baseKey}-countdown-audio`;
+              lastRound3VoteAudioKeyRef.current = countdownAudioKey;
+              round3AnswerTimerVoteVoiceTimeoutRef.current = setTimeout(() => {
+                if (round3PlaybackTokenRef.current !== token) return;
+                if (roomStatusRef.current !== 'round3-running') return;
+                playRound3VoteVoiceAudio();
+              }, ROUND3_ANSWER_SECONDS * 1000);
+
               if (round3PlaybackTokenRef.current !== token) {
                 return;
               }
@@ -1028,7 +1145,7 @@ export default function HostRoomPage() {
         }
       })();
     },
-    [roomId, round3Questions, stopRound3Audio, timeOffsetMs]
+    [playRound3VoteVoiceAudio, roomId, round3Questions, stopRound3Audio, timeOffsetMs]
   );
 
   const stopRound3VoteAudio = useCallback(() => {
@@ -1087,133 +1204,6 @@ export default function HostRoomPage() {
     }
   }, []);
 
-  const playRound3VoteVoiceAudio = useCallback(
-    () => {
-      if (typeof window === 'undefined') {
-        return;
-      }
-
-      const token = round3VotePlaybackTokenRef.current + 1;
-      round3VotePlaybackTokenRef.current = token;
-
-      const voteVariant = Math.floor(Math.random() * 9) + 1;
-      const voteUrl = buildAudioUrl(`${ROUND3_VOTE_AUDIO_DIR}/${voteVariant}.mp3`);
-
-      void (async () => {
-        const AudioContextCtor =
-          window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-        if (!AudioContextCtor) {
-          setRound3AudioBlocked(true);
-          return;
-        }
-
-        let context = audioContextRef.current;
-        if (!context) {
-          context = new AudioContextCtor();
-          audioContextRef.current = context;
-        }
-
-        if (context.state === 'suspended') {
-          try {
-            await context.resume();
-          } catch {
-            setRound3AudioBlocked(true);
-            return;
-          }
-        }
-
-        if (round3VotePlaybackTokenRef.current !== token) {
-          return;
-        }
-
-        const decodeFromUrl = async (url: string) => {
-          const res = await fetch(url, { cache: 'no-store' });
-          if (!res.ok) {
-            throw new Error(`HTTP ${res.status} for ${url}`);
-          }
-          const bytes = await res.arrayBuffer();
-          return await context.decodeAudioData(bytes.slice(0));
-        };
-
-        try {
-          const voteBuffer = await decodeFromUrl(voteUrl);
-          if (round3VotePlaybackTokenRef.current !== token) {
-            return;
-          }
-
-          // Stop previous vote voice (but keep vote timer jingle if it is playing).
-          const prevVote = round3VoteVoiceBufferSourceRef.current;
-          if (prevVote) {
-            try {
-              prevVote.onended = null;
-              prevVote.stop(0);
-            } catch {
-              // ignore
-            }
-            try {
-              prevVote.disconnect();
-            } catch {
-              // ignore
-            }
-            round3VoteVoiceBufferSourceRef.current = null;
-          }
-          const prevVoteGain = round3VoteVoiceGainNodeRef.current;
-          if (prevVoteGain) {
-            try {
-              prevVoteGain.disconnect();
-            } catch {
-              // ignore
-            }
-            round3VoteVoiceGainNodeRef.current = null;
-          }
-
-          const voteSource = context.createBufferSource();
-          voteSource.buffer = voteBuffer;
-          voteSource.loop = false;
-
-          const voteGain = context.createGain();
-          voteGain.gain.value = 0.95;
-
-          voteSource.connect(voteGain);
-          voteGain.connect(context.destination);
-
-          round3VoteVoiceBufferSourceRef.current = voteSource;
-          round3VoteVoiceGainNodeRef.current = voteGain;
-
-          const startAt = context.currentTime + 0.01;
-          const playForSeconds = ROUND3_VOTE_COUNTDOWN_SECONDS + ROUND3_VOTE_SECONDS;
-          try {
-            voteSource.start(startAt);
-            voteSource.stop(startAt + playForSeconds);
-          } catch {
-            // ignore
-          }
-
-          voteSource.onended = () => {
-            try {
-              voteSource.disconnect();
-            } catch {
-              // ignore
-            }
-            try {
-              voteGain.disconnect();
-            } catch {
-              // ignore
-            }
-            if (round3VoteVoiceBufferSourceRef.current === voteSource) {
-              round3VoteVoiceBufferSourceRef.current = null;
-            }
-            if (round3VoteVoiceGainNodeRef.current === voteGain) {
-              round3VoteVoiceGainNodeRef.current = null;
-            }
-          };
-        } catch (err) {
-          console.error('Не удалось воспроизвести голос для голосования Раунда 3', err);
-        }
-      })();
-    },
-    []
-  );
 
   const playRound3VoteAudio = useCallback(
     (questionIndex: number) => {
@@ -1225,7 +1215,7 @@ export default function HostRoomPage() {
       const token = round3VotePlaybackTokenRef.current + 1;
       round3VotePlaybackTokenRef.current = token;
 
-      const timerUrl = buildAudioUrl(ROUND3_TIMER_JINGLE_FILE);
+      const timerUrl = buildAudioUrl(ROUND3_VOTE_TIMER_JINGLE_FILE);
       // Голос диктора (vote/*.mp3) стартует на фазе обратного отсчёта,
       // чтобы игроки слышали подготовку к голосованию.
 
