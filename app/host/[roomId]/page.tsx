@@ -321,7 +321,6 @@ export default function HostRoomPage() {
   const [round3SkippedVoterIds, setRound3SkippedVoterIds] = useState<string[]>([]);
   const [round3VotersCount, setRound3VotersCount] = useState(0);
   const [isTournamentVisible, setIsTournamentVisible] = useState(false);
-  const [tournamentLeaderboard, setTournamentLeaderboard] = useState<Player[]>([]);
 
   const isMusicMutedRef = useRef(isMusicMuted);
   useEffect(() => {
@@ -357,6 +356,7 @@ export default function HostRoomPage() {
   const round3VoteTimerGainNodeRef = useRef<GainNode | null>(null);
   const round3CommentAudioRef = useRef<HTMLAudioElement | null>(null);
   const round3CommentBgAudioRef = useRef<HTMLAudioElement | null>(null);
+  const tournamentJingleAudioRef = useRef<HTMLAudioElement | null>(null);
   const lastRound3ResultsAudioKeyRef = useRef<string | null>(null);
   const lastRound3ResultsScoringKeyRef = useRef<string | null>(null);
   const round3PlaybackTokenRef = useRef(0);
@@ -407,6 +407,7 @@ export default function HostRoomPage() {
   const round2RulesReadyAtRef = useRef<number | null>(null);
   const round2ShowingFactRef = useRef(round2ShowingFact);
   const round2PhaseRef = useRef<Round2Phase>(round2PhaseState);
+  const handleRound3CompleteRef = useRef<(() => Promise<void> | void) | null>(null);
   const round3QuestionCount = Math.min(ROUND3_TOTAL_QUESTIONS, round3Questions.length);
   const currentRound3Question =
     roomStatus === 'round3-running' ? round3Questions[currentQuestionIndex] ?? null : null;
@@ -445,7 +446,6 @@ export default function HostRoomPage() {
   }, [getRound3ElapsedSeconds, questionStartedAt, roomStatus, timeLeft]);
 
   const isRound3ResultsPhase = round3Phase === 'results';
-  const tournamentJingleAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const setRound2Phase = useCallback(
     (nextPhase: Round2Phase) => {
@@ -636,11 +636,14 @@ export default function HostRoomPage() {
   }, []);
 
   const stopTournamentJingle = useCallback(() => {
-    const cue = tournamentJingleAudioRef.current;
-    if (cue) {
-      cue.pause();
-      cue.currentTime = 0;
-      cue.onended = null;
+    const audio = tournamentJingleAudioRef.current;
+    if (audio) {
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+      } catch {
+        // ignore
+      }
       tournamentJingleAudioRef.current = null;
     }
   }, []);
@@ -653,11 +656,11 @@ export default function HostRoomPage() {
     stopTournamentJingle();
     const audio = new Audio(buildAudioUrl(ROUND1_END_JINGLE_FILE));
     audio.loop = true;
-    audio.volume = 0.9;
+    audio.volume = 0.6;
     tournamentJingleAudioRef.current = audio;
 
     audio.play().catch((error) => {
-      console.error('Не удалось воспроизвести финальный джингл турнира', error);
+      console.error('Не удалось проиграть финальный джингл турнира', error);
     });
   }, [stopTournamentJingle]);
 
@@ -1503,29 +1506,22 @@ export default function HostRoomPage() {
           votesByAnswer.set(vote.answer_id, (votesByAnswer.get(vote.answer_id) ?? 0) + 1);
         }
 
-        let snapshotPlayers = playersRef.current;
-        if (!snapshotPlayers.length) {
-          const { data: playerRows, error: playersError } = await supabase
-            .from('players')
-            .select('id, name, total_points')
-            .eq('room_id', roomId);
-
-          if (playersError) {
-            console.error('Не удалось загрузить игроков для штрафа Раунда 3', playersError);
-            snapshotPlayers = [];
-          } else {
-            snapshotPlayers = (playerRows || []) as Player[];
-          }
-        }
-
+        const snapshotPlayers = playersRef.current;
         const skippedVoters = snapshotPlayers.map((p) => p.id).filter((playerId) => !voters.has(playerId));
 
-        const scored: Round3ScoredAnswer[] = Array.from(deduped.values()).map((row) => {
+        const skippedSet = new Set(skippedVoters);
+        const answeredSet = new Set<string>();
+
+        const scoredWithPenalty: Round3ScoredAnswer[] = Array.from(deduped.values()).map((row) => {
+          answeredSet.add(row.player_id);
+
           const normalized = normalizeRound3FreeText(row.text ?? '');
           const isCorrect = normalized.length > 0 && acceptable.has(normalized);
           const basePoints = isCorrect ? ROUND3_POINTS : 0;
           const votes = votesByAnswer.get(row.id) ?? 0;
-          const votePoints = votes * ROUND3_VOTE_LIKE_POINTS;
+          const votePointsRaw = votes * ROUND3_VOTE_LIKE_POINTS;
+          const penalty = skippedSet.has(row.player_id) ? ROUND3_VOTE_SKIP_PENALTY : 0;
+          const votePoints = votePointsRaw - penalty;
           return {
             playerId: row.player_id,
             text: row.text,
@@ -1537,20 +1533,31 @@ export default function HostRoomPage() {
           };
         });
 
-        setRound3ScoredAnswers(scored);
+        for (const playerId of skippedVoters) {
+          if (answeredSet.has(playerId)) {
+            continue;
+          }
+          scoredWithPenalty.push({
+            playerId,
+            text: 'Не голосовал',
+            isCorrect: false,
+            basePoints: 0,
+            votePoints: -ROUND3_VOTE_SKIP_PENALTY,
+            votes: 0,
+            pointsEarned: -ROUND3_VOTE_SKIP_PENALTY,
+          });
+        }
+
+        setRound3ScoredAnswers(scoredWithPenalty);
         setRound3VotersCount(voters.size);
         setRound3SkippedVoterIds(skippedVoters);
 
         const updates = new Map<string, number>();
 
-        for (const entry of scored) {
+        for (const entry of scoredWithPenalty) {
           if (entry.pointsEarned !== 0) {
             updates.set(entry.playerId, (updates.get(entry.playerId) ?? 0) + entry.pointsEarned);
           }
-        }
-
-        for (const playerId of skippedVoters) {
-          updates.set(playerId, (updates.get(playerId) ?? 0) - ROUND3_VOTE_SKIP_PENALTY);
         }
 
         if (updates.size === 0) {
@@ -1638,10 +1645,17 @@ export default function HostRoomPage() {
         stopRound3ResultsAudio();
         const isSameQuestion = currentRound3QuestionIndexRef.current === index && roomStatusRef.current === 'round3-running';
         const hasNext = index + 1 < round3QuestionCount;
-        if (isSameQuestion && hasNext) {
-          const next = handleRound3NextQuestionRef.current;
-          if (next) {
-            void next();
+        if (isSameQuestion) {
+          if (hasNext) {
+            const next = handleRound3NextQuestionRef.current;
+            if (next) {
+              void next();
+            }
+          } else {
+            const finish = handleRound3CompleteRef.current;
+            if (finish) {
+              void finish();
+            }
           }
         }
       };
@@ -2078,6 +2092,10 @@ export default function HostRoomPage() {
 
   const playerRatings = useMemo(() => {
     return [...players].sort((a, b) => b.total_points - a.total_points);
+  }, [players]);
+
+  const tournamentLeaderboard = useMemo(() => {
+    return [...players].sort((a, b) => b.total_points - a.total_points || a.name.localeCompare(b.name));
   }, [players]);
 
   const loadQuestionFromSelection = useCallback(
@@ -2636,12 +2654,6 @@ export default function HostRoomPage() {
     roundEndLockQuestionRef.current = null;
   }, [question?.id, stopRoundEndAudio, clearRoundEndUnlockTimeout, clearRoundEndDelayTimeout]);
 
-  useEffect(() => {
-    return () => {
-      stopTournamentJingle();
-    };
-  }, [stopTournamentJingle]);
-
   const ensureAudioContext = useCallback(async () => {
     if (typeof window === 'undefined') {
       return null;
@@ -2787,6 +2799,7 @@ export default function HostRoomPage() {
       stopRoundEndAudio();
       stopRound2Audio();
       stopRound2RulesAudio();
+      stopTournamentJingle();
       clearCountdownTimeout();
       clearPrestartEnableTimeout();
       clearRoundEndUnlockTimeout();
@@ -2809,6 +2822,7 @@ export default function HostRoomPage() {
     stopRoundEndAudio,
     stopRound2Audio,
     stopRound2RulesAudio,
+    stopTournamentJingle,
     clearCountdownTimeout,
     clearPrestartEnableTimeout,
     clearRoundEndUnlockTimeout,
@@ -3308,6 +3322,8 @@ export default function HostRoomPage() {
   };
 
   const endGame = async () => {
+    setIsTournamentVisible(false);
+    stopTournamentJingle();
     const { error: updateError } = await supabase
       .from('rooms')
       .update({
@@ -3549,13 +3565,12 @@ export default function HostRoomPage() {
     }
     round3StartLockRef.current = true;
     hasUserInteractedRef.current = true;
+    setIsTournamentVisible(false);
+    stopTournamentJingle();
 
     const shouldPlaySkip = !round3RulesAudioCompletedRef.current;
 
     setIsRound3RulesVisible(false);
-    setIsTournamentVisible(false);
-    setTournamentLeaderboard([]);
-    stopTournamentJingle();
     stopRound3RulesAudio();
 
     if (shouldPlaySkip) {
@@ -3604,6 +3619,7 @@ export default function HostRoomPage() {
   }, [
     clearCountdownTimeout,
     isCountdownVisible,
+    stopTournamentJingle,
     playSkipAudioAndWait,
     roomId,
     round3Questions.length,
@@ -3611,19 +3627,19 @@ export default function HostRoomPage() {
     setCountdownContext,
     setIsCountdownVisible,
     setIsRound3RulesVisible,
-    setIsTournamentVisible,
-    setTournamentLeaderboard,
     stopRound3RulesAudio,
-    stopTournamentJingle,
     updateRoomStatus,
   ]);
 
-  const completeRound3 = useCallback(async () => {
+  const handleRound3Complete = useCallback(async () => {
     stopRound3Audio();
     stopRound3VoteAudio();
     stopRound3ResultsAudio();
-    stopTournamentJingle();
-    lastRound3PlaybackKeyRef.current = null;
+    setIsTournamentVisible(true);
+    setShowResults(false);
+    setQuestion(null);
+    setQuestionStartedAt(null);
+    setTimeLeft(0);
 
     const { error } = await supabase
       .from('rooms')
@@ -3641,32 +3657,9 @@ export default function HostRoomPage() {
       return;
     }
 
-    await loadPlayersRef.current?.();
-
-    const snapshot = (playersRef.current || []).slice().sort((a, b) => b.total_points - a.total_points || a.name.localeCompare(b.name));
-    setTournamentLeaderboard(snapshot);
-    setIsTournamentVisible(true);
-    setShowResults(true);
     setRoomStatus('finished');
-    setQuestion(null);
-    setQuestionStartedAt(null);
-    setTimeLeft(QUESTION_DURATION_SECONDS);
     playTournamentJingle();
-  }, [
-    loadPlayersRef,
-    playTournamentJingle,
-    roomId,
-    setQuestion,
-    setQuestionStartedAt,
-    setError,
-    setRoomStatus,
-    setShowResults,
-    setTimeLeft,
-    stopRound3Audio,
-    stopRound3ResultsAudio,
-    stopRound3VoteAudio,
-    stopTournamentJingle,
-  ]);
+  }, [playTournamentJingle, roomId, setQuestion, stopRound3Audio, stopRound3ResultsAudio, stopRound3VoteAudio]);
 
   const handleRound3NextQuestion = useCallback(async () => {
     if (roomStatus !== 'round3-running') {
@@ -3680,7 +3673,7 @@ export default function HostRoomPage() {
     const max = Math.min(ROUND3_TOTAL_QUESTIONS, round3Questions.length);
     const nextIndex = currentQuestionIndex + 1;
     if (nextIndex >= max) {
-      await completeRound3();
+      await handleRound3Complete();
       return;
     }
 
@@ -3703,15 +3696,21 @@ export default function HostRoomPage() {
     setCurrentQuestionIndex(nextIndex);
     setQuestionStartedAt(null);
     setTimeLeft(QUESTION_DURATION_SECONDS);
-  }, [completeRound3, currentQuestionIndex, roomId, roomStatus, round3Questions.length]);
+  }, [currentQuestionIndex, handleRound3Complete, roomId, roomStatus, round3Questions.length]);
 
   useEffect(() => {
     handleRound3NextQuestionRef.current = handleRound3NextQuestion;
   }, [handleRound3NextQuestion]);
 
+  useEffect(() => {
+    handleRound3CompleteRef.current = handleRound3Complete;
+  }, [handleRound3Complete]);
+
   const handleRound3BackToEndOfRound2 = useCallback(async () => {
     stopRound3Audio();
     lastRound3PlaybackKeyRef.current = null;
+    setIsTournamentVisible(false);
+    stopTournamentJingle();
 
     const { error } = await supabase
       .from('rooms')
@@ -3750,7 +3749,7 @@ export default function HostRoomPage() {
         .sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
       setRound2Leaderboard(fallback);
     }
-  }, [roomId, setQuestion, stopRound3Audio]);
+  }, [roomId, setQuestion, stopRound3Audio, stopTournamentJingle]);
 
   const completeRound2 = useCallback(async () => {
     handleRound2NextQuestionRef.current = null;
@@ -3849,6 +3848,7 @@ export default function HostRoomPage() {
     ? getRemainingSeconds(questionStartedAt, ROUND3_ANSWER_SECONDS, timeOffsetMs)
     : effectiveTimeLeft;
   const round3ProgressPercent = Math.max(0, Math.min(100, (round3TimerTimeLeft / round3TimerDuration) * 100));
+  const isLastRound3Fact = isRound3Running && currentQuestionIndex + 1 >= round3QuestionCount;
   const questionsForSummary = summaryQuestions.length ? summaryQuestions : question ? [question] : [];
   const isWaiting = roomStatus === 'waiting' && !showResults;
   const shouldShowRulesModal = isWaiting && isRulesVisible;
@@ -3869,10 +3869,6 @@ export default function HostRoomPage() {
     }
     return Array.from(unique.values());
   }, [round2Answers]);
-  const finalLeaderboard = useMemo(() => {
-    const source = tournamentLeaderboard.length ? tournamentLeaderboard : players;
-    return source.slice().sort((a, b) => b.total_points - a.total_points || a.name.localeCompare(b.name));
-  }, [players, tournamentLeaderboard]);
   const headerActionLabel = roomStatus === 'finished' && showResults ? 'Раунд 2' : 'Завершить игру';
   const round2QuestionNumber = round2QuestionCounter > 0 ? round2QuestionCounter : 1;
   const clampedRound2QuestionNumber = Math.min(round2QuestionNumber, ROUND2_TOTAL_QUESTIONS);
@@ -4011,13 +4007,15 @@ export default function HostRoomPage() {
     players.find((player) => player.id === playerId)?.name || 'Неизвестный игрок';
 
   const statusLabel =
-    roomStatus === 'waiting'
-      ? 'Ожидание игроков'
-      : roomStatus === 'running'
-        ? 'Раунд 1 в эфире'
-        : roomStatus === 'round2-running'
-          ? 'Раунд 2 в эфире'
-          : 'Итоги раунда';
+    isTournamentVisible
+      ? 'Турнир завершён'
+      : roomStatus === 'waiting'
+        ? 'Ожидание игроков'
+        : roomStatus === 'running'
+          ? 'Раунд 1 в эфире'
+          : roomStatus === 'round2-running'
+            ? 'Раунд 2 в эфире'
+            : 'Итоги раунда';
   const statusBadgeClass =
     roomStatus === 'running'
       ? 'bg-[#f1532f] text-[#ffeccd]'
@@ -4026,14 +4024,6 @@ export default function HostRoomPage() {
         : roomStatus === 'waiting'
           ? 'bg-[#ffe184] text-[#142a45]'
           : 'bg-[#1f6ac6] text-white';
-
-  useEffect(() => {
-    if (isTournamentVisible) {
-      playTournamentJingle();
-    } else {
-      stopTournamentJingle();
-    }
-  }, [isTournamentVisible, playTournamentJingle, stopTournamentJingle]);
 
   return (
     <Fragment>
@@ -4068,77 +4058,74 @@ export default function HostRoomPage() {
 
         <div className="grid gap-6 lg:grid-cols-[1.45fr,0.55fr]">
           <div className="space-y-6">
-            {showResults ? (
-              isTournamentVisible ? (
-                <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Финальный зачёт</p>
-                      <h2 className="text-3xl font-black">🏁 Турнирная таблица</h2>
-                      <p className="text-xs text-[#142a45]/70">Все 6 фактов Раунда 3 завершены, очки уже начислены.</p>
-                    </div>
-                    <div className="flex flex-wrap items-center justify-end gap-3 text-xs font-semibold text-[#1f6ac6]">
-                      <span>Фон: {ROUND1_END_JINGLE_FILE}</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          hasUserInteractedRef.current = true;
-                          playTournamentJingle();
-                        }}
-                        className="px-3 py-2 rounded-2xl border-[3px] border-[#142a45]/20 bg-[#ffe184] text-[#142a45] font-black tracking-[0.12em]"
-                      >
-                        Воспроизвести джингл
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          hasUserInteractedRef.current = true;
-                          stopTournamentJingle();
-                        }}
-                        className="px-3 py-2 rounded-2xl border-[3px] border-[#142a45]/20 bg-white text-[#142a45] font-semibold"
-                      >
-                        Остановить
-                      </button>
-                    </div>
+            {isTournamentVisible ? (
+              <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Финал игры</p>
+                    <h2 className="text-3xl font-black">🏁 Турнирная таблица</h2>
                   </div>
-
-                  <div className="space-y-3">
-                    {finalLeaderboard.length === 0 ? (
-                      <p className="text-sm text-[#142a45]/70">Загружаем очки игроков…</p>
-                    ) : (
-                      <ol className="space-y-3">
-                        {finalLeaderboard.map((player, index) => (
-                          <li
-                            key={player.id}
-                            className="flex items-center justify-between rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-4"
-                          >
-                            <div className="flex items-center gap-4">
-                              <span
-                                className={`w-10 h-10 rounded-full border-[3px] flex items-center justify-center font-black text-lg ${
-                                  index === 0
-                                    ? 'border-[#f1532f] bg-[#f1532f] text-white'
-                                    : index === 1
-                                      ? 'border-[#b4007f] bg-[#b4007f] text-white'
-                                      : index === 2
-                                        ? 'border-[#1f6ac6] bg-[#1f6ac6] text-white'
-                                        : 'border-[#142a45]/30 bg-white text-[#142a45]'
-                                }`}
-                              >
-                                {index + 1}
-                              </span>
-                              <div>
-                                <p className="font-black text-[#142a45]">{player.name}</p>
-                                <p className="text-xs text-[#142a45]/70">Всего очков: {player.total_points}</p>
-                              </div>
-                            </div>
-                            <span className="font-black text-2xl text-[#f1532f]">{player.total_points} 💎</span>
-                          </li>
-                        ))}
-                      </ol>
-                    )}
+                  <div className="text-right text-sm font-semibold text-[#1f6ac6]">
+                    <p>Фон: {ROUND1_END_JINGLE_FILE}</p>
+                    <p className="text-[#142a45]/60">Очки обновлены автоматически</p>
                   </div>
                 </div>
-              ) : roomStatus === 'finished' ? (
+
+                {tournamentLeaderboard.length === 0 ? (
+                  <p className="text-sm text-[#142a45]/70">Игроки не подключены, таблица пуста.</p>
+                ) : (
+                  <ol className="space-y-3">
+                    {tournamentLeaderboard.map((player, index) => (
+                      <li
+                        key={player.id}
+                        className="flex items-center justify-between rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-4"
+                      >
+                        <div className="flex items-center gap-4 min-w-0">
+                          <span className={`w-10 h-10 rounded-full border-[3px] flex items-center justify-center font-black text-lg ${
+                            index === 0
+                              ? 'border-[#f1532f] bg-[#f1532f] text-white'
+                              : index === 1
+                                ? 'border-[#b4007f] bg-[#b4007f] text-white'
+                                : index === 2
+                                  ? 'border-[#1f6ac6] bg-[#1f6ac6] text-white'
+                                  : 'border-[#142a45]/30 bg-white text-[#142a45]'
+                          }`}>
+                            {index + 1}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="font-black text-[#142a45] truncate">{player.name}</p>
+                            <p className="text-xs text-[#142a45]/60">Всего очков: {player.total_points}</p>
+                          </div>
+                        </div>
+                        <span className="font-black text-2xl text-[#f1532f]">{player.total_points} 💎</span>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+
+                <div className="flex flex-wrap gap-3 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      hasUserInteractedRef.current = true;
+                      stopTournamentJingle();
+                      playTournamentJingle();
+                    }}
+                    className="px-4 py-2 rounded-2xl border-[3px] border-[#142a45]/20 bg-white text-sm font-semibold"
+                  >
+                    Перезапустить джингл
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void endGame()}
+                    className="px-4 py-2 rounded-2xl border-[3px] border-[#142a45] bg-[#142a45] text-[#ffeccd] font-black tracking-[0.2em]"
+                  >
+                    Завершить игру
+                  </button>
+                </div>
+              </div>
+            ) : showResults ? (
+              roomStatus === 'finished' ? (
                 <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -4632,11 +4619,11 @@ export default function HostRoomPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => void handleRound3NextQuestion()}
-                    disabled={!currentRound3Question || currentQuestionIndex + 1 >= Math.min(ROUND3_TOTAL_QUESTIONS, round3Questions.length || ROUND3_TOTAL_QUESTIONS)}
+                    onClick={() => void (isLastRound3Fact ? handleRound3Complete() : handleRound3NextQuestion())}
+                    disabled={!currentRound3Question}
                     className="sm:w-1/2 w-full py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#f1532f] text-white border-[3px] border-[#142a45] transition disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    Следующий факт
+                    {isLastRound3Fact ? 'Турнирная таблица' : 'Следующий факт'}
                   </button>
                 </div>
 
