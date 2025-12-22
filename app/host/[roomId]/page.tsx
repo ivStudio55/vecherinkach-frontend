@@ -86,15 +86,18 @@ const ROUND2_EXPLANATION_FALLBACK = 'Без объяснения';
 const ROUND2_FAKE_LABEL = 'Вранье';
 
 const ROUND3_TOTAL_QUESTIONS = 6;
-const ROUND3_ANSWER_SECONDS = 30;
-const ROUND3_VOTE_COUNTDOWN_SECONDS = 3;
-const ROUND3_VOTE_SECONDS = 15;
+const ROUND3_POINTS = 200;
+const ROUND3_ANSWER_SECONDS = 48;
+const ROUND3_VOTE_COUNTDOWN_SECONDS = 0;
+const ROUND3_VOTE_SECONDS = 0;
 const ROUND3_QUESTIONS_AUDIO_DIR = 'round3/questions3';
 const ROUND3_BG_JINGLE_FILE = 'round2/jingle (5).mp3';
 const ROUND3_ANSWER_TIMER_JINGLE_FILE = 'round3/60_sec.mp3';
 const ROUND3_VOTE_TIMER_JINGLE_FILE = '30_sec.mp3';
 const ROUND3_TIMER_JINGLE_FILE = ROUND3_ANSWER_TIMER_JINGLE_FILE;
 const ROUND3_VOTE_AUDIO_DIR = 'vote';
+const ROUND3_COMMENTS_AUDIO_DIR = 'round3/comments';
+const ROUND3_RESULTS_BG_FILE = 'round2/explanation.mp3';
 const ROUND3_BG_VOLUME = 0.25;
 const ROUND3_TIMER_VOLUME = 0.6;
 const ROUND3_RULES_VOICE_FILES = [
@@ -120,18 +123,48 @@ const shuffleArray = <T,>(array: T[]): T[] => {
   return shuffled;
 };
 
-const getRemainingSeconds = (startedAt: string | null, offsetMs = 0) => {
+const normalizeRound3FreeText = (value: string) => {
+  const trimmed = (value ?? '').trim().toLowerCase();
+  const noYo = trimmed.replaceAll('ё', 'е');
+  const collapsed = noYo.replace(/\s+/g, ' ');
+  return collapsed.replace(/^[\s\p{P}\p{S}]+|[\s\p{P}\p{S}]+$/gu, '');
+};
+
+const renderRound3QuestionWithAnswer = (questionText: string, answerText: string) => {
+  const parts = (questionText ?? '').split(/(\*{3,})/g);
+  const answerNode = <span className="font-black">{answerText}</span>;
+  let replacedAny = false;
+  const nodes = parts.map((part, idx) => {
+    if (/^\*{3,}$/.test(part)) {
+      replacedAny = true;
+      return <Fragment key={`ans-${idx}`}>{answerNode}</Fragment>;
+    }
+    return <Fragment key={`txt-${idx}`}>{part}</Fragment>;
+  });
+
+  if (!replacedAny) {
+    return (
+      <>
+        {questionText} <span className="font-black">({answerText})</span>
+      </>
+    );
+  }
+
+  return <>{nodes}</>;
+};
+
+const getRemainingSeconds = (startedAt: string | null, durationSeconds: number, offsetMs = 0) => {
   if (!startedAt) {
-    return QUESTION_DURATION_SECONDS;
+    return durationSeconds;
   }
   const startTime = new Date(startedAt).getTime();
   if (Number.isNaN(startTime)) {
-    return QUESTION_DURATION_SECONDS;
+    return durationSeconds;
   }
   const now = Date.now() - offsetMs;
   const diffMs = now - startTime;
   const elapsedSeconds = Math.floor(diffMs / 1000);
-  return Math.max(0, QUESTION_DURATION_SECONDS - elapsedSeconds);
+  return Math.max(0, durationSeconds - elapsedSeconds);
 };
 
 type Question = ActiveRoundQuestion;
@@ -175,6 +208,13 @@ type Round3AnswerRow = {
   player_id: string;
   text: string;
   submitted_at: string;
+};
+
+type Round3ScoredAnswer = {
+  playerId: string;
+  text: string;
+  isCorrect: boolean;
+  pointsEarned: number;
 };
 
 type RoomStatus = 'waiting' | 'running' | 'finished' | 'round2-running' | 'round3-running';
@@ -267,6 +307,7 @@ export default function HostRoomPage() {
   const [isMusicMuted, setIsMusicMuted] = useState(false);
   const [round3VoteAnswers, setRound3VoteAnswers] = useState<Round3AnswerRow[]>([]);
   const [isRound3VoteAnswersLoading, setIsRound3VoteAnswersLoading] = useState(false);
+  const [round3ScoredAnswers, setRound3ScoredAnswers] = useState<Round3ScoredAnswer[]>([]);
 
   const isMusicMutedRef = useRef(isMusicMuted);
   useEffect(() => {
@@ -300,6 +341,10 @@ export default function HostRoomPage() {
   const round3VoiceGainNodeRef = useRef<GainNode | null>(null);
   const round3AnswerTimerGainNodeRef = useRef<GainNode | null>(null);
   const round3VoteTimerGainNodeRef = useRef<GainNode | null>(null);
+  const round3CommentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const round3CommentBgAudioRef = useRef<HTMLAudioElement | null>(null);
+  const lastRound3ResultsAudioKeyRef = useRef<string | null>(null);
+  const lastRound3ResultsScoringKeyRef = useRef<string | null>(null);
   const round3PlaybackTokenRef = useRef(0);
   const round3VotePlaybackTokenRef = useRef(0);
   const round3AnswerTimerVoteVoiceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -379,17 +424,10 @@ export default function HostRoomPage() {
     if (elapsed < ROUND3_ANSWER_SECONDS) {
       return 'answer' as const;
     }
-    if (elapsed < ROUND3_ANSWER_SECONDS + ROUND3_VOTE_COUNTDOWN_SECONDS) {
-      return 'vote-countdown' as const;
-    }
-    if (elapsed < ROUND3_ANSWER_SECONDS + ROUND3_VOTE_COUNTDOWN_SECONDS + ROUND3_VOTE_SECONDS) {
-      return 'vote' as const;
-    }
-    return 'post' as const;
+    return 'results' as const;
   }, [getRound3ElapsedSeconds, questionStartedAt, roomStatus]);
 
-  const isRound3VoteCountdown = round3Phase === 'vote-countdown';
-  const isRound3VotePhase = round3Phase === 'vote';
+  const isRound3ResultsPhase = round3Phase === 'results';
 
   const setRound2Phase = useCallback(
     (nextPhase: Round2Phase) => {
@@ -1087,19 +1125,12 @@ export default function HostRoomPage() {
               }
 
               setQuestionStartedAt(startedAt);
-              setTimeLeft(getRemainingSeconds(startedAt, offset));
+              setTimeLeft(getRemainingSeconds(startedAt, ROUND3_ANSWER_SECONDS, offset));
 
               if (round3AnswerTimerVoteVoiceTimeoutRef.current) {
                 clearTimeout(round3AnswerTimerVoteVoiceTimeoutRef.current);
+                round3AnswerTimerVoteVoiceTimeoutRef.current = null;
               }
-              const baseKey = `${index}-${startedAt}`;
-              const countdownAudioKey = `${baseKey}-countdown-audio`;
-              lastRound3VoteAudioKeyRef.current = countdownAudioKey;
-              round3AnswerTimerVoteVoiceTimeoutRef.current = setTimeout(() => {
-                if (round3PlaybackTokenRef.current !== token) return;
-                if (roomStatusRef.current !== 'round3-running') return;
-                playRound3VoteVoiceAudio();
-              }, ROUND3_ANSWER_SECONDS * 1000);
 
               if (round3PlaybackTokenRef.current !== token) {
                 return;
@@ -1108,6 +1139,7 @@ export default function HostRoomPage() {
               try {
                 const startTimerAt = context.currentTime + 0.01;
                 timerSource.start(startTimerAt);
+                timerSource.stop(startTimerAt + ROUND3_ANSWER_SECONDS);
               } catch (err) {
                 console.error('Не удалось запустить таймерный джингл Раунда 3', err);
               }
@@ -1343,54 +1375,198 @@ export default function HostRoomPage() {
   }, [currentQuestionIndex, roomId, roomStatus]);
 
   useEffect(() => {
+    if (!isRound3ResultsPhase) {
+      return;
+    }
+    if (!questionStartedAt) {
+      return;
+    }
+    const currentQ = currentRound3Question;
+    if (!currentQ) {
+      return;
+    }
+
+    const resultsKey = `${currentQuestionIndex}-${questionStartedAt}-scoring`;
+    if (lastRound3ResultsScoringKeyRef.current === resultsKey) {
+      return;
+    }
+
+    // Mark as handled early to avoid double scoring during re-renders.
+    lastRound3ResultsScoringKeyRef.current = resultsKey;
+
+    const score = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('round3_answers')
+          .select('id, player_id, text, submitted_at')
+          .eq('room_id', roomId)
+          .eq('question_index', currentQuestionIndex)
+          .order('submitted_at', { ascending: false });
+
+        if (error) {
+          console.error('Не удалось загрузить ответы Раунда 3 для начисления', error);
+          setRound3ScoredAnswers([]);
+          return;
+        }
+
+        const acceptableRaw = [currentQ.answer ?? '', ...(currentQ.acceptable ?? [])].filter(Boolean);
+        const acceptable = new Set(acceptableRaw.map(normalizeRound3FreeText));
+        const deduped = new Map<string, Round3AnswerRow>();
+
+        for (const row of (data || []) as Round3AnswerRow[]) {
+          if (!deduped.has(row.player_id)) {
+            deduped.set(row.player_id, row);
+          }
+        }
+
+        const scored: Round3ScoredAnswer[] = Array.from(deduped.values()).map((row) => {
+          const normalized = normalizeRound3FreeText(row.text ?? '');
+          const isCorrect = normalized.length > 0 && acceptable.has(normalized);
+          return {
+            playerId: row.player_id,
+            text: row.text,
+            isCorrect,
+            pointsEarned: isCorrect ? ROUND3_POINTS : 0,
+          };
+        });
+
+        setRound3ScoredAnswers(scored);
+
+        const correctPlayerIds = scored.filter((s) => s.isCorrect).map((s) => s.playerId);
+        if (correctPlayerIds.length === 0) {
+          return;
+        }
+
+        await Promise.all(
+          correctPlayerIds.map(async (playerId) => {
+            const { data: playerData, error: playerError } = await supabase
+              .from('players')
+              .select('total_points')
+              .eq('id', playerId)
+              .single();
+
+            if (playerError) {
+              console.error('Не удалось получить total_points для игрока (round3)', playerError);
+              return;
+            }
+
+            const nextTotal = (playerData?.total_points || 0) + ROUND3_POINTS;
+            const { error: updateError } = await supabase.from('players').update({ total_points: nextTotal }).eq('id', playerId);
+            if (updateError) {
+              console.error('Не удалось начислить очки игроку (round3)', updateError);
+            }
+          })
+        );
+      } catch (err) {
+        console.error('Не удалось начислить очки в Раунде 3', err);
+        setRound3ScoredAnswers([]);
+      }
+    };
+
+    void score();
+  }, [currentQuestionIndex, currentRound3Question, isRound3ResultsPhase, questionStartedAt, roomId]);
+
+  const stopRound3ResultsAudio = useCallback(() => {
+    const comment = round3CommentAudioRef.current;
+    if (comment) {
+      try {
+        comment.onended = null;
+        comment.pause();
+      } catch {
+        // ignore
+      }
+      round3CommentAudioRef.current = null;
+    }
+
+    const bg = round3CommentBgAudioRef.current;
+    if (bg) {
+      try {
+        bg.pause();
+      } catch {
+        // ignore
+      }
+      round3CommentBgAudioRef.current = null;
+    }
+  }, []);
+
+  const playRound3ResultsAudio = useCallback(
+    (index: number) => {
+      if (!hasUserInteractedRef.current) {
+        return;
+      }
+
+      stopRound3ResultsAudio();
+
+      const currentQ = round3Questions[index];
+      const voiceFileNumber = (currentQ?.originalIndex ?? index) + 1;
+      const commentUrl = buildAudioUrl(`${ROUND3_COMMENTS_AUDIO_DIR}/${voiceFileNumber}.mp3`);
+      const bgUrl = buildAudioUrl(ROUND3_RESULTS_BG_FILE);
+
+      const bg = new Audio(bgUrl);
+      bg.loop = true;
+      bg.volume = 0.25;
+      round3CommentBgAudioRef.current = bg;
+
+      const comment = new Audio(commentUrl);
+      comment.volume = 0.95;
+      round3CommentAudioRef.current = comment;
+
+      bg.play().catch((err) => {
+        console.error('Не удалось воспроизвести фон объяснения Раунда 3', err);
+      });
+
+      comment.onended = () => {
+        stopRound3ResultsAudio();
+      };
+      comment.play().catch((err) => {
+        console.error('Не удалось воспроизвести комментарий Раунда 3', err);
+        stopRound3ResultsAudio();
+      });
+    },
+    [round3Questions, stopRound3ResultsAudio]
+  );
+
+  useEffect(() => {
     if (roomStatus !== 'round3-running' || !questionStartedAt) {
       setRound3VoteAnswers([]);
       setIsRound3VoteAnswersLoading(false);
+      setRound3ScoredAnswers([]);
       lastRound3VoteKeyRef.current = null;
       lastRound3VoteAnswersKeyRef.current = null;
       lastRound3VoteAudioKeyRef.current = null;
+      lastRound3ResultsAudioKeyRef.current = null;
+      lastRound3ResultsScoringKeyRef.current = null;
       stopRound3VoteAudio();
+      stopRound3ResultsAudio();
       return;
     }
 
     const baseKey = `${currentQuestionIndex}-${questionStartedAt}`;
-    const answersKey = `${baseKey}-answers`;
-    const voteKey = `${baseKey}-vote`;
 
-    // Preload answers right after answer timer ends (during 3..2..1 countdown).
-    // Also start vote voice at countdown start.
-    if (isRound3VoteCountdown || isRound3VotePhase) {
-      if (lastRound3VoteAnswersKeyRef.current !== answersKey) {
-        lastRound3VoteAnswersKeyRef.current = answersKey;
+    // During results phase, load answers (for scoring) and play the comment audio once.
+    if (isRound3ResultsPhase) {
+      const resultsKey = `${baseKey}-results`;
+
+      if (lastRound3VoteAnswersKeyRef.current !== baseKey) {
+        lastRound3VoteAnswersKeyRef.current = baseKey;
         void loadRound3VoteAnswers();
       }
-    }
 
-    if (isRound3VoteCountdown) {
-      const countdownAudioKey = `${baseKey}-countdown-audio`;
-      if (lastRound3VoteAudioKeyRef.current !== countdownAudioKey) {
-        lastRound3VoteAudioKeyRef.current = countdownAudioKey;
-        playRound3VoteVoiceAudio();
+      if (lastRound3ResultsAudioKeyRef.current !== resultsKey) {
+        lastRound3ResultsAudioKeyRef.current = resultsKey;
+        playRound3ResultsAudio(currentQuestionIndex);
       }
-    }
 
-    if (!isRound3VoteCountdown && !isRound3VotePhase) {
-      stopRound3VoteAudio();
-      lastRound3VoteAudioKeyRef.current = null;
-      lastRound3VoteKeyRef.current = null;
       return;
     }
 
-    if (!isRound3VotePhase) {
-      return;
-    }
-
-    // Entering vote phase: play vote audio once.
-    if (lastRound3VoteKeyRef.current !== voteKey) {
-      lastRound3VoteKeyRef.current = voteKey;
-      playRound3VoteAudio(currentQuestionIndex);
-    }
-  }, [currentQuestionIndex, isRound3VoteCountdown, isRound3VotePhase, loadRound3VoteAnswers, playRound3VoteAudio, playRound3VoteVoiceAudio, questionStartedAt, roomStatus, stopRound3VoteAudio]);
+    stopRound3VoteAudio();
+    stopRound3ResultsAudio();
+    lastRound3VoteAudioKeyRef.current = null;
+    lastRound3VoteKeyRef.current = null;
+    lastRound3ResultsAudioKeyRef.current = null;
+    lastRound3ResultsScoringKeyRef.current = null;
+  }, [currentQuestionIndex, isRound3ResultsPhase, loadRound3VoteAnswers, playRound3ResultsAudio, questionStartedAt, roomStatus, stopRound3ResultsAudio, stopRound3VoteAudio]);
 
   useEffect(() => {
     if (roomStatus !== 'round3-running') {
@@ -1757,7 +1933,7 @@ export default function HostRoomPage() {
     (startedAt: string | null, offsetOverride?: number) => {
       const effectiveOffset = typeof offsetOverride === 'number' ? offsetOverride : timeOffsetMs;
       setQuestionStartedAt(startedAt);
-      setTimeLeft(getRemainingSeconds(startedAt, effectiveOffset));
+      setTimeLeft(getRemainingSeconds(startedAt, QUESTION_DURATION_SECONDS, effectiveOffset));
     },
     [timeOffsetMs]
   );
@@ -2693,7 +2869,7 @@ export default function HostRoomPage() {
         return;
       }
 
-      const remaining = getRemainingSeconds(questionStartedAt, timeOffsetMs);
+      const remaining = getRemainingSeconds(questionStartedAt, QUESTION_DURATION_SECONDS, timeOffsetMs);
       setTimeLeft(remaining);
     };
 
@@ -3471,25 +3647,11 @@ export default function HostRoomPage() {
   const nextButtonDisabled = !canAdvance || (isLastQuestion && (isSummaryLoading || isRoundEndButtonLocked));
   const progressPercent = Math.max(0, Math.min(100, (effectiveTimeLeft / QUESTION_DURATION_SECONDS) * 100));
   const round3ElapsedSeconds = isRound3Running ? getRound3ElapsedSeconds(questionStartedAt) : null;
-  const round3CountdownTimeLeft =
-    round3ElapsedSeconds === null
-      ? ROUND3_VOTE_COUNTDOWN_SECONDS
-      : Math.max(0, ROUND3_ANSWER_SECONDS + ROUND3_VOTE_COUNTDOWN_SECONDS - round3ElapsedSeconds);
-  const round3VoteTimeLeft =
-    round3ElapsedSeconds === null
-      ? ROUND3_VOTE_SECONDS
-      : Math.max(0, ROUND3_ANSWER_SECONDS + ROUND3_VOTE_COUNTDOWN_SECONDS + ROUND3_VOTE_SECONDS - round3ElapsedSeconds);
 
-  const round3TimerDuration = isRound3VotePhase
-    ? ROUND3_VOTE_SECONDS
-    : isRound3VoteCountdown
-      ? ROUND3_VOTE_COUNTDOWN_SECONDS
-      : ROUND3_ANSWER_SECONDS;
-  const round3TimerTimeLeft = isRound3VotePhase
-    ? round3VoteTimeLeft
-    : isRound3VoteCountdown
-      ? round3CountdownTimeLeft
-      : effectiveTimeLeft;
+  const round3TimerDuration = ROUND3_ANSWER_SECONDS;
+  const round3TimerTimeLeft = isRound3Running
+    ? getRemainingSeconds(questionStartedAt, ROUND3_ANSWER_SECONDS, timeOffsetMs)
+    : effectiveTimeLeft;
   const round3ProgressPercent = Math.max(0, Math.min(100, (round3TimerTimeLeft / round3TimerDuration) * 100));
   const questionsForSummary = summaryQuestions.length ? summaryQuestions : question ? [question] : [];
   const isWaiting = roomStatus === 'waiting' && !showResults;
@@ -4098,15 +4260,9 @@ export default function HostRoomPage() {
 
                 <div>
                   <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
-                    <span>
-                      {isRound3VotePhase
-                        ? `Голосование · ${ROUND3_VOTE_SECONDS} сек`
-                        : isRound3VoteCountdown
-                          ? 'Голосуем через…'
-                          : `Таймер · ${ROUND3_ANSWER_SECONDS} сек`}
-                    </span>
+                    <span>{isRound3ResultsPhase ? 'Итоги' : `Таймер · ${ROUND3_ANSWER_SECONDS} сек`}</span>
                     <span className={`font-black ${allPlayersAnswered ? 'text-[#1f6ac6]' : 'text-[#142a45]'}`}>
-                      {allPlayersAnswered ? 'Все ответили' : `${round3TimerTimeLeft} c`}
+                      {isRound3ResultsPhase ? 'Готово' : allPlayersAnswered ? 'Все ответили' : `${round3TimerTimeLeft} c`}
                     </span>
                   </div>
                   <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
@@ -4116,34 +4272,63 @@ export default function HostRoomPage() {
                     />
                   </div>
                   <p className="text-xs text-[#142a45]/60 mt-2">
-                    {isRound3VotePhase
-                      ? `На время голосования у ведущего играет ${ROUND3_TIMER_JINGLE_FILE} (в 2 раза быстрее) + случайный файл из ${ROUND3_VOTE_AUDIO_DIR}/.`
-                      : isRound3VoteCountdown
-                        ? 'Готовимся голосовать: 3..2..1.'
-                        : `На время ответа у ведущего играет ${ROUND3_TIMER_JINGLE_FILE} (обычная скорость).`}
+                    {isRound3ResultsPhase
+                      ? `Играет комментарий из ${ROUND3_COMMENTS_AUDIO_DIR}/ + фон ${ROUND3_RESULTS_BG_FILE}.`
+                      : `На время ответа у ведущего играет ${ROUND3_TIMER_JINGLE_FILE} (ограничено ${ROUND3_ANSWER_SECONDS} сек).`}
                   </p>
                 </div>
 
-                {round3ElapsedSeconds !== null && round3ElapsedSeconds >= ROUND3_ANSWER_SECONDS && (
-                  <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-white p-5 space-y-3">
-                    <p className="retro-heading text-[11px] tracking-[0.5em] text-[#142a45]/70">Ответы игроков</p>
-                    {isRound3VoteAnswersLoading ? (
-                      <p className="text-sm text-[#142a45]/70">Ответы загружаются…</p>
-                    ) : round3VoteAnswers.length > 0 ? (
-                      <ol className="space-y-2">
-                        {round3VoteAnswers.map((answer, idx) => (
-                          <li
-                            key={answer.id}
-                            className="rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] px-4 py-3 text-sm font-semibold"
-                          >
-                            <span className="mr-2 font-black text-[#f1532f]">{idx + 1}.</span>
-                            {answer.text?.trim() ? answer.text : <span className="text-[#142a45]/60">(пустой ответ)</span>}
-                          </li>
-                        ))}
-                      </ol>
-                    ) : (
-                      <p className="text-sm text-[#142a45]/70">Пока нет ответов для голосования.</p>
+                {isRound3ResultsPhase && (
+                  <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-white p-5 space-y-4">
+                    <p className="retro-heading text-[11px] tracking-[0.5em] text-[#142a45]/70">Итоги факта</p>
+
+                    <div className="rounded-3xl border-[3px] border-[#f1532f]/20 bg-[#fff6da] p-4 space-y-2">
+                      <p className="text-[11px] tracking-[0.4em] text-[#f1532f]/60">Правильный ответ</p>
+                      <p className="text-lg font-semibold">
+                        {renderRound3QuestionWithAnswer(currentRound3Question?.question ?? '', currentRound3Question?.answer ?? '')}
+                      </p>
+                    </div>
+
+                    {currentRound3Question?.comment && (
+                      <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-4 space-y-2">
+                        <p className="text-[11px] tracking-[0.4em] text-[#142a45]/60">Комментарий</p>
+                        <p className="text-sm font-semibold text-[#142a45] whitespace-pre-line">{currentRound3Question.comment}</p>
+                      </div>
                     )}
+
+                    <div className="rounded-3xl border-[3px] border-dashed border-[#142a45]/30 bg-[#fff6da] p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/70">Ответы игроков</p>
+                        <span className="text-xs font-semibold text-[#1f6ac6]">+{ROUND3_POINTS} за точный ответ</span>
+                      </div>
+                      {isRound3VoteAnswersLoading ? (
+                        <p className="text-sm text-[#142a45]/70">Ответы загружаются…</p>
+                      ) : round3ScoredAnswers.length > 0 ? (
+                        <div className="space-y-2">
+                          {round3ScoredAnswers
+                            .slice()
+                            .sort((a, b) => Number(b.isCorrect) - Number(a.isCorrect))
+                            .map((row) => (
+                              <div
+                                key={row.playerId}
+                                className={`rounded-2xl border-[3px] px-3 py-2 flex items-center justify-between ${
+                                  row.isCorrect ? 'border-[#1f6ac6]/30 bg-white' : 'border-[#f1532f]/30 bg-white'
+                                }`}
+                              >
+                                <div className="min-w-0">
+                                  <p className="font-semibold truncate">{getPlayerName(row.playerId)}</p>
+                                  <p className="text-xs text-[#142a45]/70 truncate">{row.text?.trim() ? row.text : '(пусто)'}</p>
+                                </div>
+                                <span className={`font-black ${row.isCorrect ? 'text-[#1f6ac6]' : 'text-[#f1532f]'}`}>
+                                  {row.isCorrect ? `+${row.pointsEarned}` : '+0'}
+                                </span>
+                              </div>
+                            ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-[#142a45]/70">Пока нет ответов.</p>
+                      )}
+                    </div>
                   </div>
                 )}
 
