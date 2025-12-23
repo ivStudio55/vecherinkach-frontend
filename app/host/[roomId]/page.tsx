@@ -3888,7 +3888,7 @@ export default function HostRoomPage() {
     }
     return Array.from(unique.values());
   }, [round2Answers]);
-  const headerActionLabel = roomStatus === 'finished' && showResults ? 'Раунд 2' : 'Завершить игру';
+  const headerActionLabel = roomStatus === 'finished' && showResults ? (round2Leaderboard.length > 0 ? 'Раунд 3' : 'Раунд 2') : 'Завершить игру';
   const round2QuestionNumber = round2QuestionCounter > 0 ? round2QuestionCounter : 1;
   const clampedRound2QuestionNumber = Math.min(round2QuestionNumber, ROUND2_TOTAL_QUESTIONS);
   const round2TruthLabel =
@@ -3910,7 +3910,11 @@ export default function HostRoomPage() {
   const handlePrimaryHeaderAction = () => {
     if (roomStatus === 'finished' && showResults) {
       hasUserInteractedRef.current = true;
-      setIsRound2RulesVisible(true);
+      if (round2Leaderboard.length > 0) {
+        setIsRound3RulesVisible(true);
+      } else {
+        setIsRound2RulesVisible(true);
+      }
       return;
     }
     void endGame();
@@ -4151,21 +4155,6 @@ export default function HostRoomPage() {
                       <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Финальные результаты</p>
                       <h2 className="text-3xl font-black">🏆 Рейтинг Раунда 2</h2>
                     </div>
-                      <div className="flex flex-wrap items-center justify-end gap-3">
-                        <span className="text-sm font-semibold text-[#1f6ac6]">Очки уже начислены игрокам</span>
-                        {round2Leaderboard.length > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              hasUserInteractedRef.current = true;
-                              setIsRound3RulesVisible(true);
-                            }}
-                            className="px-4 py-2 rounded-2xl border-[3px] border-[#142a45] bg-[#ffe184] text-[#142a45] font-black tracking-[0.2em] hover:bg-[#142a45] hover:text-[#ffeccd] transition-colors"
-                          >
-                            Раунд 3
-                          </button>
-                        )}
-                      </div>
                   </div>
                   <div className="space-y-4">
                     {round2Leaderboard.length === 0 ? (
@@ -4633,19 +4622,12 @@ export default function HostRoomPage() {
                   </div>
                 )}
 
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <button
-                    type="button"
-                    onClick={() => void handleRound3BackToEndOfRound2()}
-                    className="sm:w-1/2 w-full py-4 rounded-2xl font-black text-base tracking-[0.16em] bg-white text-[#142a45] border-[3px] border-[#142a45]"
-                  >
-                    ← Назад (тест)
-                  </button>
+                <div className="flex flex-col gap-3">
                   <button
                     type="button"
                     onClick={() => void (isLastRound3Fact ? handleRound3Complete() : handleRound3NextQuestion())}
                     disabled={!currentRound3Question}
-                    className="sm:w-1/2 w-full py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#f1532f] text-white border-[3px] border-[#142a45] transition disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="w-full py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#f1532f] text-white border-[3px] border-[#142a45] transition disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {isLastRound3Fact ? 'Турнирная таблица' : 'Следующий факт'}
                   </button>
