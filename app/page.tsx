@@ -280,7 +280,7 @@ export default function HomePage() {
                     <button
                       type="button"
                       onClick={handleToggleSound}
-                      className={`inline-flex items-center justify-between rounded-2xl border-[3px] border-[#142a45] px-4 py-3 font-semibold ${isSoundOn ? 'bg-[#142a45] text-[#ffeccd]' : 'bg-white text-[#142a45]'}`}
+                      className={`hover:scale-105 hover:shadow-lg transition-all duration-200 inline-flex items-center justify-between rounded-2xl border-[3px] border-[#142a45] px-4 py-3 font-semibold ${isSoundOn ? 'bg-[#142a45] text-[#ffeccd]' : 'bg-white text-[#142a45]'}`}
                     >
                       {isSoundOn ? '🔊 Джингл включён' : '🎵 Включить джингл'}
                       <span className="text-xs tracking-[0.3em]">AUTO</span>

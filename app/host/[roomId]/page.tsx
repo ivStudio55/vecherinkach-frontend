@@ -4311,7 +4311,7 @@ export default function HostRoomPage() {
                       hasUserInteractedRef.current = true;
                       void (isLobbySoundOn ? stopLobby() : tryPlayLobby());
                     }}
-                    className={`px-4 py-2 rounded-2xl border-[3px] font-semibold ${
+                    className={`hover:scale-105 hover:shadow-lg transition-all duration-200 px-4 py-2 rounded-2xl border-[3px] font-semibold ${
                       isLobbySoundOn ? 'border-[#1f6ac6] bg-[#1f6ac6] text-white' : 'border-[#142a45] bg-[#ffe184]'
                     }`}
                   >
