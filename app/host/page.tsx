@@ -113,7 +113,7 @@ export default function HostPage() {
                 <div className="space-y-2">
                   <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Создание комнаты</p>
                   <h2 className="text-2xl font-black">Управление запуском</h2>
-                  <p className="text-sm text-[#142a45]/80">Одним нажатием вы запускаете новый сеанс игры и блокируете код за собой.</p>
+                  <p className="text-sm text-[#142a45]/80">Одним нажатием вы запускаете новый сеанс игры и бронируете код за собой.</p>
                 </div>
 
                 {error && (

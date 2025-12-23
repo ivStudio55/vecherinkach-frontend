@@ -4323,7 +4323,7 @@ export default function HostRoomPage() {
                       hasUserInteractedRef.current = true;
                       setIsJoinSoundEnabled((prev) => !prev);
                     }}
-                    className={`px-4 py-2 rounded-2xl border-[3px] font-semibold ${
+                    className={`hover:scale-105 hover:shadow-lg transition-all duration-200 px-4 py-2 rounded-2xl border-[3px] font-semibold ${
                       isJoinSoundEnabled ? 'border-[#1f6ac6] bg-white text-[#1f6ac6]' : 'border-dashed border-[#142a45] bg-white'
                     }`}
                   >
@@ -4339,7 +4339,10 @@ export default function HostRoomPage() {
                   </li>
                   <li className="flex gap-3">
                     <span className="w-8 h-8 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">2</span>
-                    Их имена появляются в списке справа. Сразу видно статус подключения.
+                    <div className="flex-1">
+                      <p>Игроки переходят на экран подключения:</p>
+                      <img src="/qr-code.png" alt="QR код для подключения" className="w-20 h-20 mt-2" />
+                    </div>
                   </li>
                   <li className="flex gap-3">
                     <span className="w-8 h-8 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">3</span>
@@ -4350,7 +4353,7 @@ export default function HostRoomPage() {
                 <button
                   onClick={handlePrepareRound}
                   disabled={players.length === 0}
-                  className="w-full py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] transition disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="hover:scale-105 hover:shadow-lg transition-all duration-200 w-full py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   Начать игру →
                 </button>
@@ -4870,8 +4873,8 @@ export default function HostRoomPage() {
       )}
 
       {shouldShowRulesModal && (
-        <div className="fixed inset-0 z-40 bg-[#142a45]/70 backdrop-blur-sm flex items-center justify-center px-4">
-          <div className="max-w-md w-full rounded-3xl border-[4px] border-[#142a45] bg-[#fff6da] p-6 space-y-4 shadow-2xl">
+        <div className="fixed inset-0 z-40 bg-[#142a45]/70 backdrop-blur-sm flex items-center justify-center px-4 transition-opacity duration-300">
+          <div className="max-w-md w-full rounded-3xl border-[4px] border-[#142a45] bg-[#fff6da] p-6 space-y-4 shadow-2xl transform transition-all duration-300 scale-100 opacity-100">
             <div>
               <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Правила раунда</p>
               <h3 className="text-2xl font-black text-[#142a45]">Перед стартом</h3>
@@ -4920,8 +4923,8 @@ export default function HostRoomPage() {
       )}
 
       {isRound3RulesVisible && (
-        <div className="fixed inset-0 z-50 bg-[#142a45]/70 backdrop-blur-sm flex items-center justify-center px-4">
-          <div className="max-w-lg w-full rounded-3xl border-[4px] border-[#142a45] bg-[#fff6da] p-6 space-y-4 shadow-2xl">
+        <div className="fixed inset-0 z-50 bg-[#142a45]/70 backdrop-blur-sm flex items-center justify-center px-4 transition-opacity duration-300">
+          <div className="max-w-lg w-full rounded-3xl border-[4px] border-[#142a45] bg-[#fff6da] p-6 space-y-4 shadow-2xl transform transition-all duration-300 scale-100 opacity-100">
             <div>
               <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Раунд 3 · «МозгоШтурм»</p>
               <h3 className="text-2xl font-black text-[#142a45]">Правила</h3>
@@ -4948,8 +4951,8 @@ export default function HostRoomPage() {
       )}
 
       {isRound2RulesVisible && (
-        <div className="fixed inset-0 z-50 bg-[#142a45]/70 backdrop-blur-sm flex items-center justify-center px-4">
-          <div className="max-w-lg w-full rounded-3xl border-[4px] border-[#142a45] bg-[#fff6da] p-6 space-y-4 shadow-2xl">
+        <div className="fixed inset-0 z-50 bg-[#142a45]/70 backdrop-blur-sm flex items-center justify-center px-4 transition-opacity duration-300">
+          <div className="max-w-lg w-full rounded-3xl border-[4px] border-[#142a45] bg-[#fff6da] p-6 space-y-4 shadow-2xl transform transition-all duration-300 scale-100 opacity-100">
             <div>
               <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Раунд 2 · «Фейколов»</p>
               <h3 className="text-2xl font-black text-[#142a45]">Правда или выдумка</h3>
