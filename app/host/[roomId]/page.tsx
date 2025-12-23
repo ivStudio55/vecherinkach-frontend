@@ -4122,7 +4122,7 @@ export default function HostRoomPage() {
               <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Финал игры</p>
+                    <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">итоги после 3 раунда</p>
                     <h2 className="text-3xl font-black">🏁 Турнирная таблица</h2>
                   </div>
                   <div className="text-right text-sm font-semibold text-[#1f6ac6]">
