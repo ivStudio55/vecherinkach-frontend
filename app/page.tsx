@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState, useCallback, CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import backTexture from './img/back.png';
+import { supabase } from '../src/lib/supabase';
 
 export default function HomePage() {
   const router = useRouter();
@@ -17,6 +18,8 @@ export default function HomePage() {
   const appearTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const autoPlayAttemptedRef = useRef(false);
+  const [roomsToday, setRoomsToday] = useState(0);
+  const [playersToday, setPlayersToday] = useState(0);
 
   const games = [
     {
@@ -199,6 +202,34 @@ export default function HomePage() {
     backgroundPosition: 'center',
   };
 
+  useEffect(() => {
+    const loadStats = async () => {
+      try {
+        const today = new Date();
+        const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
+
+        // Количество комнат созданных сегодня
+        const { count: roomsCount } = await supabase
+          .from('rooms')
+          .select('*', { count: 'exact', head: true })
+          .gte('created_at', startOfDay);
+
+        // Количество игроков созданных сегодня
+        const { count: playersCount } = await supabase
+          .from('players')
+          .select('*', { count: 'exact', head: true })
+          .gte('created_at', startOfDay);
+
+        setRoomsToday(roomsCount || 0);
+        setPlayersToday(playersCount || 0);
+      } catch (error) {
+        console.error('Error loading stats:', error);
+      }
+    };
+
+    loadStats();
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#fef4dc] text-[#142a45]" style={backgroundStyle} onClick={handleUserInteraction}>
       {!hasStarted ? (
@@ -257,16 +288,16 @@ export default function HomePage() {
                 <div className="rounded-3xl border-[3px] border-[#142a45] bg-[#fff6da] p-4 space-y-4">
                   <div className="flex items-center justify-between">
                     <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Память</p>
-                    <span className="text-xs font-semibold px-2 py-1 rounded bg-[#142a45]/10">Supabase synced</span>
+                    <span className="text-xs font-semibold px-2 py-1 rounded bg-[#142a45]/10">полная синхронизация</span>
                   </div>
                   <div className="space-y-2 text-sm font-mono">
                     <div className="flex justify-between border-2 border-[#142a45] rounded-xl px-3 py-2 bg-white/70">
                       <span>Комнаты</span>
-                      <span className="font-bold text-[#1f6ac6]">{roomCodeDisplay}</span>
+                      <span className="font-bold text-[#1f6ac6]">{roomsToday}</span>
                     </div>
                     <div className="flex justify-between border-2 border-[#142a45] rounded-xl px-3 py-2 bg-white/70">
                       <span>Игроки</span>
-                      <span className="font-bold text-[#f1532f]">{playersCountLabel}</span>
+                      <span className="font-bold text-[#f1532f]">{playersToday}</span>
                     </div>
                   </div>
                 </div>
