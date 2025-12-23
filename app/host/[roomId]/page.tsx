@@ -102,6 +102,7 @@ const ROUND3_BG_VOLUME = 0.25;
 const ROUND3_TIMER_VOLUME = 0.6;
 const ROUND3_VOTE_LIKE_POINTS = 50;
 const ROUND3_VOTE_SKIP_PENALTY = 50;
+const ROUND3_END_AFTER_AUDIO_DIR = 'round3end/after';
 const ROUND3_RULES_VOICE_FILES = [
   'round3/ruels3/ruels1.mp3',
   'round3/ruels3/ruels2.mp3',
@@ -712,6 +713,21 @@ export default function HostRoomPage() {
       console.error('Не удалось проиграть финальный джингл турнира', error);
     });
   }, [stopTournamentJingle]);
+
+  const playRound3EndAfterAudio = useCallback(() => {
+    if (!hasUserInteractedRef.current) {
+      return;
+    }
+
+    const randomIndex = Math.floor(Math.random() * 4) + 1; // 1 to 4
+    const audioFile = `${ROUND3_END_AFTER_AUDIO_DIR}/${randomIndex}.mp3`;
+    const audio = new Audio(buildAudioUrl(audioFile));
+    audio.volume = 0.6;
+
+    audio.play().catch((error) => {
+      console.error('Не удалось проиграть звук окончания раунда 3', error);
+    });
+  }, []);
 
   const playRoundEndAudio = useCallback(() => {
     if (!hasUserInteractedRef.current) {
@@ -3692,6 +3708,7 @@ export default function HostRoomPage() {
     stopRound3VoteAudio();
     stopRound3ResultsAudio();
     setIsTournamentVisible(true);
+    playRound3EndAfterAudio();
     setShowResults(false);
     setQuestion(null);
     setQuestionStartedAt(null);
