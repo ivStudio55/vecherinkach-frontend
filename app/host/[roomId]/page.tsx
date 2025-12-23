@@ -88,8 +88,8 @@ const ROUND2_FAKE_LABEL = 'Вранье';
 const ROUND3_TOTAL_QUESTIONS = 6;
 const ROUND3_POINTS = 200;
 const ROUND3_ANSWER_SECONDS = 48;
-const ROUND3_VOTE_COUNTDOWN_SECONDS = 3;
-const ROUND3_VOTE_SECONDS = 15;
+const ROUND3_VOTE_COUNTDOWN_SECONDS = 0;
+const ROUND3_VOTE_SECONDS = 0;
 const ROUND3_QUESTIONS_AUDIO_DIR = 'round3/questions3';
 const ROUND3_BG_JINGLE_FILE = 'round2/jingle (5).mp3';
 const ROUND3_ANSWER_TIMER_JINGLE_FILE = 'round3/60_sec.mp3';
@@ -453,20 +453,11 @@ export default function HostRoomPage() {
     if (elapsed < ROUND3_ANSWER_SECONDS) {
       return 'answer' as const;
     }
-    if (elapsed < ROUND3_ANSWER_SECONDS + ROUND3_VOTE_COUNTDOWN_SECONDS) {
-      return 'vote-countdown' as const;
-    }
-    if (elapsed < ROUND3_ANSWER_SECONDS + ROUND3_VOTE_COUNTDOWN_SECONDS + ROUND3_VOTE_SECONDS) {
-      return 'vote' as const;
-    }
     return 'results' as const;
     // timeLeft is included to force re-evaluation as the timer ticks down.
   }, [getRound3ElapsedSeconds, questionStartedAt, roomStatus, timeLeft]);
 
   const isRound3ResultsPhase = round3Phase === 'results';
-  const isRound3VoteCountdownPhase = round3Phase === 'vote-countdown';
-  const isRound3VotePhase = round3Phase === 'vote';
-  const isRound3AnswerPhase = round3Phase === 'fact' || round3Phase === 'answer';
 
   const setRound2Phase = useCallback(
     (nextPhase: Round2Phase) => {
@@ -1707,15 +1698,6 @@ export default function HostRoomPage() {
 
     const baseKey = `${currentQuestionIndex}-${questionStartedAt}`;
 
-    // During vote phases, show anonymous answers and keep them loaded.
-    if (round3Phase === 'vote-countdown' || round3Phase === 'vote') {
-      if (lastRound3VoteAnswersKeyRef.current !== baseKey) {
-        lastRound3VoteAnswersKeyRef.current = baseKey;
-        void loadRound3VoteAnswers();
-      }
-      return;
-    }
-
     // During results phase, load answers (for scoring) and play the comment audio once.
     if (isRound3ResultsPhase) {
       const resultsKey = `${baseKey}-results`;
@@ -1739,7 +1721,7 @@ export default function HostRoomPage() {
     lastRound3VoteKeyRef.current = null;
     lastRound3ResultsAudioKeyRef.current = null;
     lastRound3ResultsScoringKeyRef.current = null;
-  }, [currentQuestionIndex, isRound3ResultsPhase, loadRound3VoteAnswers, playRound3ResultsAudio, questionStartedAt, roomStatus, round3Phase, stopRound3ResultsAudio, stopRound3VoteAudio]);
+  }, [currentQuestionIndex, isRound3ResultsPhase, loadRound3VoteAnswers, playRound3ResultsAudio, questionStartedAt, roomStatus, stopRound3ResultsAudio, stopRound3VoteAudio]);
 
   useEffect(() => {
     if (roomStatus !== 'round3-running') {
@@ -3880,31 +3862,11 @@ export default function HostRoomPage() {
   const progressPercent = Math.max(0, Math.min(100, (effectiveTimeLeft / QUESTION_DURATION_SECONDS) * 100));
   const round3ElapsedSeconds = isRound3Running ? getRound3ElapsedSeconds(questionStartedAt) : null;
 
-  const totalRound3Seconds = ROUND3_ANSWER_SECONDS + ROUND3_VOTE_COUNTDOWN_SECONDS + ROUND3_VOTE_SECONDS;
-  const round3TimerDuration = isRound3VotePhase
-    ? ROUND3_VOTE_SECONDS
-    : isRound3VoteCountdownPhase
-      ? ROUND3_VOTE_COUNTDOWN_SECONDS
-      : ROUND3_ANSWER_SECONDS;
-
-  const round3TimerTimeLeft = (() => {
-    if (!isRound3Running || !questionStartedAt) {
-      return effectiveTimeLeft;
-    }
-    const elapsed = round3ElapsedSeconds ?? 0;
-    if (elapsed < ROUND3_ANSWER_SECONDS) {
-      return Math.max(0, ROUND3_ANSWER_SECONDS - elapsed);
-    }
-    if (elapsed < ROUND3_ANSWER_SECONDS + ROUND3_VOTE_COUNTDOWN_SECONDS) {
-      return Math.max(0, ROUND3_ANSWER_SECONDS + ROUND3_VOTE_COUNTDOWN_SECONDS - elapsed);
-    }
-    if (elapsed < totalRound3Seconds) {
-      return Math.max(0, totalRound3Seconds - elapsed);
-    }
-    return 0;
-  })();
-
-  const round3ProgressPercent = Math.max(0, Math.min(100, (round3TimerTimeLeft / Math.max(1, round3TimerDuration)) * 100));
+  const round3TimerDuration = ROUND3_ANSWER_SECONDS;
+  const round3TimerTimeLeft = isRound3Running
+    ? getRemainingSeconds(questionStartedAt, ROUND3_ANSWER_SECONDS, timeOffsetMs)
+    : effectiveTimeLeft;
+  const round3ProgressPercent = Math.max(0, Math.min(100, (round3TimerTimeLeft / round3TimerDuration) * 100));
   const isLastRound3Fact = isRound3Running && currentQuestionIndex + 1 >= round3QuestionCount;
   const questionsForSummary = summaryQuestions.length ? summaryQuestions : question ? [question] : [];
   const isWaiting = roomStatus === 'waiting' && !showResults;
@@ -3926,19 +3888,6 @@ export default function HostRoomPage() {
     }
     return Array.from(unique.values());
   }, [round2Answers]);
-
-  const round3AnonymousVoteAnswers = useMemo(() => {
-    const uniqueByPlayer = new Map<string, string>();
-    for (const row of round3VoteAnswers) {
-      if (!uniqueByPlayer.has(row.player_id)) {
-        uniqueByPlayer.set(row.player_id, row.text ?? '');
-      }
-    }
-    return Array.from(uniqueByPlayer.values())
-      .map((text) => (text ?? '').trim())
-      .map((text) => (text.length ? text : '(пусто)'))
-      .sort((a, b) => a.localeCompare(b, 'ru'));
-  }, [round3VoteAnswers]);
   const headerActionLabel = roomStatus === 'finished' && showResults ? (round2Leaderboard.length > 0 ? 'Раунд 3' : 'Раунд 2') : 'Завершить игру';
   const round2QuestionNumber = round2QuestionCounter > 0 ? round2QuestionCounter : 1;
   const clampedRound2QuestionNumber = Math.min(round2QuestionNumber, ROUND2_TOTAL_QUESTIONS);
@@ -4580,7 +4529,7 @@ export default function HostRoomPage() {
                   </div>
                 )}
 
-                {isRound3AnswerPhase && (
+                {!isRound3ResultsPhase && (
                   <div className="rounded-3xl border-[3px] border-[#f1532f]/20 bg-[#fff6da] p-5 space-y-2">
                     <p className="text-[11px] tracking-[0.4em] text-[#f1532f]/60">Сейчас звучит у ведущего</p>
                     <p className="text-2xl font-black leading-snug">
@@ -4591,17 +4540,9 @@ export default function HostRoomPage() {
 
                 <div>
                   <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
-                    <span>
-                      {isRound3ResultsPhase
-                        ? 'Итоги'
-                        : isRound3VotePhase
-                          ? `Голосование · ${ROUND3_VOTE_SECONDS} сек`
-                          : isRound3VoteCountdownPhase
-                            ? `До голосования · ${ROUND3_VOTE_COUNTDOWN_SECONDS} сек`
-                            : `Таймер · ${ROUND3_ANSWER_SECONDS} сек`}
-                    </span>
+                    <span>{isRound3ResultsPhase ? 'Итоги' : `Таймер · ${ROUND3_ANSWER_SECONDS} сек`}</span>
                     <span className={`font-black ${allPlayersAnswered ? 'text-[#1f6ac6]' : 'text-[#142a45]'}`}>
-                      {isRound3ResultsPhase ? 'Готово' : isRound3AnswerPhase && allPlayersAnswered ? 'Все ответили' : `${round3TimerTimeLeft} c`}
+                      {isRound3ResultsPhase ? 'Готово' : allPlayersAnswered ? 'Все ответили' : `${round3TimerTimeLeft} c`}
                     </span>
                   </div>
                   <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
@@ -4611,29 +4552,6 @@ export default function HostRoomPage() {
                     />
                   </div>
                 </div>
-
-                {(isRound3VoteCountdownPhase || isRound3VotePhase) && (
-                  <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-white p-5 space-y-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="retro-heading text-[11px] tracking-[0.5em] text-[#142a45]/70">ГОЛОСОВАНИЕ</p>
-                      <span className="text-xs font-semibold text-[#142a45]/60">ответы анонимны</span>
-                    </div>
-
-                    {isRound3VoteAnswersLoading ? (
-                      <p className="text-sm text-[#142a45]/70">Ответы загружаются…</p>
-                    ) : round3AnonymousVoteAnswers.length > 0 ? (
-                      <div className="space-y-2">
-                        {round3AnonymousVoteAnswers.map((text, idx) => (
-                          <div key={`${idx}-${text}`} className="rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] px-3 py-2">
-                            <p className="text-sm font-semibold text-[#142a45] break-words">{text}</p>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-[#142a45]/70">Пока нет ответов для голосования.</p>
-                    )}
-                  </div>
-                )}
 
                 {isRound3ResultsPhase && (
                   <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-white p-5 space-y-4">
