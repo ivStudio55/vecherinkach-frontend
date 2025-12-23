@@ -4877,25 +4877,25 @@ export default function HostRoomPage() {
           <div className="max-w-md w-full rounded-3xl border-[4px] border-[#142a45] bg-[#fff6da] p-6 space-y-4 shadow-2xl transform transition-all duration-300 scale-100 opacity-100">
             <div>
               <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Правила раунда</p>
-              <h3 className="text-2xl font-black text-[#142a45]">Перед стартом</h3>
+              <h3 className="text-2xl font-black text-[#142a45]">Разогрев!</h3>
             </div>
             <ul className="text-sm text-[#142a45]/80 space-y-2">
-              <li>• 30 секунд на ответ — мелодия звучит столько же.</li>
-              <li>• Ответы блокируются после сигнала или досрочного завершения.</li>
-              <li>• Объявляйте очки только после авто-подсчёта.</li>
+              <li>6 вопросов на всё подряд. К каждому — 4 варианта ответа среди которых надо выбрать правильный.</li>
+              <li>За правильный ответ получаете очки. 30 секунд на вопрос!</li>
+              <li>Подсчитываем очки. Погнали!</li>
             </ul>
             <div className="space-y-3">
               <button
                 type="button"
                 onClick={handleCountdownStart}
-                className="w-full py-3 rounded-2xl font-black text-lg tracking-[0.3em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45]"
+                className="hover:scale-105 hover:shadow-lg transition-all duration-200 w-full py-3 rounded-2xl font-black text-lg tracking-[0.3em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45]"
               >
                 Старт
               </button>
               <button
                 type="button"
                 onClick={handleRulesCancel}
-                className="w-full py-3 rounded-2xl border-[3px] border-dashed border-[#142a45] bg-white font-semibold text-[#142a45]"
+                className="hover:scale-105 hover:shadow-lg transition-all duration-200 w-full py-3 rounded-2xl border-[3px] border-dashed border-[#142a45] bg-white font-semibold text-[#142a45]"
               >
                 Отмена
               </button>
