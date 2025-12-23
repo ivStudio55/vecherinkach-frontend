@@ -108,8 +108,20 @@ const ROUND3_RULES_VOICE_FILES = [
   'round3/ruels3/ruels3.mp3',
 ] as const;
 const ROUND3_RULES_TEXT =
-  'Финальный раунд. Ведущий зачитывает факт и запускает 30 секунд на ответы. ' +
-  'Далее отсчет 3 секунды и 15 секунд на голосование. За правильный прогноз игрок получает очки.';
+  'Раунд «МозгоШтурм»\n\n' +
+  'Перед вами появятся 6 интересных фактов с одним пропущенным словом.\n\n' +
+  'Ваша задача:\n\n' +
+  'Ввести в поле на телефоне то слово, которое идеально подходит (одно слово, без дефисов, пробелов и знаков).\n' +
+  'После каждого тура на экране появятся ответы всех игроков.\n' +
+  'Каждый выбирает понравившийся ответ (кроме своего).\n\n' +
+  'Подсчёт очков:\n\n' +
+  'Угадал точное слово — 200 очков.\n' +
+  'За каждый голос за ваш ответ — +50 очков.\n' +
+  'Не проголосовал — –50 очков.\n\n' +
+  'Время на ввод ответа — 60 секунд.\n' +
+  'Время на голосование — 30 секунд.\n' +
+  'Синонимы могут засчитаться (на усмотрение ведущего).\n\n' +
+  'Готовы угадывать и голосовать? Давайте устроим настоящий мозговой штурм!';
 
 const buildAudioUrl = (relativePath: string) => `/api/audio?file=${encodeURIComponent(relativePath)}&t=${Date.now()}`;
 const buildJingleUrl = (fileName: string) => `/api/jingle/audio?file=${encodeURIComponent(fileName)}&t=${Date.now()}`;
@@ -4382,8 +4394,8 @@ export default function HostRoomPage() {
 
                 <div className="rounded-3xl border-[3px] border-[#b4007f]/20 bg-[#fff0fa] p-5 space-y-2">
                   <p className="text-[11px] tracking-[0.4em] text-[#b4007f]/60">Сейчас в эфире</p>
-                  <p className="text-2xl font-black leading-snug">{round2Statement}</p>
-                  <p className={`text-xs font-semibold ${round2TruthClass}`}>
+                  <p className="text-2xl font-black leading-snug text-center">{round2Statement}</p>
+                  <p className={`text-xs font-semibold text-center ${round2TruthClass}`}>
                     {round2TruthLabel}
                   </p>
                 </div>
@@ -4529,7 +4541,6 @@ export default function HostRoomPage() {
                 <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-white px-4 py-3 text-sm font-semibold flex items-center justify-between">
                   <span>Музыка</span>
                   <div className="flex items-center gap-3">
-                    <span className="font-black text-[#f1532f]">{ROUND3_BG_JINGLE_FILE}</span>
                     <button
                       type="button"
                       onClick={toggleMusicMute}
@@ -4553,11 +4564,6 @@ export default function HostRoomPage() {
                       style={{ width: `${round3ProgressPercent}%` }}
                     />
                   </div>
-                  <p className="text-xs text-[#142a45]/60 mt-2">
-                    {isRound3ResultsPhase
-                      ? `Играет комментарий из ${ROUND3_COMMENTS_AUDIO_DIR}/ + фон ${ROUND3_RESULTS_BG_FILE}.`
-                      : `На время ответа у ведущего играет ${ROUND3_TIMER_JINGLE_FILE} (ограничено ${ROUND3_ANSWER_SECONDS} сек).`}
-                  </p>
                 </div>
 
                 {isRound3ResultsPhase && (
@@ -4655,9 +4661,6 @@ export default function HostRoomPage() {
                   </button>
                 )}
 
-                <p className="text-xs text-[#142a45]/70">
-                  Голос вопроса играет из {ROUND3_QUESTIONS_AUDIO_DIR}/(N).mp3. Фон {ROUND3_BG_JINGLE_FILE} играет тихо, а таймер сопровождается {ROUND3_TIMER_JINGLE_FILE}.
-                </p>
               </div>
             ) : question ? (
               <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
@@ -4688,9 +4691,9 @@ export default function HostRoomPage() {
                   )}
                 </div>
 
-                <h2 className="text-3xl font-black leading-tight">
+                <h2 className="text-3xl font-black leading-tight text-center">
                   {canAdvance ? (
-                    <span className="text-4xl font-black text-[#1f6ac6]">
+                    <span className="text-4xl font-black text-[#1f6ac6] text-center">
                       {getOptionText(question, question.correctIndex)}
                     </span>
                   ) : (
@@ -4934,14 +4937,14 @@ export default function HostRoomPage() {
               <button
                 type="button"
                 onClick={() => void startRound3Countdown()}
-                className="w-full py-3 rounded-2xl font-black text-lg tracking-[0.3em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45]"
+                className="w-full py-3 rounded-2xl font-black text-lg tracking-[0.3em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] hover:scale-105 hover:shadow-lg transition-all duration-200"
               >
                 Старт
               </button>
               <button
                 type="button"
                 onClick={() => setIsRound3RulesVisible(false)}
-                className="w-full py-3 rounded-2xl border-[3px] border-dashed border-[#142a45] bg-white font-semibold text-[#142a45]"
+                className="w-full py-3 rounded-2xl border-[3px] border-dashed border-[#142a45] bg-white font-semibold text-[#142a45] hover:scale-105 hover:shadow-lg transition-all duration-200"
               >
                 Отмена
               </button>
@@ -4967,14 +4970,14 @@ export default function HostRoomPage() {
                 type="button"
                 onClick={startRound2}
                 disabled={round2Items.length === 0}
-                className="w-full py-3 rounded-2xl font-black text-lg tracking-[0.3em] bg-[#b4007f] text-white border-[3px] border-[#142a45] transition disabled:opacity-40 disabled:cursor-not-allowed"
+                className="w-full py-3 rounded-2xl font-black text-lg tracking-[0.3em] bg-[#b4007f] text-white border-[3px] border-[#142a45] transition hover:scale-105 hover:shadow-lg transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Запустить Раунд 2
               </button>
               <button
                 type="button"
                 onClick={() => setIsRound2RulesVisible(false)}
-                className="w-full py-3 rounded-2xl border-[3px] border-dashed border-[#142a45] bg-white font-semibold text-[#142a45]"
+                className="w-full py-3 rounded-2xl border-[3px] border-dashed border-[#142a45] bg-white font-semibold text-[#142a45] hover:scale-105 hover:shadow-lg transition-all duration-200"
               >
                 Отмена
               </button>
