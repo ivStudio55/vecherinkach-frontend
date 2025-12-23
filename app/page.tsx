@@ -59,10 +59,16 @@ export default function HomePage() {
     }
   };
 
+  const [buttonAnimating, setButtonAnimating] = useState(false);
+
   const handleStart = () => {
-    setHasStarted(true);
-    setCardsVisible(true);
-    handleToggleSound();
+    setButtonAnimating(true);
+    setTimeout(() => {
+      setHasStarted(true);
+      setCardsVisible(true);
+      handleToggleSound();
+      setButtonAnimating(false);
+    }, 600); // Длительность анимации кнопки
   };
 
   const stopAudio = () => {
@@ -199,13 +205,13 @@ export default function HomePage() {
         <div className="min-h-screen flex items-center justify-center">
           <button
             onClick={handleStart}
-            className="px-8 py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] hover:bg-[#1a3a5a] transition"
+            className={`px-8 py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] hover:bg-[#1a3a5a] transition-all duration-500 ${buttonAnimating ? 'scale-110 bg-[#f1532f] shadow-2xl' : ''}`}
           >
             НАЧАТЬ ВЕСЕЛУХУ
           </button>
         </div>
       ) : (
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 space-y-8">
+        <div className={`max-w-5xl mx-auto px-4 sm:px-6 py-10 space-y-8 transition-all duration-700 ${cardsVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
           <header className="retro-panel bg-[#f1532f] text-[#ffeccd] px-6 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <p className="retro-heading text-xs tracking-[0.5em]">Редактор квиза</p>
