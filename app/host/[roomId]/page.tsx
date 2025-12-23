@@ -459,6 +459,43 @@ export default function HostRoomPage() {
 
   const isRound3ResultsPhase = round3Phase === 'results';
 
+  const bestRound3WrongAnswerText = useMemo(() => {
+    if (!isRound3ResultsPhase) {
+      return null;
+    }
+
+    const wrongAnswers = round3ScoredAnswers
+      .filter((row) => !row.isCorrect)
+      .map((row) => ({ ...row, text: row.text.trim() }))
+      .filter((row) => row.text.length > 0);
+
+    if (wrongAnswers.length === 0) {
+      return null;
+    }
+
+    const maxVotes = wrongAnswers.reduce((acc, row) => Math.max(acc, row.votes), 0);
+    if (maxVotes <= 0) {
+      return null;
+    }
+
+    let candidates = wrongAnswers.filter((row) => row.votes === maxVotes);
+    if (candidates.length === 1) {
+      return candidates[0].text;
+    }
+
+    const pointsByPlayerId = new Map(players.map((player) => [player.id, player.total_points] as const));
+    const maxPlayerPoints = candidates.reduce(
+      (acc, row) => Math.max(acc, pointsByPlayerId.get(row.playerId) ?? 0),
+      0
+    );
+    candidates = candidates.filter((row) => (pointsByPlayerId.get(row.playerId) ?? 0) === maxPlayerPoints);
+    if (candidates.length === 1) {
+      return candidates[0].text;
+    }
+
+    return null;
+  }, [isRound3ResultsPhase, players, round3ScoredAnswers]);
+
   const setRound2Phase = useCallback(
     (nextPhase: Round2Phase) => {
       round2PhaseRef.current = nextPhase;
@@ -4525,6 +4562,15 @@ export default function HostRoomPage() {
                     <p className="text-sm tracking-[0.4em] text-[#f1532f]/60 font-semibold">Правильный ответ</p>
                     <p className="text-xl font-semibold">
                       {renderRound3QuestionWithAnswer(currentRound3Question?.question ?? '', currentRound3Question?.answer ?? '')}
+                    </p>
+                  </div>
+                )}
+
+                {isRound3ResultsPhase && bestRound3WrongAnswerText && (
+                  <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-white p-4 space-y-2">
+                    <p className="text-sm tracking-[0.4em] text-[#142a45]/60 font-semibold">Лучший неправильный ответ</p>
+                    <p className="text-xl font-semibold">
+                      {renderRound3QuestionWithAnswer(currentRound3Question?.question ?? '', bestRound3WrongAnswerText)}
                     </p>
                   </div>
                 )}
