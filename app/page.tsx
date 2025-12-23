@@ -294,29 +294,23 @@ export default function HomePage() {
                 <div className="space-y-2">
                   <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Подключение игроков</p>
                   <h2 className="text-2xl font-black text-[#142a45]">Пульт подключения вынесен отдельно</h2>
-                  <p className="text-sm text-[#142a45]/80">
-                    Перейдите на новый экран, чтобы вводить коды комнат, подключать игроков и управлять своим ником.
-                  </p>
                 </div>
                 <div className="space-y-3">
                   <button
                     type="button"
                     onClick={() => navigateWithExit(() => router.push('/join'))}
-                    className="w-full py-4 rounded-2xl font-black text-lg tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45]"
+                    className="hover:scale-105 hover:shadow-lg transition-all duration-200 w-full py-4 rounded-2xl font-black text-lg tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45]"
                   >
                     Открыть экран подключения
                   </button>
                   <button
                     type="button"
                     onClick={() => navigateWithExit(() => router.push('/host'))}
-                    className="w-full py-3 rounded-2xl border-[3px] border-[#142a45] font-semibold bg-[#ffe184] hover:bg-[#ffd463] transition"
+                    className="hover:scale-105 hover:shadow-lg transition-all duration-200 w-full py-3 rounded-2xl border-[3px] border-[#142a45] font-semibold bg-[#ffe184] hover:bg-[#ffd463]"
                   >
                     Стать ведущим
                   </button>
                 </div>
-                <p className="text-xs text-[#142a45]/60">
-                  Этот раздел по‑прежнему доступен с мобильных устройств — просто поделитесь ссылкой /join с игроками.
-                </p>
               </div>
             </div>
 
