@@ -96,7 +96,10 @@ export default function HostPage() {
                   </li>
                   <li className="flex gap-3">
                     <span className="w-9 h-9 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">2</span>
-                    Игроки переходят на `/join`, вводят код и свои ники.
+                    <div className="flex-1">
+                      <p>Игроки переходят на экран подключения:</p>
+                      <img src="/qr-code.png" alt="QR код для подключения" className="w-20 h-20 mt-2" />
+                    </div>
                   </li>
                   <li className="flex gap-3">
                     <span className="w-9 h-9 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">3</span>
@@ -125,7 +128,7 @@ export default function HostPage() {
                 <button
                   onClick={createRoom}
                   disabled={isCreating}
-                  className="w-full py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] transition disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="hover:scale-105 hover:shadow-lg transition-all duration-200 w-full py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {isCreating ? 'Создаём комнату…' : '🎮 Создать комнату'}
                 </button>
@@ -133,7 +136,7 @@ export default function HostPage() {
                 <button
                   type="button"
                   onClick={() => router.push('/')}
-                  className="w-full py-3 rounded-2xl border-[3px] border-[#142a45] font-semibold bg-white hover:bg-[#fef4dc] transition"
+                  className="hover:scale-105 hover:shadow-lg transition-all duration-200 w-full py-3 rounded-2xl border-[3px] border-[#142a45] font-semibold bg-white hover:bg-[#fef4dc]"
                 >
                   ← На главную
                 </button>
