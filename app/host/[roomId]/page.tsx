@@ -146,7 +146,7 @@ const normalizeRound3FreeText = (value: string) => {
 
 const renderRound3QuestionWithAnswer = (questionText: string, answerText: string) => {
   const parts = (questionText ?? '').split(/(\*{3,})/g);
-  const answerNode = <span className="font-black">{answerText}</span>;
+  const answerNode = <span className="font-black text-2xl">{answerText}</span>;
   let replacedAny = false;
   const nodes = parts.map((part, idx) => {
     if (/^\*{3,}$/.test(part)) {
@@ -159,7 +159,7 @@ const renderRound3QuestionWithAnswer = (questionText: string, answerText: string
   if (!replacedAny) {
     return (
       <>
-        {questionText} <span className="font-black">({answerText})</span>
+        {questionText} <span className="font-black text-2xl">({answerText})</span>
       </>
     );
   }
@@ -4520,12 +4520,23 @@ export default function HostRoomPage() {
                   </div>
                 </div>
 
-                <div className="rounded-3xl border-[3px] border-[#f1532f]/20 bg-[#fff6da] p-5 space-y-2">
-                  <p className="text-[11px] tracking-[0.4em] text-[#f1532f]/60">Сейчас звучит у ведущего</p>
-                  <p className="text-2xl font-black leading-snug">
-                    {currentRound3Question?.question ?? 'Подождите, факты загружаются…'}
-                  </p>
-                </div>
+                {isRound3ResultsPhase && (
+                  <div className="rounded-3xl border-[3px] border-[#f1532f]/20 bg-[#fff6da] p-4 space-y-2">
+                    <p className="text-sm tracking-[0.4em] text-[#f1532f]/60 font-semibold">Правильный ответ</p>
+                    <p className="text-xl font-semibold">
+                      {renderRound3QuestionWithAnswer(currentRound3Question?.question ?? '', currentRound3Question?.answer ?? '')}
+                    </p>
+                  </div>
+                )}
+
+                {!isRound3ResultsPhase && (
+                  <div className="rounded-3xl border-[3px] border-[#f1532f]/20 bg-[#fff6da] p-5 space-y-2">
+                    <p className="text-[11px] tracking-[0.4em] text-[#f1532f]/60">Сейчас звучит у ведущего</p>
+                    <p className="text-2xl font-black leading-snug">
+                      {currentRound3Question?.question ?? 'Подождите, факты загружаются…'}
+                    </p>
+                  </div>
+                )}
 
                 <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-white px-4 py-3 text-sm font-semibold flex items-center justify-between">
                   <span>Музыка</span>
@@ -4558,13 +4569,6 @@ export default function HostRoomPage() {
                 {isRound3ResultsPhase && (
                   <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-white p-5 space-y-4">
                     <p className="retro-heading text-[11px] tracking-[0.5em] text-[#142a45]/70">Итоги факта</p>
-
-                    <div className="rounded-3xl border-[3px] border-[#f1532f]/20 bg-[#fff6da] p-4 space-y-2">
-                      <p className="text-[11px] tracking-[0.4em] text-[#f1532f]/60">Правильный ответ</p>
-                      <p className="text-lg font-semibold">
-                        {renderRound3QuestionWithAnswer(currentRound3Question?.question ?? '', currentRound3Question?.answer ?? '')}
-                      </p>
-                    </div>
 
                     {currentRound3Question?.comment && (
                       <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-4 space-y-2">
