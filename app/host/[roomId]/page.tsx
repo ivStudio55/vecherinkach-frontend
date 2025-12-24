@@ -2018,7 +2018,7 @@ export default function HostRoomPage() {
       round2ExplanationBgAudioRef.current = bg;
 
       const ordinal = index + 1;
-      const voice = new Audio(buildAudioUrl(`round2/explanation/explanation${ordinal}.mp3`));
+      const voice = new Audio(buildAudioUrl(`round2/explanation/${ordinal}.mp3`));
       voice.volume = 0.95;
 
       round2ExplanationAudioRef.current = voice;
@@ -2061,7 +2061,7 @@ export default function HostRoomPage() {
       round2ExplanationBgAudioRef.current = bg;
 
       const ordinal = index + 1;
-      const voice = new Audio(buildAudioUrl(`round2/fictionExplanation/fictionExplanation${ordinal}.mp3`));
+      const voice = new Audio(buildAudioUrl(`round2/fictionExplanation/${ordinal}.mp3`));
       voice.volume = 0.95;
 
       round2ExplanationAudioRef.current = voice;
