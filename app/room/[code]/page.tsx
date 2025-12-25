@@ -208,7 +208,8 @@ export default function RoomPage() {
   }, []);
 
   useEffect(() => {
-    if (!round4PuzzleId || !round4Puzzles.length) {
+    if (round4PuzzleId === null || !round4Puzzles.length) {
+      setRound4Puzzle(null);
       return;
     }
     const next = round4Puzzles.find((p) => p.id === round4PuzzleId) ?? null;
@@ -545,6 +546,11 @@ export default function RoomPage() {
         setRound4PuzzleId(puzzleId);
         setRound4Puzzle(puzzleId ? round4Puzzles.find((p) => p.id === puzzleId) ?? null : null);
 
+        // Immediately reset per-puzzle UI state; then restore from DB if needed.
+        setHasAnswered(false);
+        setRound4AnswerText('');
+        setError('');
+
         if (puzzleId) {
           const { data: existingRound4Answer } = await supabase
             .from('round4_answers')
@@ -767,6 +773,11 @@ export default function RoomPage() {
             const puzzleId = newQuestionIndex;
             setRound4PuzzleId(puzzleId);
             setRound4Puzzle(puzzleId ? round4Puzzles.find((p) => p.id === puzzleId) ?? null : null);
+
+            // Immediately reset per-puzzle UI state; then restore from DB if needed.
+            setHasAnswered(false);
+            setRound4AnswerText('');
+            setError('');
 
             const currentPlayerId = playerIdRef.current;
             const currentRoomId = roomIdRef.current;
@@ -1373,7 +1384,7 @@ export default function RoomPage() {
               )}
             </div>
 
-            {hasAnswered || allPlayersAnswered ? (
+            {(hasAnswered || allPlayersAnswered) && round4Puzzle ? (
               <div className="rounded-3xl border-[3px] border-[#1f6ac6] bg-[#e9f0ff] p-6 text-center space-y-2">
                 <div className="text-5xl">✅</div>
                 <h3 className="text-2xl font-black text-[#1f6ac6]">Ответ отправлен!</h3>
