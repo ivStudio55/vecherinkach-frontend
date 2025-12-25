@@ -134,6 +134,26 @@ const ROUND4_RULES_TEXT =
   '• Последующие правильно ответившие получают 50 баллов.\n' +
   '• Таймер — 30 секунд.';
 
+const ROUND4_TOTAL_QUESTIONS = 6;
+const ROUND4_ANSWER_SECONDS = 30;
+const ROUND4_FIRST_CORRECT_POINTS = 100;
+const ROUND4_OTHER_CORRECT_POINTS = 50;
+const ROUND4_TIMER_JINGLE_FILE = '30_sec.mp3';
+const ROUND4_CATEGORY_AUDIO_MAP: Record<string, string> = {
+  'Американский кинематограф': 'round4/category/american_cinema',
+  'Дисней': 'round4/category/disney',
+  'Сериалы': 'round4/category/series',
+  'Зарубежная эстрада': 'round4/category/foreign_bandstand',
+  'Советская эстрада': 'round4/category/soviet_bandstand',
+  'Русский рок': 'round4/category/russian_rock',
+  'Американские Мультфильмы': 'round4/category/american_cartoons',
+  'Сказка': 'round4/category/fairy_tale',
+  'Советский мультфильм': 'round4/category/soviet_cartoon',
+  'Руссская литература': 'round4/category/russian_literature',
+  'Классика': 'round4/category/classic',
+  'Современная отечественная Эстрада': 'round4/category/modern_russian_bandstand',
+};
+
 const buildAudioUrl = (relativePath: string) => `/api/audio?file=${encodeURIComponent(relativePath)}&t=${Date.now()}`;
 const buildJingleUrl = (fileName: string) => `/api/jingle/audio?file=${encodeURIComponent(fileName)}&t=${Date.now()}`;
 const pickRandomItem = <T,>(items: readonly T[]) => items[Math.floor(Math.random() * items.length)];
@@ -250,7 +270,16 @@ type Round3ScoredAnswer = {
   pointsEarned: number;
 };
 
-type RoomStatus = 'waiting' | 'running' | 'finished' | 'round2-running' | 'round3-running';
+type Round4Puzzle = {
+  id: number;
+  category: string;
+  emoji: string;
+  answer: string;
+};
+
+type Round4Phase = 'puzzle' | 'answer';
+
+type RoomStatus = 'waiting' | 'running' | 'finished' | 'round2-running' | 'round3-running' | 'round4-running';
 
 interface RoundAnswer {
   player_id: string;
@@ -345,6 +374,14 @@ export default function HostRoomPage() {
   const [round3SkippedVoterIds, setRound3SkippedVoterIds] = useState<string[]>([]);
   const [round3VotersCount, setRound3VotersCount] = useState(0);
   const [isTournamentVisible, setIsTournamentVisible] = useState(false);
+  const [round4Puzzles, setRound4Puzzles] = useState<Round4Puzzle[]>([]);
+  const [round4CurrentPuzzle, setRound4CurrentPuzzle] = useState<Round4Puzzle | null>(null);
+  const [round4Phase, setRound4Phase] = useState<Round4Phase>('puzzle');
+  const [round4AskedIds, setRound4AskedIds] = useState<number[]>([]);
+  const [round4QuestionCounter, setRound4QuestionCounter] = useState(0);
+  const [round4TimeLeft, setRound4TimeLeft] = useState(ROUND4_ANSWER_SECONDS);
+  const [round4StartedAt, setRound4StartedAt] = useState<string | null>(null);
+  const [isRound4Complete, setIsRound4Complete] = useState(false);
 
   const isMusicMutedRef = useRef(isMusicMuted);
   useEffect(() => {
@@ -382,6 +419,11 @@ export default function HostRoomPage() {
   const round3CommentAudioRef = useRef<HTMLAudioElement | null>(null);
   const round3CommentBgAudioRef = useRef<HTMLAudioElement | null>(null);
   const tournamentJingleAudioRef = useRef<HTMLAudioElement | null>(null);
+  const round4TimerAudioRef = useRef<HTMLAudioElement | null>(null);
+  const round4CategoryAudioRef = useRef<HTMLAudioElement | null>(null);
+  const round4AnswerAudioRef = useRef<HTMLAudioElement | null>(null);
+  const round4AskedIdsRef = useRef<number[]>([]);
+  const round4QuestionCounterRef = useRef(0);
   const lastRound3ResultsAudioKeyRef = useRef<string | null>(null);
   const lastRound3ResultsScoringKeyRef = useRef<string | null>(null);
   const round3PlaybackTokenRef = useRef(0);
@@ -691,6 +733,24 @@ export default function HostRoomPage() {
     }
   }, []);
 
+  const stopRound4Audio = useCallback(() => {
+    if (round4TimerAudioRef.current) {
+      round4TimerAudioRef.current.pause();
+      round4TimerAudioRef.current.currentTime = 0;
+      round4TimerAudioRef.current = null;
+    }
+    if (round4CategoryAudioRef.current) {
+      round4CategoryAudioRef.current.pause();
+      round4CategoryAudioRef.current.currentTime = 0;
+      round4CategoryAudioRef.current = null;
+    }
+    if (round4AnswerAudioRef.current) {
+      round4AnswerAudioRef.current.pause();
+      round4AnswerAudioRef.current.currentTime = 0;
+      round4AnswerAudioRef.current = null;
+    }
+  }, []);
+
   const stopRoundEndAudio = useCallback(() => {
     const mainCue = roundEndAudioRef.current;
     if (mainCue) {
@@ -846,6 +906,140 @@ export default function HostRoomPage() {
       console.error('Не удалось воспроизвести озвучку правил Раунда 4', err);
     });
   }, [stopRound4RulesAudio]);
+
+  const playRound4TimerAudio = useCallback(() => {
+    if (!hasUserInteractedRef.current) return;
+    stopRound4Audio();
+    const audio = new Audio(buildAudioUrl(ROUND4_TIMER_JINGLE_FILE));
+    audio.volume = 0.6;
+    round4TimerAudioRef.current = audio;
+    audio.play().catch((err) => {
+      console.error('Не удалось воспроизвести таймер Раунда 4', err);
+    });
+  }, [stopRound4Audio]);
+
+  const playRound4CategoryAudio = useCallback((category: string) => {
+    if (!hasUserInteractedRef.current) return;
+    const categoryDir = ROUND4_CATEGORY_AUDIO_MAP[category];
+    if (!categoryDir) {
+      console.warn('Нет аудио папки для категории:', category);
+      return;
+    }
+    // Pick random file (1.mp3 or 2.mp3 etc) from the category folder
+    const fileIndex = Math.floor(Math.random() * 3) + 1;
+    const audioPath = `${categoryDir}/${fileIndex}.mp3`;
+    const audio = new Audio(buildAudioUrl(audioPath));
+    audio.volume = 0.9;
+    round4CategoryAudioRef.current = audio;
+    audio.play().catch((err) => {
+      console.error('Не удалось воспроизвести аудио категории Раунда 4', err);
+    });
+  }, []);
+
+  const playRound4AnswerAudio = useCallback((puzzleId: number) => {
+    if (!hasUserInteractedRef.current) return;
+    if (round4AnswerAudioRef.current) {
+      round4AnswerAudioRef.current.pause();
+      round4AnswerAudioRef.current = null;
+    }
+    const audioPath = `round4/questions/${puzzleId}.mp3`;
+    const audio = new Audio(buildAudioUrl(audioPath));
+    audio.volume = 0.95;
+    round4AnswerAudioRef.current = audio;
+    audio.play().catch((err) => {
+      console.error('Не удалось воспроизвести озвучку ответа Раунда 4', err);
+    });
+  }, []);
+
+  const pickNextRound4Puzzle = useCallback((): Round4Puzzle | null => {
+    if (!round4Puzzles.length) return null;
+    const askedSet = new Set(round4AskedIdsRef.current);
+    const available = round4Puzzles.filter((p) => !askedSet.has(p.id));
+    if (!available.length) return null;
+    const idx = Math.floor(Math.random() * available.length);
+    return available[idx];
+  }, [round4Puzzles]);
+
+  const startRound4Puzzle = useCallback(async () => {
+    const puzzle = pickNextRound4Puzzle();
+    if (!puzzle) {
+      console.warn('Нет доступных пазлов для Раунда 4');
+      return;
+    }
+
+    const newCounter = round4QuestionCounterRef.current + 1;
+    round4QuestionCounterRef.current = newCounter;
+    round4AskedIdsRef.current = [...round4AskedIdsRef.current, puzzle.id];
+
+    setRound4AskedIds((prev) => [...prev, puzzle.id]);
+    setRound4QuestionCounter(newCounter);
+    setRound4CurrentPuzzle(puzzle);
+    setRound4Phase('puzzle');
+    setRound4StartedAt(new Date().toISOString());
+    setRound4TimeLeft(ROUND4_ANSWER_SECONDS);
+
+    // Update room status
+    try {
+      await supabase.from('rooms').update({
+        status: 'round4-running',
+        round4_current_puzzle_id: puzzle.id,
+        round4_question_counter: newCounter,
+        round4_phase: 'puzzle',
+        question_started_at: new Date().toISOString(),
+      }).eq('id', roomId);
+    } catch (err) {
+      console.error('Failed to update room for Round 4 puzzle', err);
+    }
+
+    // Play timer audio and category audio
+    playRound4TimerAudio();
+    setTimeout(() => {
+      playRound4CategoryAudio(puzzle.category);
+    }, 500);
+  }, [pickNextRound4Puzzle, playRound4TimerAudio, playRound4CategoryAudio, roomId]);
+
+  const showRound4Answer = useCallback(async () => {
+    if (!round4CurrentPuzzle) return;
+
+    stopRound4Audio();
+    setRound4Phase('answer');
+
+    // Update DB
+    try {
+      await supabase.from('rooms').update({
+        round4_phase: 'answer',
+      }).eq('id', roomId);
+    } catch (err) {
+      console.error('Failed to update room for Round 4 answer phase', err);
+    }
+
+    // Play answer audio
+    playRound4AnswerAudio(round4CurrentPuzzle.id);
+  }, [round4CurrentPuzzle, stopRound4Audio, playRound4AnswerAudio, roomId]);
+
+  const advanceRound4 = useCallback(async () => {
+    stopRound4Audio();
+
+    if (round4QuestionCounterRef.current >= ROUND4_TOTAL_QUESTIONS) {
+      // Round 4 complete
+      setIsRound4Complete(true);
+      setRound4CurrentPuzzle(null);
+      setRoomStatus('waiting');
+      try {
+        await supabase.from('rooms').update({
+          status: 'waiting',
+          round4_phase: null,
+          round4_current_puzzle_id: null,
+        }).eq('id', roomId);
+      } catch (err) {
+        console.error('Failed to update room after Round 4 complete', err);
+      }
+      return;
+    }
+
+    // Next puzzle
+    await startRound4Puzzle();
+  }, [stopRound4Audio, startRound4Puzzle, roomId]);
 
   const stopRound3Audio = useCallback(() => {
     round3PlaybackTokenRef.current += 1;
@@ -1902,6 +2096,25 @@ export default function HostRoomPage() {
 
     if (roomId) {
       void loadRound3Data();
+    }
+  }, [roomId]);
+
+  useEffect(() => {
+    const loadRound4Data = async () => {
+      try {
+        const url = `/api/round4/puzzles?roomId=${encodeURIComponent(roomId)}&count=${ROUND4_TOTAL_QUESTIONS}`;
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) return;
+        const payload = (await res.json()) as { puzzles?: Round4Puzzle[] };
+        const puzzles = Array.isArray(payload?.puzzles) ? payload.puzzles : [];
+        setRound4Puzzles(puzzles);
+      } catch (e) {
+        console.error('Failed to load round4 puzzles', e);
+      }
+    };
+
+    if (roomId) {
+      void loadRound4Data();
     }
   }, [roomId]);
 
@@ -3176,6 +3389,32 @@ export default function HostRoomPage() {
     return () => clearInterval(interval);
   }, [roomStatus, timerActive, questionStartedAt, timeOffsetMs]);
 
+  // Round 4 timer effect
+  useEffect(() => {
+    if (roomStatus !== 'round4-running' || !round4StartedAt || round4Phase !== 'puzzle') {
+      return;
+    }
+
+    const tick = () => {
+      const remaining = getRemainingSeconds(round4StartedAt, ROUND4_ANSWER_SECONDS, timeOffsetMs);
+      setRound4TimeLeft(remaining);
+    };
+
+    tick();
+    const interval = setInterval(tick, 250);
+    return () => clearInterval(interval);
+  }, [roomStatus, round4StartedAt, round4Phase, timeOffsetMs]);
+
+  // Auto-show answer when Round 4 timer runs out
+  useEffect(() => {
+    if (roomStatus !== 'round4-running' || round4Phase !== 'puzzle') {
+      return;
+    }
+    if (round4TimeLeft <= 0 && round4CurrentPuzzle) {
+      void showRound4Answer();
+    }
+  }, [roomStatus, round4Phase, round4TimeLeft, round4CurrentPuzzle, showRound4Answer]);
+
   useEffect(() => {
     if (!roomId || roomStatus !== 'running') {
       return;
@@ -3988,6 +4227,7 @@ export default function HostRoomPage() {
   const isRound1Active = roomStatus === 'running';
   const isRound2Running = roomStatus === 'round2-running';
   const isRound3Running = roomStatus === 'round3-running';
+  const isRound4Running = roomStatus === 'round4-running';
   const canAdvance = isRound1Active && (effectiveTimeLeft === 0 || allPlayersAnswered);
   const nextButtonDisabled = !canAdvance || (isLastQuestion && (isSummaryLoading || isRoundEndButtonLocked));
   const progressPercent = Math.max(0, Math.min(100, (effectiveTimeLeft / QUESTION_DURATION_SECONDS) * 100));
@@ -3999,6 +4239,13 @@ export default function HostRoomPage() {
     : effectiveTimeLeft;
   const round3ProgressPercent = Math.max(0, Math.min(100, (round3TimerTimeLeft / round3TimerDuration) * 100));
   const isLastRound3Fact = isRound3Running && currentQuestionIndex + 1 >= round3QuestionCount;
+
+  const round4TimerTimeLeft = isRound4Running
+    ? getRemainingSeconds(round4StartedAt, ROUND4_ANSWER_SECONDS, timeOffsetMs)
+    : ROUND4_ANSWER_SECONDS;
+  const round4ProgressPercent = Math.max(0, Math.min(100, (round4TimerTimeLeft / ROUND4_ANSWER_SECONDS) * 100));
+  const isLastRound4Puzzle = round4QuestionCounter >= ROUND4_TOTAL_QUESTIONS;
+
   const questionsForSummary = summaryQuestions.length ? summaryQuestions : question ? [question] : [];
   const isWaiting = roomStatus === 'waiting' && !showResults;
   const shouldShowRulesModal = isWaiting && isRulesVisible;
@@ -4091,9 +4338,7 @@ export default function HostRoomPage() {
     setCountdownContext('round4');
     countdownCompleteActionRef.current = async () => {
       try {
-        // TODO: Implement Round 4 game start logic
-        // For now, just reset the lock
-        console.log('Раунд 4 запущен!');
+        await startRound4Puzzle();
       } finally {
         round4StartLockRef.current = false;
       }
@@ -4103,6 +4348,7 @@ export default function HostRoomPage() {
   }, [
     clearCountdownTimeout,
     isCountdownVisible,
+    startRound4Puzzle,
     stopTournamentJingle,
     playSkipAudioAndWait,
     runCountdownSequence,
@@ -4820,6 +5066,79 @@ export default function HostRoomPage() {
                   </button>
                 )}
 
+              </div>
+            ) : isRound4Running ? (
+              <div className="rounded-3xl border-[4px] border-[#b4007f] bg-white shadow-xl p-6 space-y-5">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="retro-heading text-xs tracking-[0.4em] text-[#b4007f]/70">Раунд 4 · «Дэшифровщик»</p>
+                    <h2 className="text-3xl font-black">🔐 Загадка #{round4QuestionCounter}</h2>
+                  </div>
+                  <div className="flex flex-col items-start sm:items-end text-sm font-semibold text-[#b4007f]">
+                    <span>
+                      Пазл <span className="font-black">{round4QuestionCounter}</span>/{ROUND4_TOTAL_QUESTIONS}
+                    </span>
+                    <span className="text-xs text-[#142a45]/70">30 сек на ответ</span>
+                  </div>
+                </div>
+
+                {round4CurrentPuzzle && (
+                  <div className="rounded-3xl border-[3px] border-[#b4007f]/20 bg-[#fff6da] p-6 space-y-4 text-center">
+                    <p className="text-xs tracking-[0.4em] text-[#b4007f]/60 font-semibold uppercase">
+                      {round4CurrentPuzzle.category}
+                    </p>
+                    <p className="text-7xl leading-tight">{round4CurrentPuzzle.emoji}</p>
+                    {round4Phase === 'answer' && (
+                      <div className="mt-4 pt-4 border-t-[3px] border-[#b4007f]/20">
+                        <p className="text-sm tracking-[0.4em] text-[#b4007f]/60 font-semibold">ОТВЕТ</p>
+                        <p className="text-3xl font-black text-[#142a45]">{round4CurrentPuzzle.answer}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div>
+                  <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
+                    <span>Таймер · {ROUND4_ANSWER_SECONDS} сек</span>
+                    <span className={`font-black ${round4Phase === 'answer' ? 'text-[#1f6ac6]' : 'text-[#142a45]'}`}>
+                      {round4Phase === 'answer' ? 'Ответ раскрыт' : `${round4TimerTimeLeft} c`}
+                    </span>
+                  </div>
+                  <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
+                    <div
+                      className={`h-full ${round4TimerTimeLeft > 5 ? 'bg-[#b4007f]' : 'bg-[#f1532f]'}`}
+                      style={{ width: `${round4Phase === 'answer' ? 0 : round4ProgressPercent}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-white p-4 space-y-2">
+                  <p className="text-sm text-[#142a45]/70">
+                    💎 Первый правильный: <span className="font-black text-[#b4007f]">+{ROUND4_FIRST_CORRECT_POINTS}</span> ·
+                    Последующие: <span className="font-black text-[#1f6ac6]">+{ROUND4_OTHER_CORRECT_POINTS}</span>
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  {round4Phase === 'puzzle' && (
+                    <button
+                      type="button"
+                      onClick={() => void showRound4Answer()}
+                      className="w-full py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#f1532f] text-white border-[3px] border-[#142a45] transition"
+                    >
+                      Показать ответ
+                    </button>
+                  )}
+                  {round4Phase === 'answer' && (
+                    <button
+                      type="button"
+                      onClick={() => void advanceRound4()}
+                      className="w-full py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#b4007f] text-white border-[3px] border-[#142a45] transition"
+                    >
+                      {isLastRound4Puzzle ? 'Турнирная таблица' : 'Следующий пазл'}
+                    </button>
+                  )}
+                </div>
               </div>
             ) : question ? (
               <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
