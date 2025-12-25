@@ -76,16 +76,14 @@ type Question = ActiveRoundQuestion;
 
 type RoomStatus = 'waiting' | 'running' | 'finished' | 'round2-running' | 'round3-running' | 'round4-running';
 
+type Round2Phase = 'idle' | 'fact' | 'explanation';
+
 type Round4Puzzle = {
   id: number;
   category: string;
   emoji: string;
   answer: string;
 };
-
-type Round4Phase = 'puzzle' | 'answer';
-
-type Round2Phase = 'idle' | 'fact' | 'explanation';
 
 type Round3Question = {
   question: string;
@@ -122,9 +120,6 @@ type RoomUpdatePayload = {
     round2_item_index?: number | null;
     round2_showing_fact?: boolean | null;
     round2_phase?: Round2Phase | string | null;
-    round4_current_puzzle_id?: number | null;
-    round4_phase?: Round4Phase | string | null;
-    round4_question_counter?: number | null;
   };
 };
 
@@ -145,6 +140,9 @@ export default function RoomPage() {
   const [timeLeft, setTimeLeft] = useState(QUESTION_DURATION_SECONDS);
   const [showResults, setShowResults] = useState(false);
   const [roomStatus, setRoomStatus] = useState<RoomStatus>('waiting');
+  const [round4Puzzles, setRound4Puzzles] = useState<Round4Puzzle[]>([]);
+  const [round4Puzzle, setRound4Puzzle] = useState<Round4Puzzle | null>(null);
+  const [round4AnswerText, setRound4AnswerText] = useState('');
   const [allPlayersAnswered, setAllPlayersAnswered] = useState(false);
   const [timeOffsetMs, setTimeOffsetMs] = useState(0);
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<number[]>([]);
@@ -157,11 +155,6 @@ export default function RoomPage() {
   const [round3AnswerText, setRound3AnswerText] = useState('');
   const [round3AnswerOptions, setRound3AnswerOptions] = useState<Round3AnswerRow[]>([]);
   const [round3HasVoted, setRound3HasVoted] = useState(false);
-  const [round4CurrentPuzzle, setRound4CurrentPuzzle] = useState<Round4Puzzle | null>(null);
-  const [round4Phase, setRound4Phase] = useState<Round4Phase>('puzzle');
-  const [round4QuestionCounter, setRound4QuestionCounter] = useState(0);
-  const [round4AnswerText, setRound4AnswerText] = useState('');
-  const [round4HasAnswered, setRound4HasAnswered] = useState(false);
   const roomIdRef = useRef('');
   const playerIdRef = useRef('');
   const round3VoiceRef = useRef<HTMLAudioElement | null>(null);
@@ -182,6 +175,24 @@ export default function RoomPage() {
       }
     };
     void loadRound2Data();
+  }, []);
+
+  useEffect(() => {
+    const loadRound4Data = async () => {
+      try {
+        const res = await fetch('/questions/4round.json', { cache: 'no-store' });
+        if (!res.ok) {
+          return;
+        }
+        const payload = await res.json();
+        const puzzles = Array.isArray(payload?.puzzles) ? (payload.puzzles as Round4Puzzle[]) : [];
+        setRound4Puzzles(puzzles);
+      } catch (e) {
+        console.error('Failed to load round4 data', e);
+      }
+    };
+
+    void loadRound4Data();
   }, []);
 
   useEffect(() => {
@@ -378,7 +389,7 @@ export default function RoomPage() {
       const { data: room, error: roomError } = await supabase
         .from('rooms')
         .select(
-          'id, current_question_index, is_active, status, question_started_at, all_players_answered, selected_question_ids, round2_item_index, round2_showing_fact, round2_phase, round4_current_puzzle_id, round4_phase, round4_question_counter'
+          'id, current_question_index, is_active, status, question_started_at, all_players_answered, selected_question_ids, round2_item_index, round2_showing_fact, round2_phase'
         )
         .eq('code', roomCode)
         .single();
@@ -396,7 +407,7 @@ export default function RoomPage() {
       const detectedStatus = (room.status as RoomStatus) || (room.is_active ? 'waiting' : 'finished');
       setRoomStatus(detectedStatus);
       setAllPlayersAnswered(
-        detectedStatus === 'running' || detectedStatus === 'round2-running' || detectedStatus === 'round3-running' || detectedStatus === 'round4-running'
+        detectedStatus === 'running' || detectedStatus === 'round2-running' || detectedStatus === 'round3-running'
           ? !!room.all_players_answered
           : false
       );
@@ -492,63 +503,6 @@ export default function RoomPage() {
         if (!cancelled) {
           setIsLoading(false);
         }
-      } else if (detectedStatus === 'round4-running') {
-        setShowResults(false);
-        setQuestion(null);
-        setRound2ItemIndex(null);
-        setRound2Phase('idle');
-        setRound3QuestionIndex(null);
-
-        const puzzleId = room.round4_current_puzzle_id as number | null;
-        const puzzlePhase = (room.round4_phase as Round4Phase) || 'puzzle';
-        const puzzleCounter = (room.round4_question_counter as number) || 0;
-
-        setRound4Phase(puzzlePhase);
-        setRound4QuestionCounter(puzzleCounter);
-
-        // Load puzzle data if we have a puzzle ID
-        if (puzzleId !== null) {
-          try {
-            const res = await fetch(`/api/round4/puzzles?roomId=${encodeURIComponent(room.id)}&count=60`, { cache: 'no-store' });
-            if (res.ok) {
-              const data = await res.json() as { puzzles?: Round4Puzzle[] };
-              const puzzle = data.puzzles?.find((p: Round4Puzzle) => p.id === puzzleId) ?? null;
-              setRound4CurrentPuzzle(puzzle);
-            }
-          } catch (e) {
-            console.error('Failed to load round4 puzzle', e);
-          }
-        } else {
-          setRound4CurrentPuzzle(null);
-        }
-
-        const startTime = room.question_started_at;
-        setQuestionStartedAt(startTime);
-        const initialTime = getRemainingSeconds(startTime, offset);
-        setTimeLeft(room.all_players_answered ? 0 : initialTime);
-
-        // Check if player already answered this puzzle
-        if (puzzleId !== null) {
-          try {
-            const { data: existingRound4Answer } = await supabase
-              .from('round4_answers')
-              .select('id')
-              .eq('player_id', storedPlayerId)
-              .eq('room_id', room.id)
-              .eq('puzzle_id', puzzleId)
-              .single();
-
-            setRound4HasAnswered(!!existingRound4Answer);
-          } catch {
-            setRound4HasAnswered(false);
-          }
-        } else {
-          setRound4HasAnswered(false);
-        }
-
-        if (!cancelled) {
-          setIsLoading(false);
-        }
       } else {
         const startTime = room.question_started_at;
         setQuestionStartedAt(startTime);
@@ -614,7 +568,7 @@ export default function RoomPage() {
           const newStatus = (payload.new.status as RoomStatus) || (payload.new.is_active ? 'waiting' : 'finished');
           setRoomStatus(newStatus);
           const everyoneAnsweredFlag =
-            newStatus === 'running' || newStatus === 'round2-running' || newStatus === 'round3-running' || newStatus === 'round4-running'
+            newStatus === 'running' || newStatus === 'round2-running' || newStatus === 'round3-running'
               ? !!payload.new.all_players_answered
               : false;
           setAllPlayersAnswered(everyoneAnsweredFlag);
@@ -722,55 +676,6 @@ export default function RoomPage() {
             } else {
               setHasAnswered(false);
             }
-            return;
-          }
-
-          if (newStatus === 'round4-running') {
-            setShowResults(false);
-            setQuestion(null);
-            setRound2ItemIndex(null);
-            setRound2Phase('idle');
-            setRound3QuestionIndex(null);
-
-            const puzzleId = payload.new.round4_current_puzzle_id as number | null;
-            const puzzlePhase = (payload.new.round4_phase as Round4Phase) || 'puzzle';
-            const puzzleCounter = (payload.new.round4_question_counter as number) || 0;
-
-            setRound4Phase(puzzlePhase);
-            setRound4QuestionCounter(puzzleCounter);
-
-            // Load puzzle data if we have a puzzle ID
-            if (puzzleId !== null) {
-              try {
-                const currentRoomId = roomIdRef.current;
-                const res = await fetch(`/api/round4/puzzles?roomId=${encodeURIComponent(currentRoomId)}&count=60`, { cache: 'no-store' });
-                if (res.ok) {
-                  const data = await res.json() as { puzzles?: Round4Puzzle[] };
-                  const puzzle = data.puzzles?.find((p: Round4Puzzle) => p.id === puzzleId) ?? null;
-                  setRound4CurrentPuzzle(puzzle);
-                }
-              } catch (e) {
-                console.error('Failed to load round4 puzzle', e);
-              }
-            } else {
-              setRound4CurrentPuzzle(null);
-            }
-
-            setQuestionStartedAt(startedAt);
-
-            const offset = await syncServerTimeRef.current?.();
-            if (everyoneAnsweredFlag) {
-              setTimeLeft(0);
-            } else {
-              setTimeLeft(startedAt ? getRemainingSeconds(startedAt, offset || 0) : QUESTION_DURATION_SECONDS);
-            }
-
-            // Reset answer state for new puzzle
-            if (puzzlePhase === 'puzzle') {
-              setRound4HasAnswered(false);
-              setRound4AnswerText('');
-            }
-
             return;
           }
 
@@ -1560,88 +1465,6 @@ export default function RoomPage() {
             <p className="text-sm text-[#142a45]/70 text-center">
               Слушайте ведущего: озвучка факта и фоновая музыка звучат у него.
             </p>
-          </section>
-        )}
-
-        {roomStatus === 'round4-running' && (
-          <section className="rounded-3xl border-[4px] border-[#b4007f] bg-white shadow-xl p-6 space-y-6">
-            <div className="flex flex-col gap-3 text-center">
-              <span className="mx-auto px-4 py-2 rounded-full border-[3px] border-[#b4007f] text-sm font-black">
-                Раунд 4 · Дэшифровщик
-              </span>
-              <h2 className="text-2xl font-black leading-tight">🔐 Разгадай эмодзи!</h2>
-              <p className="text-sm text-[#142a45]/70">
-                Пазл #{round4QuestionCounter} · {round4Phase === 'puzzle' ? 'Введи ответ как можно быстрее!' : 'Ответ раскрыт'}
-              </p>
-            </div>
-
-            {round4CurrentPuzzle && (
-              <div className="rounded-3xl border-[3px] border-[#b4007f]/20 bg-[#fff6da] p-6 space-y-4 text-center">
-                <p className="text-xs tracking-[0.4em] text-[#b4007f]/60 font-semibold uppercase">
-                  {round4CurrentPuzzle.category}
-                </p>
-                <p className="text-6xl sm:text-7xl leading-tight">{round4CurrentPuzzle.emoji}</p>
-                {round4Phase === 'answer' && (
-                  <div className="mt-4 pt-4 border-t-[3px] border-[#b4007f]/20">
-                    <p className="text-sm tracking-[0.4em] text-[#b4007f]/60 font-semibold">ОТВЕТ</p>
-                    <p className="text-2xl sm:text-3xl font-black text-[#142a45]">{round4CurrentPuzzle.answer}</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div>
-              <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
-                <span>Таймер · 30 сек</span>
-                <span className={`font-black ${round4Phase === 'answer' ? 'text-[#1f6ac6]' : 'text-[#142a45]'}`}>
-                  {round4Phase === 'answer' ? 'Время вышло' : `${effectiveTimeLeft} c`}
-                </span>
-              </div>
-              <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
-                <div
-                  className={`h-full ${effectiveTimeLeft > 5 ? 'bg-[#b4007f]' : 'bg-[#f1532f]'}`}
-                  style={{ width: `${round4Phase === 'answer' ? 0 : progressPercent}%` }}
-                />
-              </div>
-            </div>
-
-            {round4Phase === 'puzzle' && !round4HasAnswered && effectiveTimeLeft > 0 && (
-              <div className="space-y-3">
-                <p className="text-xs font-semibold tracking-[0.3em] text-[#142a45]/60 text-center">ВВЕДИ СВОЙ ОТВЕТ</p>
-                <input
-                  value={round4AnswerText}
-                  onChange={(e) => setRound4AnswerText(e.target.value)}
-                  placeholder="Название фильма, песни..."
-                  className="w-full rounded-2xl border-[3px] border-[#b4007f] bg-white px-4 py-3 text-sm font-semibold outline-none"
-                  autoComplete="off"
-                  inputMode="text"
-                  maxLength={100}
-                />
-                <p className="text-xs text-center text-[#142a45]/60">
-                  Первый правильный: +100 💎 · Последующие: +50 💎
-                </p>
-              </div>
-            )}
-
-            {round4Phase === 'puzzle' && round4HasAnswered && (
-              <div className="rounded-3xl border-[3px] border-[#1f6ac6] bg-[#e9f0ff] p-6 text-center space-y-2">
-                <div className="text-5xl">✅</div>
-                <h3 className="text-2xl font-black text-[#1f6ac6]">Ответ отправлен!</h3>
-                <p className="text-sm text-[#142a45]/70">Ждём раскрытия правильного ответа.</p>
-              </div>
-            )}
-
-            {round4Phase === 'answer' && (
-              <div className="rounded-2xl border-[3px] border-dashed border-[#142a45]/40 bg-[#fff6da] px-4 py-3 text-sm text-center">
-                <span className="font-semibold">Ждём следующий пазл от ведущего...</span>
-              </div>
-            )}
-
-            {error && (
-              <div className="rounded-2xl border-[3px] border-[#b23324] bg-[#ffd7d0] px-4 py-3 text-sm font-semibold text-[#7b1d16]">
-                {error}
-              </div>
-            )}
           </section>
         )}
       </div>
