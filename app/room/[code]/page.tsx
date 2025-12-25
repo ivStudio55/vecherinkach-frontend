@@ -24,6 +24,17 @@ const ROUND3_BG_JINGLE_FILE = 'round2/jingle (5).mp3';
 
 const buildAudioUrl = (relativePath: string) => `/api/audio?file=${encodeURIComponent(relativePath)}&t=${Date.now()}`;
 
+const coerceToNumber = (value: unknown): number | null => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
+
 // Fisher-Yates shuffle algorithm
 const shuffleArray = <T,>(array: T[]): T[] => {
   const shuffled = [...array];
@@ -111,7 +122,7 @@ type Round3AnswerRow = {
 
 type RoomUpdatePayload = {
   new: {
-    current_question_index: number;
+    current_question_index: number | string | null;
     question_started_at: string | null;
     status: RoomStatus;
     is_active: boolean;
@@ -530,7 +541,7 @@ export default function RoomPage() {
         const initialTime = getRemainingSeconds(startTime, offset);
         setTimeLeft(room.all_players_answered ? 0 : initialTime);
 
-        const puzzleId = typeof room.current_question_index === 'number' ? room.current_question_index : null;
+        const puzzleId = coerceToNumber(room.current_question_index);
         setRound4PuzzleId(puzzleId);
         setRound4Puzzle(puzzleId ? round4Puzzles.find((p) => p.id === puzzleId) ?? null : null);
 
@@ -557,7 +568,12 @@ export default function RoomPage() {
         const initialTime = getRemainingSeconds(startTime, offset);
         setTimeLeft(room.all_players_answered ? 0 : initialTime);
 
-        loadQuestionFromSelectionRef.current?.(room.current_question_index, selection);
+        const questionIndex = coerceToNumber(room.current_question_index);
+        if (questionIndex !== null) {
+          loadQuestionFromSelectionRef.current?.(questionIndex, selection);
+        } else {
+          setQuestion(null);
+        }
 
         setRound2ItemIndex(null);
         setRound2Phase('idle');
@@ -611,7 +627,7 @@ export default function RoomPage() {
             return;
           }
 
-          const newQuestionIndex = payload.new.current_question_index;
+          const newQuestionIndex = coerceToNumber(payload.new.current_question_index);
           const startedAt = payload.new.question_started_at as string | null;
           const newStatus = (payload.new.status as RoomStatus) || (payload.new.is_active ? 'waiting' : 'finished');
           setRoomStatus(newStatus);
@@ -707,7 +723,7 @@ export default function RoomPage() {
 
             const currentPlayerId = playerIdRef.current;
             const currentRoomId = roomIdRef.current;
-            if (currentPlayerId && currentRoomId && newQuestionIndex !== null && newQuestionIndex !== undefined) {
+            if (currentPlayerId && currentRoomId && newQuestionIndex !== null) {
               try {
                 const { data: existingRound3Answer, error: existingRound3Error } = await supabase
                   .from('round3_answers')
@@ -748,7 +764,7 @@ export default function RoomPage() {
               setTimeLeft(startedAt ? getRemainingSeconds(startedAt, offset || 0) : QUESTION_DURATION_SECONDS);
             }
 
-            const puzzleId = typeof newQuestionIndex === 'number' ? newQuestionIndex : null;
+            const puzzleId = newQuestionIndex;
             setRound4PuzzleId(puzzleId);
             setRound4Puzzle(puzzleId ? round4Puzzles.find((p) => p.id === puzzleId) ?? null : null);
 
@@ -770,7 +786,11 @@ export default function RoomPage() {
           }
 
           const offset = await syncServerTimeRef.current?.();
-          loadQuestionFromSelectionRef.current?.(newQuestionIndex, selection);
+          if (newQuestionIndex !== null) {
+            loadQuestionFromSelectionRef.current?.(newQuestionIndex, selection);
+          } else {
+            setQuestion(null);
+          }
           setRound2ItemIndex(null);
           setRound2Phase('idle');
           setRound3QuestionIndex(null);
@@ -945,8 +965,7 @@ export default function RoomPage() {
       setError('Дождитесь начала раунда');
       return;
     }
-    if (!round4PuzzleId) {
-      setError('Загадка ещё не загружена');
+    if (round4PuzzleId === null) {
       return;
     }
     if (allPlayersAnswered || timeLeft <= 0) {
@@ -1366,16 +1385,30 @@ export default function RoomPage() {
                 <input
                   value={round4AnswerText}
                   onChange={(e) => setRound4AnswerText(e.target.value)}
-                  placeholder="Например: Матрица"
+                  placeholder={round4Puzzle ? 'Например: Матрица' : 'Ждём загадку…'}
                   className="w-full rounded-2xl border-[3px] border-[#142a45] bg-white px-4 py-3 text-sm font-semibold outline-none"
                   autoComplete="off"
                   inputMode="text"
                   maxLength={80}
-                  disabled={isSubmitting || activeTimerSeconds <= 0 || allPlayersAnswered || roomStatus !== 'round4-running'}
+                  disabled={
+                    isSubmitting ||
+                    activeTimerSeconds <= 0 ||
+                    allPlayersAnswered ||
+                    roomStatus !== 'round4-running' ||
+                    round4PuzzleId === null ||
+                    !round4Puzzle
+                  }
                 />
                 <button
                   onClick={() => void submitRound4Answer()}
-                  disabled={isSubmitting || activeTimerSeconds <= 0 || allPlayersAnswered || roomStatus !== 'round4-running'}
+                  disabled={
+                    isSubmitting ||
+                    activeTimerSeconds <= 0 ||
+                    allPlayersAnswered ||
+                    roomStatus !== 'round4-running' ||
+                    round4PuzzleId === null ||
+                    !round4Puzzle
+                  }
                   className="w-full py-3 rounded-2xl font-black text-lg tracking-[0.18em] bg-[#1f6ac6] text-white border-[3px] border-[#142a45] transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   Отправить
