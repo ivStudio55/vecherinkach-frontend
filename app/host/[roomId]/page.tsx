@@ -134,6 +134,8 @@ const ROUND4_RULES_TEXT =
   '• Последующие правильно ответившие получают 50 баллов.\n' +
   '• Таймер — 30 секунд.';
 
+const ROUND4_TOTAL_TOURS = 6;
+
   const ROUND4_CATEGORY_AUDIO_MAP: Record<string, string> = {
     'дисней': 'disney',
     'американский кинематограф': 'american_cinema',
@@ -392,6 +394,10 @@ export default function HostRoomPage() {
     isMusicMutedRef.current = isMusicMuted;
   }, [isMusicMuted]);
 
+  useEffect(() => {
+    round4AskedIdsRef.current = round4AskedIds;
+  }, [round4AskedIds]);
+
   const meetAudioRef = useRef<HTMLAudioElement | null>(null);
   const connectAudioRef = useRef<HTMLAudioElement | null>(null);
   const rulesAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -412,6 +418,7 @@ export default function HostRoomPage() {
   const round4RulesVoiceAudioRef = useRef<HTMLAudioElement | null>(null);
   const round4CategoryAudioRef = useRef<HTMLAudioElement | null>(null);
   const round4TimerAudioRef = useRef<HTMLAudioElement | null>(null);
+  const round4AnswerBgAudioRef = useRef<HTMLAudioElement | null>(null);
   const round4AnswerAudioRef = useRef<HTMLAudioElement | null>(null);
   const round4EndAudioRef = useRef<HTMLAudioElement | null>(null);
   const round3BgAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -447,6 +454,7 @@ export default function HostRoomPage() {
   const round3StartLockRef = useRef(false);
   const round4RulesAudioCompletedRef = useRef(true);
   const round4StartLockRef = useRef(false);
+  const round4AskedIdsRef = useRef<number[]>([]);
   const playersRef = useRef<Player[]>(players);
   const hasUserInteractedRef = useRef(false);
   const lastJoinAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -737,6 +745,35 @@ export default function HostRoomPage() {
     }
   }, []);
 
+  const stopRound4AnswerBgAudio = useCallback(() => {
+    const bgCue = round4AnswerBgAudioRef.current;
+    if (bgCue) {
+      try {
+        bgCue.pause();
+        bgCue.currentTime = 0;
+      } catch {
+        // ignore
+      }
+      round4AnswerBgAudioRef.current = null;
+    }
+  }, []);
+
+  const stopRound4AnswerAudio = useCallback(() => {
+    const answerCue = round4AnswerAudioRef.current;
+    if (answerCue) {
+      try {
+        answerCue.pause();
+        answerCue.currentTime = 0;
+      } catch {
+        // ignore
+      }
+      answerCue.onended = null;
+      answerCue.onerror = null;
+      round4AnswerAudioRef.current = null;
+    }
+    stopRound4AnswerBgAudio();
+  }, [stopRound4AnswerBgAudio]);
+
   const stopRound4Audio = useCallback(() => {
     const stopCue = (ref: React.MutableRefObject<HTMLAudioElement | null>) => {
       const cue = ref.current;
@@ -753,9 +790,9 @@ export default function HostRoomPage() {
 
     stopCue(round4CategoryAudioRef);
     stopCue(round4TimerAudioRef);
-    stopCue(round4AnswerAudioRef);
+    stopRound4AnswerAudio();
     stopCue(round4EndAudioRef);
-  }, []);
+  }, [stopRound4AnswerAudio]);
 
   const stopRoundEndAudio = useCallback(() => {
     const mainCue = roundEndAudioRef.current;
@@ -875,17 +912,42 @@ export default function HostRoomPage() {
     });
   }, []);
 
-  const playRound4AnswerAudio = useCallback((puzzleId: number) => {
-    if (!hasUserInteractedRef.current) {
-      return;
-    }
-    const cue = new Audio(buildAudioUrl(`round4/questions/${puzzleId}.mp3`));
-    cue.volume = 0.95;
-    round4AnswerAudioRef.current = cue;
-    cue.play().catch((err) => {
-      console.error('Не удалось проиграть ответ Раунда 4', err);
-    });
-  }, []);
+  const playRound4AnswerAudio = useCallback(
+    (puzzleId: number, options?: { onEnded?: () => void }) => {
+      if (!hasUserInteractedRef.current) {
+        return;
+      }
+
+      stopRound4AnswerAudio();
+
+      const bg = new Audio(buildAudioUrl(ROUND2_EXPLANATION_BG_FILE));
+      bg.loop = true;
+      bg.volume = 0.35;
+      round4AnswerBgAudioRef.current = bg;
+
+      const cue = new Audio(buildAudioUrl(`round4/questions/${puzzleId}.mp3`));
+      cue.volume = 0.95;
+      round4AnswerAudioRef.current = cue;
+
+      const finish = () => {
+        stopRound4AnswerAudio();
+        options?.onEnded?.();
+      };
+
+      cue.onended = finish;
+      cue.onerror = finish;
+
+      bg.play().catch((err) => {
+        console.error('Не удалось воспроизвести фон ответа Раунда 4', err);
+      });
+
+      cue.play().catch((err) => {
+        console.error('Не удалось проиграть ответ Раунда 4', err);
+        finish();
+      });
+    },
+    [stopRound4AnswerAudio]
+  );
 
   const playRound4EndAudio = useCallback(() => {
     if (!hasUserInteractedRef.current) {
@@ -4267,6 +4329,12 @@ export default function HostRoomPage() {
   }, [round4AskedIds, round4Puzzles]);
 
   const startRound4Game = useCallback(async () => {
+    if (round4AskedIdsRef.current.length >= ROUND4_TOTAL_TOURS) {
+      setError('Раунд 4 уже отыгран: 6 туров завершены');
+      round4StartLockRef.current = false;
+      return;
+    }
+
     const puzzle = pickRound4Puzzle();
     if (!puzzle) {
       setError('Вопросы Раунда 4 ещё не загружены');
@@ -4309,6 +4377,20 @@ export default function HostRoomPage() {
     playRound4TimerAudio();
     round4StartLockRef.current = false;
   }, [pickRound4Puzzle, getServerIsoTimestamp, roomId, updateRoomStatus, syncTimerWithStart, playRound4CategoryAudio, playRound4TimerAudio]);
+
+  const maybeAutoAdvanceRound4 = useCallback(() => {
+    if (roomStatusRef.current !== 'round4-running') {
+      return;
+    }
+    if (round4AskedIdsRef.current.length >= ROUND4_TOTAL_TOURS) {
+      return;
+    }
+    if (round4StartLockRef.current) {
+      return;
+    }
+    round4StartLockRef.current = true;
+    void startRound4Game();
+  }, [startRound4Game]);
 
   const scoreRound4Puzzle = useCallback(
     async (puzzle: Round4Puzzle) => {
@@ -4382,14 +4464,14 @@ export default function HostRoomPage() {
         round4ScoredPuzzleIdsRef.current.add(puzzle.id);
         setServerAllPlayersAnswered(true);
         await supabase.from('rooms').update({ all_players_answered: true }).eq('id', roomId);
-        playRound4AnswerAudio(puzzle.id);
+        playRound4AnswerAudio(puzzle.id, { onEnded: maybeAutoAdvanceRound4 });
       } catch (err) {
         console.error('Не удалось начислить очки Раунда 4', err);
       } finally {
         setIsRound4Scoring(false);
       }
     },
-    [isRound4Scoring, playRound4AnswerAudio, playRound4EndAudio, roomId]
+    [isRound4Scoring, maybeAutoAdvanceRound4, playRound4AnswerAudio, roomId]
   );
 
   useEffect(() => {
@@ -5153,72 +5235,19 @@ export default function HostRoomPage() {
 
               </div>
             ) : roomStatus === 'round4-running' ? (
-              <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <span className="px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
-                    Раунд 4 · Дэшифровщик
-                  </span>
-                  <span className="text-sm font-semibold text-[#142a45]/70">
-                    {allPlayersAnswered ? 'Время истекло' : `Осталось: ${Math.max(timeLeft, 0)} c`}
-                  </span>
-                </div>
-
-                <div>
-                  <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
-                    <span>Таймер · 30 сек</span>
-                    <span className="font-black text-[#142a45]">{Math.max(timeLeft, 0)} c</span>
-                  </div>
-                  <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
-                    <div
-                      className={`h-full ${timeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
-                      style={{ width: `${round4ProgressPercent}%` }}
-                    />
-                  </div>
-                  {allPlayersAnswered && (
-                    <p className="text-xs text-[#1f6ac6] font-semibold mt-2">Таймер завершён — озвучиваем правильный ответ.</p>
-                  )}
-                </div>
-
-                <div className="text-center space-y-2">
-                  <div className="text-5xl sm:text-6xl leading-none">{round4CurrentPuzzle?.emoji ?? '⏳'}</div>
-                  <p className="text-sm font-semibold text-[#142a45]/70">
-                    {round4CurrentPuzzle ? `Категория: ${round4CurrentPuzzle.category}` : 'Ждём загадку'}
-                  </p>
-                  {round4CurrentPuzzle && (timeLeft <= 0 || allPlayersAnswered) && (
-                    <div className="rounded-2xl border-[3px] border-[#1f6ac6] bg-[#e9f0ff] px-4 py-3 text-sm font-semibold">
-                      Правильный ответ: <span className="font-black text-[#1f6ac6]">{round4CurrentPuzzle.answer}</span>
-                    </div>
-                  )}
-                </div>
-
-                {round4AnswerRows.length > 0 && (
-                  <div className="rounded-2xl border-[3px] border-[#142a45]/10 bg-[#fff6da] p-4 space-y-2 text-left">
-                    <p className="text-xs font-black tracking-[0.3em] text-[#142a45]/60">Ответы</p>
-                    <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                      {round4AnswerRows.map((row) => {
-                        const player = players.find((p) => p.id === row.player_id);
-                        return (
-                          <div
-                            key={row.id}
-                            className={`flex items-center justify-between gap-3 rounded-2xl border-[3px] px-3 py-2 text-sm ${row.is_correct ? 'border-[#1f6ac6] bg-[#e9f0ff]' : 'border-[#142a45]/10 bg-white'}`}
-                          >
-                            <div className="flex flex-col">
-                              <span className="font-black text-[#142a45]">{player?.name || 'Игрок'}</span>
-                              <span className="text-xs text-[#142a45]/60 break-words">{row.answer_text || '—'}</span>
-                            </div>
-                            <div className="text-right">
-                              {row.is_correct ? (
-                                <span className="text-base font-black text-[#1f6ac6]">+{row.points_earned ?? 0}</span>
-                              ) : (
-                                <span className="text-xs text-[#142a45]/50">0</span>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+              <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 text-center space-y-3">
+                <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Раунд 4 · «Дэшифровщик»</p>
+                <h2 className="text-3xl font-black leading-tight text-center">
+                  {round4CurrentPuzzle ? round4CurrentPuzzle.emoji : 'Раунд запущен'}
+                </h2>
+                <p className="text-sm text-[#142a45]/70">
+                  {round4CurrentPuzzle
+                    ? `Категория: ${round4CurrentPuzzle.category}`
+                    : 'Ждём выдачу первой загадки — нажмите «Раунд 4», если нужно перезапустить.'}
+                </p>
+                <p className="text-xs text-[#1f6ac6] font-semibold">
+                  Таймер: {timeLeft > 0 ? `${timeLeft} c` : 'Время истекло, можно подвести итоги'}
+                </p>
               </div>
             ) : question ? (
               <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
