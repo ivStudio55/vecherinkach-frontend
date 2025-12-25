@@ -5235,18 +5235,39 @@ export default function HostRoomPage() {
 
               </div>
             ) : roomStatus === 'round4-running' ? (
-              <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 text-center space-y-3">
-                <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Раунд 4 · «Дэшифровщик»</p>
-                <h2 className="text-3xl font-black leading-tight text-center">
-                  {round4CurrentPuzzle ? round4CurrentPuzzle.emoji : 'Раунд запущен'}
-                </h2>
-                <p className="text-sm text-[#142a45]/70">
-                  {round4CurrentPuzzle
-                    ? `Категория: ${round4CurrentPuzzle.category}`
-                    : 'Ждём выдачу первой загадки — нажмите «Раунд 4», если нужно перезапустить.'}
-                </p>
-                <p className="text-xs text-[#1f6ac6] font-semibold">
-                  Таймер: {timeLeft > 0 ? `${timeLeft} c` : 'Время истекло, можно подвести итоги'}
+              <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
+                <div className="text-center space-y-2">
+                  <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Раунд 4 · «Дэшифровщик»</p>
+                  <h2 className="text-4xl font-black leading-tight text-center">
+                    {round4CurrentPuzzle ? round4CurrentPuzzle.emoji : '⏳'}
+                  </h2>
+                  <p className="text-sm text-[#142a45]/70">
+                    {round4CurrentPuzzle
+                      ? `Категория: ${round4CurrentPuzzle.category}`
+                      : 'Ждём выдачу первой загадки — нажмите «Раунд 4», если нужно перезапустить.'}
+                  </p>
+                </div>
+
+                <div>
+                  <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
+                    <span>Таймер · 30 сек</span>
+                    <span className={`font-black ${timeLeft <= 0 ? 'text-[#f1532f]' : 'text-[#142a45]'}`}>
+                      {timeLeft > 0 ? `${timeLeft} c` : 'Время истекло'}
+                    </span>
+                  </div>
+                  <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
+                    <div
+                      className={`h-full ${timeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
+                      style={{ width: `${round4ProgressPercent}%` }}
+                    />
+                  </div>
+                  {timeLeft <= 0 && (
+                    <p className="text-xs text-[#1f6ac6] font-semibold mt-2">Время истекло — озвучиваем ответ.</p>
+                  )}
+                </div>
+
+                <p className="text-xs text-[#142a45]/70 text-center">
+                  Ответы приходят автоматически — после озвучки ответов следующий тур запустится сам до 6 раз.
                 </p>
               </div>
             ) : question ? (
