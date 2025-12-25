@@ -1279,7 +1279,7 @@ export default function RoomPage() {
     );
   }
 
-  if (error && !question) {
+  if (error && roomStatus === 'waiting') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#fef4dc] text-[#142a45] px-4 py-10">
         <div className="rounded-3xl border-[4px] border-[#b23324] bg-white shadow-xl max-w-md w-full p-8 text-center space-y-4">
