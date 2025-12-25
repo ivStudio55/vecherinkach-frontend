@@ -4005,7 +4005,13 @@ export default function HostRoomPage() {
     }
     return Array.from(unique.values());
   }, [round2Answers]);
-  const headerActionLabel = roomStatus === 'finished' && showResults ? (round2Leaderboard.length > 0 ? 'Раунд 3' : 'Раунд 2') : 'Завершить игру';
+  const headerActionLabel = isTournamentVisible
+    ? 'Раунд 4'
+    : roomStatus === 'finished' && showResults
+      ? round2Leaderboard.length > 0
+        ? 'Раунд 3'
+        : 'Раунд 2'
+      : 'Завершить игру';
   const round2QuestionNumber = round2QuestionCounter > 0 ? round2QuestionCounter : 1;
   const clampedRound2QuestionNumber = Math.min(round2QuestionNumber, ROUND2_TOTAL_QUESTIONS);
   const round2TruthLabel =
@@ -4025,6 +4031,12 @@ export default function HostRoomPage() {
     round2Leaderboard.length > 0 ? `${round2AccuracyPercent}% попали в точку` : 'Ждём первую статистику';
 
   const handlePrimaryHeaderAction = () => {
+    if (isTournamentVisible) {
+      hasUserInteractedRef.current = true;
+      handleOpenRound4Rules();
+      return;
+    }
+
     if (roomStatus === 'finished' && showResults) {
       hasUserInteractedRef.current = true;
       if (round2Leaderboard.length > 0) {
@@ -4163,7 +4175,7 @@ export default function HostRoomPage() {
 
   const statusLabel =
     isTournamentVisible
-      ? 'Турнир завершён'
+      ? '3 раунд завершён'
       : roomStatus === 'waiting'
         ? 'Ожидание игроков'
         : roomStatus === 'running'
@@ -4220,10 +4232,6 @@ export default function HostRoomPage() {
                     <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">итоги после 3 раунда</p>
                     <h2 className="text-3xl font-black">🏁 Турнирная таблица</h2>
                   </div>
-                  <div className="text-right text-sm font-semibold text-[#1f6ac6]">
-                    <p>Фон: {ROUND1_END_JINGLE_FILE}</p>
-                    <p className="text-[#142a45]/60">Очки обновлены автоматически</p>
-                  </div>
                 </div>
 
                 {tournamentLeaderboard.length === 0 ? (
@@ -4258,26 +4266,6 @@ export default function HostRoomPage() {
                   </ol>
                 )}
 
-                <div className="flex flex-wrap gap-3 justify-end">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      hasUserInteractedRef.current = true;
-                      stopTournamentJingle();
-                      playTournamentJingle();
-                    }}
-                    className="px-4 py-2 rounded-2xl border-[3px] border-[#142a45]/20 bg-white text-sm font-semibold"
-                  >
-                    Перезапустить джингл
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void endGame()}
-                    className="px-4 py-2 rounded-2xl border-[3px] border-[#142a45] bg-[#142a45] text-[#ffeccd] font-black tracking-[0.2em]"
-                  >
-                    Завершить игру
-                  </button>
-                </div>
               </div>
             ) : showResults ? (
               roomStatus === 'finished' ? (
