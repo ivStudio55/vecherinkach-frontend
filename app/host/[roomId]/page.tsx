@@ -5151,6 +5151,21 @@ export default function HostRoomPage() {
                 )}
 
               </div>
+            ) : roomStatus === 'round4-running' ? (
+              <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 text-center space-y-3">
+                <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Раунд 4 · «Дэшифровщик»</p>
+                <h2 className="text-3xl font-black leading-tight text-center">
+                  {round4CurrentPuzzle ? round4CurrentPuzzle.emoji : 'Раунд запущен'}
+                </h2>
+                <p className="text-sm text-[#142a45]/70">
+                  {round4CurrentPuzzle
+                    ? `Категория: ${round4CurrentPuzzle.category}`
+                    : 'Ждём выдачу первой загадки — нажмите «Раунд 4», если нужно перезапустить.'}
+                </p>
+                <p className="text-xs text-[#1f6ac6] font-semibold">
+                  Таймер: {timeLeft > 0 ? `${timeLeft} c` : 'Время истекло, можно подвести итоги'}
+                </p>
+              </div>
             ) : question ? (
               <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
