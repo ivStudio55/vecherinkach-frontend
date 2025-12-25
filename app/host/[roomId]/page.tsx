@@ -830,7 +830,17 @@ export default function HostRoomPage() {
     const audio = new Audio(buildAudioUrl(file));
     audio.volume = 0.95;
     roundEndAudioRef.current = audio;
+    const jingle = new Audio(buildAudioUrl(ROUND1_END_JINGLE_FILE));
+    jingle.volume = 0.95;
+    roundEndJingleAudioRef.current = jingle;
 
+    audio.play().catch((error) => {
+      console.error('Не удалось проиграть финальный сигнал раунда', error);
+    });
+    jingle.play().catch((error) => {
+      console.error('Не удалось проиграть джингл завершения раунда', error);
+    });
+  }, [stopRoundEndAudio]);
 
   const playRound4CategoryAudio = useCallback(
     (category: string) => {
@@ -889,17 +899,6 @@ export default function HostRoomPage() {
       console.error('Не удалось проиграть завершение Раунда 4', err);
     });
   }, []);
-    const jingle = new Audio(buildAudioUrl(ROUND1_END_JINGLE_FILE));
-    jingle.volume = 0.95;
-    roundEndJingleAudioRef.current = jingle;
-
-    audio.play().catch((error) => {
-      console.error('Не удалось проиграть финальный сигнал раунда', error);
-    });
-    jingle.play().catch((error) => {
-      console.error('Не удалось проиграть джингл завершения раунда', error);
-    });
-  }, [stopRoundEndAudio]);
 
   const playRound2RulesAudio = useCallback(() => {
     if (!hasUserInteractedRef.current) {
@@ -2091,19 +2090,6 @@ export default function HostRoomPage() {
     const intervalId = setInterval(tick, 250);
     return () => clearInterval(intervalId);
   }, [questionStartedAt, roomStatus, timeOffsetMs]);
-
-  useEffect(() => {
-    if (roomStatus !== 'round4-running') {
-      return;
-    }
-    if (!round4CurrentPuzzle) {
-      return;
-    }
-    if (timeLeft > 0) {
-      return;
-    }
-    void scoreRound4Puzzle(round4CurrentPuzzle);
-  }, [roomStatus, round4CurrentPuzzle, timeLeft, scoreRound4Puzzle]);
 
   const resetRound2Stats = useCallback(() => {
     round2StatsRef.current = new Map();
@@ -4404,6 +4390,19 @@ export default function HostRoomPage() {
     },
     [isRound4Scoring, playRound4AnswerAudio, playRound4EndAudio, roomId]
   );
+
+  useEffect(() => {
+    if (roomStatus !== 'round4-running') {
+      return;
+    }
+    if (!round4CurrentPuzzle) {
+      return;
+    }
+    if (timeLeft > 0) {
+      return;
+    }
+    void scoreRound4Puzzle(round4CurrentPuzzle);
+  }, [roomStatus, round4CurrentPuzzle, timeLeft, scoreRound4Puzzle]);
 
   const startRound4Countdown = useCallback(async () => {
     if (round4StartLockRef.current || isCountdownVisible) {
