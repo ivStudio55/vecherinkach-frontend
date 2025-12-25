@@ -1259,7 +1259,7 @@ export default function RoomPage() {
   const progressPercent = Math.max(0, Math.min(100, (activeTimerSeconds / activeTimerDuration) * 100));
   const timerLabel = allPlayersAnswered ? 'Все ответили' : `${activeTimerSeconds} c`;
 
-  if (showResults) {
+  if (showResults && roomStatus === 'finished') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#fef4dc] text-[#142a45] px-4 py-10">
         <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl max-w-lg w-full p-8 text-center space-y-4">
