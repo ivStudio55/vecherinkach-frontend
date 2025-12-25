@@ -977,6 +977,7 @@ export default function HostRoomPage() {
     setRound4Phase('puzzle');
     setRound4StartedAt(new Date().toISOString());
     setRound4TimeLeft(ROUND4_ANSWER_SECONDS);
+    setRoomStatus('round4-running');
 
     // Update room status
     try {
