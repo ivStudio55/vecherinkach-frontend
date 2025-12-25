@@ -4173,9 +4173,11 @@ export default function HostRoomPage() {
   const isRound1Active = roomStatus === 'running';
   const isRound2Running = roomStatus === 'round2-running';
   const isRound3Running = roomStatus === 'round3-running';
+  const isRound4Running = roomStatus === 'round4-running';
   const canAdvance = isRound1Active && (effectiveTimeLeft === 0 || allPlayersAnswered);
   const nextButtonDisabled = !canAdvance || (isLastQuestion && (isSummaryLoading || isRoundEndButtonLocked));
   const progressPercent = Math.max(0, Math.min(100, (effectiveTimeLeft / QUESTION_DURATION_SECONDS) * 100));
+  const round4ProgressPercent = Math.max(0, Math.min(100, (timeLeft / QUESTION_DURATION_SECONDS) * 100));
   const round3ElapsedSeconds = isRound3Running ? getRound3ElapsedSeconds(questionStartedAt) : null;
 
   const round3TimerDuration = ROUND3_ANSWER_SECONDS;
@@ -4381,7 +4383,6 @@ export default function HostRoomPage() {
         setServerAllPlayersAnswered(true);
         await supabase.from('rooms').update({ all_players_answered: true }).eq('id', roomId);
         playRound4AnswerAudio(puzzle.id);
-        playRound4EndAudio();
       } catch (err) {
         console.error('Не удалось начислить очки Раунда 4', err);
       } finally {
@@ -5152,19 +5153,72 @@ export default function HostRoomPage() {
 
               </div>
             ) : roomStatus === 'round4-running' ? (
-              <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 text-center space-y-3">
-                <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Раунд 4 · «Дэшифровщик»</p>
-                <h2 className="text-3xl font-black leading-tight text-center">
-                  {round4CurrentPuzzle ? round4CurrentPuzzle.emoji : 'Раунд запущен'}
-                </h2>
-                <p className="text-sm text-[#142a45]/70">
-                  {round4CurrentPuzzle
-                    ? `Категория: ${round4CurrentPuzzle.category}`
-                    : 'Ждём выдачу первой загадки — нажмите «Раунд 4», если нужно перезапустить.'}
-                </p>
-                <p className="text-xs text-[#1f6ac6] font-semibold">
-                  Таймер: {timeLeft > 0 ? `${timeLeft} c` : 'Время истекло, можно подвести итоги'}
-                </p>
+              <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
+                    Раунд 4 · Дэшифровщик
+                  </span>
+                  <span className="text-sm font-semibold text-[#142a45]/70">
+                    {allPlayersAnswered ? 'Время истекло' : `Осталось: ${Math.max(timeLeft, 0)} c`}
+                  </span>
+                </div>
+
+                <div>
+                  <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
+                    <span>Таймер · 30 сек</span>
+                    <span className="font-black text-[#142a45]">{Math.max(timeLeft, 0)} c</span>
+                  </div>
+                  <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
+                    <div
+                      className={`h-full ${timeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
+                      style={{ width: `${round4ProgressPercent}%` }}
+                    />
+                  </div>
+                  {allPlayersAnswered && (
+                    <p className="text-xs text-[#1f6ac6] font-semibold mt-2">Таймер завершён — озвучиваем правильный ответ.</p>
+                  )}
+                </div>
+
+                <div className="text-center space-y-2">
+                  <div className="text-5xl sm:text-6xl leading-none">{round4CurrentPuzzle?.emoji ?? '⏳'}</div>
+                  <p className="text-sm font-semibold text-[#142a45]/70">
+                    {round4CurrentPuzzle ? `Категория: ${round4CurrentPuzzle.category}` : 'Ждём загадку'}
+                  </p>
+                  {round4CurrentPuzzle && (timeLeft <= 0 || allPlayersAnswered) && (
+                    <div className="rounded-2xl border-[3px] border-[#1f6ac6] bg-[#e9f0ff] px-4 py-3 text-sm font-semibold">
+                      Правильный ответ: <span className="font-black text-[#1f6ac6]">{round4CurrentPuzzle.answer}</span>
+                    </div>
+                  )}
+                </div>
+
+                {round4AnswerRows.length > 0 && (
+                  <div className="rounded-2xl border-[3px] border-[#142a45]/10 bg-[#fff6da] p-4 space-y-2 text-left">
+                    <p className="text-xs font-black tracking-[0.3em] text-[#142a45]/60">Ответы</p>
+                    <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                      {round4AnswerRows.map((row) => {
+                        const player = players.find((p) => p.id === row.player_id);
+                        return (
+                          <div
+                            key={row.id}
+                            className={`flex items-center justify-between gap-3 rounded-2xl border-[3px] px-3 py-2 text-sm ${row.is_correct ? 'border-[#1f6ac6] bg-[#e9f0ff]' : 'border-[#142a45]/10 bg-white'}`}
+                          >
+                            <div className="flex flex-col">
+                              <span className="font-black text-[#142a45]">{player?.name || 'Игрок'}</span>
+                              <span className="text-xs text-[#142a45]/60 break-words">{row.answer_text || '—'}</span>
+                            </div>
+                            <div className="text-right">
+                              {row.is_correct ? (
+                                <span className="text-base font-black text-[#1f6ac6]">+{row.points_earned ?? 0}</span>
+                              ) : (
+                                <span className="text-xs text-[#142a45]/50">0</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : question ? (
               <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">

@@ -142,6 +142,7 @@ export default function RoomPage() {
   const [roomStatus, setRoomStatus] = useState<RoomStatus>('waiting');
   const [round4Puzzles, setRound4Puzzles] = useState<Round4Puzzle[]>([]);
   const [round4Puzzle, setRound4Puzzle] = useState<Round4Puzzle | null>(null);
+  const [round4PuzzleId, setRound4PuzzleId] = useState<number | null>(null);
   const [round4AnswerText, setRound4AnswerText] = useState('');
   const [allPlayersAnswered, setAllPlayersAnswered] = useState(false);
   const [timeOffsetMs, setTimeOffsetMs] = useState(0);
@@ -194,6 +195,14 @@ export default function RoomPage() {
 
     void loadRound4Data();
   }, []);
+
+  useEffect(() => {
+    if (!round4PuzzleId || !round4Puzzles.length) {
+      return;
+    }
+    const next = round4Puzzles.find((p) => p.id === round4PuzzleId) ?? null;
+    setRound4Puzzle(next);
+  }, [round4PuzzleId, round4Puzzles]);
 
   useEffect(() => {
     if (!roomId) return;
@@ -407,7 +416,7 @@ export default function RoomPage() {
       const detectedStatus = (room.status as RoomStatus) || (room.is_active ? 'waiting' : 'finished');
       setRoomStatus(detectedStatus);
       setAllPlayersAnswered(
-        detectedStatus === 'running' || detectedStatus === 'round2-running' || detectedStatus === 'round3-running'
+        detectedStatus === 'running' || detectedStatus === 'round2-running' || detectedStatus === 'round3-running' || detectedStatus === 'round4-running'
           ? !!room.all_players_answered
           : false
       );
@@ -423,6 +432,9 @@ export default function RoomPage() {
         setRound2ItemIndex(null);
         setRound2Phase('idle');
         setRound3QuestionIndex(null);
+        setRound4Puzzle(null);
+        setRound4PuzzleId(null);
+        setRound4AnswerText('');
         setQuestionStartedAt(null);
         setTimeLeft(QUESTION_DURATION_SECONDS);
         setIsLoading(false);
@@ -432,6 +444,9 @@ export default function RoomPage() {
         setRound2ItemIndex(null);
         setRound2Phase('idle');
         setRound3QuestionIndex(null);
+        setRound4Puzzle(null);
+        setRound4PuzzleId(null);
+        setRound4AnswerText('');
         setQuestionStartedAt(null);
         setIsLoading(false);
       } else if (detectedStatus === 'round2-running') {
@@ -496,6 +511,39 @@ export default function RoomPage() {
             console.warn('Round3 answer lookup failed (SQL might be missing)', e);
             setHasAnswered(false);
           }
+        } else {
+          setHasAnswered(false);
+        }
+
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      } else if (detectedStatus === 'round4-running') {
+        setShowResults(false);
+        setQuestion(null);
+        setRound2ItemIndex(null);
+        setRound2Phase('idle');
+        setRound3QuestionIndex(null);
+
+        const startTime = room.question_started_at;
+        setQuestionStartedAt(startTime);
+        const initialTime = getRemainingSeconds(startTime, offset);
+        setTimeLeft(room.all_players_answered ? 0 : initialTime);
+
+        const puzzleId = typeof room.current_question_index === 'number' ? room.current_question_index : null;
+        setRound4PuzzleId(puzzleId);
+        setRound4Puzzle(puzzleId ? round4Puzzles.find((p) => p.id === puzzleId) ?? null : null);
+
+        if (puzzleId) {
+          const { data: existingRound4Answer } = await supabase
+            .from('round4_answers')
+            .select('id')
+            .eq('player_id', storedPlayerId)
+            .eq('room_id', room.id)
+            .eq('puzzle_id', puzzleId)
+            .single();
+
+          setHasAnswered(!!existingRound4Answer);
         } else {
           setHasAnswered(false);
         }
@@ -568,7 +616,7 @@ export default function RoomPage() {
           const newStatus = (payload.new.status as RoomStatus) || (payload.new.is_active ? 'waiting' : 'finished');
           setRoomStatus(newStatus);
           const everyoneAnsweredFlag =
-            newStatus === 'running' || newStatus === 'round2-running' || newStatus === 'round3-running'
+            newStatus === 'running' || newStatus === 'round2-running' || newStatus === 'round3-running' || newStatus === 'round4-running'
               ? !!payload.new.all_players_answered
               : false;
           setAllPlayersAnswered(everyoneAnsweredFlag);
@@ -587,6 +635,9 @@ export default function RoomPage() {
             setRound2ItemIndex(null);
             setRound2Phase('idle');
             setRound3QuestionIndex(null);
+            setRound4Puzzle(null);
+            setRound4PuzzleId(null);
+            setRound4AnswerText('');
             setQuestionStartedAt(null);
             setTimeLeft(QUESTION_DURATION_SECONDS);
             return;
@@ -598,6 +649,9 @@ export default function RoomPage() {
             setRound2ItemIndex(null);
             setRound2Phase('idle');
             setRound3QuestionIndex(null);
+            setRound4Puzzle(null);
+            setRound4PuzzleId(null);
+            setRound4AnswerText('');
             setQuestionStartedAt(null);
             setTimeLeft(QUESTION_DURATION_SECONDS);
             return;
@@ -679,6 +733,42 @@ export default function RoomPage() {
             return;
           }
 
+          if (newStatus === 'round4-running') {
+            setShowResults(false);
+            setQuestion(null);
+            setRound2ItemIndex(null);
+            setRound2Phase('idle');
+            setRound3QuestionIndex(null);
+            setQuestionStartedAt(startedAt);
+
+            const offset = await syncServerTimeRef.current?.();
+            if (everyoneAnsweredFlag) {
+              setTimeLeft(0);
+            } else {
+              setTimeLeft(startedAt ? getRemainingSeconds(startedAt, offset || 0) : QUESTION_DURATION_SECONDS);
+            }
+
+            const puzzleId = typeof newQuestionIndex === 'number' ? newQuestionIndex : null;
+            setRound4PuzzleId(puzzleId);
+            setRound4Puzzle(puzzleId ? round4Puzzles.find((p) => p.id === puzzleId) ?? null : null);
+
+            const currentPlayerId = playerIdRef.current;
+            const currentRoomId = roomIdRef.current;
+            if (currentPlayerId && currentRoomId && puzzleId) {
+              const { data: newAnswer } = await supabase
+                .from('round4_answers')
+                .select('id')
+                .eq('player_id', currentPlayerId)
+                .eq('room_id', currentRoomId)
+                .eq('puzzle_id', puzzleId)
+                .single();
+              setHasAnswered(!!newAnswer);
+            } else {
+              setHasAnswered(false);
+            }
+            return;
+          }
+
           const offset = await syncServerTimeRef.current?.();
           loadQuestionFromSelectionRef.current?.(newQuestionIndex, selection);
           setRound2ItemIndex(null);
@@ -723,7 +813,7 @@ export default function RoomPage() {
     !showResults &&
     ((roomStatus === 'round3-running' && Boolean(questionStartedAt)) ||
       (!allPlayersAnswered &&
-        (roomStatus === 'running' || roomStatus === 'round2-running') &&
+        (roomStatus === 'running' || roomStatus === 'round2-running' || roomStatus === 'round4-running') &&
         Boolean(questionStartedAt)));
 
   useEffect(() => {
@@ -846,6 +936,62 @@ export default function RoomPage() {
     },
     [isSubmitting, playerId, roomId, roomStatus, round3QuestionIndex]
   );
+
+  const submitRound4Answer = useCallback(async () => {
+    if (isSubmitting) {
+      return;
+    }
+    if (roomStatus !== 'round4-running') {
+      setError('Дождитесь начала раунда');
+      return;
+    }
+    if (!round4PuzzleId) {
+      setError('Загадка ещё не загружена');
+      return;
+    }
+    if (allPlayersAnswered || timeLeft <= 0) {
+      setError('Время на ответ истекло');
+      return;
+    }
+
+    setError('');
+    setIsSubmitting(true);
+    try {
+      const trimmed = (round4AnswerText ?? '').trim();
+      if (!trimmed) {
+        setError('Введите ответ');
+        setIsSubmitting(false);
+        return;
+      }
+
+      const { error: upsertError } = await supabase
+        .from('round4_answers')
+        .upsert(
+          {
+            room_id: roomId,
+            player_id: playerId,
+            puzzle_id: round4PuzzleId,
+            answer_text: trimmed,
+            submitted_at: new Date().toISOString(),
+          },
+          { onConflict: 'room_id,player_id,puzzle_id' }
+        );
+
+      if (upsertError) {
+        console.error('Round4 answer submit failed', upsertError);
+        setError('Не удалось отправить ответ. Попробуйте ещё раз.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      setHasAnswered(true);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
+      setError(`Ошибка: ${message}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [allPlayersAnswered, isSubmitting, playerId, roomId, round4AnswerText, round4PuzzleId, roomStatus, timeLeft]);
 
   useEffect(() => {
     if (roomStatus !== 'round3-running') {
@@ -1177,6 +1323,75 @@ export default function RoomPage() {
             <p className="text-sm text-[#142a45]/80">
               Вы подключены. Ведущий начнёт раунд, когда все игроки войдут. Ничего нажимать не нужно — просто ждите звукового сигнала.
             </p>
+          </section>
+        )}
+
+        {roomStatus === 'round4-running' && (
+          <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
+            <div className="flex flex-col gap-3 text-center">
+              <span className="mx-auto px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
+                Раунд 4 · Дэшифровщик
+              </span>
+              <div className="text-5xl sm:text-6xl leading-none">{round4Puzzle?.emoji ?? '⏳'}</div>
+              <p className="text-sm text-[#142a45]/70">
+                {round4Puzzle ? `Категория: ${round4Puzzle.category}` : 'Ждём загадку от ведущего'}
+              </p>
+            </div>
+
+            <div>
+              <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
+                <span>Таймер · 30 сек</span>
+                <span className={`font-black ${allPlayersAnswered ? 'text-[#1f6ac6]' : 'text-[#142a45]'}`}>{timerLabel}</span>
+              </div>
+              <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
+                <div
+                  className={`h-full ${activeTimerSeconds > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+              {allPlayersAnswered && (
+                <p className="text-xs text-[#1f6ac6] font-semibold mt-2">Время истекло — слушаем ответ ведущего.</p>
+              )}
+            </div>
+
+            {hasAnswered || allPlayersAnswered ? (
+              <div className="rounded-3xl border-[3px] border-[#1f6ac6] bg-[#e9f0ff] p-6 text-center space-y-2">
+                <div className="text-5xl">✅</div>
+                <h3 className="text-2xl font-black text-[#1f6ac6]">Ответ отправлен!</h3>
+                <p className="text-sm text-[#142a45]/70">Ждём, пока ведущий озвучит правильный вариант.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-xs font-semibold tracking-[0.3em] text-[#142a45]/60 text-center">ВВЕДИ СВОЙ ОТВЕТ</p>
+                <input
+                  value={round4AnswerText}
+                  onChange={(e) => setRound4AnswerText(e.target.value)}
+                  placeholder="Например: Матрица"
+                  className="w-full rounded-2xl border-[3px] border-[#142a45] bg-white px-4 py-3 text-sm font-semibold outline-none"
+                  autoComplete="off"
+                  inputMode="text"
+                  maxLength={80}
+                  disabled={isSubmitting || activeTimerSeconds <= 0 || allPlayersAnswered || roomStatus !== 'round4-running'}
+                />
+                <button
+                  onClick={() => void submitRound4Answer()}
+                  disabled={isSubmitting || activeTimerSeconds <= 0 || allPlayersAnswered || roomStatus !== 'round4-running'}
+                  className="w-full py-3 rounded-2xl font-black text-lg tracking-[0.18em] bg-[#1f6ac6] text-white border-[3px] border-[#142a45] transition disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Отправить
+                </button>
+
+                {error && (
+                  <div className="rounded-2xl border-[3px] border-[#b23324] bg-[#ffd7d0] px-4 py-3 text-sm font-semibold text-[#7b1d16]">
+                    {error}
+                  </div>
+                )}
+
+                {activeTimerSeconds <= 0 && (
+                  <p className="text-xs text-center text-[#142a45]/60">⏱ Время истекло. Ответы больше не принимаются.</p>
+                )}
+              </div>
+            )}
           </section>
         )}
 
