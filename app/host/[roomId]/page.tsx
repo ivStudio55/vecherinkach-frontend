@@ -956,6 +956,7 @@ export default function HostRoomPage() {
     setRound3AudioBlocked(false);
   }, []);
 
+
   const stopAllAudio = useCallback(() => {
     stopRound2Audio();
     stopRound2RulesAudio();
