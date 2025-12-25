@@ -12,7 +12,7 @@ import {
 } from '@/lib/questions';
 
 const QUESTION_DURATION_SECONDS = 30;
-const APP_VERSION = '1.0.8'; // Инкрементируйте при важных изменениях
+const APP_VERSION = '1.0.9'; // Инкрементируйте при важных изменениях
 
 const ROUND3_ANSWER_SECONDS = 30;
 const ROUND3_VOTE_COUNTDOWN_SECONDS = 3;
