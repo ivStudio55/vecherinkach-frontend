@@ -5114,6 +5114,34 @@ export default function HostRoomPage() {
           </div>
         </div>
       )}
+
+      {isRound4RulesVisible && (
+        <div className="fixed inset-0 z-50 bg-[#142a45]/70 backdrop-blur-sm flex items-center justify-center px-4 transition-opacity duration-300">
+          <div className="max-w-lg w-full rounded-3xl border-[4px] border-[#142a45] bg-[#fff6da] p-6 space-y-4 shadow-2xl transform transition-all duration-300 scale-100 opacity-100">
+            <div>
+              <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Раунд 4 · «Дэшифровщик»</p>
+              <h3 className="text-2xl font-black text-[#142a45]">Эмодзи-загадки</h3>
+            </div>
+            <div className="text-sm text-[#142a45]/80 whitespace-pre-line leading-relaxed">{ROUND4_RULES_TEXT}</div>
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={handleStartRound4Rules}
+                className="w-full py-3 rounded-2xl font-black text-lg tracking-[0.3em] bg-[#f1532f] text-white border-[3px] border-[#142a45] hover:scale-105 hover:shadow-lg transition-all duration-200"
+              >
+                Старт
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelRound4Rules}
+                className="w-full py-3 rounded-2xl border-[3px] border-dashed border-[#142a45] bg-white font-semibold text-[#142a45] hover:scale-105 hover:shadow-lg transition-all duration-200"
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Fragment>
   );
 }
