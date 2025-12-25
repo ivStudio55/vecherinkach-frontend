@@ -124,6 +124,16 @@ const ROUND3_RULES_TEXT =
   'Синонимы могут засчитаться (на усмотрение ведущего).\n\n' +
   'Готовы угадывать и голосовать? Давайте устроим настоящий мозговой штурм!';
 
+const ROUND4_RULES_VOICE_FILES = ['round4/rules/1.mp3', 'round4/rules/2.mp3', 'round4/rules/3.mp3'] as const;
+const ROUND4_RULES_TEXT =
+  'Раунд «Дэшифровщик»\n\n' +
+  'На экране появляется комбинация из эмодзи, в которых зашифровано название известного фильма, мультфильма, сериала, песни или чего-то очень знаменитого.\n' +
+  'Задача игроков: как можно быстрее вписать правильное название в поле ввода.\n\n' +
+  'Начисление баллов:\n' +
+  '• Первый ответивший правильно получает 100 баллов.\n' +
+  '• Последующие правильно ответившие получают 50 баллов.\n' +
+  '• Таймер — 30 секунд.';
+
 const buildAudioUrl = (relativePath: string) => `/api/audio?file=${encodeURIComponent(relativePath)}&t=${Date.now()}`;
 const buildJingleUrl = (fileName: string) => `/api/jingle/audio?file=${encodeURIComponent(fileName)}&t=${Date.now()}`;
 const pickRandomItem = <T,>(items: readonly T[]) => items[Math.floor(Math.random() * items.length)];
@@ -319,6 +329,7 @@ export default function HostRoomPage() {
   const round2Phase = round2PhaseState;
   const [isRound2RulesVisible, setIsRound2RulesVisible] = useState(false);
   const [isRound3RulesVisible, setIsRound3RulesVisible] = useState(false);
+  const [isRound4RulesVisible, setIsRound4RulesVisible] = useState(false);
   const [round3Questions, setRound3Questions] = useState<Round3Question[]>([]);
   const [round2Answers, setRound2Answers] = useState<Round2AnswerRow[]>([]);
   const [round2AskedIndices, setRound2AskedIndices] = useState<number[]>([]);
@@ -357,6 +368,7 @@ export default function HostRoomPage() {
   const round2RulesMusicAudioRef = useRef<HTMLAudioElement | null>(null);
   const round2RulesVoiceAudioRef = useRef<HTMLAudioElement | null>(null);
   const round3RulesVoiceAudioRef = useRef<HTMLAudioElement | null>(null);
+  const round4RulesVoiceAudioRef = useRef<HTMLAudioElement | null>(null);
   const round3BgAudioRef = useRef<HTMLAudioElement | null>(null);
   const round3VoiceAudioRef = useRef<HTMLAudioElement | null>(null);
   const round3BgBufferSourceRef = useRef<AudioBufferSourceNode | null>(null);
@@ -667,6 +679,16 @@ export default function HostRoomPage() {
     round3RulesAudioCompletedRef.current = true;
   }, []);
 
+  const stopRound4RulesAudio = useCallback(() => {
+    const voiceCue = round4RulesVoiceAudioRef.current;
+    if (voiceCue) {
+      voiceCue.pause();
+      voiceCue.currentTime = 0;
+      voiceCue.onended = null;
+      round4RulesVoiceAudioRef.current = null;
+    }
+  }, []);
+
   const stopRoundEndAudio = useCallback(() => {
     const mainCue = roundEndAudioRef.current;
     if (mainCue) {
@@ -798,6 +820,27 @@ export default function HostRoomPage() {
     });
   }, [stopRound3RulesAudio]);
 
+  const playRound4RulesAudio = useCallback(() => {
+    if (!hasUserInteractedRef.current) {
+      return;
+    }
+
+    stopRound4RulesAudio();
+
+    const voiceSource = pickRandomItem(ROUND4_RULES_VOICE_FILES);
+    const voice = new Audio(buildAudioUrl(voiceSource));
+    voice.volume = 0.95;
+    round4RulesVoiceAudioRef.current = voice;
+
+    voice.onended = () => {
+      round4RulesVoiceAudioRef.current = null;
+    };
+
+    voice.play().catch((err) => {
+      console.error('Не удалось воспроизвести озвучку правил Раунда 4', err);
+    });
+  }, [stopRound4RulesAudio]);
+
   const stopRound3Audio = useCallback(() => {
     round3PlaybackTokenRef.current += 1;
 
@@ -911,6 +954,17 @@ export default function HostRoomPage() {
 
     setRound3AudioBlocked(false);
   }, []);
+
+  const stopAllAudio = useCallback(() => {
+    stopRound2Audio();
+    stopRound2RulesAudio();
+    stopRound3RulesAudio();
+    stopRound3Audio();
+    stopRound4RulesAudio();
+    stopRoundEndAudio();
+    stopTournamentJingle();
+    stopBetweenAudio();
+  }, [stopBetweenAudio, stopRound2Audio, stopRound2RulesAudio, stopRound3Audio, stopRound3RulesAudio, stopRound4RulesAudio, stopRoundEndAudio, stopTournamentJingle]);
 
   const toggleMusicMute = useCallback(() => {
     const newMuted = !isMusicMuted;
@@ -1855,6 +1909,15 @@ export default function HostRoomPage() {
       stopRound3RulesAudio();
     }
   }, [isRound3RulesVisible, playRound3RulesAudio, stopRound2RulesAudio, stopRound3RulesAudio, stopRoundEndAudio]);
+
+  useEffect(() => {
+    if (isRound4RulesVisible) {
+      stopAllAudio();
+      playRound4RulesAudio();
+    } else {
+      stopRound4RulesAudio();
+    }
+  }, [isRound4RulesVisible, playRound4RulesAudio, stopAllAudio, stopRound4RulesAudio]);
 
   useEffect(() => {
     round2RulesReadyAtRef.current = isRound2RulesVisible ? Date.now() : null;
@@ -3974,6 +4037,21 @@ export default function HostRoomPage() {
     void endGame();
   };
 
+  const handleOpenRound4Rules = useCallback(() => {
+    hasUserInteractedRef.current = true;
+    stopAllAudio();
+    setIsRound4RulesVisible(true);
+  }, [stopAllAudio]);
+
+  const handleStartRound4Rules = useCallback(() => {
+    setIsRound4RulesVisible(false);
+  }, []);
+
+  const handleCancelRound4Rules = useCallback(() => {
+    setIsRound4RulesVisible(false);
+    stopRound4RulesAudio();
+  }, [stopRound4RulesAudio]);
+
   useEffect(() => {
     if (!question || roomStatus !== 'running' || !canAdvance || totalPlayers === 0) {
       return;
@@ -4853,6 +4931,21 @@ export default function HostRoomPage() {
                   <p className="text-base font-black">{statusLabel}</p>
                 </div>
               </div>
+            </div>
+
+            <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-5 space-y-3">
+              <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Раунд 4 · «Дэшифровщик»</p>
+              <h3 className="text-xl font-black text-[#142a45]">Комбо из эмодзи</h3>
+              <p className="text-sm text-[#142a45]/70">
+                Запускает экран с правилами и голос диктора. Перед показом глушим все текущие звуки.
+              </p>
+              <button
+                type="button"
+                onClick={handleOpenRound4Rules}
+                className="w-full py-3 rounded-2xl font-black text-lg tracking-[0.25em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] hover:scale-105 hover:shadow-lg transition-all duration-200"
+              >
+                Раунд 4
+              </button>
             </div>
           </aside>
         </div>
