@@ -316,7 +316,7 @@ export default function HostRoomPage() {
   const [isPrestartVisible, setIsPrestartVisible] = useState(false);
   const [isRulesVisible, setIsRulesVisible] = useState(false);
   const [isCountdownVisible, setIsCountdownVisible] = useState(false);
-  const [countdownContext, setCountdownContext] = useState<'round1' | 'round2' | 'round3'>('round1');
+  const [countdownContext, setCountdownContext] = useState<'round1' | 'round2' | 'round3' | 'round4'>('round1');
   const [countdownValue, setCountdownValue] = useState<string>(COUNTDOWN_STEPS[0]);
   const [isRoomOpened, setIsRoomOpened] = useState(false);
   const [isPrestartNextEnabled, setIsPrestartNextEnabled] = useState(true);
@@ -399,6 +399,8 @@ export default function HostRoomPage() {
   const isLastRound2QuestionRef = useRef(false);
   const round3RulesAudioCompletedRef = useRef(true);
   const round3StartLockRef = useRef(false);
+  const round4RulesAudioCompletedRef = useRef(true);
+  const round4StartLockRef = useRef(false);
   const playersRef = useRef<Player[]>(players);
   const hasUserInteractedRef = useRef(false);
   const lastJoinAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -827,6 +829,7 @@ export default function HostRoomPage() {
     }
 
     stopRound4RulesAudio();
+    round4RulesAudioCompletedRef.current = false;
 
     const voiceSource = pickRandomItem(ROUND4_RULES_VOICE_FILES);
     const voice = new Audio(buildAudioUrl(voiceSource));
@@ -834,10 +837,12 @@ export default function HostRoomPage() {
     round4RulesVoiceAudioRef.current = voice;
 
     voice.onended = () => {
+      round4RulesAudioCompletedRef.current = true;
       round4RulesVoiceAudioRef.current = null;
     };
 
     voice.play().catch((err) => {
+      round4RulesAudioCompletedRef.current = true;
       console.error('Не удалось воспроизвести озвучку правил Раунда 4', err);
     });
   }, [stopRound4RulesAudio]);
@@ -4064,9 +4069,52 @@ export default function HostRoomPage() {
     setIsRound4RulesVisible(true);
   }, [stopAllAudio]);
 
-  const handleStartRound4Rules = useCallback(() => {
+  const startRound4Countdown = useCallback(async () => {
+    if (round4StartLockRef.current || isCountdownVisible) {
+      return;
+    }
+    round4StartLockRef.current = true;
+    hasUserInteractedRef.current = true;
+    setIsTournamentVisible(false);
+    stopTournamentJingle();
+
+    const shouldPlaySkip = !round4RulesAudioCompletedRef.current;
+
     setIsRound4RulesVisible(false);
-  }, []);
+    stopRound4RulesAudio();
+
+    if (shouldPlaySkip) {
+      await playSkipAudioAndWait();
+    }
+
+    clearCountdownTimeout();
+    setCountdownContext('round4');
+    countdownCompleteActionRef.current = async () => {
+      try {
+        // TODO: Implement Round 4 game start logic
+        // For now, just reset the lock
+        console.log('Раунд 4 запущен!');
+      } finally {
+        round4StartLockRef.current = false;
+      }
+    };
+    setIsCountdownVisible(true);
+    runCountdownSequence(0);
+  }, [
+    clearCountdownTimeout,
+    isCountdownVisible,
+    stopTournamentJingle,
+    playSkipAudioAndWait,
+    runCountdownSequence,
+    setCountdownContext,
+    setIsCountdownVisible,
+    setIsRound4RulesVisible,
+    stopRound4RulesAudio,
+  ]);
+
+  const handleStartRound4Rules = useCallback(() => {
+    void startRound4Countdown();
+  }, [startRound4Countdown]);
 
   const handleCancelRound4Rules = useCallback(() => {
     setIsRound4RulesVisible(false);
@@ -5036,7 +5084,7 @@ export default function HostRoomPage() {
       {shouldShowCountdownOverlay && (
         <div className="fixed inset-0 z-50 bg-[#142a45]/90 flex flex-col items-center justify-center text-center text-[#ffeccd] px-4">
           <p className="text-sm uppercase tracking-[0.5em] text-[#ffeccd]/70 mb-4">
-            {countdownContext === 'round2' ? 'Запуск Раунда 2' : countdownContext === 'round3' ? 'Запуск Раунда 3' : 'Запуск раунда'}
+            {countdownContext === 'round2' ? 'Запуск Раунда 2' : countdownContext === 'round3' ? 'Запуск Раунда 3' : countdownContext === 'round4' ? 'Запуск Раунда 4' : 'Запуск раунда'}
           </p>
           <div className="text-7xl sm:text-8xl font-black drop-shadow-lg">
             {countdownValue.toUpperCase()}
@@ -5046,7 +5094,9 @@ export default function HostRoomPage() {
               ? 'Фейколов уже на подходе — готовим новое утверждение для игроков.'
               : countdownContext === 'round3'
                 ? 'Готовимся к мозговому штурму — скоро включим следующий этап.'
-              : 'Звук уже пошёл — готовим вопросы на экране игроков.'}
+                : countdownContext === 'round4'
+                  ? 'Дэшифровщик загружается — готовим эмодзи-загадки!'
+                  : 'Звук уже пошёл — готовим вопросы на экране игроков.'}
           </p>
         </div>
       )}
