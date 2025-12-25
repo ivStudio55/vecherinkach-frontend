@@ -720,6 +720,7 @@ export default function HostRoomPage() {
     }
   }, []);
 
+
   const playTournamentJingle = useCallback(() => {
     if (!hasUserInteractedRef.current) {
       return;
