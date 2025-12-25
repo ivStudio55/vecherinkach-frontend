@@ -965,8 +965,15 @@ export default function HostRoomPage() {
     stopRound4RulesAudio();
     stopRoundEndAudio();
     stopTournamentJingle();
-    stopBetweenAudio();
-  }, [stopBetweenAudio, stopRound2Audio, stopRound2RulesAudio, stopRound3Audio, stopRound3RulesAudio, stopRound4RulesAudio, stopRoundEndAudio, stopTournamentJingle]);
+    // stopBetweenAudio вызываем через ref, так как он определён позже
+    const audio = betweenAudioRef.current;
+    if (audio) {
+      audio.pause();
+      audio.currentTime = 0;
+      audio.onended = null;
+      betweenAudioRef.current = null;
+    }
+  }, [stopRound2Audio, stopRound2RulesAudio, stopRound3Audio, stopRound3RulesAudio, stopRound4RulesAudio, stopRoundEndAudio, stopTournamentJingle]);
 
   const toggleMusicMute = useCallback(() => {
     const newMuted = !isMusicMuted;
