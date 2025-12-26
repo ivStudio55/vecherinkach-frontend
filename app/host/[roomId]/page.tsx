@@ -236,7 +236,7 @@ type Round4Puzzle = {
   id: number;
   category: string;
   emoji: string;
-  answer: string;
+  answers: string[];
 };
 
 type Round4AnswerRow = {
@@ -4378,11 +4378,41 @@ export default function HostRoomPage() {
     round4StartLockRef.current = false;
   }, [pickRound4Puzzle, getServerIsoTimestamp, roomId, updateRoomStatus, syncTimerWithStart, playRound4CategoryAudio, playRound4TimerAudio]);
 
+  const handleRound4Complete = useCallback(async () => {
+    stopRound4Audio();
+    setIsTournamentVisible(true);
+    playTournamentJingle();
+    playRound4EndAudio();
+    setShowResults(false);
+    setQuestion(null);
+    setQuestionStartedAt(null);
+    setTimeLeft(0);
+
+    const { error } = await supabase
+      .from('rooms')
+      .update({
+        status: 'finished',
+        is_active: false,
+        all_players_answered: true,
+        question_started_at: null,
+      })
+      .eq('id', roomId);
+
+    if (error) {
+      setError('Не удалось завершить Раунд 4');
+      return;
+    }
+
+    setRoomStatus('finished');
+  }, [playTournamentJingle, playRound4EndAudio, roomId, setQuestion, stopRound4Audio]);
+
   const maybeAutoAdvanceRound4 = useCallback(() => {
     if (roomStatusRef.current !== 'round4-running') {
       return;
     }
     if (round4AskedIdsRef.current.length >= ROUND4_TOTAL_TOURS) {
+      // Round 4 completed - show leaderboard
+      void handleRound4Complete();
       return;
     }
     if (round4StartLockRef.current) {
@@ -4390,7 +4420,7 @@ export default function HostRoomPage() {
     }
     round4StartLockRef.current = true;
     void startRound4Game();
-  }, [startRound4Game]);
+  }, [handleRound4Complete, startRound4Game]);
 
   const scoreRound4Puzzle = useCallback(
     async (puzzle: Round4Puzzle) => {
@@ -4417,11 +4447,12 @@ export default function HostRoomPage() {
         }
 
         const rows = (data ?? []) as Round4AnswerRow[];
-        const normalizedAnswer = normalizeRound4Answer(puzzle.answer);
+        const normalizedAnswers = puzzle.answers.map((a) => normalizeRound4Answer(a));
         let rank = 0;
 
         const withDeltas = rows.map((row) => {
-          const isCorrect = normalizeRound4Answer(row.answer_text) === normalizedAnswer;
+          const playerAnswer = normalizeRound4Answer(row.answer_text);
+          const isCorrect = normalizedAnswers.includes(playerAnswer);
           const correctRank = isCorrect ? ++rank : null;
           const points = isCorrect ? (correctRank === 1 ? 100 : 50) : 0;
           const delta = points - (row.points_earned ?? 0);
@@ -5236,16 +5267,21 @@ export default function HostRoomPage() {
               </div>
             ) : roomStatus === 'round4-running' ? (
               <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
-                <div className="text-center space-y-2">
+                <div className="text-center space-y-3">
                   <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Раунд 4 · «Дэшифровщик»</p>
-                  <h2 className="text-4xl font-black leading-tight text-center">
+                  {round4CurrentPuzzle && (
+                    <p className="text-3xl font-black text-[#1f6ac6] uppercase tracking-wide">
+                      {round4CurrentPuzzle.category}
+                    </p>
+                  )}
+                  <h2 className="text-5xl sm:text-6xl font-black leading-tight text-center">
                     {round4CurrentPuzzle ? round4CurrentPuzzle.emoji : '⏳'}
                   </h2>
-                  <p className="text-sm text-[#142a45]/70">
-                    {round4CurrentPuzzle
-                      ? `Категория: ${round4CurrentPuzzle.category}`
-                      : 'Ждём выдачу первой загадки — нажмите «Раунд 4», если нужно перезапустить.'}
-                  </p>
+                  {!round4CurrentPuzzle && (
+                    <p className="text-sm text-[#142a45]/70">
+                      Ждём выдачу первой загадки — нажмите «Раунд 4», если нужно перезапустить.
+                    </p>
+                  )}
                 </div>
 
                 <div>

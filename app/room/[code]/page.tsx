@@ -93,7 +93,7 @@ type Round4Puzzle = {
   id: number;
   category: string;
   emoji: string;
-  answer: string;
+  answers: string[];
 };
 
 type Round3Question = {
