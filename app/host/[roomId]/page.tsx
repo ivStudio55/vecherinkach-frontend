@@ -3886,6 +3886,36 @@ export default function HostRoomPage() {
   }, [answerCount, totalPlayerCount, roomId, roomStatus, serverAllPlayersAnswered]);
 
   useEffect(() => {
+    if (!roomId || roomStatus !== 'round5-running') {
+      return;
+    }
+
+    if (totalPlayerCount === 0) {
+      return;
+    }
+
+    const everyoneAnswered = answerCount >= totalPlayerCount;
+    if (everyoneAnswered === serverAllPlayersAnswered) {
+      return;
+    }
+
+    const updateFlag = async () => {
+      const { error } = await supabase
+        .from('rooms')
+        .update({ all_players_answered: everyoneAnswered })
+        .eq('id', roomId);
+
+      if (error) {
+        console.error('Не удалось обновить статус ответов финала', error);
+        return;
+      }
+      setServerAllPlayersAnswered(everyoneAnswered);
+    };
+
+    updateFlag();
+  }, [answerCount, roomId, roomStatus, serverAllPlayersAnswered, totalPlayerCount]);
+
+  useEffect(() => {
     // Poll answers during the fact phase so the host still sees fresh counts if realtime misses events.
     // Disabled for Round 2 to avoid conflicts with realtime updates
     if (roomStatus !== 'round2-running' && (roomStatus !== 'running' || round2Phase !== 'fact' || serverAllPlayersAnswered)) {
@@ -5131,6 +5161,22 @@ export default function HostRoomPage() {
     }
     void scoreAndRevealRound5();
   }, [roomStatus, round5CurrentBankIndex, round5CurrentQuestion, scoreAndRevealRound5, timeLeft]);
+
+  useEffect(() => {
+    if (roomStatus !== 'round5-running') {
+      return;
+    }
+    if (!serverAllPlayersAnswered) {
+      return;
+    }
+    if (round5CurrentBankIndex === null || !round5CurrentQuestion) {
+      return;
+    }
+    if (round5ScoredQuestionIndicesRef.current.has(round5CurrentBankIndex)) {
+      return;
+    }
+    void scoreAndRevealRound5();
+  }, [roomStatus, round5CurrentBankIndex, round5CurrentQuestion, scoreAndRevealRound5, serverAllPlayersAnswered]);
 
   useEffect(() => {
     if (roomStatus !== 'round5-explanation') {
