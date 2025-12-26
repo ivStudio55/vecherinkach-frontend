@@ -1373,6 +1373,11 @@ export default function RoomPage() {
           </p>
         </header>
 
+        {/* Debug Info - Remove in production */}
+        <div className="fixed bottom-0 left-0 bg-black/80 text-white text-[10px] p-2 max-w-full overflow-auto z-50 pointer-events-none opacity-50 hover:opacity-100">
+          Status: {roomStatus} | StartedAt: {questionStartedAt ?? 'null'} | TimerActive: {String(timerActive)} | TimeLeft: {timeLeft} | AllAnswered: {String(allPlayersAnswered)} | PuzzleId: {round4PuzzleId ?? 'null'} | PuzzlesLoaded: {round4Puzzles.length}
+        </div>
+
         {roomStatus === 'waiting' && (
           <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-8 text-center space-y-4">
             <div className="text-5xl">⏳</div>
