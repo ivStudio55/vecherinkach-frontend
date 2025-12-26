@@ -167,6 +167,7 @@ export default function RoomPage() {
   const [round3AnswerText, setRound3AnswerText] = useState('');
   const [round3AnswerOptions, setRound3AnswerOptions] = useState<Round3AnswerRow[]>([]);
   const [round3HasVoted, setRound3HasVoted] = useState(false);
+  const [debugLastEvent, setDebugLastEvent] = useState<string>('none');
   const roomIdRef = useRef('');
   const playerIdRef = useRef('');
   const round3VoiceRef = useRef<HTMLAudioElement | null>(null);
@@ -783,6 +784,7 @@ export default function RoomPage() {
           }
 
           if (newStatus === 'round4-running') {
+            setDebugLastEvent(`R4: payload.startedAt=${startedAt?.substring(11,19) ?? 'null'}, idx=${newQuestionIndex}`);
             setShowResults(false);
             setQuestion(null);
             setRound2ItemIndex(null);
@@ -794,11 +796,20 @@ export default function RoomPage() {
             let effectivePuzzleId = newQuestionIndex;
 
             if (!effectiveStartedAt || effectivePuzzleId === null) {
-              const { data: freshRoom } = await supabase
+              const { data: freshRoom, error: freshError } = await supabase
                 .from('rooms')
                 .select('question_started_at, current_question_index')
                 .eq('id', roomId)
                 .single();
+              
+              if (freshRoom) {
+                effectiveStartedAt = freshRoom.question_started_at;
+                effectivePuzzleId = coerceToNumber(freshRoom.current_question_index);
+                setDebugLastEvent(`R4 FETCH: startedAt=${effectiveStartedAt?.substring(11,19) ?? 'null'}, idx=${effectivePuzzleId}, err=${freshError?.message ?? 'none'}`);
+              } else {
+                setDebugLastEvent(`R4 FETCH FAIL: ${freshError?.message ?? 'no data'}`);
+              }
+            }
               
               if (freshRoom) {
                 effectiveStartedAt = freshRoom.question_started_at;
@@ -1394,15 +1405,18 @@ export default function RoomPage() {
         </header>
 
         {/* Debug Info - Remove in production */}
-        <div className="fixed bottom-0 left-0 bg-black/80 text-white text-[10px] p-2 max-w-full overflow-auto z-50 opacity-50 hover:opacity-100 flex gap-4 items-center">
+        <div className="fixed bottom-0 left-0 bg-black/80 text-white text-[10px] p-2 max-w-full overflow-auto z-50 opacity-50 hover:opacity-100 flex flex-col gap-1">
           <div>
-            Status: {roomStatus} | StartedAt: {questionStartedAt ? questionStartedAt.substring(11, 19) : 'null'} | TimerActive: {String(timerActive)} | TimeLeft: {timeLeft} | EffectiveTime: {effectiveTimeLeft} | AllAnswered: {String(allPlayersAnswered)} | PuzzleId: {round4PuzzleId ?? 'null'} | PuzzlesLoaded: {round4Puzzles.length} | RoomId: {roomId?.substring(0, 8) ?? 'null'}
+            Status: {roomStatus} | StartedAt: {questionStartedAt ? questionStartedAt.substring(11, 19) : 'null'} | TimerActive: {String(timerActive)} | TimeLeft: {timeLeft} | AllAnswered: {String(allPlayersAnswered)} | PuzzleId: {round4PuzzleId ?? 'null'}
+          </div>
+          <div>
+            LastEvent: {debugLastEvent}
           </div>
           <button 
-            className="bg-white text-black px-2 py-1 rounded"
+            className="bg-white text-black px-2 py-1 rounded w-fit"
             onClick={() => window.location.reload()}
           >
-            Reload Page
+            Reload
           </button>
         </div>
 
