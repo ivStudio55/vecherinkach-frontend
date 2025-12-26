@@ -146,6 +146,11 @@ const ROUND5_RULES_TEXT =
 
 const ROUND4_TOTAL_TOURS = 6;
 
+const ROUND5_TOTAL_TOURS = 6;
+const ROUND5_MAX_POINTS = 400;
+const ROUND5_QUESTION_AUDIO_DIR = 'round5/questions';
+const ROUND5_EXPLANATION_AUDIO_DIR = 'round5/explanation';
+
   const ROUND4_CATEGORY_AUDIO_MAP: Record<string, string> = {
     'дисней': 'disney',
     'американский кинематограф': 'american_cinema',
@@ -298,7 +303,30 @@ type Round3ScoredAnswer = {
   pointsEarned: number;
 };
 
-type RoomStatus = 'waiting' | 'running' | 'finished' | 'round2-running' | 'round3-running' | 'round4-running';
+type Round5Question = {
+  question: string;
+  answer: number;
+  explanation: string;
+};
+
+type Round5AnswerRow = {
+  id: string;
+  player_id: string;
+  answer_value: number;
+  points_earned: number;
+  submitted_at: string;
+};
+
+type RoomStatus =
+  | 'waiting'
+  | 'running'
+  | 'round2-ready'
+  | 'round2-running'
+  | 'round3-running'
+  | 'round4-running'
+  | 'round5-running'
+  | 'round5-explanation'
+  | 'finished';
 
 interface RoundAnswer {
   player_id: string;
@@ -358,6 +386,10 @@ export default function HostRoomPage() {
   const [round4AskedIds, setRound4AskedIds] = useState<number[]>([]);
   const [round4AnswerRows, setRound4AnswerRows] = useState<Round4AnswerRow[]>([]);
   const [isRound4Scoring, setIsRound4Scoring] = useState(false);
+  const [round5Questions, setRound5Questions] = useState<Round5Question[]>([]);
+  const [round5CurrentQuestion, setRound5CurrentQuestion] = useState<Round5Question | null>(null);
+  const [round5CurrentBankIndex, setRound5CurrentBankIndex] = useState<number | null>(null);
+  const [isRound5Scoring, setIsRound5Scoring] = useState(false);
   const [isSummaryLoading, setIsSummaryLoading] = useState(false);
   const [roomStatus, setRoomStatus] = useState<RoomStatus>('waiting');
   const [serverAllPlayersAnswered, setServerAllPlayersAnswered] = useState(false);
@@ -408,6 +440,14 @@ export default function HostRoomPage() {
   }, [isMusicMuted]);
 
   useEffect(() => {
+    round5QuestionsRef.current = round5Questions;
+  }, [round5Questions]);
+
+  useEffect(() => {
+    round5CurrentBankIndexRef.current = round5CurrentBankIndex;
+  }, [round5CurrentBankIndex]);
+
+  useEffect(() => {
     round4AskedIdsRef.current = round4AskedIds;
   }, [round4AskedIds]);
 
@@ -418,6 +458,16 @@ export default function HostRoomPage() {
   const questionJingleAudioRef = useRef<HTMLAudioElement | null>(null);
   const questionVoiceAudioRef = useRef<HTMLAudioElement | null>(null);
   const betweenAudioRef = useRef<HTMLAudioElement | null>(null);
+  const round5TimerAudioRef = useRef<HTMLAudioElement | null>(null);
+  const round5QuestionVoiceAudioRef = useRef<HTMLAudioElement | null>(null);
+  const round5ExplanationBgAudioRef = useRef<HTMLAudioElement | null>(null);
+  const round5ExplanationVoiceAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  const round5QuestionsRef = useRef<Round5Question[]>([]);
+  const round5CurrentBankIndexRef = useRef<number | null>(null);
+  const round5ScoredQuestionIndicesRef = useRef<Set<number>>(new Set());
+  const round5StartLockRef = useRef(false);
+  const round5AdvanceLockRef = useRef(false);
   const roundEndAudioRef = useRef<HTMLAudioElement | null>(null);
   const roundEndJingleAudioRef = useRef<HTMLAudioElement | null>(null);
   const round2FactAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -487,6 +537,8 @@ export default function HostRoomPage() {
   const isLobbySoundOnRef = useRef(isLobbySoundOn);
   const countdownReadyAtRef = useRef<number | null>(null);
   const lastSpokenQuestionRef = useRef<number | null>(null);
+  const lastRound5QuestionPlaybackKeyRef = useRef<string | null>(null);
+  const lastRound5ExplanationPlaybackKeyRef = useRef<string | null>(null);
   const betweenCueQuestionRef = useRef<number | null>(null);
   const roundEndLockQuestionRef = useRef<number | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -772,6 +824,29 @@ export default function HostRoomPage() {
       round5RulesVoiceAudioRef.current = null;
     }
     setIsRound5RulesAudioPlaying(false);
+  }, []);
+
+  const stopRound5Audio = useCallback(() => {
+    const stopCue = (ref: React.MutableRefObject<HTMLAudioElement | null>) => {
+      const cue = ref.current;
+      if (!cue) {
+        return;
+      }
+      try {
+        cue.pause();
+        cue.currentTime = 0;
+      } catch {
+        // ignore
+      }
+      cue.onended = null;
+      cue.onerror = null;
+      ref.current = null;
+    };
+
+    stopCue(round5TimerAudioRef);
+    stopCue(round5QuestionVoiceAudioRef);
+    stopCue(round5ExplanationBgAudioRef);
+    stopCue(round5ExplanationVoiceAudioRef);
   }, []);
 
   const stopRound4AnswerBgAudio = useCallback(() => {
@@ -1088,6 +1163,78 @@ export default function HostRoomPage() {
     });
   }, [stopRound5RulesAudio]);
 
+  const playRound5QuestionAudio = useCallback(
+    async (bankIndex: number) => {
+      if (!hasUserInteractedRef.current) {
+        return;
+      }
+
+      stopRound5Audio();
+
+      const timer = new Audio(buildJingleUrl(QUESTION_JINGLE_FILE));
+      timer.loop = false;
+      timer.volume = isMusicMutedRef.current ? 0 : 0.6;
+      round5TimerAudioRef.current = timer;
+
+      const voiceFile = `${ROUND5_QUESTION_AUDIO_DIR}/${bankIndex + 1}.mp3`;
+      const voice = new Audio(buildAudioUrl(voiceFile));
+      voice.loop = false;
+      voice.volume = 0.95;
+      round5QuestionVoiceAudioRef.current = voice;
+
+      try {
+        await timer.play();
+      } catch (error) {
+        console.error('Не удалось запустить таймер финального раунда', error);
+      }
+
+      voice.play().catch((error) => {
+        console.error('Не удалось воспроизвести вопрос финального раунда', error);
+      });
+    },
+    [stopRound5Audio]
+  );
+
+  const playRound5ExplanationAudio = useCallback(
+    (bankIndex: number, options?: { onEnded?: () => void }) => {
+      if (!hasUserInteractedRef.current) {
+        options?.onEnded?.();
+        return;
+      }
+
+      stopRound5Audio();
+
+      const bg = new Audio(buildAudioUrl(ROUND2_EXPLANATION_BG_FILE));
+      bg.loop = true;
+      bg.volume = isMusicMutedRef.current ? 0 : 0.35;
+      round5ExplanationBgAudioRef.current = bg;
+
+      const voiceFile = `${ROUND5_EXPLANATION_AUDIO_DIR}/${bankIndex + 1}.mp3`;
+      const voice = new Audio(buildAudioUrl(voiceFile));
+      voice.loop = false;
+      voice.volume = 0.95;
+      round5ExplanationVoiceAudioRef.current = voice;
+
+      const finish = () => {
+        stopRound5Audio();
+        options?.onEnded?.();
+      };
+
+      voice.onended = finish;
+      voice.onerror = finish;
+
+      bg.play().catch((err) => {
+        console.error('Не удалось воспроизвести фон объяснения финального раунда', err);
+      });
+
+      voice.play().catch((err) => {
+        console.error('Не удалось воспроизвести объяснение финального раунда', err);
+        finish();
+      });
+    },
+    [stopRound5Audio]
+  );
+
   const stopRound3Audio = useCallback(() => {
     round3PlaybackTokenRef.current += 1;
 
@@ -1210,6 +1357,7 @@ export default function HostRoomPage() {
     stopRound3Audio();
     stopRound4RulesAudio();
     stopRound5RulesAudio();
+    stopRound5Audio();
     stopRound4Audio();
     stopRoundEndAudio();
     stopTournamentJingle();
@@ -1221,7 +1369,7 @@ export default function HostRoomPage() {
       audio.onended = null;
       betweenAudioRef.current = null;
     }
-  }, [stopRound2Audio, stopRound2RulesAudio, stopRound3Audio, stopRound3RulesAudio, stopRound4Audio, stopRound4RulesAudio, stopRound5RulesAudio, stopRoundEndAudio, stopTournamentJingle]);
+  }, [stopRound2Audio, stopRound2RulesAudio, stopRound3Audio, stopRound3RulesAudio, stopRound4Audio, stopRound4RulesAudio, stopRound5Audio, stopRound5RulesAudio, stopRoundEndAudio, stopTournamentJingle]);
 
   const toggleMusicMute = useCallback(() => {
     const newMuted = !isMusicMuted;
@@ -2165,6 +2313,24 @@ export default function HostRoomPage() {
   }, []);
 
   useEffect(() => {
+    const loadRound5Data = async () => {
+      try {
+        const res = await fetch('/questions/5round_question.json', { cache: 'no-store' });
+        if (!res.ok) {
+          return;
+        }
+        const payload = (await res.json()) as unknown;
+        const questions = Array.isArray(payload) ? (payload as Round5Question[]) : [];
+        setRound5Questions(questions);
+      } catch (e) {
+        console.error('Failed to load round5 questions', e);
+      }
+    };
+
+    void loadRound5Data();
+  }, []);
+
+  useEffect(() => {
     if (isRound2RulesVisible) {
       stopRoundEndAudio();
       playRound2RulesAudio();
@@ -2496,6 +2662,14 @@ export default function HostRoomPage() {
           setRound4AnswerRows([]);
           setIsRound4Scoring(false);
         }
+      if (nextStatus !== 'round5-running' && nextStatus !== 'round5-explanation') {
+        setRound5CurrentBankIndex(null);
+        setRound5CurrentQuestion(null);
+        setIsRound5Scoring(false);
+        stopRound5Audio();
+        lastRound5QuestionPlaybackKeyRef.current = null;
+        lastRound5ExplanationPlaybackKeyRef.current = null;
+      }
     },
     [
       clearCountdownTimeout,
@@ -2506,6 +2680,7 @@ export default function HostRoomPage() {
       stopRound2RulesAudio,
         setRound4AnswerRows,
         setRound4CurrentPuzzle,
+      stopRound5Audio,
     ]
   );
 
@@ -2658,6 +2833,55 @@ export default function HostRoomPage() {
     loadRound2AnswerStatsRef.current = loadRound2AnswerStats;
   }, [loadRound2AnswerStats]);
 
+  const loadRound5AnswerStats = useCallback(
+    async (bankQuestionIndex: number | null) => {
+      if (bankQuestionIndex === null || bankQuestionIndex === undefined) {
+        setAnswerCount(0);
+        setCorrectAnswerCount(0);
+        setAnsweredPlayerIds([]);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('round5_answers')
+        .select('player_id, submitted_at', { count: 'exact' })
+        .eq('room_id', roomId)
+        .eq('question_index', bankQuestionIndex)
+        .order('submitted_at', { ascending: true });
+
+      if (error) {
+        console.error('Не удалось загрузить ответы Раунда 5', error);
+        setAnswerCount(0);
+        setAnsweredPlayerIds([]);
+        return;
+      }
+
+      const rows = (data || []) as Array<{ player_id: string; submitted_at: string }>;
+      const uniqueMap = new Map<string, { player_id: string; submitted_at: string }>();
+      for (const row of rows) {
+        uniqueMap.set(row.player_id, row);
+      }
+      const unique = Array.from(uniqueMap.values());
+      const ids = unique.map((row) => row.player_id);
+
+      setAnsweredPlayerIds(ids);
+      setAnswerCount(ids.length);
+      setCorrectAnswerCount(0);
+
+      const everyoneHandled = totalPlayerCount > 0 && ids.length >= totalPlayerCount;
+      if (everyoneHandled !== serverAllPlayersAnswered) {
+        setServerAllPlayersAnswered(everyoneHandled);
+      }
+    },
+    [roomId, serverAllPlayersAnswered, totalPlayerCount]
+  );
+
+  const loadRound5AnswerStatsRef = useRef(loadRound5AnswerStats);
+
+  useEffect(() => {
+    loadRound5AnswerStatsRef.current = loadRound5AnswerStats;
+  }, [loadRound5AnswerStats]);
+
   const fetchSummaryData = useCallback(async () => {
     const { data, error: answersError } = await supabase
       .from('answers')
@@ -2698,7 +2922,9 @@ export default function HostRoomPage() {
           detectedStatus === 'running' ||
           detectedStatus === 'round2-running' ||
           detectedStatus === 'round3-running' ||
-          detectedStatus === 'round4-running';
+          detectedStatus === 'round4-running' ||
+          detectedStatus === 'round5-running' ||
+          detectedStatus === 'round5-explanation';
         setServerAllPlayersAnswered(isLiveRound ? !!room.all_players_answered : false);
         const nextRound2Index = (room.round2_item_index as number | null) ?? room.current_question_index ?? null;
         if (nextRound2Index !== null) {
@@ -2766,6 +2992,33 @@ export default function HostRoomPage() {
           setTimeLeft(0);
         }
         await loadRound2AnswerStats(null, { preserveRound1Counters: true });
+      } else if (detectedStatus === 'round5-running' || detectedStatus === 'round5-explanation') {
+        setShowResults(false);
+        setQuestion(null);
+        setAnswerCount(0);
+        setCorrectAnswerCount(0);
+        setAnsweredPlayerIds([]);
+        setRound4CurrentPuzzle(null);
+        setRound4AnswerRows([]);
+
+        const bank = round5QuestionsRef.current;
+        const tourIndex = room.current_question_index ?? 0;
+        const bankIndex = typeof selection[tourIndex] === 'number' ? selection[tourIndex] : null;
+        setRound5CurrentBankIndex(bankIndex);
+        setRound5CurrentQuestion(bankIndex !== null ? bank[bankIndex] ?? null : null);
+
+        if (detectedStatus === 'round5-running') {
+          syncTimerWithStart(room.question_started_at, effectiveOffset);
+          if (room.all_players_answered) {
+            setTimeLeft(0);
+          }
+        } else {
+          setQuestionStartedAt(room.question_started_at);
+          setTimeLeft(0);
+        }
+
+        await loadRound5AnswerStats(bankIndex);
+        await loadRound2AnswerStats(null, { preserveRound1Counters: true });
       } else if (detectedStatus === 'finished') {
         setShowResults(true);
         setAnswerCount(0);
@@ -2803,6 +3056,7 @@ export default function HostRoomPage() {
       setRound2CurrentIndex,
       setRound2Phase,
       round4Puzzles,
+      loadRound5AnswerStats,
     ]
   );
 
@@ -3250,6 +3504,29 @@ export default function HostRoomPage() {
   }, [question, roomStatus, playQuestionAudio]);
 
   useEffect(() => {
+    if (roomStatus !== 'round5-running') {
+      lastRound5QuestionPlaybackKeyRef.current = null;
+      return;
+    }
+    if (round5CurrentBankIndex === null) {
+      return;
+    }
+    const key = `${round5CurrentBankIndex}-${questionStartedAt ?? 'none'}`;
+    if (lastRound5QuestionPlaybackKeyRef.current === key) {
+      return;
+    }
+    lastRound5QuestionPlaybackKeyRef.current = key;
+    void playRound5QuestionAudio(round5CurrentBankIndex);
+  }, [playRound5QuestionAudio, questionStartedAt, roomStatus, round5CurrentBankIndex]);
+
+  useEffect(() => {
+    if (roomStatus !== 'round5-running' && roomStatus !== 'round5-explanation') {
+      lastRound5ExplanationPlaybackKeyRef.current = null;
+      stopRound5Audio();
+    }
+  }, [roomStatus, stopRound5Audio]);
+
+  useEffect(() => {
     return () => {
       stopQuestionAudio();
       stopLobby();
@@ -3260,6 +3537,9 @@ export default function HostRoomPage() {
       stopRoundEndAudio();
       stopRound2Audio();
       stopRound2RulesAudio();
+      stopRound4Audio();
+      stopRound5RulesAudio();
+      stopRound5Audio();
       stopTournamentJingle();
       clearCountdownTimeout();
       clearPrestartEnableTimeout();
@@ -3283,6 +3563,9 @@ export default function HostRoomPage() {
     stopRoundEndAudio,
     stopRound2Audio,
     stopRound2RulesAudio,
+    stopRound4Audio,
+    stopRound5Audio,
+    stopRound5RulesAudio,
     stopTournamentJingle,
     clearCountdownTimeout,
     clearPrestartEnableTimeout,
@@ -3417,6 +3700,48 @@ export default function HostRoomPage() {
       )
       .subscribe();
 
+    const round5AnswersChannel = supabase
+      .channel(`host-round5-answers-${roomId}-${channelId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'round5_answers',
+          filter: `room_id=eq.${roomId}`,
+        },
+        async (payload: { new: { question_index: number } }) => {
+          if (!mounted) return;
+          const currentBankIndex = round5CurrentBankIndexRef.current;
+          if (currentBankIndex === null) {
+            return;
+          }
+          if (payload.new.question_index === currentBankIndex) {
+            await loadRound5AnswerStatsRef.current?.(currentBankIndex);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'round5_answers',
+          filter: `room_id=eq.${roomId}`,
+        },
+        async (payload: { new: { question_index: number } }) => {
+          if (!mounted) return;
+          const currentBankIndex = round5CurrentBankIndexRef.current;
+          if (currentBankIndex === null) {
+            return;
+          }
+          if (payload.new.question_index === currentBankIndex) {
+            await loadRound5AnswerStatsRef.current?.(currentBankIndex);
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
       mounted = false;
       roomChannel.unsubscribe().then(() => {
@@ -3431,13 +3756,20 @@ export default function HostRoomPage() {
       round2AnswersChannel.unsubscribe().then(() => {
         supabase.removeChannel(round2AnswersChannel);
       });
+      round5AnswersChannel.unsubscribe().then(() => {
+        supabase.removeChannel(round5AnswersChannel);
+      });
     };
   }, [roomId]);
 
   const everyoneAnswered = players.length > 0 && answerCount >= players.length;
   const shouldForceZero = serverAllPlayersAnswered || everyoneAnswered;
   const isRound2FactPhase = roomStatus === 'round2-running' && round2Phase === 'fact';
-  const isTimerRoundActive = roomStatus === 'running' || isRound2FactPhase || roomStatus === 'round3-running';
+  const isTimerRoundActive =
+    roomStatus === 'running' ||
+    isRound2FactPhase ||
+    roomStatus === 'round3-running' ||
+    roomStatus === 'round5-running';
   const timerActive =
     isTimerRoundActive &&
     Boolean(questionStartedAt) &&
@@ -4389,6 +4721,205 @@ export default function HostRoomPage() {
     setIsRound5RulesVisible(true);
   }, [stopAllAudio]);
 
+  const calculateRound5Points = useCallback((correct: number, answer: number) => {
+    if (!Number.isFinite(correct) || correct <= 0) {
+      return 0;
+    }
+    if (!Number.isFinite(answer) || answer <= 0) {
+      return 0;
+    }
+    if (answer >= correct * 2) {
+      return 0;
+    }
+    const deviationPercent = Math.round((Math.abs(correct - answer) / correct) * 100);
+    if (deviationPercent >= 100) {
+      return 0;
+    }
+    const points = Math.round((ROUND5_MAX_POINTS * (100 - deviationPercent)) / 100);
+    return Math.max(0, Math.min(ROUND5_MAX_POINTS, points));
+  }, []);
+
+  const startRound5Game = useCallback(async () => {
+    if (round5StartLockRef.current) {
+      return;
+    }
+    round5StartLockRef.current = true;
+
+    try {
+      hasUserInteractedRef.current = true;
+      stopAllAudio();
+      setIsTournamentVisible(false);
+      stopTournamentJingle();
+
+      const bank = round5QuestionsRef.current;
+      if (bank.length < ROUND5_TOTAL_TOURS) {
+        setError('Вопросы финала ещё не загружены или их меньше 6');
+        return;
+      }
+
+      const selection = shuffleArray(Array.from({ length: bank.length }, (_, i) => i)).slice(0, ROUND5_TOTAL_TOURS);
+      const { iso: startedAt, offset } = await getServerIsoTimestamp();
+
+      round5ScoredQuestionIndicesRef.current = new Set();
+      lastRound5QuestionPlaybackKeyRef.current = null;
+      lastRound5ExplanationPlaybackKeyRef.current = null;
+      round5AdvanceLockRef.current = false;
+
+      const { error: updateError } = await supabase
+        .from('rooms')
+        .update({
+          status: 'round5-running',
+          selected_question_ids: selection,
+          current_question_index: 0,
+          question_started_at: startedAt,
+          all_players_answered: false,
+          is_active: true,
+        })
+        .eq('id', roomId);
+
+      if (updateError) {
+        console.error('Не удалось запустить Раунд 5', updateError);
+        setError('Не удалось запустить финал');
+        return;
+      }
+
+      setSelectedQuestionIds(selection);
+      setCurrentQuestionIndex(0);
+      setRound5CurrentBankIndex(selection[0] ?? null);
+      setRound5CurrentQuestion(selection[0] !== undefined ? bank[selection[0]] ?? null : null);
+      setShowResults(false);
+      setQuestion(null);
+      setAnswerCount(0);
+      setAnsweredPlayerIds([]);
+      setServerAllPlayersAnswered(false);
+      updateRoomStatus('round5-running');
+      syncTimerWithStart(startedAt, offset);
+    } finally {
+      round5StartLockRef.current = false;
+    }
+  }, [getServerIsoTimestamp, roomId, stopAllAudio, stopTournamentJingle, syncTimerWithStart, updateRoomStatus]);
+
+  const advanceRound5Tour = useCallback(async () => {
+    if (round5AdvanceLockRef.current) {
+      return;
+    }
+    round5AdvanceLockRef.current = true;
+
+    try {
+      const nextTourIndex = currentQuestionIndex + 1;
+      if (nextTourIndex >= ROUND5_TOTAL_TOURS) {
+        stopAllAudio();
+        await supabase
+          .from('rooms')
+          .update({
+            status: 'finished',
+            all_players_answered: true,
+            question_started_at: null,
+          })
+          .eq('id', roomId);
+        return;
+      }
+
+      const { iso: startedAt } = await getServerIsoTimestamp();
+      await supabase
+        .from('rooms')
+        .update({
+          status: 'round5-running',
+          current_question_index: nextTourIndex,
+          question_started_at: startedAt,
+          all_players_answered: false,
+        })
+        .eq('id', roomId);
+
+      round5AdvanceLockRef.current = false;
+    } catch (e) {
+      console.error('Не удалось перейти к следующему туру финала', e);
+      round5AdvanceLockRef.current = false;
+    }
+  }, [currentQuestionIndex, getServerIsoTimestamp, roomId, stopAllAudio]);
+
+  const scoreAndRevealRound5 = useCallback(async () => {
+    if (isRound5Scoring) {
+      return;
+    }
+    if (round5CurrentBankIndex === null || !round5CurrentQuestion) {
+      return;
+    }
+
+    setIsRound5Scoring(true);
+    try {
+      const bankIndex = round5CurrentBankIndex;
+      const correct = round5CurrentQuestion.answer;
+
+      const { data, error } = await supabase
+        .from('round5_answers')
+        .select('id, player_id, answer_value, points_earned, submitted_at')
+        .eq('room_id', roomId)
+        .eq('question_index', bankIndex)
+        .order('submitted_at', { ascending: true });
+
+      if (error) {
+        console.error('Не удалось загрузить ответы финала для начисления очков', error);
+      }
+
+      const rows = (data ?? []) as Round5AnswerRow[];
+      const latestByPlayer = new Map<string, Round5AnswerRow>();
+      for (const row of rows) {
+        latestByPlayer.set(row.player_id, row);
+      }
+
+      const uniqueRows = Array.from(latestByPlayer.values());
+
+      const withPoints = uniqueRows.map((row) => {
+        const points = calculateRound5Points(correct, row.answer_value);
+        const delta = points - (row.points_earned ?? 0);
+        return { ...row, points_earned: points, delta };
+      });
+
+      await Promise.all(
+        withPoints.map((row) =>
+          supabase
+            .from('round5_answers')
+            .update({ points_earned: row.points_earned })
+            .eq('id', row.id)
+        )
+      );
+
+      const totalMap = new Map(playersRef.current.map((player) => [player.id, player.total_points ?? 0] as const));
+      for (const row of withPoints) {
+        if (!row.delta) {
+          continue;
+        }
+        const current = totalMap.get(row.player_id) ?? 0;
+        const nextTotal = current + row.delta;
+        totalMap.set(row.player_id, nextTotal);
+        const { error: updateError } = await supabase
+          .from('players')
+          .update({ total_points: nextTotal })
+          .eq('id', row.player_id);
+        if (updateError) {
+          console.error('Не удалось обновить очки игрока (Раунд 5)', updateError);
+        }
+      }
+
+      round5ScoredQuestionIndicesRef.current.add(bankIndex);
+      await supabase
+        .from('rooms')
+        .update({ status: 'round5-explanation', all_players_answered: true })
+        .eq('id', roomId);
+
+      const explanationKey = `${bankIndex}-explanation-${questionStartedAt ?? 'none'}`;
+      if (lastRound5ExplanationPlaybackKeyRef.current !== explanationKey) {
+        lastRound5ExplanationPlaybackKeyRef.current = explanationKey;
+        playRound5ExplanationAudio(bankIndex, { onEnded: () => void advanceRound5Tour() });
+      }
+    } catch (e) {
+      console.error('Не удалось начислить очки финала', e);
+    } finally {
+      setIsRound5Scoring(false);
+    }
+  }, [advanceRound5Tour, calculateRound5Points, isRound5Scoring, playRound5ExplanationAudio, questionStartedAt, roomId, round5CurrentBankIndex, round5CurrentQuestion]);
+
   const pickRound4Puzzle = useCallback(() => {
     if (!round4Puzzles.length) {
       return null;
@@ -4590,6 +5121,34 @@ export default function HostRoomPage() {
     void scoreRound4Puzzle(round4CurrentPuzzle);
   }, [roomStatus, round4CurrentPuzzle, timeLeft, scoreRound4Puzzle]);
 
+  useEffect(() => {
+    if (roomStatus !== 'round5-running') {
+      return;
+    }
+    if (round5CurrentBankIndex === null || !round5CurrentQuestion) {
+      return;
+    }
+    if (timeLeft > 0) {
+      return;
+    }
+    void scoreAndRevealRound5();
+  }, [roomStatus, round5CurrentBankIndex, round5CurrentQuestion, scoreAndRevealRound5, timeLeft]);
+
+  useEffect(() => {
+    if (roomStatus !== 'round5-explanation') {
+      return;
+    }
+    if (round5CurrentBankIndex === null) {
+      return;
+    }
+    const explanationKey = `${round5CurrentBankIndex}-explanation-${questionStartedAt ?? 'none'}`;
+    if (lastRound5ExplanationPlaybackKeyRef.current === explanationKey) {
+      return;
+    }
+    lastRound5ExplanationPlaybackKeyRef.current = explanationKey;
+    playRound5ExplanationAudio(round5CurrentBankIndex, { onEnded: () => void advanceRound5Tour() });
+  }, [advanceRound5Tour, playRound5ExplanationAudio, questionStartedAt, roomStatus, round5CurrentBankIndex]);
+
   const startRound4Countdown = useCallback(async () => {
     if (round4StartLockRef.current || isCountdownVisible) {
       return;
@@ -4643,10 +5202,12 @@ export default function HostRoomPage() {
     }
     clearCountdownTimeout();
     setCountdownContext('round5');
-    countdownCompleteActionRef.current = null;
+    countdownCompleteActionRef.current = async () => {
+      await startRound5Game();
+    };
     setIsCountdownVisible(true);
     runCountdownSequence(0);
-  }, [clearCountdownTimeout, isCountdownVisible, runCountdownSequence]);
+  }, [clearCountdownTimeout, isCountdownVisible, runCountdownSequence, startRound5Game]);
 
   const handleStartRound5Rules = useCallback(() => {
     if (isCountdownVisible || isRound5RulesAudioPlaying) {
@@ -5420,6 +5981,57 @@ export default function HostRoomPage() {
                   </span>
                 </div>
               </div>
+            ) : roomStatus === 'round5-running' || roomStatus === 'round5-explanation' ? (
+              <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
+                <div className="text-center space-y-3">
+                  <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Финал · «Цифровая интуиция»</p>
+                  <h2 className="text-3xl sm:text-4xl font-black leading-tight text-center text-[#142a45]">
+                    {round5CurrentQuestion?.question ?? '⏳'}
+                  </h2>
+                  <div className="flex items-center justify-center gap-3 flex-wrap">
+                    <span className="px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
+                      Тур {Math.min(Math.max(currentQuestionIndex + 1, 1), ROUND5_TOTAL_TOURS)} / {ROUND5_TOTAL_TOURS}
+                    </span>
+                    <span className="text-sm font-semibold text-[#142a45]/70">
+                      Ответили: <span className="text-[#1f6ac6]">{answerCount}/{totalPlayers}</span>
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
+                    <span>Таймер · 30 сек</span>
+                    {roomStatus === 'round5-running' ? (
+                      <span className={`font-black ${timeLeft <= 0 ? 'text-[#f1532f]' : 'text-[#142a45]'}`}>
+                        {timeLeft > 0 ? `${timeLeft} c` : 'Время истекло'}
+                      </span>
+                    ) : (
+                      <span className="font-black text-[#1f6ac6]">Ответ открыт</span>
+                    )}
+                  </div>
+                  <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
+                    <div
+                      className={`h-full ${timeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
+                      style={{ width: `${Math.max(0, Math.min(100, (timeLeft / QUESTION_DURATION_SECONDS) * 100))}%` }}
+                    />
+                  </div>
+                  {roomStatus === 'round5-running' && timeLeft <= 0 && (
+                    <p className="text-xs text-[#1f6ac6] font-semibold mt-2">Время истекло — начисляем очки и показываем ответ.</p>
+                  )}
+                </div>
+
+                {roomStatus === 'round5-explanation' && round5CurrentQuestion && (
+                  <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-5 space-y-3 text-center">
+                    <p className="retro-heading text-[11px] tracking-[0.5em] text-[#142a45]/70">Правильный ответ</p>
+                    <p className="text-5xl font-black text-[#1f6ac6]">{round5CurrentQuestion.answer}</p>
+                    {round5CurrentQuestion.explanation && (
+                      <p className="text-sm font-semibold text-[#142a45]/80 whitespace-pre-line">
+                        {round5CurrentQuestion.explanation}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
             ) : question ? (
               <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -5501,7 +6113,9 @@ export default function HostRoomPage() {
                   {roomStatus === 'running' ? 'Раунд 1'
                     : roomStatus === 'round2-running' ? 'Раунд 2'
                       : roomStatus === 'round3-running' ? 'Раунд 3'
-                        : 'Подготовка'}
+                        : roomStatus === 'round4-running' ? 'Раунд 4'
+                          : roomStatus === 'round5-running' || roomStatus === 'round5-explanation' ? 'Финал'
+                            : 'Подготовка'}
                 </span>
               </div>
 

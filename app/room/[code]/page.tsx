@@ -22,6 +22,12 @@ const ROUND3_TOTAL_QUESTIONS = 6;
 const ROUND3_QUESTIONS_AUDIO_DIR = 'round3/questions3';
 const ROUND3_BG_JINGLE_FILE = 'round2/jingle (5).mp3';
 
+const ROUND5_TOTAL_TOURS = 6;
+const ROUND5_MAX_POINTS = 400;
+const ROUND5_QUESTION_AUDIO_DIR = 'round5/questions';
+const ROUND5_EXPLANATION_AUDIO_DIR = 'round5/explanation';
+const ROUND5_EXPLANATION_BG_FILE = 'round2/explanation.mp3';
+
 const buildAudioUrl = (relativePath: string) => `/api/audio?file=${encodeURIComponent(relativePath)}&t=${Date.now()}`;
 
 const coerceToNumber = (value: unknown): number | null => {
@@ -85,7 +91,22 @@ const addSecondsToIso = (iso: string, seconds: number) => {
 
 type Question = ActiveRoundQuestion;
 
-type RoomStatus = 'waiting' | 'running' | 'finished' | 'round2-running' | 'round3-running' | 'round4-running';
+type Round5Question = {
+  question: string;
+  answer: number;
+  explanation: string;
+};
+
+type RoomStatus =
+  | 'waiting'
+  | 'running'
+  | 'round2-ready'
+  | 'round2-running'
+  | 'round3-running'
+  | 'round4-running'
+  | 'round5-running'
+  | 'round5-explanation'
+  | 'finished';
 
 type Round2Phase = 'idle' | 'fact' | 'explanation';
 
@@ -155,6 +176,10 @@ export default function RoomPage() {
   const [round4Puzzle, setRound4Puzzle] = useState<Round4Puzzle | null>(null);
   const [round4PuzzleId, setRound4PuzzleId] = useState<number | null>(null);
   const [round4AnswerText, setRound4AnswerText] = useState('');
+  const [round5Questions, setRound5Questions] = useState<Round5Question[]>([]);
+  const [round5CurrentBankIndex, setRound5CurrentBankIndex] = useState<number | null>(null);
+  const [round5CurrentQuestion, setRound5CurrentQuestion] = useState<Round5Question | null>(null);
+  const [round5AnswerValue, setRound5AnswerValue] = useState('');
   const [allPlayersAnswered, setAllPlayersAnswered] = useState(false);
   const [timeOffsetMs, setTimeOffsetMs] = useState(0);
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<number[]>([]);
@@ -174,6 +199,11 @@ export default function RoomPage() {
   const round3BgRef = useRef<HTMLAudioElement | null>(null);
   const lastRound3PlaybackKeyRef = useRef<string | null>(null);
   const round4LoadAttemptRef = useRef(0);
+  const round5QuestionsRef = useRef<Round5Question[]>([]);
+
+  useEffect(() => {
+    round5QuestionsRef.current = round5Questions;
+  }, [round5Questions]);
 
   useEffect(() => {
     const loadRound2Data = async () => {
@@ -206,9 +236,28 @@ export default function RoomPage() {
     }
   }, []);
 
+  const loadRound5Data = useCallback(async () => {
+    try {
+      const res = await fetch('/questions/5round_question.json', { cache: 'no-store' });
+      if (!res.ok) {
+        console.warn('Round5 questions fetch failed', res.status, res.statusText);
+        return;
+      }
+      const payload = await res.json();
+      const questions = Array.isArray(payload) ? (payload as Round5Question[]) : [];
+      setRound5Questions(questions);
+    } catch (e) {
+      console.error('Failed to load round5 data', e);
+    }
+  }, []);
+
   useEffect(() => {
     void loadRound4Data();
   }, [loadRound4Data]);
+
+  useEffect(() => {
+    void loadRound5Data();
+  }, [loadRound5Data]);
 
   useEffect(() => {
     // If we are already in round4-running but puzzles didn't load (or loaded empty), retry a couple times.
@@ -456,9 +505,15 @@ export default function RoomPage() {
       const detectedStatus = (room.status as RoomStatus) || (room.is_active ? 'waiting' : 'finished');
       setRoomStatus(detectedStatus);
       setAllPlayersAnswered(
-        detectedStatus === 'running' || detectedStatus === 'round2-running' || detectedStatus === 'round3-running' || detectedStatus === 'round4-running'
+        detectedStatus === 'running' ||
+          detectedStatus === 'round2-running' ||
+          detectedStatus === 'round3-running' ||
+          detectedStatus === 'round4-running' ||
+          detectedStatus === 'round5-running'
           ? !!room.all_players_answered
-          : false
+          : detectedStatus === 'round5-explanation'
+            ? true
+            : false
       );
 
       const dbRound2ItemIndex = (room.round2_item_index as number | null) ?? null;
@@ -596,6 +651,60 @@ export default function RoomPage() {
         if (!cancelled) {
           setIsLoading(false);
         }
+      } else if (detectedStatus === 'round5-running' || detectedStatus === 'round5-explanation') {
+        setShowResults(false);
+        setQuestion(null);
+        setRound2ItemIndex(null);
+        setRound2Phase('idle');
+        setRound3QuestionIndex(null);
+        setRound4Puzzle(null);
+        setRound4PuzzleId(null);
+        setRound4AnswerText('');
+
+        const tourIndex = coerceToNumber(room.current_question_index) ?? 0;
+        const bankIndex = typeof selection[tourIndex] === 'number' ? selection[tourIndex] : null;
+        setRound5CurrentBankIndex(bankIndex);
+        const bank = round5QuestionsRef.current;
+        setRound5CurrentQuestion(bankIndex !== null ? bank[bankIndex] ?? null : null);
+        setRound5AnswerValue('');
+        setHasAnswered(false);
+        setError('');
+
+        setQuestionStartedAt(room.question_started_at);
+        if (detectedStatus === 'round5-running') {
+          const initialTime = getRemainingSeconds(room.question_started_at, offset);
+          setTimeLeft(room.all_players_answered ? 0 : initialTime);
+        } else {
+          setTimeLeft(0);
+        }
+
+        if (bankIndex !== null) {
+          const { data: existingRound5Answer } = await supabase
+            .from('round5_answers')
+            .select('answer_value')
+            .eq('player_id', storedPlayerId)
+            .eq('room_id', room.id)
+            .eq('question_index', bankIndex)
+            .maybeSingle();
+
+          if (existingRound5Answer) {
+            setHasAnswered(true);
+            const existingValue = coerceToNumber(
+              typeof existingRound5Answer === 'object' && existingRound5Answer !== null && 'answer_value' in existingRound5Answer
+                ? (existingRound5Answer as { answer_value?: unknown }).answer_value
+                : null
+            );
+            if (existingValue !== null) {
+              setRound5AnswerValue(String(existingValue));
+            }
+          } else {
+            setHasAnswered(false);
+          }
+        }
+
+        if (!cancelled) {
+          setIsLoading(false);
+        }
       } else {
         const startTime = room.question_started_at;
         setQuestionStartedAt(startTime);
@@ -669,9 +778,15 @@ export default function RoomPage() {
 
           setRoomStatus(newStatus);
           const everyoneAnsweredFlag =
-            newStatus === 'running' || newStatus === 'round2-running' || newStatus === 'round3-running' || newStatus === 'round4-running'
+            newStatus === 'running' ||
+              newStatus === 'round2-running' ||
+              newStatus === 'round3-running' ||
+              newStatus === 'round4-running' ||
+              newStatus === 'round5-running'
               ? !!payload.new.all_players_answered
-              : false;
+              : newStatus === 'round5-explanation'
+                ? true
+                : false;
           setAllPlayersAnswered(everyoneAnsweredFlag);
           const selection = (payload.new.selected_question_ids as number[] | null) || [];
           setSelectedQuestionIds(selection);
@@ -851,6 +966,66 @@ export default function RoomPage() {
             return;
           }
 
+          if (newStatus === 'round5-running' || newStatus === 'round5-explanation') {
+            setShowResults(false);
+            setQuestion(null);
+            setRound2ItemIndex(null);
+            setRound2Phase('idle');
+            setRound3QuestionIndex(null);
+            setRound4Puzzle(null);
+            setRound4PuzzleId(null);
+            setRound4AnswerText('');
+
+            const tourIndex = newQuestionIndex ?? 0;
+            const bankIndex = typeof selection[tourIndex] === 'number' ? selection[tourIndex] : null;
+            setRound5CurrentBankIndex(bankIndex);
+            const bank = round5QuestionsRef.current;
+            setRound5CurrentQuestion(bankIndex !== null ? bank[bankIndex] ?? null : null);
+            setRound5AnswerValue('');
+            setHasAnswered(false);
+            setError('');
+
+            setQuestionStartedAt(startedAt);
+            const offset = await syncServerTimeRef.current?.();
+            if (newStatus === 'round5-running') {
+              if (everyoneAnsweredFlag) {
+                setTimeLeft(0);
+              } else {
+                setTimeLeft(startedAt ? getRemainingSeconds(startedAt, offset || 0) : QUESTION_DURATION_SECONDS);
+              }
+            } else {
+              setTimeLeft(0);
+            }
+
+            const currentPlayerId = playerIdRef.current;
+            const currentRoomId = roomIdRef.current;
+            if (currentPlayerId && currentRoomId && bankIndex !== null) {
+              const { data: newAnswer } = await supabase
+                .from('round5_answers')
+                .select('answer_value')
+                .eq('player_id', currentPlayerId)
+                .eq('room_id', currentRoomId)
+                .eq('question_index', bankIndex)
+                .maybeSingle();
+              if (newAnswer) {
+                setHasAnswered(true);
+                const existingValue = coerceToNumber(
+                  typeof newAnswer === 'object' && newAnswer !== null && 'answer_value' in newAnswer
+                    ? (newAnswer as { answer_value?: unknown }).answer_value
+                    : null
+                );
+                if (existingValue !== null) {
+                  setRound5AnswerValue(String(existingValue));
+                }
+              } else {
+                setHasAnswered(false);
+              }
+            } else {
+              setHasAnswered(false);
+            }
+            return;
+          }
+
           const offset = await syncServerTimeRef.current?.();
           if (newQuestionIndex !== null) {
             loadQuestionFromSelectionRef.current?.(newQuestionIndex, selection);
@@ -900,6 +1075,7 @@ export default function RoomPage() {
     !showResults &&
     ((roomStatus === 'round3-running' && Boolean(questionStartedAt)) ||
       (roomStatus === 'round4-running' && Boolean(questionStartedAt)) ||
+      (roomStatus === 'round5-running' && Boolean(questionStartedAt)) ||
       (!allPlayersAnswered &&
         (roomStatus === 'running' || roomStatus === 'round2-running') &&
         Boolean(questionStartedAt)));
@@ -1079,6 +1255,64 @@ export default function RoomPage() {
       setIsSubmitting(false);
     }
   }, [allPlayersAnswered, isSubmitting, playerId, roomId, round4AnswerText, round4PuzzleId, roomStatus, timeLeft]);
+
+  const submitRound5Answer = useCallback(async () => {
+    if (isSubmitting) {
+      return;
+    }
+    if (roomStatus !== 'round5-running') {
+      setError('Дождитесь начала финала');
+      return;
+    }
+    if (!roomId || !playerId) {
+      return;
+    }
+    if (round5CurrentBankIndex === null) {
+      setError('Вопрос финала ещё не выбран');
+      return;
+    }
+    if (allPlayersAnswered || timeLeft <= 0) {
+      setError('Время на ответ истекло');
+      return;
+    }
+
+    setError('');
+    setIsSubmitting(true);
+    try {
+      const normalized = (round5AnswerValue ?? '').trim().replace(',', '.');
+      const numeric = Number(normalized);
+      if (!Number.isFinite(numeric) || numeric <= 0) {
+        setError('Введите число больше 0');
+        return;
+      }
+
+      const { error: upsertError } = await supabase
+        .from('round5_answers')
+        .upsert(
+          {
+            room_id: roomId,
+            player_id: playerId,
+            question_index: round5CurrentBankIndex,
+            answer_value: numeric,
+            submitted_at: new Date().toISOString(),
+          },
+          { onConflict: 'room_id,player_id,question_index' }
+        );
+
+      if (upsertError) {
+        console.error('Round5 answer submit failed', upsertError);
+        setError('Не удалось отправить ответ. Проверьте SQL финала и попробуйте ещё раз.');
+        return;
+      }
+
+      setHasAnswered(true);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
+      setError(`Ошибка: ${message}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [allPlayersAnswered, isSubmitting, playerId, roomId, roomStatus, round5AnswerValue, round5CurrentBankIndex, timeLeft]);
 
   useEffect(() => {
     if (roomStatus !== 'round3-running') {
@@ -1506,6 +1740,88 @@ export default function RoomPage() {
 
                 {activeTimerSeconds <= 0 && (
                   <p className="text-xs text-center text-[#142a45]/60">⏱ Время истекло. Ответы больше не принимаются.</p>
+                )}
+              </div>
+            )}
+          </section>
+        )}
+
+        {(roomStatus === 'round5-running' || roomStatus === 'round5-explanation') && (
+          <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
+            <div className="flex flex-col gap-3 text-center">
+              <span className="mx-auto px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
+                Финал · Цифровая интуиция
+              </span>
+              <h2 className="text-3xl font-black leading-tight">{round5CurrentQuestion?.question ?? '⏳'}</h2>
+            </div>
+
+            <div>
+              <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
+                <span>Таймер · 30 сек</span>
+                <span className={`font-black ${allPlayersAnswered ? 'text-[#1f6ac6]' : 'text-[#142a45]'}`}>{timerLabel}</span>
+              </div>
+              <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
+                <div
+                  className={`h-full ${effectiveTimeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+              {roomStatus === 'round5-explanation' && (
+                <p className="text-xs text-[#1f6ac6] font-semibold mt-2">Слушаем объяснение ведущего.</p>
+              )}
+              {roomStatus === 'round5-running' && effectiveTimeLeft <= 0 && (
+                <p className="text-xs text-center text-[#142a45]/60">⏱ Время истекло. Ждём ответ ведущего.</p>
+              )}
+            </div>
+
+            {roomStatus !== 'round5-running' || hasAnswered || allPlayersAnswered ? (
+              <div className="rounded-3xl border-[3px] border-[#1f6ac6] bg-[#e9f0ff] p-6 text-center space-y-2">
+                <div className="text-5xl">✅</div>
+                <h3 className="text-2xl font-black text-[#1f6ac6]">
+                  {roomStatus === 'round5-explanation' ? 'Ответ открыт!' : 'Ответ отправлен!'}
+                </h3>
+                <p className="text-sm text-[#142a45]/70">
+                  {roomStatus === 'round5-explanation'
+                    ? 'Слушаем объяснение и ждём следующий тур.'
+                    : 'Ждём окончания таймера и подсчёта очков.'}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-xs font-semibold tracking-[0.3em] text-[#142a45]/60 text-center">ВВЕДИ ЧИСЛО</p>
+                <input
+                  value={round5AnswerValue}
+                  onChange={(e) => setRound5AnswerValue(e.target.value)}
+                  placeholder="Например: 42"
+                  className="w-full rounded-2xl border-[3px] border-[#142a45] bg-white px-4 py-3 text-sm font-semibold outline-none"
+                  autoComplete="off"
+                  inputMode="decimal"
+                  disabled={
+                    isSubmitting ||
+                    effectiveTimeLeft <= 0 ||
+                    allPlayersAnswered ||
+                    roomStatus !== 'round5-running' ||
+                    round5CurrentBankIndex === null
+                  }
+                />
+                <button
+                  onClick={() => void submitRound5Answer()}
+                  disabled={
+                    isSubmitting ||
+                    effectiveTimeLeft <= 0 ||
+                    allPlayersAnswered ||
+                    roomStatus !== 'round5-running' ||
+                    round5CurrentBankIndex === null
+                  }
+                  className="w-full py-3 rounded-2xl font-black text-lg tracking-[0.18em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] transition disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Отправить
+                </button>
+
+                {error && (
+                  <div className="rounded-2xl border-[3px] border-[#b23324] bg-[#ffd7d0] px-4 py-3 text-sm font-semibold text-[#7b1d16]">
+                    {error}
+                  </div>
                 )}
               </div>
             )}
