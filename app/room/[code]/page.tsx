@@ -192,7 +192,6 @@ export default function RoomPage() {
   const [round3AnswerText, setRound3AnswerText] = useState('');
   const [round3AnswerOptions, setRound3AnswerOptions] = useState<Round3AnswerRow[]>([]);
   const [round3HasVoted, setRound3HasVoted] = useState(false);
-  const [debugLastEvent, setDebugLastEvent] = useState<string>('none');
   const roomIdRef = useRef('');
   const playerIdRef = useRef('');
   const round3VoiceRef = useRef<HTMLAudioElement | null>(null);
@@ -774,7 +773,6 @@ export default function RoomPage() {
           const newStatus = (payload.new.status as RoomStatus) || (payload.new.is_active ? 'waiting' : 'finished');
           const startedAt = payload.new.question_started_at as string | null;
           const newQuestionIndex = coerceToNumber(payload.new.current_question_index);
-          setDebugLastEvent(`RT: status=${newStatus}, startedAt=${startedAt?.substring(11,19) ?? 'null'}, idx=${newQuestionIndex}`);
 
           setRoomStatus(newStatus);
           const everyoneAnsweredFlag =
@@ -904,7 +902,6 @@ export default function RoomPage() {
           }
 
           if (newStatus === 'round4-running') {
-            setDebugLastEvent(`R4: payload.startedAt=${startedAt?.substring(11,19) ?? 'null'}, idx=${newQuestionIndex}`);
             setShowResults(false);
             setQuestion(null);
             setRound2ItemIndex(null);
@@ -925,9 +922,7 @@ export default function RoomPage() {
               if (freshRoom) {
                 effectiveStartedAt = freshRoom.question_started_at;
                 effectivePuzzleId = coerceToNumber(freshRoom.current_question_index);
-                setDebugLastEvent(`R4 FETCH OK: startedAt=${effectiveStartedAt?.substring(11,19) ?? 'null'}, idx=${effectivePuzzleId}`);
               } else {
-                setDebugLastEvent(`R4 FETCH FAIL: ${freshError?.message ?? 'no data'}`);
               }
             }
 
@@ -1636,22 +1631,6 @@ export default function RoomPage() {
             Держите вкладку открытой: ответы и таймеры синхронизируются автоматически через Supabase.
           </p>
         </header>
-
-        {/* Debug Info - Remove in production */}
-        <div className="fixed bottom-0 left-0 bg-black/80 text-white text-[10px] p-2 max-w-full overflow-auto z-50 opacity-50 hover:opacity-100 flex flex-col gap-1">
-          <div>
-            Status: {roomStatus} | StartedAt: {questionStartedAt ? questionStartedAt.substring(11, 19) : 'null'} | TimerActive: {String(timerActive)} | TimeLeft: {timeLeft} | AllAnswered: {String(allPlayersAnswered)} | PuzzleId: {round4PuzzleId ?? 'null'}
-          </div>
-          <div>
-            LastEvent: {debugLastEvent}
-          </div>
-          <button 
-            className="bg-white text-black px-2 py-1 rounded w-fit"
-            onClick={() => window.location.reload()}
-          >
-            Reload
-          </button>
-        </div>
 
         {roomStatus === 'waiting' && (
           <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-8 text-center space-y-4">

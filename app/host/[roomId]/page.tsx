@@ -2993,6 +2993,7 @@ export default function HostRoomPage() {
         }
         await loadRound2AnswerStats(null, { preserveRound1Counters: true });
       } else if (detectedStatus === 'round5-running' || detectedStatus === 'round5-explanation') {
+        setIsTournamentVisible(false);
         setShowResults(false);
         setQuestion(null);
         setAnswerCount(0);
@@ -3511,7 +3512,10 @@ export default function HostRoomPage() {
     if (round5CurrentBankIndex === null) {
       return;
     }
-    const key = `${round5CurrentBankIndex}-${questionStartedAt ?? 'none'}`;
+    if (!questionStartedAt) {
+      return;
+    }
+    const key = `${round5CurrentBankIndex}-${questionStartedAt}`;
     if (lastRound5QuestionPlaybackKeyRef.current === key) {
       return;
     }
@@ -4907,18 +4911,12 @@ export default function HostRoomPage() {
         .from('rooms')
         .update({ status: 'round5-explanation', all_players_answered: true })
         .eq('id', roomId);
-
-      const explanationKey = `${bankIndex}-explanation-${questionStartedAt ?? 'none'}`;
-      if (lastRound5ExplanationPlaybackKeyRef.current !== explanationKey) {
-        lastRound5ExplanationPlaybackKeyRef.current = explanationKey;
-        playRound5ExplanationAudio(bankIndex, { onEnded: () => void advanceRound5Tour() });
-      }
     } catch (e) {
       console.error('Не удалось начислить очки финала', e);
     } finally {
       setIsRound5Scoring(false);
     }
-  }, [advanceRound5Tour, calculateRound5Points, isRound5Scoring, playRound5ExplanationAudio, questionStartedAt, roomId, round5CurrentBankIndex, round5CurrentQuestion]);
+  }, [calculateRound5Points, isRound5Scoring, roomId, round5CurrentBankIndex, round5CurrentQuestion]);
 
   const pickRound4Puzzle = useCallback(() => {
     if (!round4Puzzles.length) {
@@ -5141,7 +5139,10 @@ export default function HostRoomPage() {
     if (round5CurrentBankIndex === null) {
       return;
     }
-    const explanationKey = `${round5CurrentBankIndex}-explanation-${questionStartedAt ?? 'none'}`;
+    if (!questionStartedAt) {
+      return;
+    }
+    const explanationKey = `${round5CurrentBankIndex}-explanation-${questionStartedAt}`;
     if (lastRound5ExplanationPlaybackKeyRef.current === explanationKey) {
       return;
     }
