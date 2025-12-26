@@ -5541,17 +5541,17 @@ export default function HostRoomPage() {
             </div>
 
             <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-5 space-y-3">
-              <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Раунд 4 · «Дэшифровщик»</p>
-              <h3 className="text-xl font-black text-[#142a45]">Комбо из эмодзи</h3>
+              <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Раунд 5 · «Финал»</p>
+              <h3 className="text-xl font-black text-[#142a45]">Правила финала</h3>
               <p className="text-sm text-[#142a45]/70">
-                Запускает экран с правилами и голос диктора. Перед показом глушим все текущие звуки.
+                Открывает окно с правилами и включает голос диктора. Перед показом глушим все текущие звуки.
               </p>
               <button
                 type="button"
-                onClick={handleOpenRound4Rules}
+                onClick={handleOpenRound5Rules}
                 className="w-full py-3 rounded-2xl font-black text-lg tracking-[0.25em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] hover:scale-105 hover:shadow-lg transition-all duration-200"
               >
-                Раунд 4
+                Раунд 5
               </button>
             </div>
           </aside>
