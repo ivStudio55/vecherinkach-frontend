@@ -4913,7 +4913,11 @@ export default function HostRoomPage() {
 
       if (updateError) {
         console.error('Не удалось запустить Раунд 5', updateError);
-        setError('Не удалось запустить финал');
+        const details =
+          typeof (updateError as { message?: unknown }).message === 'string'
+            ? (updateError as { message: string }).message
+            : '';
+        setError(details ? `Не удалось запустить финал: ${details}` : 'Не удалось запустить финал');
         return;
       }
 
