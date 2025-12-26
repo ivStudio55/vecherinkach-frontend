@@ -172,6 +172,7 @@ export default function RoomPage() {
   const round3VoiceRef = useRef<HTMLAudioElement | null>(null);
   const round3BgRef = useRef<HTMLAudioElement | null>(null);
   const lastRound3PlaybackKeyRef = useRef<string | null>(null);
+  const round4LoadAttemptRef = useRef(0);
 
   useEffect(() => {
     const loadRound2Data = async () => {
@@ -189,23 +190,49 @@ export default function RoomPage() {
     void loadRound2Data();
   }, []);
 
-  useEffect(() => {
-    const loadRound4Data = async () => {
-      try {
-        const res = await fetch('/questions/4round.json', { cache: 'no-store' });
-        if (!res.ok) {
-          return;
-        }
-        const payload = await res.json();
-        const puzzles = Array.isArray(payload?.puzzles) ? (payload.puzzles as Round4Puzzle[]) : [];
-        setRound4Puzzles(puzzles);
-      } catch (e) {
-        console.error('Failed to load round4 data', e);
+  const loadRound4Data = useCallback(async () => {
+    try {
+      const res = await fetch('/questions/4round.json', { cache: 'no-store' });
+      if (!res.ok) {
+        console.warn('Round4 puzzles fetch failed', res.status, res.statusText);
+        return;
       }
-    };
-
-    void loadRound4Data();
+      const payload = await res.json();
+      const puzzles = Array.isArray(payload?.puzzles) ? (payload.puzzles as Round4Puzzle[]) : [];
+      setRound4Puzzles(puzzles);
+    } catch (e) {
+      console.error('Failed to load round4 data', e);
+    }
   }, []);
+
+  useEffect(() => {
+    void loadRound4Data();
+  }, [loadRound4Data]);
+
+  useEffect(() => {
+    // If we are already in round4-running but puzzles didn't load (or loaded empty), retry a couple times.
+    if (roomStatus !== 'round4-running') {
+      round4LoadAttemptRef.current = 0;
+      return;
+    }
+    if (round4PuzzleId === null) {
+      return;
+    }
+    if (round4Puzzles.length) {
+      return;
+    }
+
+    if (round4LoadAttemptRef.current >= 3) {
+      return;
+    }
+
+    round4LoadAttemptRef.current += 1;
+    const timeoutId = window.setTimeout(() => {
+      void loadRound4Data();
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [loadRound4Data, roomStatus, round4PuzzleId, round4Puzzles.length]);
 
   useEffect(() => {
     if (round4PuzzleId === null || !round4Puzzles.length) {
