@@ -696,7 +696,9 @@ export default function RoomPage() {
             return;
           }
 
-          if (newStatus === 'finished' || !payload.new.is_active) {
+          // Only treat as finished if status is 'finished', not just is_active=false
+          // (round4-running may have is_active=false during answer reveal)
+          if (newStatus === 'finished') {
             setShowResults(true);
             setQuestion(null);
             setRound2ItemIndex(null);
