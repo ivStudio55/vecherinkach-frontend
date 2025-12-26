@@ -480,8 +480,11 @@ export default function HostRoomPage() {
   const round2BetweenAudioRef = useRef<HTMLAudioElement | null>(null);
   const round2RulesMusicAudioRef = useRef<HTMLAudioElement | null>(null);
   const round2RulesVoiceAudioRef = useRef<HTMLAudioElement | null>(null);
+  const round3RulesMusicAudioRef = useRef<HTMLAudioElement | null>(null);
   const round3RulesVoiceAudioRef = useRef<HTMLAudioElement | null>(null);
+  const round4RulesMusicAudioRef = useRef<HTMLAudioElement | null>(null);
   const round4RulesVoiceAudioRef = useRef<HTMLAudioElement | null>(null);
+  const round5RulesMusicAudioRef = useRef<HTMLAudioElement | null>(null);
   const round5RulesVoiceAudioRef = useRef<HTMLAudioElement | null>(null);
   const round4CategoryAudioRef = useRef<HTMLAudioElement | null>(null);
   const round4TimerAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -796,6 +799,12 @@ export default function HostRoomPage() {
   }, []);
 
   const stopRound3RulesAudio = useCallback(() => {
+    const musicCue = round3RulesMusicAudioRef.current;
+    if (musicCue) {
+      musicCue.pause();
+      musicCue.currentTime = 0;
+      round3RulesMusicAudioRef.current = null;
+    }
     const voiceCue = round3RulesVoiceAudioRef.current;
     if (voiceCue) {
       voiceCue.pause();
@@ -807,6 +816,12 @@ export default function HostRoomPage() {
   }, []);
 
   const stopRound4RulesAudio = useCallback(() => {
+    const musicCue = round4RulesMusicAudioRef.current;
+    if (musicCue) {
+      musicCue.pause();
+      musicCue.currentTime = 0;
+      round4RulesMusicAudioRef.current = null;
+    }
     const voiceCue = round4RulesVoiceAudioRef.current;
     if (voiceCue) {
       voiceCue.pause();
@@ -817,6 +832,16 @@ export default function HostRoomPage() {
   }, []);
 
   const stopRound5RulesAudio = useCallback(() => {
+    const musicCue = round5RulesMusicAudioRef.current;
+    if (musicCue) {
+      try {
+        musicCue.pause();
+        musicCue.currentTime = 0;
+      } catch {
+        // ignore
+      }
+      round5RulesMusicAudioRef.current = null;
+    }
     const voiceCue = round5RulesVoiceAudioRef.current;
     if (voiceCue) {
       try {
@@ -1134,17 +1159,37 @@ export default function HostRoomPage() {
     stopRound3RulesAudio();
     round3RulesAudioCompletedRef.current = false;
 
+    const jingle = new Audio(buildAudioUrl(ROUND2_RULES_JINGLE_FILE));
+    jingle.volume = 0.5;
+    jingle.loop = true;
+    round3RulesMusicAudioRef.current = jingle;
+
     const voiceSource = pickRandomItem(ROUND3_RULES_VOICE_FILES);
     const voice = new Audio(buildAudioUrl(voiceSource));
     voice.volume = 0.95;
     round3RulesVoiceAudioRef.current = voice;
 
+    const stopJingle = () => {
+      const current = round3RulesMusicAudioRef.current;
+      if (current) {
+        current.pause();
+        current.currentTime = 0;
+        round3RulesMusicAudioRef.current = null;
+      }
+    };
+
     voice.onended = () => {
       round3RulesAudioCompletedRef.current = true;
+      stopJingle();
     };
+
+    jingle.play().catch((err) => {
+      console.error('Не удалось воспроизвести джингл правил Раунда 3', err);
+    });
 
     voice.play().catch((err) => {
       round3RulesAudioCompletedRef.current = true;
+      stopJingle();
       console.error('Не удалось воспроизвести озвучку правил Раунда 3', err);
     });
   }, [stopRound3RulesAudio]);
@@ -1157,18 +1202,38 @@ export default function HostRoomPage() {
     stopRound4RulesAudio();
     round4RulesAudioCompletedRef.current = false;
 
+    const jingle = new Audio(buildAudioUrl(ROUND2_RULES_JINGLE_FILE));
+    jingle.volume = 0.5;
+    jingle.loop = true;
+    round4RulesMusicAudioRef.current = jingle;
+
     const voiceSource = pickRandomItem(ROUND4_RULES_VOICE_FILES);
     const voice = new Audio(buildAudioUrl(voiceSource));
     voice.volume = 0.95;
     round4RulesVoiceAudioRef.current = voice;
 
+    const stopJingle = () => {
+      const current = round4RulesMusicAudioRef.current;
+      if (current) {
+        current.pause();
+        current.currentTime = 0;
+        round4RulesMusicAudioRef.current = null;
+      }
+    };
+
     voice.onended = () => {
       round4RulesAudioCompletedRef.current = true;
       round4RulesVoiceAudioRef.current = null;
+      stopJingle();
     };
+
+    jingle.play().catch((err) => {
+      console.error('Не удалось воспроизвести джингл правил Раунда 4', err);
+    });
 
     voice.play().catch((err) => {
       round4RulesAudioCompletedRef.current = true;
+      stopJingle();
       console.error('Не удалось воспроизвести озвучку правил Раунда 4', err);
     });
   }, [stopRound4RulesAudio]);
@@ -1181,6 +1246,11 @@ export default function HostRoomPage() {
     stopRound5RulesAudio();
     setIsRound5RulesAudioPlaying(true);
 
+    const jingle = new Audio(buildAudioUrl(ROUND2_RULES_JINGLE_FILE));
+    jingle.volume = 0.5;
+    jingle.loop = true;
+    round5RulesMusicAudioRef.current = jingle;
+
     const voiceSource = ROUND5_RULES_VOICE_FILES.length ? pickRandomItem(ROUND5_RULES_VOICE_FILES) : 'round5/ruels/1.mp3';
     const voice = new Audio(buildAudioUrl(voiceSource));
     voice.volume = 0.95;
@@ -1189,10 +1259,20 @@ export default function HostRoomPage() {
     const finish = () => {
       setIsRound5RulesAudioPlaying(false);
       round5RulesVoiceAudioRef.current = null;
+      const currentJingle = round5RulesMusicAudioRef.current;
+      if (currentJingle) {
+        currentJingle.pause();
+        currentJingle.currentTime = 0;
+        round5RulesMusicAudioRef.current = null;
+      }
       options?.onEnded?.();
     };
 
     voice.onended = finish;
+
+    jingle.play().catch((err) => {
+      console.error('Не удалось воспроизвести джингл правил Раунда 5', err);
+    });
 
     voice.play().catch((err) => {
       console.error('Не удалось воспроизвести озвучку правил финального раунда', err);
@@ -5500,19 +5580,37 @@ export default function HostRoomPage() {
 
   const statusLabel =
     isTournamentVisible
-      ? '3 раунд завершён'
+      ? roomStatus === 'final-results'
+        ? 'Финальные результаты'
+        : isFinalRoundAvailable
+          ? '4 раунд завершён'
+          : '3 раунд завершён'
       : roomStatus === 'waiting'
         ? 'Ожидание игроков'
         : roomStatus === 'running'
           ? 'Раунд 1 в эфире'
           : roomStatus === 'round2-running'
             ? 'Раунд 2 в эфире'
-            : 'Итоги раунда';
+            : roomStatus === 'round3-running'
+              ? 'Раунд 3 в эфире'
+              : roomStatus === 'round4-running'
+                ? 'Раунд 4 в эфире'
+                : roomStatus === 'round5-running' || roomStatus === 'round5-explanation'
+                  ? 'Раунд 5 в эфире'
+                  : roomStatus === 'final-results'
+                    ? 'Финальные результаты'
+                    : 'Итоги раунда';
   const statusBadgeClass =
     roomStatus === 'running'
       ? 'bg-[#f1532f] text-[#ffeccd]'
       : roomStatus === 'round2-running'
         ? 'bg-[#b4007f] text-white'
+        : roomStatus === 'round3-running'
+          ? 'bg-[#f1532f] text-white'
+          : roomStatus === 'round4-running'
+            ? 'bg-[#1f6ac6] text-white'
+            : roomStatus === 'round5-running' || roomStatus === 'round5-explanation'
+              ? 'bg-[#142a45] text-[#ffeccd]'
         : roomStatus === 'waiting'
           ? 'bg-[#ffe184] text-[#142a45]'
           : 'bg-[#1f6ac6] text-white';
@@ -5617,17 +5715,21 @@ export default function HostRoomPage() {
               </div>
             ) : showResults ? (
               roomStatus === 'finished' ? (
-                <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Финальные результаты</p>
-                      <h2 className="text-3xl font-black">🏆 Рейтинг Раунда 2</h2>
-                    </div>
+                round2Leaderboard.length === 0 ? (
+                  <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 text-center space-y-2">
+                    <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Раунд завершён</p>
+                    <h2 className="text-2xl font-black">Очки начислены</h2>
+                    <p className="text-sm text-[#142a45]/70">Смотрите очки игроков в панели справа.</p>
                   </div>
-                  <div className="space-y-4">
-                    {round2Leaderboard.length === 0 ? (
-                      <p className="text-sm text-[#142a45]/70">Рейтинг появится после завершения раунда.</p>
-                    ) : (
+                ) : (
+                  <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Финальные результаты</p>
+                        <h2 className="text-3xl font-black">🏆 Рейтинг Раунда 2</h2>
+                      </div>
+                    </div>
+                    <div className="space-y-4">
                       <ol className="space-y-3">
                         {round2Leaderboard.map((entry, index) => (
                           <li
@@ -5654,9 +5756,9 @@ export default function HostRoomPage() {
                           </li>
                         ))}
                       </ol>
-                    )}
+                    </div>
                   </div>
-                </div>
+                )
               ) : (
                 <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
                 <div className="flex items-center justify-between">
@@ -5822,14 +5924,12 @@ export default function HostRoomPage() {
                 <button
                   onClick={handlePrepareRound}
                   disabled={players.length === 0}
-                  className="hover:scale-105 hover:shadow-lg transition-all duration-200 w-full py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="hover:scale-105 hover:shadow-lg transition-all duration-200 w-full py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] disabled:opacity-40 disabled:cursor-not-allowed host-start-blink"
                 >
                   Начать игру →
                 </button>
-                {players.length === 0 ? (
+                {players.length === 0 && (
                   <p className="text-xs text-[#142a45]/60">Нужно как минимум 1 игрок.</p>
-                ) : (
-                  <p className="text-xs text-[#142a45]/60">После клика появится окно с правилами и обратный отсчёт.</p>
                 )}
               </div>
             ) : isRound2Running ? (
@@ -5839,11 +5939,11 @@ export default function HostRoomPage() {
                     <p className="retro-heading text-xs tracking-[0.4em] text-[#b4007f]/70">Раунд 2 · «Фейколов»</p>
                     <h2 className="text-3xl font-black">⚡ Охота на фейк</h2>
                   </div>
-                  <div className="flex flex-col items-start sm:items-end text-sm font-semibold text-[#b4007f]">
-                    <span>
-                      Факт <span className="font-black">{clampedRound2QuestionNumber}</span>/{ROUND2_TOTAL_QUESTIONS}
+                  <div className="flex flex-col items-start sm:items-end gap-2">
+                    <span className="px-4 py-2 rounded-full border-[3px] border-[#b4007f] text-sm font-black text-[#b4007f]">
+                      Факт <span className="text-[#142a45]">{clampedRound2QuestionNumber}</span>/{ROUND2_TOTAL_QUESTIONS}
                     </span>
-                    <span className="text-xs text-[#142a45]/70">
+                    <span className="text-xs font-semibold text-[#142a45]/70">
                       Ответили: <span className="font-black text-[#b4007f]">{answeredCount}/{totalPlayers}</span>
                     </span>
                   </div>
@@ -5908,83 +6008,21 @@ export default function HostRoomPage() {
                     </button>
                   )}
                 </div>
-
-                <div className="rounded-3xl border-[3px] border-dashed border-[#142a45]/30 bg-[#fff6da] p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/70">Ответы игроков</p>
-                    <span className="text-xs font-semibold text-[#b4007f]">{dedupedRound2Answers.length || 0}/{totalPlayers}</span>
-                  </div>
-                  {dedupedRound2Answers.length === 0 ? (
-                    <p className="text-sm text-[#142a45]/70">Пока никто не сделал выбор — ждём реакции игроков.</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {dedupedRound2Answers.map((answer) => (
-                        <div
-                          key={answer.player_id}
-                          className={`rounded-2xl border-[3px] px-3 py-2 flex items-center justify-between ${
-                            answer.is_correct ? 'border-[#b4007f]/30 bg-white' : 'border-[#f1532f]/30 bg-white'
-                          }`}
-                        >
-                          <div>
-                            <p className="font-semibold">{getPlayerName(answer.player_id)}</p>
-                          </div>
-                          <span className={`font-black ${answer.is_correct ? 'text-[#b4007f]' : 'text-[#f1532f]'}`}>
-                            {answer.is_correct ? `+${answer.points_earned}` : '+0'}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {round2Phase !== 'fact' && (
-                    <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-white p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/70">Рейтинг Раунда 2</p>
-                        <span className="text-xs font-semibold text-[#1f6ac6]">{round2AccuracyLabel}</span>
-                      </div>
-                      {round2Leaderboard.length === 0 ? (
-                        <p className="text-sm text-[#142a45]/70">Как только завершится первый факт, здесь появятся очки за «Фейколов».</p>
-                      ) : (
-                        <ol className="space-y-2">
-                          {round2Leaderboard.map((entry, index) => (
-                            <li
-                              key={entry.playerId}
-                              className="flex items-center justify-between rounded-2xl border-[3px] border-[#142a45]/10 bg-[#fff6da] px-3 py-2"
-                            >
-                              <div className="flex items-center gap-3">
-                                <span className="w-8 h-8 rounded-full border-[3px] border-[#142a45]/30 flex items-center justify-center font-black">
-                                  {index + 1}
-                                </span>
-                                <div>
-                                  <p className="font-semibold text-[#142a45]">{entry.name}</p>
-                                  <p className="text-xs text-[#142a45]/70">
-                                    {entry.correct}/{entry.attempts} верно
-                                  </p>
-                                </div>
-                              </div>
-                              <span className="font-black text-[#b4007f]">
-                                {entry.points > 0 ? `+${entry.points}` : '+0'} 💎
-                              </span>
-                            </li>
-                          ))}
-                        </ol>
-                      )}
-                    </div>
-                  )}
-                </div>
               </div>
             ) : isRound3Running ? (
               <div className="rounded-3xl border-[4px] border-[#f1532f] bg-white shadow-xl p-6 space-y-5">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <p className="retro-heading text-xs tracking-[0.4em] text-[#f1532f]/70">Раунд 3 · «МозгоШтурм»</p>
+                    <span className="inline-flex px-4 py-2 rounded-full border-[3px] border-[#f1532f] text-xs font-black tracking-[0.3em] text-[#f1532f]">
+                      РАУНД 3 В ЭФИРЕ
+                    </span>
                     <h2 className="text-3xl font-black">🧠 Факт с пропуском</h2>
                   </div>
-                  <div className="flex flex-col items-start sm:items-end text-sm font-semibold text-[#f1532f]">
-                    <span>
-                      Факт <span className="font-black">{currentQuestionIndex + 1}</span>/{round3QuestionCount || ROUND3_TOTAL_QUESTIONS}
+                  <div className="flex flex-col items-start sm:items-end gap-2">
+                    <span className="px-4 py-2 rounded-full border-[3px] border-[#f1532f] text-sm font-black text-[#f1532f]">
+                      Факт <span className="text-[#142a45]">{currentQuestionIndex + 1}</span>/{round3QuestionCount || ROUND3_TOTAL_QUESTIONS}
                     </span>
-                    <span className="text-xs text-[#142a45]/70">{currentRound3Question?.category ?? 'Категория не указана'}</span>
+                    <span className="text-base font-black text-[#142a45]">{currentRound3Question?.category ?? 'Категория не указана'}</span>
                   </div>
                 </div>
 
@@ -6115,7 +6153,9 @@ export default function HostRoomPage() {
             ) : roomStatus === 'round4-running' ? (
               <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
                 <div className="text-center space-y-3">
-                  <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Раунд 4 · «Дэшифровщик»</p>
+                  <span className="inline-flex px-4 py-2 rounded-full border-[3px] border-[#142a45] text-xs font-black tracking-[0.3em] text-[#142a45]">
+                    РАУНД 4 В ЭФИРЕ
+                  </span>
                   {round4CurrentPuzzle && (
                     <p className="text-3xl font-black text-[#1f6ac6] uppercase tracking-wide">
                       {round4CurrentPuzzle.category}
@@ -6149,6 +6189,13 @@ export default function HostRoomPage() {
                   )}
                 </div>
 
+                {timeLeft <= 0 && round4CurrentPuzzle && (
+                  <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-5 space-y-2 text-center">
+                    <p className="retro-heading text-[11px] tracking-[0.5em] text-[#142a45]/70">Правильный ответ</p>
+                    <p className="text-4xl font-black text-[#1f6ac6]">{round4CurrentPuzzle.answers?.[0] ?? '—'}</p>
+                  </div>
+                )}
+
                 <div className="flex justify-center">
                   <span className="px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
                     Тур {round4CurrentPuzzle ? Math.min(Math.max(round4AskedIds.length, 1), ROUND4_TOTAL_TOURS) : 0} / {ROUND4_TOTAL_TOURS}
@@ -6158,6 +6205,9 @@ export default function HostRoomPage() {
             ) : roomStatus === 'round5-running' || roomStatus === 'round5-explanation' ? (
               <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
                 <div className="text-center space-y-3">
+                  <span className="inline-flex px-4 py-2 rounded-full border-[3px] border-[#142a45] text-xs font-black tracking-[0.3em] text-[#142a45]">
+                    РАУНД 5 В ЭФИРЕ
+                  </span>
                   <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Финал · «Цифровая интуиция»</p>
                   <h2 className="text-3xl sm:text-4xl font-black leading-tight text-center text-[#142a45]">
                     {round5CurrentQuestion?.question ?? '⏳'}
@@ -6235,6 +6285,11 @@ export default function HostRoomPage() {
                   )}
                 </div>
 
+                <div className="rounded-2xl border-[3px] border-[#142a45]/25 bg-white px-4 py-3 text-sm font-semibold flex items-center justify-between">
+                  <span>Награда за правильный ответ</span>
+                  <span className="text-[#1f6ac6] font-black">+{question.points} 💎</span>
+                </div>
+
                 <h2 className="text-3xl font-black leading-tight text-center">
                   {canAdvance ? (
                     <span className="text-4xl font-black text-[#1f6ac6] text-center">
@@ -6264,7 +6319,7 @@ export default function HostRoomPage() {
                         : allPlayersAnswered
                           ? 'Все ответили — запускайте следующий вопрос.'
                           : 'Таймер остановился, переходите к следующему вопросу.'
-                      : 'Ответы игроков скрыты до окончания таймера.'}
+                      : 'Идёт сбор ответов…'}
                 </p>
               </div>
             ) : (
@@ -6366,20 +6421,6 @@ export default function HostRoomPage() {
               </div>
             </div>
 
-            <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-5 space-y-3">
-              <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Раунд 5 · «Финал»</p>
-              <h3 className="text-xl font-black text-[#142a45]">Правила финала</h3>
-              <p className="text-sm text-[#142a45]/70">
-                Открывает окно с правилами и включает голос диктора. Перед показом глушим все текущие звуки.
-              </p>
-              <button
-                type="button"
-                onClick={handleOpenRound5Rules}
-                className="w-full py-3 rounded-2xl font-black text-lg tracking-[0.25em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] hover:scale-105 hover:shadow-lg transition-all duration-200"
-              >
-                Раунд 5
-              </button>
-            </div>
           </aside>
         </div>
       </div>
