@@ -369,7 +369,7 @@ export default function HostRoomPage() {
   const [isPrestartVisible, setIsPrestartVisible] = useState(false);
   const [isRulesVisible, setIsRulesVisible] = useState(false);
   const [isCountdownVisible, setIsCountdownVisible] = useState(false);
-  const [countdownContext, setCountdownContext] = useState<'round1' | 'round2' | 'round3' | 'round4'>('round1');
+  const [countdownContext, setCountdownContext] = useState<'round1' | 'round2' | 'round3' | 'round4' | 'round5'>('round1');
   const [countdownValue, setCountdownValue] = useState<string>(COUNTDOWN_STEPS[0]);
   const [isRoomOpened, setIsRoomOpened] = useState(false);
   const [isPrestartNextEnabled, setIsPrestartNextEnabled] = useState(true);
@@ -384,6 +384,7 @@ export default function HostRoomPage() {
   const [isRound3RulesVisible, setIsRound3RulesVisible] = useState(false);
   const [isRound4RulesVisible, setIsRound4RulesVisible] = useState(false);
   const [isRound5RulesVisible, setIsRound5RulesVisible] = useState(false);
+  const [isRound5RulesAudioPlaying, setIsRound5RulesAudioPlaying] = useState(false);
   const [isFinalRoundAvailable, setIsFinalRoundAvailable] = useState(false);
   const [round3Questions, setRound3Questions] = useState<Round3Question[]>([]);
   const [round2Answers, setRound2Answers] = useState<Round2AnswerRow[]>([]);
@@ -770,6 +771,7 @@ export default function HostRoomPage() {
       voiceCue.onended = null;
       round5RulesVoiceAudioRef.current = null;
     }
+    setIsRound5RulesAudioPlaying(false);
   }, []);
 
   const stopRound4AnswerBgAudio = useCallback(() => {
@@ -1059,24 +1061,30 @@ export default function HostRoomPage() {
     });
   }, [stopRound4RulesAudio]);
 
-  const playRound5RulesAudio = useCallback(() => {
+  const playRound5RulesAudio = useCallback((options?: { onEnded?: () => void }) => {
     if (!hasUserInteractedRef.current) {
       return;
     }
 
     stopRound5RulesAudio();
+    setIsRound5RulesAudioPlaying(true);
 
     const voiceSource = ROUND5_RULES_VOICE_FILES.length ? pickRandomItem(ROUND5_RULES_VOICE_FILES) : 'round5/ruels/1.mp3';
     const voice = new Audio(buildAudioUrl(voiceSource));
     voice.volume = 0.95;
     round5RulesVoiceAudioRef.current = voice;
 
-    voice.onended = () => {
+    const finish = () => {
+      setIsRound5RulesAudioPlaying(false);
       round5RulesVoiceAudioRef.current = null;
+      options?.onEnded?.();
     };
+
+    voice.onended = finish;
 
     voice.play().catch((err) => {
       console.error('Не удалось воспроизвести озвучку правил финального раунда', err);
+      finish();
     });
   }, [stopRound5RulesAudio]);
 
@@ -2187,11 +2195,10 @@ export default function HostRoomPage() {
   useEffect(() => {
     if (isRound5RulesVisible) {
       stopAllAudio();
-      playRound5RulesAudio();
     } else {
       stopRound5RulesAudio();
     }
-  }, [isRound5RulesVisible, playRound5RulesAudio, stopAllAudio, stopRound5RulesAudio]);
+  }, [isRound5RulesVisible, stopAllAudio, stopRound5RulesAudio]);
 
   useEffect(() => {
     round2RulesReadyAtRef.current = isRound2RulesVisible ? Date.now() : null;
@@ -4630,6 +4637,36 @@ export default function HostRoomPage() {
     stopRound4RulesAudio();
   }, [stopRound4RulesAudio]);
 
+  const startRound5Countdown = useCallback(() => {
+    if (isCountdownVisible) {
+      return;
+    }
+    clearCountdownTimeout();
+    setCountdownContext('round5');
+    countdownCompleteActionRef.current = null;
+    setIsCountdownVisible(true);
+    runCountdownSequence(0);
+  }, [clearCountdownTimeout, isCountdownVisible, runCountdownSequence]);
+
+  const handleStartRound5Rules = useCallback(() => {
+    if (isCountdownVisible || isRound5RulesAudioPlaying) {
+      return;
+    }
+    hasUserInteractedRef.current = true;
+    stopAllAudio();
+    playRound5RulesAudio({
+      onEnded: () => {
+        setIsRound5RulesVisible(false);
+        startRound5Countdown();
+      },
+    });
+  }, [isCountdownVisible, isRound5RulesAudioPlaying, playRound5RulesAudio, startRound5Countdown, stopAllAudio]);
+
+  const handleCancelRound5Rules = useCallback(() => {
+    setIsRound5RulesVisible(false);
+    stopRound5RulesAudio();
+  }, [stopRound5RulesAudio]);
+
   useEffect(() => {
     if (!question || roomStatus !== 'running' || !canAdvance || totalPlayers === 0) {
       return;
@@ -5646,7 +5683,15 @@ export default function HostRoomPage() {
       {shouldShowCountdownOverlay && (
         <div className="fixed inset-0 z-50 bg-[#142a45]/90 flex flex-col items-center justify-center text-center text-[#ffeccd] px-4">
           <p className="text-sm uppercase tracking-[0.5em] text-[#ffeccd]/70 mb-4">
-            {countdownContext === 'round2' ? 'Запуск Раунда 2' : countdownContext === 'round3' ? 'Запуск Раунда 3' : countdownContext === 'round4' ? 'Запуск Раунда 4' : 'Запуск раунда'}
+            {countdownContext === 'round2'
+              ? 'Запуск Раунда 2'
+              : countdownContext === 'round3'
+                ? 'Запуск Раунда 3'
+                : countdownContext === 'round4'
+                  ? 'Запуск Раунда 4'
+                  : countdownContext === 'round5'
+                    ? 'Запуск Финала'
+                    : 'Запуск раунда'}
           </p>
           <div className="text-7xl sm:text-8xl font-black drop-shadow-lg">
             {countdownValue.toUpperCase()}
@@ -5658,6 +5703,8 @@ export default function HostRoomPage() {
                 ? 'Готовимся к мозговому штурму — скоро включим следующий этап.'
                 : countdownContext === 'round4'
                   ? 'Дэшифровщик загружается — готовим эмодзи-загадки!'
+                  : countdownContext === 'round5'
+                    ? 'Финал начинается — готовим вопросы на точность!' 
                   : 'Звук уже пошёл — готовим вопросы на экране игроков.'}
           </p>
         </div>
@@ -5766,10 +5813,18 @@ export default function HostRoomPage() {
             <div className="space-y-3">
               <button
                 type="button"
-                onClick={() => setIsRound5RulesVisible(false)}
+                onClick={handleStartRound5Rules}
+                disabled={isRound5RulesAudioPlaying || isCountdownVisible}
+                className="w-full py-3 rounded-2xl font-black text-lg tracking-[0.3em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] hover:scale-105 hover:shadow-lg transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {isRound5RulesAudioPlaying ? 'ОЗВУЧКА…' : 'СТАРТ'}
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelRound5Rules}
                 className="w-full py-3 rounded-2xl border-[3px] border-dashed border-[#142a45] bg-white font-semibold text-[#142a45] hover:scale-105 hover:shadow-lg transition-all duration-200"
               >
-                Понятно
+                Отмена
               </button>
             </div>
           </div>
