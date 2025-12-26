@@ -788,18 +788,36 @@ export default function RoomPage() {
             setRound2ItemIndex(null);
             setRound2Phase('idle');
             setRound3QuestionIndex(null);
-            setQuestionStartedAt(startedAt);
+
+            // Force fetch latest state if payload seems incomplete
+            let effectiveStartedAt = startedAt;
+            let effectivePuzzleId = newQuestionIndex;
+
+            if (!effectiveStartedAt || effectivePuzzleId === null) {
+              const { data: freshRoom } = await supabase
+                .from('rooms')
+                .select('question_started_at, current_question_index')
+                .eq('id', roomId)
+                .single();
+              
+              if (freshRoom) {
+                effectiveStartedAt = freshRoom.question_started_at;
+                effectivePuzzleId = coerceToNumber(freshRoom.current_question_index);
+              }
+            }
+
+            setQuestionStartedAt(effectiveStartedAt);
 
             const offset = await syncServerTimeRef.current?.();
             if (everyoneAnsweredFlag) {
               setTimeLeft(0);
             } else {
-              setTimeLeft(startedAt ? getRemainingSeconds(startedAt, offset || 0) : QUESTION_DURATION_SECONDS);
+              setTimeLeft(effectiveStartedAt ? getRemainingSeconds(effectiveStartedAt, offset || 0) : QUESTION_DURATION_SECONDS);
             }
 
-            const puzzleId = newQuestionIndex;
-            setRound4PuzzleId(puzzleId);
-            setRound4Puzzle(puzzleId ? round4Puzzles.find((p) => p.id === puzzleId) ?? null : null);
+            setRound4PuzzleId(effectivePuzzleId);
+            // Use functional update or ref to avoid stale closure issues with round4Puzzles
+            setRound4Puzzle(effectivePuzzleId ? round4Puzzles.find((p) => p.id === effectivePuzzleId) ?? null : null);
 
             // Immediately reset per-puzzle UI state; then restore from DB if needed.
             setHasAnswered(false);
@@ -808,13 +826,13 @@ export default function RoomPage() {
 
             const currentPlayerId = playerIdRef.current;
             const currentRoomId = roomIdRef.current;
-            if (currentPlayerId && currentRoomId && puzzleId) {
+            if (currentPlayerId && currentRoomId && effectivePuzzleId) {
               const { data: newAnswer } = await supabase
                 .from('round4_answers')
                 .select('id')
                 .eq('player_id', currentPlayerId)
                 .eq('room_id', currentRoomId)
-                .eq('puzzle_id', puzzleId)
+                .eq('puzzle_id', effectivePuzzleId)
                 .maybeSingle();
               setHasAnswered(!!newAnswer);
             } else {
@@ -864,7 +882,7 @@ export default function RoomPage() {
         supabase.removeChannel(roomChannel);
       });
     };
-  }, [roomId]);
+  }, [roomId, round4Puzzles]);
 
   const effectiveTimeLeft = allPlayersAnswered ? 0 : timeLeft;
   const timerActive =
