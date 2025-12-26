@@ -508,7 +508,7 @@ export default function RoomPage() {
             .eq('player_id', storedPlayerId)
             .eq('room_id', room.id)
             .eq('item_index', dbRound2ItemIndex)
-            .single();
+            .maybeSingle();
 
           setHasAnswered(!!existingRound2Answer);
         } else {
@@ -538,7 +538,7 @@ export default function RoomPage() {
               .eq('player_id', storedPlayerId)
               .eq('room_id', room.id)
               .eq('question_index', room.current_question_index)
-              .single();
+              .maybeSingle();
 
             if (!existingRound3Error && existingRound3Answer) {
               setHasAnswered(true);
@@ -585,7 +585,7 @@ export default function RoomPage() {
             .eq('player_id', storedPlayerId)
             .eq('room_id', room.id)
             .eq('puzzle_id', puzzleId)
-            .single();
+            .maybeSingle();
 
           setHasAnswered(!!existingRound4Answer);
         } else {
@@ -619,7 +619,7 @@ export default function RoomPage() {
           .eq('player_id', storedPlayerId)
           .eq('room_id', room.id)
           .eq('question_index', room.current_question_index)
-          .single();
+          .maybeSingle();
 
         if (existingAnswer) {
           setHasAnswered(true);
@@ -731,7 +731,7 @@ export default function RoomPage() {
                 .eq('player_id', currentPlayerId)
                 .eq('room_id', currentRoomId)
                 .eq('item_index', nextRound2ItemIndex)
-                .single();
+                .maybeSingle();
               setHasAnswered(!!newAnswer);
             } else {
               setHasAnswered(false);
@@ -764,7 +764,7 @@ export default function RoomPage() {
                   .eq('player_id', currentPlayerId)
                   .eq('room_id', currentRoomId)
                   .eq('question_index', newQuestionIndex)
-                  .single();
+                  .maybeSingle();
 
                 if (!existingRound3Error && existingRound3Answer) {
                   setHasAnswered(true);
@@ -815,7 +815,7 @@ export default function RoomPage() {
                 .eq('player_id', currentPlayerId)
                 .eq('room_id', currentRoomId)
                 .eq('puzzle_id', puzzleId)
-                .single();
+                .maybeSingle();
               setHasAnswered(!!newAnswer);
             } else {
               setHasAnswered(false);
@@ -849,7 +849,7 @@ export default function RoomPage() {
               .eq('player_id', currentPlayerId)
               .eq('room_id', currentRoomId)
               .eq('question_index', newQuestionIndex)
-              .single();
+              .maybeSingle();
             setHasAnswered(!!newAnswer);
           } else {
             setHasAnswered(false);
