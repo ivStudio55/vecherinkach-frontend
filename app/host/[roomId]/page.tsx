@@ -150,6 +150,8 @@ const ROUND5_TOTAL_TOURS = 6;
 const ROUND5_MAX_POINTS = 400;
 const ROUND5_QUESTION_AUDIO_DIR = 'round5/questions';
 const ROUND5_EXPLANATION_AUDIO_DIR = 'round5/explanation';
+const ROUND5_FINAL_NARRATOR_AUDIO_DIR = 'round5/final';
+const ROUND5_FINAL_NARRATOR_VARIANTS = 6;
 
   const ROUND4_CATEGORY_AUDIO_MAP: Record<string, string> = {
     'дисней': 'disney',
@@ -326,6 +328,7 @@ type RoomStatus =
   | 'round4-running'
   | 'round5-running'
   | 'round5-explanation'
+  | 'final-results'
   | 'finished';
 
 interface RoundAnswer {
@@ -498,6 +501,8 @@ export default function HostRoomPage() {
   const round3CommentAudioRef = useRef<HTMLAudioElement | null>(null);
   const round3CommentBgAudioRef = useRef<HTMLAudioElement | null>(null);
   const tournamentJingleAudioRef = useRef<HTMLAudioElement | null>(null);
+  const finalNarratorAudioRef = useRef<HTMLAudioElement | null>(null);
+  const finalResultsStatusRef = useRef<RoomStatus | null>(null);
   const lastRound3ResultsAudioKeyRef = useRef<string | null>(null);
   const lastRound3ResultsScoringKeyRef = useRef<string | null>(null);
   const round3PlaybackTokenRef = useRef(0);
@@ -929,6 +934,21 @@ export default function HostRoomPage() {
     }
   }, []);
 
+  const stopFinalNarratorAudio = useCallback(() => {
+    const audio = finalNarratorAudioRef.current;
+    if (audio) {
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+      } catch {
+        // ignore
+      }
+      audio.onended = null;
+      audio.onerror = null;
+      finalNarratorAudioRef.current = null;
+    }
+  }, []);
+
 
   const playTournamentJingle = useCallback(() => {
     if (!hasUserInteractedRef.current) {
@@ -945,6 +965,23 @@ export default function HostRoomPage() {
       console.error('Не удалось проиграть финальный джингл турнира', error);
     });
   }, [stopTournamentJingle]);
+
+  const playFinalNarratorAudio = useCallback(() => {
+    if (!hasUserInteractedRef.current) {
+      return;
+    }
+
+    stopFinalNarratorAudio();
+    const variant = Math.floor(Math.random() * ROUND5_FINAL_NARRATOR_VARIANTS) + 1;
+    const file = `${ROUND5_FINAL_NARRATOR_AUDIO_DIR}/${variant}.mp3`;
+    const audio = new Audio(buildAudioUrl(file));
+    audio.volume = 0.95;
+    finalNarratorAudioRef.current = audio;
+
+    audio.play().catch((error) => {
+      console.error('Не удалось проиграть финальную озвучку диктора', error);
+    });
+  }, [stopFinalNarratorAudio]);
 
   const playRound3EndAfterAudio = useCallback(() => {
     if (!hasUserInteractedRef.current) {
@@ -1361,6 +1398,20 @@ export default function HostRoomPage() {
     stopRound4Audio();
     stopRoundEndAudio();
     stopTournamentJingle();
+
+    const narrator = finalNarratorAudioRef.current;
+    if (narrator) {
+      try {
+        narrator.pause();
+        narrator.currentTime = 0;
+      } catch {
+        // ignore
+      }
+      narrator.onended = null;
+      narrator.onerror = null;
+      finalNarratorAudioRef.current = null;
+    }
+
     // stopBetweenAudio вызываем через ref, так как он определён позже
     const audio = betweenAudioRef.current;
     if (audio) {
@@ -3020,6 +3071,18 @@ export default function HostRoomPage() {
 
         await loadRound5AnswerStats(bankIndex);
         await loadRound2AnswerStats(null, { preserveRound1Counters: true });
+      } else if (detectedStatus === 'final-results') {
+        setIsTournamentVisible(true);
+        setIsFinalRoundAvailable(false);
+        setShowResults(false);
+        setQuestion(null);
+        setAnswerCount(0);
+        setCorrectAnswerCount(0);
+        setAnsweredPlayerIds([]);
+        setQuestionStartedAt(null);
+        setTimeLeft(0);
+        setServerAllPlayersAnswered(false);
+        await loadRound2AnswerStats(null, { preserveRound1Counters: true });
       } else if (detectedStatus === 'finished') {
         setShowResults(true);
         setAnswerCount(0);
@@ -3946,6 +4009,29 @@ export default function HostRoomPage() {
   }, [roomStatus, stopLobby, stopRulesAudio, stopConnectAudio]);
 
   useEffect(() => {
+    const previous = finalResultsStatusRef.current;
+    if (previous === roomStatus) {
+      return;
+    }
+
+    finalResultsStatusRef.current = roomStatus;
+
+    if (roomStatus !== 'final-results') {
+      if (previous === 'final-results') {
+        stopFinalNarratorAudio();
+        stopTournamentJingle();
+      }
+      return;
+    }
+
+    setIsTournamentVisible(true);
+    setIsFinalRoundAvailable(false);
+    stopAllAudio();
+    playTournamentJingle();
+    playFinalNarratorAudio();
+  }, [playFinalNarratorAudio, playTournamentJingle, roomStatus, stopAllAudio, stopFinalNarratorAudio, stopTournamentJingle]);
+
+  useEffect(() => {
     if (roomStatus !== 'running') {
       stopBetweenAudio();
       if (!showResults) {
@@ -4150,7 +4236,7 @@ export default function HostRoomPage() {
 
   const endGame = async () => {
     setIsTournamentVisible(false);
-    stopTournamentJingle();
+    stopAllAudio();
     const { error: updateError } = await supabase
       .from('rooms')
       .update({
@@ -4700,7 +4786,11 @@ export default function HostRoomPage() {
     return Array.from(unique.values());
   }, [round2Answers]);
   const headerActionLabel = isTournamentVisible
-    ? 'Раунд 4'
+    ? roomStatus === 'final-results'
+      ? 'Завершить игру'
+      : isFinalRoundAvailable
+        ? 'Финал'
+        : 'Раунд 4'
     : roomStatus === 'finished' && showResults
       ? round2Leaderboard.length > 0
         ? 'Раунд 3'
@@ -4725,9 +4815,19 @@ export default function HostRoomPage() {
     round2Leaderboard.length > 0 ? `${round2AccuracyPercent}% попали в точку` : 'Ждём первую статистику';
 
   const handlePrimaryHeaderAction = () => {
+    if (roomStatus === 'final-results') {
+      hasUserInteractedRef.current = true;
+      void endGame();
+      return;
+    }
+
     if (isTournamentVisible) {
       hasUserInteractedRef.current = true;
-      handleOpenRound4Rules();
+      if (isFinalRoundAvailable) {
+        handleOpenRound5Rules();
+      } else {
+        handleOpenRound4Rules();
+      }
       return;
     }
 
@@ -4843,14 +4943,24 @@ export default function HostRoomPage() {
       const nextTourIndex = currentQuestionIndex + 1;
       if (nextTourIndex >= ROUND5_TOTAL_TOURS) {
         stopAllAudio();
-        await supabase
+        const { error } = await supabase
           .from('rooms')
           .update({
-            status: 'finished',
+            status: 'final-results',
+            is_active: false,
             all_players_answered: true,
             question_started_at: null,
           })
           .eq('id', roomId);
+
+        if (error) {
+          console.error('Не удалось завершить финал', error);
+          return;
+        }
+
+        updateRoomStatus('final-results');
+        setIsTournamentVisible(true);
+        setIsFinalRoundAvailable(false);
         return;
       }
 
@@ -4870,7 +4980,7 @@ export default function HostRoomPage() {
       console.error('Не удалось перейти к следующему туру финала', e);
       round5AdvanceLockRef.current = false;
     }
-  }, [currentQuestionIndex, getServerIsoTimestamp, roomId, stopAllAudio]);
+  }, [currentQuestionIndex, getServerIsoTimestamp, roomId, stopAllAudio, updateRoomStatus]);
 
   const scoreAndRevealRound5 = useCallback(async () => {
     if (isRound5Scoring) {
@@ -5440,7 +5550,9 @@ export default function HostRoomPage() {
               <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">итоги после 3 раунда</p>
+                    <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">
+                      {roomStatus === 'final-results' ? 'финальные итоги' : 'итоги после 3 раунда'}
+                    </p>
                     <h2 className="text-3xl font-black">🏁 Турнирная таблица</h2>
                   </div>
                 </div>
@@ -5477,7 +5589,18 @@ export default function HostRoomPage() {
                   </ol>
                 )}
 
-                {isFinalRoundAvailable && (
+                {roomStatus === 'final-results' ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      hasUserInteractedRef.current = true;
+                      void endGame();
+                    }}
+                    className="w-full py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] hover:scale-105 hover:shadow-lg transition-all duration-200"
+                  >
+                    Завершить игру
+                  </button>
+                ) : isFinalRoundAvailable && (
                   <button
                     type="button"
                     onClick={handleOpenRound5Rules}
@@ -6162,7 +6285,8 @@ export default function HostRoomPage() {
                       : roomStatus === 'round3-running' ? 'Раунд 3'
                         : roomStatus === 'round4-running' ? 'Раунд 4'
                           : roomStatus === 'round5-running' || roomStatus === 'round5-explanation' ? 'Финал'
-                            : 'Подготовка'}
+                            : roomStatus === 'final-results' ? 'Итоги'
+                              : 'Подготовка'}
                 </span>
               </div>
 

@@ -106,6 +106,7 @@ type RoomStatus =
   | 'round4-running'
   | 'round5-running'
   | 'round5-explanation'
+  | 'final-results'
   | 'finished';
 
 type Round2Phase = 'idle' | 'fact' | 'explanation';
@@ -532,7 +533,7 @@ export default function RoomPage() {
         setQuestionStartedAt(null);
         setTimeLeft(QUESTION_DURATION_SECONDS);
         setIsLoading(false);
-      } else if (!room.is_active || detectedStatus === 'finished') {
+      } else if (!room.is_active || detectedStatus === 'finished' || detectedStatus === 'final-results') {
         setShowResults(true);
         setQuestion(null);
         setRound2ItemIndex(null);
@@ -811,7 +812,7 @@ export default function RoomPage() {
 
           // Only treat as finished if status is 'finished', not just is_active=false
           // (round4-running may have is_active=false during answer reveal)
-          if (newStatus === 'finished') {
+          if (newStatus === 'finished' || newStatus === 'final-results') {
             setShowResults(true);
             setQuestion(null);
             setRound2ItemIndex(null);
@@ -1575,11 +1576,13 @@ export default function RoomPage() {
   const progressPercent = Math.max(0, Math.min(100, (activeTimerSeconds / activeTimerDuration) * 100));
   const timerLabel = allPlayersAnswered ? 'Все ответили' : `${activeTimerSeconds} c`;
 
-  if (showResults && roomStatus === 'finished') {
+  if (showResults && (roomStatus === 'finished' || roomStatus === 'final-results')) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#fef4dc] text-[#142a45] px-4 py-10">
         <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl max-w-lg w-full p-8 text-center space-y-4">
-          <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Раунд завершён</p>
+          <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">
+            {roomStatus === 'final-results' ? 'Игра завершена' : 'Раунд завершён'}
+          </p>
           <h2 className="text-3xl font-black">🎉 Ждём объявления результатов</h2>
           <p className="text-sm text-[#142a45]/80">
             Ведущий сейчас озвучит правильные ответы и начисленные баллы. Не закрывайте вкладку, чтобы не потерять прогресс.
