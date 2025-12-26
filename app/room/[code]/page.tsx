@@ -1374,8 +1374,16 @@ export default function RoomPage() {
         </header>
 
         {/* Debug Info - Remove in production */}
-        <div className="fixed bottom-0 left-0 bg-black/80 text-white text-[10px] p-2 max-w-full overflow-auto z-50 pointer-events-none opacity-50 hover:opacity-100">
-          Status: {roomStatus} | StartedAt: {questionStartedAt ?? 'null'} | TimerActive: {String(timerActive)} | TimeLeft: {timeLeft} | AllAnswered: {String(allPlayersAnswered)} | PuzzleId: {round4PuzzleId ?? 'null'} | PuzzlesLoaded: {round4Puzzles.length}
+        <div className="fixed bottom-0 left-0 bg-black/80 text-white text-[10px] p-2 max-w-full overflow-auto z-50 opacity-50 hover:opacity-100 flex gap-4 items-center">
+          <div>
+            Status: {roomStatus} | StartedAt: {questionStartedAt ?? 'null'} | TimerActive: {String(timerActive)} | TimeLeft: {timeLeft} | AllAnswered: {String(allPlayersAnswered)} | PuzzleId: {round4PuzzleId ?? 'null'} | PuzzlesLoaded: {round4Puzzles.length} | RoomId: {roomId} | Code: {roomCode}
+          </div>
+          <button 
+            className="bg-white text-black px-2 py-1 rounded"
+            onClick={() => window.location.reload()}
+          >
+            Reload Page
+          </button>
         </div>
 
         {roomStatus === 'waiting' && (
