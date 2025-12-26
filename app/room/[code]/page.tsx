@@ -661,9 +661,12 @@ export default function RoomPage() {
             return;
           }
 
-          const newQuestionIndex = coerceToNumber(payload.new.current_question_index);
-          const startedAt = payload.new.question_started_at as string | null;
+          // Debug: log every Realtime event
           const newStatus = (payload.new.status as RoomStatus) || (payload.new.is_active ? 'waiting' : 'finished');
+          const startedAt = payload.new.question_started_at as string | null;
+          const newQuestionIndex = coerceToNumber(payload.new.current_question_index);
+          setDebugLastEvent(`RT: status=${newStatus}, startedAt=${startedAt?.substring(11,19) ?? 'null'}, idx=${newQuestionIndex}`);
+
           setRoomStatus(newStatus);
           const everyoneAnsweredFlag =
             newStatus === 'running' || newStatus === 'round2-running' || newStatus === 'round3-running' || newStatus === 'round4-running'
