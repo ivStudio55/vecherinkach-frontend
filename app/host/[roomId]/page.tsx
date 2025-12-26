@@ -5137,7 +5137,7 @@ export default function HostRoomPage() {
                     <span>
                       Факт <span className="font-black">{currentQuestionIndex + 1}</span>/{round3QuestionCount || ROUND3_TOTAL_QUESTIONS}
                     </span>
-                    <span className="text-xs text-[#142a45]/70">Озвучка и музыка идут у ведущего</span>
+                    <span className="text-xs text-[#142a45]/70">{currentRound3Question?.category ?? 'Категория не указана'}</span>
                   </div>
                 </div>
 
