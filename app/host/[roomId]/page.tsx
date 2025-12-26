@@ -108,6 +108,7 @@ const ROUND3_RULES_VOICE_FILES = [
   'round3/ruels3/ruels2.mp3',
   'round3/ruels3/ruels3.mp3',
 ] as const;
+const ROUND5_RULES_VOICE_FILES: readonly string[] = Array.from({ length: 5 }, (_, i) => `round5/ruels/${i + 1}.mp3`);
 const ROUND3_RULES_TEXT =
   'Раунд «МозгоШтурм»\n\n' +
   'Перед вами появятся 6 интересных фактов с одним пропущенным словом.\n\n' +
@@ -133,6 +134,15 @@ const ROUND4_RULES_TEXT =
   '• Первый ответивший правильно получает 100 баллов.\n' +
   '• Последующие правильно ответившие получают 50 баллов.\n' +
   '• Таймер — 30 секунд.';
+
+const ROUND5_RULES_TEXT =
+  'Вам будут даны 6 фактов с числовыми значениями (например, "Высота Эйфелевой башни — [число] метров").\n\n' +
+  'Ваша задача — ввести точное число в поле на телефоне.\n\n' +
+  'Точное совпадение: 400 очков.\n' +
+  'Неточное: баллы = 400 * (100 - отклонение%) / 100, где отклонение% = |правильное - ваш ответ| / правильное * 100% (округление до целого).\n\n' +
+  'Если отклонение >= 100% (ответ <= 0 или >= 2*правильное) — 0 очков.\n\n' +
+  'Время на вопрос: 30 секунд.\n\n' +
+  'Готовы к цифровой интуиции?';
 
 const ROUND4_TOTAL_TOURS = 6;
 
@@ -373,6 +383,8 @@ export default function HostRoomPage() {
   const [isRound2RulesVisible, setIsRound2RulesVisible] = useState(false);
   const [isRound3RulesVisible, setIsRound3RulesVisible] = useState(false);
   const [isRound4RulesVisible, setIsRound4RulesVisible] = useState(false);
+  const [isRound5RulesVisible, setIsRound5RulesVisible] = useState(false);
+  const [isFinalRoundAvailable, setIsFinalRoundAvailable] = useState(false);
   const [round3Questions, setRound3Questions] = useState<Round3Question[]>([]);
   const [round2Answers, setRound2Answers] = useState<Round2AnswerRow[]>([]);
   const [round2AskedIndices, setRound2AskedIndices] = useState<number[]>([]);
@@ -416,6 +428,7 @@ export default function HostRoomPage() {
   const round2RulesVoiceAudioRef = useRef<HTMLAudioElement | null>(null);
   const round3RulesVoiceAudioRef = useRef<HTMLAudioElement | null>(null);
   const round4RulesVoiceAudioRef = useRef<HTMLAudioElement | null>(null);
+  const round5RulesVoiceAudioRef = useRef<HTMLAudioElement | null>(null);
   const round4CategoryAudioRef = useRef<HTMLAudioElement | null>(null);
   const round4TimerAudioRef = useRef<HTMLAudioElement | null>(null);
   const round4AnswerBgAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -745,6 +758,20 @@ export default function HostRoomPage() {
     }
   }, []);
 
+  const stopRound5RulesAudio = useCallback(() => {
+    const voiceCue = round5RulesVoiceAudioRef.current;
+    if (voiceCue) {
+      try {
+        voiceCue.pause();
+        voiceCue.currentTime = 0;
+      } catch {
+        // ignore
+      }
+      voiceCue.onended = null;
+      round5RulesVoiceAudioRef.current = null;
+    }
+  }, []);
+
   const stopRound4AnswerBgAudio = useCallback(() => {
     const bgCue = round4AnswerBgAudioRef.current;
     if (bgCue) {
@@ -1032,6 +1059,27 @@ export default function HostRoomPage() {
     });
   }, [stopRound4RulesAudio]);
 
+  const playRound5RulesAudio = useCallback(() => {
+    if (!hasUserInteractedRef.current) {
+      return;
+    }
+
+    stopRound5RulesAudio();
+
+    const voiceSource = ROUND5_RULES_VOICE_FILES.length ? pickRandomItem(ROUND5_RULES_VOICE_FILES) : 'round5/ruels/1.mp3';
+    const voice = new Audio(buildAudioUrl(voiceSource));
+    voice.volume = 0.95;
+    round5RulesVoiceAudioRef.current = voice;
+
+    voice.onended = () => {
+      round5RulesVoiceAudioRef.current = null;
+    };
+
+    voice.play().catch((err) => {
+      console.error('Не удалось воспроизвести озвучку правил финального раунда', err);
+    });
+  }, [stopRound5RulesAudio]);
+
   const stopRound3Audio = useCallback(() => {
     round3PlaybackTokenRef.current += 1;
 
@@ -1153,6 +1201,7 @@ export default function HostRoomPage() {
     stopRound3RulesAudio();
     stopRound3Audio();
     stopRound4RulesAudio();
+    stopRound5RulesAudio();
     stopRound4Audio();
     stopRoundEndAudio();
     stopTournamentJingle();
@@ -1164,7 +1213,7 @@ export default function HostRoomPage() {
       audio.onended = null;
       betweenAudioRef.current = null;
     }
-  }, [stopRound2Audio, stopRound2RulesAudio, stopRound3Audio, stopRound3RulesAudio, stopRound4Audio, stopRound4RulesAudio, stopRoundEndAudio, stopTournamentJingle]);
+  }, [stopRound2Audio, stopRound2RulesAudio, stopRound3Audio, stopRound3RulesAudio, stopRound4Audio, stopRound4RulesAudio, stopRound5RulesAudio, stopRoundEndAudio, stopTournamentJingle]);
 
   const toggleMusicMute = useCallback(() => {
     const newMuted = !isMusicMuted;
@@ -2134,6 +2183,15 @@ export default function HostRoomPage() {
       stopRound4RulesAudio();
     }
   }, [isRound4RulesVisible, playRound4RulesAudio, stopAllAudio, stopRound4RulesAudio]);
+
+  useEffect(() => {
+    if (isRound5RulesVisible) {
+      stopAllAudio();
+      playRound5RulesAudio();
+    } else {
+      stopRound5RulesAudio();
+    }
+  }, [isRound5RulesVisible, playRound5RulesAudio, stopAllAudio, stopRound5RulesAudio]);
 
   useEffect(() => {
     round2RulesReadyAtRef.current = isRound2RulesVisible ? Date.now() : null;
@@ -4318,6 +4376,12 @@ export default function HostRoomPage() {
     setIsRound4RulesVisible(true);
   }, [stopAllAudio]);
 
+  const handleOpenRound5Rules = useCallback(() => {
+    hasUserInteractedRef.current = true;
+    stopAllAudio();
+    setIsRound5RulesVisible(true);
+  }, [stopAllAudio]);
+
   const pickRound4Puzzle = useCallback(() => {
     if (!round4Puzzles.length) {
       return null;
@@ -4381,6 +4445,7 @@ export default function HostRoomPage() {
   const handleRound4Complete = useCallback(async () => {
     stopRound4Audio();
     setIsTournamentVisible(true);
+    setIsFinalRoundAvailable(true);
     playTournamentJingle();
     playRound4EndAudio();
     setShowResults(false);
@@ -4765,6 +4830,16 @@ export default function HostRoomPage() {
                       </li>
                     ))}
                   </ol>
+                )}
+
+                {isFinalRoundAvailable && (
+                  <button
+                    type="button"
+                    onClick={handleOpenRound5Rules}
+                    className="w-full py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] hover:scale-105 hover:shadow-lg transition-all duration-200"
+                  >
+                    Финал
+                  </button>
                 )}
 
               </div>
@@ -5674,6 +5749,27 @@ export default function HostRoomPage() {
                 className="w-full py-3 rounded-2xl border-[3px] border-dashed border-[#142a45] bg-white font-semibold text-[#142a45] hover:scale-105 hover:shadow-lg transition-all duration-200"
               >
                 Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isRound5RulesVisible && (
+        <div className="fixed inset-0 z-50 bg-[#142a45]/70 backdrop-blur-sm flex items-center justify-center px-4 transition-opacity duration-300">
+          <div className="max-w-lg w-full rounded-3xl border-[4px] border-[#142a45] bg-[#fff6da] p-6 space-y-4 shadow-2xl transform transition-all duration-300 scale-100 opacity-100">
+            <div>
+              <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Финал · «Цифровая интуиция»</p>
+              <h3 className="text-2xl font-black text-[#142a45]">Правила</h3>
+            </div>
+            <div className="text-sm text-[#142a45]/80 whitespace-pre-line leading-relaxed">{ROUND5_RULES_TEXT}</div>
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={() => setIsRound5RulesVisible(false)}
+                className="w-full py-3 rounded-2xl border-[3px] border-dashed border-[#142a45] bg-white font-semibold text-[#142a45] hover:scale-105 hover:shadow-lg transition-all duration-200"
+              >
+                Понятно
               </button>
             </div>
           </div>
