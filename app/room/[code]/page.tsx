@@ -805,7 +805,7 @@ export default function RoomPage() {
               if (freshRoom) {
                 effectiveStartedAt = freshRoom.question_started_at;
                 effectivePuzzleId = coerceToNumber(freshRoom.current_question_index);
-                setDebugLastEvent(`R4 FETCH: startedAt=${effectiveStartedAt?.substring(11,19) ?? 'null'}, idx=${effectivePuzzleId}, err=${freshError?.message ?? 'none'}`);
+                setDebugLastEvent(`R4 FETCH OK: startedAt=${effectiveStartedAt?.substring(11,19) ?? 'null'}, idx=${effectivePuzzleId}`);
               } else {
                 setDebugLastEvent(`R4 FETCH FAIL: ${freshError?.message ?? 'no data'}`);
               }
