@@ -885,11 +885,13 @@ export default function RoomPage() {
   }, [roomId, round4Puzzles]);
 
   const effectiveTimeLeft = allPlayersAnswered ? 0 : timeLeft;
+  // Round4 should keep timer ticking even when allPlayersAnswered (until explanation phase)
   const timerActive =
     !showResults &&
     ((roomStatus === 'round3-running' && Boolean(questionStartedAt)) ||
+      (roomStatus === 'round4-running' && Boolean(questionStartedAt)) ||
       (!allPlayersAnswered &&
-        (roomStatus === 'running' || roomStatus === 'round2-running' || roomStatus === 'round4-running') &&
+        (roomStatus === 'running' || roomStatus === 'round2-running') &&
         Boolean(questionStartedAt)));
 
   useEffect(() => {
@@ -1394,7 +1396,7 @@ export default function RoomPage() {
         {/* Debug Info - Remove in production */}
         <div className="fixed bottom-0 left-0 bg-black/80 text-white text-[10px] p-2 max-w-full overflow-auto z-50 opacity-50 hover:opacity-100 flex gap-4 items-center">
           <div>
-            Status: {roomStatus} | StartedAt: {questionStartedAt ?? 'null'} | TimerActive: {String(timerActive)} | TimeLeft: {timeLeft} | AllAnswered: {String(allPlayersAnswered)} | PuzzleId: {round4PuzzleId ?? 'null'} | PuzzlesLoaded: {round4Puzzles.length} | RoomId: {roomId} | Code: {roomCode}
+            Status: {roomStatus} | StartedAt: {questionStartedAt ? questionStartedAt.substring(11, 19) : 'null'} | TimerActive: {String(timerActive)} | TimeLeft: {timeLeft} | EffectiveTime: {effectiveTimeLeft} | AllAnswered: {String(allPlayersAnswered)} | PuzzleId: {round4PuzzleId ?? 'null'} | PuzzlesLoaded: {round4Puzzles.length} | RoomId: {roomId?.substring(0, 8) ?? 'null'}
           </div>
           <button 
             className="bg-white text-black px-2 py-1 rounded"
