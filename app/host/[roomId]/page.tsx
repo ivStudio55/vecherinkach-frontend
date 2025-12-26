@@ -5302,9 +5302,11 @@ export default function HostRoomPage() {
                   )}
                 </div>
 
-                <p className="text-xs text-[#142a45]/70 text-center">
-                  Ответы приходят автоматически — после озвучки ответов следующий тур запустится сам до 6 раз.
-                </p>
+                <div className="flex justify-center">
+                  <span className="px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
+                    Тур {round4CurrentPuzzle ? Math.min(Math.max(round4AskedIds.length, 1), ROUND4_TOTAL_TOURS) : 0} / {ROUND4_TOTAL_TOURS}
+                  </span>
+                </div>
               </div>
             ) : question ? (
               <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
