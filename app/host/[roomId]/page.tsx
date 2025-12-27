@@ -563,6 +563,8 @@ export default function HostRoomPage() {
   const startRound3CountdownRef = useRef<(() => void) | null>(null);
   const startRound4CountdownRef = useRef<(() => void) | null>(null);
   const startRound5CountdownRef = useRef<(() => void) | null>(null);
+  const isRulesVisibleRef = useRef(isRulesVisible);
+  const isCountdownVisibleRef = useRef(isCountdownVisible);
   const round4AskedIdsRef = useRef<number[]>([]);
   const round4CurrentPuzzleIdRef = useRef<number | null>(null);
   const playersRef = useRef<Player[]>(players);
@@ -581,7 +583,6 @@ export default function HostRoomPage() {
   const roundEndDelayTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rulesAudioCompletedRef = useRef(true);
   const isLobbySoundOnRef = useRef(isLobbySoundOn);
-  const countdownReadyAtRef = useRef<number | null>(null);
   const lastSpokenQuestionRef = useRef<number | null>(null);
   const lastRound5QuestionPlaybackKeyRef = useRef<string | null>(null);
   const lastRound5ExplanationPlaybackKeyRef = useRef<string | null>(null);
@@ -2691,6 +2692,14 @@ export default function HostRoomPage() {
   }, [isRound5RulesVisible]);
 
   useEffect(() => {
+    isRulesVisibleRef.current = isRulesVisible;
+  }, [isRulesVisible]);
+
+  useEffect(() => {
+    isCountdownVisibleRef.current = isCountdownVisible;
+  }, [isCountdownVisible]);
+
+  useEffect(() => {
     if (roomStatus !== 'round4-running' || !questionStartedAt) {
       return;
     }
@@ -3197,7 +3206,6 @@ export default function HostRoomPage() {
         setIsRulesVisible(false);
         setIsCountdownVisible(false);
         clearCountdownTimeout();
-        countdownReadyAtRef.current = null;
       }
       if (nextStatus !== 'round2-running') {
         setRound2Phase('idle');
@@ -3856,6 +3864,18 @@ export default function HostRoomPage() {
 
     audio.onended = () => {
       rulesAudioCompletedRef.current = true;
+
+      // Auto-start Round 1 countdown when rules narration ends.
+      if (
+        roomStatusRef.current === 'waiting' &&
+        isRulesVisibleRef.current &&
+        !isCountdownVisibleRef.current &&
+        playersRef.current.length > 0
+      ) {
+        setTimeout(() => {
+          handleCountdownStart({ playSkip: false });
+        }, 0);
+      }
     };
 
     audio.play().catch((error) => {
@@ -4756,19 +4776,19 @@ export default function HostRoomPage() {
     [playBeep]
   );
 
-  const handleCountdownStart = () => {
+  const handleCountdownStart = (options?: { playSkip?: boolean }) => {
     if (roomStatus !== 'waiting' || players.length === 0 || isCountdownVisible) {
       return;
     }
     stopLobby();
     stopRulesAudio();
     stopConnectAudio();
-    const readyAt = countdownReadyAtRef.current;
-    if (!readyAt || Date.now() - readyAt <= 18000) {
-      // Skip cue should only fire when the host launches within the early 18-second window.
+
+    const shouldPlaySkip = (options?.playSkip ?? true) && !rulesAudioCompletedRef.current;
+    if (shouldPlaySkip) {
       playSkipAudio();
     }
-    countdownReadyAtRef.current = null;
+
     hasUserInteractedRef.current = true;
     setIsRulesVisible(false);
     clearCountdownTimeout();
@@ -4789,7 +4809,6 @@ export default function HostRoomPage() {
     setIsRulesVisible(false);
     setIsPrestartNextEnabled(false);
     clearPrestartEnableTimeout();
-    countdownReadyAtRef.current = null;
     prestartEnableTimeoutRef.current = setTimeout(() => {
       setIsPrestartNextEnabled(true);
       prestartEnableTimeoutRef.current = null;
@@ -4801,7 +4820,6 @@ export default function HostRoomPage() {
     stopConnectAudio();
     clearPrestartEnableTimeout();
     setIsPrestartNextEnabled(true);
-    countdownReadyAtRef.current = null;
   };
 
   const handlePrestartNext = () => {
@@ -4814,12 +4832,10 @@ export default function HostRoomPage() {
     setIsPrestartNextEnabled(true);
     setIsRulesVisible(true);
     playRulesAudio();
-    countdownReadyAtRef.current = Date.now();
   };
 
   const handleRulesCancel = () => {
     setIsRulesVisible(false);
-    countdownReadyAtRef.current = null;
   };
 
   const endGame = async () => {
@@ -6698,7 +6714,7 @@ export default function HostRoomPage() {
 
                 <div className="rounded-3xl border-[3px] border-[#b4007f]/20 bg-[#fff0fa] p-5 space-y-2">
                   <p className="text-[11px] tracking-[0.4em] text-[#b4007f]/60">Сейчас в эфире</p>
-                  <p className="text-2xl font-black leading-snug text-center">{round2Statement}</p>
+                  <p className="text-4xl sm:text-5xl font-black leading-tight text-center">{round2Statement}</p>
                   {round2Phase !== 'fact' && (
                     <p className={`text-xs font-semibold text-center ${round2TruthClass}`}>
                       {round2TruthLabel}
@@ -6785,7 +6801,7 @@ export default function HostRoomPage() {
                 {!isRound3ResultsPhase && (
                   <div className="rounded-3xl border-[3px] border-[#f1532f]/20 bg-[#fff6da] p-5 space-y-2">
                     <p className="text-[11px] tracking-[0.4em] text-[#f1532f]/60">Сейчас в эфире</p>
-                    <p className="text-2xl font-black leading-snug">
+                    <p className="text-4xl sm:text-5xl font-black leading-tight">
                       {currentRound3Question?.question ?? 'Подождите, факты загружаются…'}
                     </p>
                   </div>
@@ -6838,8 +6854,8 @@ export default function HostRoomPage() {
                                   }`}
                                 >
                                   <div className="min-w-0">
-                                    <p className="font-semibold truncate">{getPlayerName(row.playerId)}</p>
-                                    <p className="text-xs text-[#142a45]/70 truncate">{row.text?.trim() ? row.text : '(пусто)'}</p>
+                                    <p className="font-semibold text-xs truncate">{getPlayerName(row.playerId)}</p>
+                                    <p className="text-[11px] leading-tight text-[#142a45]/70 truncate">{row.text?.trim() ? row.text : '(пусто)'}</p>
                                     <p className="text-[11px] text-[#142a45]/60">
                                       Лайков: {row.votes} (+{row.votePoints})
                                       {row.basePoints > 0 ? ` · Точный ответ: +${row.basePoints}` : ''}
@@ -6913,6 +6929,30 @@ export default function HostRoomPage() {
                   >
                     <p className="retro-heading text-[11px] tracking-[0.5em] text-[#142a45]/70">Правильный ответ</p>
                     <p className="text-4xl font-black text-[#1f6ac6]">{round4CurrentPuzzle.answers?.[0] ?? '—'}</p>
+
+                    {round4AnswerRows.length > 0 && (
+                      <div className="pt-2 space-y-2">
+                        <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/60">Ответы игроков</p>
+                        <div className="flex flex-wrap justify-center gap-2">
+                          {round4AnswerRows
+                            .slice()
+                            .sort((a, b) => Number(!!b.is_correct) - Number(!!a.is_correct))
+                            .map((row, index) => (
+                              <span
+                                key={row.id}
+                                className={`px-3 py-2 rounded-2xl border-[3px] font-black text-sm animate-drop-in ${
+                                  row.is_correct
+                                    ? 'border-[#1f6ac6]/30 bg-white text-[#1f6ac6]'
+                                    : 'border-[#142a45]/15 bg-white text-[#142a45]'
+                                }`}
+                                style={{ animationDelay: `${index * 40}ms` }}
+                              >
+                                {row.answer_text?.trim() ? row.answer_text : '—'}
+                              </span>
+                            ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -6926,7 +6966,7 @@ export default function HostRoomPage() {
               <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
                 <div className="text-center space-y-3">
                   <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Финал · «Цифровая интуиция»</p>
-                  <h2 className="text-3xl sm:text-4xl font-black leading-tight text-center text-[#142a45]">
+                  <h2 className="text-5xl sm:text-6xl font-black leading-tight text-center text-[#142a45]">
                     {round5CurrentQuestion?.question ?? '⏳'}
                   </h2>
                   <div className="flex items-center justify-center gap-3 flex-wrap">
@@ -7014,12 +7054,12 @@ export default function HostRoomPage() {
                   {canAdvance ? (
                     <span
                       key={`round1-correct-${question.order}`}
-                      className="text-4xl font-black text-[#1f6ac6] text-center animate-correct-reveal"
+                      className="text-6xl sm:text-7xl font-black text-[#1f6ac6] text-center animate-correct-reveal"
                     >
                       {getOptionText(question, question.correctIndex)}
                     </span>
                   ) : (
-                    question.text
+                    <span className="text-5xl sm:text-6xl font-black leading-tight">{question.text}</span>
                   )}
                 </h2>
 
@@ -7112,7 +7152,7 @@ export default function HostRoomPage() {
             <div className="space-y-3">
               <button
                 type="button"
-                onClick={handleCountdownStart}
+                onClick={() => handleCountdownStart()}
                 className="hover:scale-105 hover:shadow-lg transition-all duration-200 w-full py-3 rounded-2xl font-black text-lg tracking-[0.3em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45]"
               >
                 Старт
