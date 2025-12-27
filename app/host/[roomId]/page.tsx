@@ -81,7 +81,6 @@ const BETWEEN_AUDIO_VARIANTS = ROUND2_BETWEEN_AUDIO_VARIANTS;
 const ROUND2_EXPLANATION_BG_FILE = 'round2/explanation.mp3';
 const ROUND2_ANSWER_POLL_INTERVAL_MS = 1000;
 const ROUND2_TOTAL_QUESTIONS = ROUND_QUESTION_COUNT;
-const ROUND2_RULES_SKIP_WINDOW_MS = 10000;
 const ROUND2_EXPLANATION_FALLBACK = 'Без объяснения';
 const ROUND2_FAKE_LABEL = 'Вранье';
 
@@ -555,6 +554,15 @@ export default function HostRoomPage() {
   const round3StartLockRef = useRef(false);
   const round4RulesAudioCompletedRef = useRef(true);
   const round4StartLockRef = useRef(false);
+  const round2RulesAudioCompletedRef = useRef(true);
+  const isRound2RulesVisibleRef = useRef(isRound2RulesVisible);
+  const isRound3RulesVisibleRef = useRef(isRound3RulesVisible);
+  const isRound4RulesVisibleRef = useRef(isRound4RulesVisible);
+  const isRound5RulesVisibleRef = useRef(isRound5RulesVisible);
+  const startRound2Ref = useRef<(() => void) | null>(null);
+  const startRound3CountdownRef = useRef<(() => void) | null>(null);
+  const startRound4CountdownRef = useRef<(() => void) | null>(null);
+  const startRound5CountdownRef = useRef<(() => void) | null>(null);
   const round4AskedIdsRef = useRef<number[]>([]);
   const round4CurrentPuzzleIdRef = useRef<number | null>(null);
   const playersRef = useRef<Player[]>(players);
@@ -591,7 +599,6 @@ export default function HostRoomPage() {
   const lastRound2AwardKeyRef = useRef<string | null>(null);
   const round2CurrentIndexRef = useRef<number | null>(round2CurrentIndex);
   const countdownCompleteActionRef = useRef<(() => Promise<void> | void) | null>(null);
-  const round2RulesReadyAtRef = useRef<number | null>(null);
   const round2ShowingFactRef = useRef(round2ShowingFact);
   const round2PhaseRef = useRef<Round2Phase>(round2PhaseState);
   const handleRound3CompleteRef = useRef<(() => Promise<void> | void) | null>(null);
@@ -831,6 +838,7 @@ export default function HostRoomPage() {
       round2RulesMusicAudioRef.current = null;
     }
     if (round2RulesVoiceAudioRef.current) {
+      round2RulesVoiceAudioRef.current.onended = null;
       round2RulesVoiceAudioRef.current.pause();
       round2RulesVoiceAudioRef.current.currentTime = 0;
       round2RulesVoiceAudioRef.current = null;
@@ -1261,6 +1269,7 @@ export default function HostRoomPage() {
       return;
     }
     stopRound2RulesAudio();
+    round2RulesAudioCompletedRef.current = false;
     const jingle = new Audio(buildAudioUrl(ROUND2_RULES_JINGLE_FILE));
     jingle.volume = 0.5;
     jingle.loop = true;
@@ -1271,10 +1280,29 @@ export default function HostRoomPage() {
     voice.volume = 0.95;
     round2RulesVoiceAudioRef.current = voice;
 
+    const stopJingle = () => {
+      const current = round2RulesMusicAudioRef.current;
+      if (current) {
+        current.pause();
+        current.currentTime = 0;
+        round2RulesMusicAudioRef.current = null;
+      }
+    };
+
+    voice.onended = () => {
+      round2RulesAudioCompletedRef.current = true;
+      stopJingle();
+      if (isRound2RulesVisibleRef.current) {
+        startRound2Ref.current?.();
+      }
+    };
+
     jingle.play().catch((err) => {
       console.error('Не удалось воспроизвести джингл правил Раунда 2', err);
     });
     voice.play().catch((err) => {
+      round2RulesAudioCompletedRef.current = true;
+      stopJingle();
       console.error('Не удалось воспроизвести озвучку правил Раунда 2', err);
     });
   }, [stopRound2RulesAudio]);
@@ -1309,6 +1337,9 @@ export default function HostRoomPage() {
     voice.onended = () => {
       round3RulesAudioCompletedRef.current = true;
       stopJingle();
+      if (isRound3RulesVisibleRef.current) {
+        startRound3CountdownRef.current?.();
+      }
     };
 
     jingle.play().catch((err) => {
@@ -1353,6 +1384,9 @@ export default function HostRoomPage() {
       round4RulesAudioCompletedRef.current = true;
       round4RulesVoiceAudioRef.current = null;
       stopJingle();
+      if (isRound4RulesVisibleRef.current) {
+        startRound4CountdownRef.current?.();
+      }
     };
 
     jingle.play().catch((err) => {
@@ -2618,16 +2652,43 @@ export default function HostRoomPage() {
   }, [isRound4RulesVisible, playRound4RulesAudio, stopAllAudio, stopRound4RulesAudio]);
 
   useEffect(() => {
-    if (isRound5RulesVisible) {
-      stopAllAudio();
-    } else {
+    if (!isRound5RulesVisible) {
       stopRound5RulesAudio();
+      return;
     }
-  }, [isRound5RulesVisible, stopAllAudio, stopRound5RulesAudio]);
+
+    if (isCountdownVisible || isRound5RulesAudioPlaying) {
+      return;
+    }
+
+    hasUserInteractedRef.current = true;
+    stopAllAudio();
+    playRound5RulesAudio({
+      onEnded: () => {
+        if (!isRound5RulesVisibleRef.current) {
+          return;
+        }
+        setIsRound5RulesVisible(false);
+        startRound5CountdownRef.current?.();
+      },
+    });
+  }, [isCountdownVisible, isRound5RulesAudioPlaying, isRound5RulesVisible, playRound5RulesAudio, stopAllAudio, stopRound5RulesAudio]);
 
   useEffect(() => {
-    round2RulesReadyAtRef.current = isRound2RulesVisible ? Date.now() : null;
+    isRound2RulesVisibleRef.current = isRound2RulesVisible;
   }, [isRound2RulesVisible]);
+
+  useEffect(() => {
+    isRound3RulesVisibleRef.current = isRound3RulesVisible;
+  }, [isRound3RulesVisible]);
+
+  useEffect(() => {
+    isRound4RulesVisibleRef.current = isRound4RulesVisible;
+  }, [isRound4RulesVisible]);
+
+  useEffect(() => {
+    isRound5RulesVisibleRef.current = isRound5RulesVisible;
+  }, [isRound5RulesVisible]);
 
   useEffect(() => {
     if (roomStatus !== 'round4-running' || !questionStartedAt) {
@@ -3829,28 +3890,6 @@ export default function HostRoomPage() {
     });
   }, [stopSkipAudio]);
 
-  const playSkipAudioAndWait = useCallback(() => {
-    if (!hasUserInteractedRef.current) {
-      return Promise.resolve();
-    }
-
-    stopSkipAudio();
-    const file = pickRandomItem(SKIP_AUDIO_FILES);
-    const audio = new Audio(buildAudioUrl(file));
-    audio.volume = 0.95;
-    skipAudioRef.current = audio;
-
-    return new Promise<void>((resolve) => {
-      audio.onended = () => {
-        resolve();
-      };
-      audio.play().catch((error) => {
-        console.error('Не удалось проиграть skip-озвучку', error);
-        resolve();
-      });
-    });
-  }, [stopSkipAudio]);
-
   const stopBetweenAudio = useCallback(() => {
     const audio = betweenAudioRef.current;
     if (!audio) {
@@ -5048,10 +5087,7 @@ export default function HostRoomPage() {
     }
 
     hasUserInteractedRef.current = true;
-    const readyAt = round2RulesReadyAtRef.current;
-    round2RulesReadyAtRef.current = null;
-    const now = Date.now();
-    const shouldPlaySkip = !readyAt || now - readyAt <= ROUND2_RULES_SKIP_WINDOW_MS;
+    const shouldPlaySkip = !round2RulesAudioCompletedRef.current;
 
     setIsRound2RulesVisible(false);
     stopRound2RulesAudio();
@@ -5077,7 +5113,11 @@ export default function HostRoomPage() {
     stopRound2RulesAudio,
   ]);
 
-  const startRound3Countdown = useCallback(async () => {
+  useEffect(() => {
+    startRound2Ref.current = startRound2;
+  }, [startRound2]);
+
+  const startRound3Countdown = useCallback(() => {
     if (round3StartLockRef.current || isCountdownVisible) {
       return;
     }
@@ -5094,7 +5134,7 @@ export default function HostRoomPage() {
     stopRound3RulesAudio();
 
     if (shouldPlaySkip) {
-      await playSkipAudioAndWait();
+      playSkipAudio();
     }
 
     clearCountdownTimeout();
@@ -5142,7 +5182,7 @@ export default function HostRoomPage() {
     stopTournamentJingle,
     stopRound2EndCeremonyAudio,
     stopRoundEndAudio,
-    playSkipAudioAndWait,
+    playSkipAudio,
     roomId,
     round3Questions.length,
     runCountdownSequence,
@@ -5152,6 +5192,10 @@ export default function HostRoomPage() {
     stopRound3RulesAudio,
     updateRoomStatus,
   ]);
+
+  useEffect(() => {
+    startRound3CountdownRef.current = startRound3Countdown;
+  }, [startRound3Countdown]);
 
   const handleRound3Complete = useCallback(async () => {
     stopRound3Audio();
@@ -5426,7 +5470,7 @@ export default function HostRoomPage() {
     : 0;
   const round2TruthLabel =
     round2Phase === 'fact'
-      ? 'Правда откроется во время объяснения'
+      ? ''
       : round2ShowingFact
         ? 'Ответ: правда'
         : 'Ответ: вымысел';
@@ -5936,7 +5980,7 @@ export default function HostRoomPage() {
     playRound5ExplanationAudio(round5CurrentBankIndex, { onEnded: () => void advanceRound5Tour() });
   }, [advanceRound5Tour, playRound5ExplanationAudio, questionStartedAt, roomStatus, round5CurrentBankIndex]);
 
-  const startRound4Countdown = useCallback(async () => {
+  const startRound4Countdown = useCallback(() => {
     if (round4StartLockRef.current || isCountdownVisible) {
       return;
     }
@@ -5951,7 +5995,7 @@ export default function HostRoomPage() {
     stopRound4RulesAudio();
 
     if (shouldPlaySkip) {
-      await playSkipAudioAndWait();
+      playSkipAudio();
     }
 
     clearCountdownTimeout();
@@ -5965,7 +6009,7 @@ export default function HostRoomPage() {
     clearCountdownTimeout,
     isCountdownVisible,
     stopTournamentJingle,
-    playSkipAudioAndWait,
+    playSkipAudio,
     runCountdownSequence,
     setCountdownContext,
     setIsCountdownVisible,
@@ -5973,6 +6017,10 @@ export default function HostRoomPage() {
     stopRound4RulesAudio,
     startRound4Game,
   ]);
+
+  useEffect(() => {
+    startRound4CountdownRef.current = startRound4Countdown;
+  }, [startRound4Countdown]);
 
   const handleStartRound4Rules = useCallback(() => {
     void startRound4Countdown();
@@ -5996,24 +6044,30 @@ export default function HostRoomPage() {
     runCountdownSequence(0);
   }, [clearCountdownTimeout, isCountdownVisible, runCountdownSequence, startRound5Game]);
 
+  useEffect(() => {
+    startRound5CountdownRef.current = startRound5Countdown;
+  }, [startRound5Countdown]);
+
   const handleStartRound5Rules = useCallback(() => {
-    if (isCountdownVisible || isRound5RulesAudioPlaying) {
+    if (isCountdownVisible) {
       return;
     }
     hasUserInteractedRef.current = true;
-    stopAllAudio();
-    playRound5RulesAudio({
-      onEnded: () => {
-        setIsRound5RulesVisible(false);
-        startRound5Countdown();
-      },
-    });
+    const shouldPlaySkip = isRound5RulesAudioPlaying;
+    setIsRound5RulesVisible(false);
+    stopRound5RulesAudio();
+
+    if (shouldPlaySkip) {
+      playSkipAudio();
+    }
+
+    startRound5Countdown();
   }, [
     isCountdownVisible,
     isRound5RulesAudioPlaying,
-    stopAllAudio,
-    playRound5RulesAudio,
+    playSkipAudio,
     startRound5Countdown,
+    stopRound5RulesAudio,
   ]);
 
   const handleCancelRound5Rules = useCallback(() => {
@@ -6645,9 +6699,11 @@ export default function HostRoomPage() {
                 <div className="rounded-3xl border-[3px] border-[#b4007f]/20 bg-[#fff0fa] p-5 space-y-2">
                   <p className="text-[11px] tracking-[0.4em] text-[#b4007f]/60">Сейчас в эфире</p>
                   <p className="text-2xl font-black leading-snug text-center">{round2Statement}</p>
-                  <p className={`text-xs font-semibold text-center ${round2TruthClass}`}>
-                    {round2TruthLabel}
-                  </p>
+                  {round2Phase !== 'fact' && (
+                    <p className={`text-xs font-semibold text-center ${round2TruthClass}`}>
+                      {round2TruthLabel}
+                    </p>
+                  )}
                 </div>
 
                 <div className="rounded-2xl border-[3px] border-[#b4007f]/25 bg-white px-4 py-3 text-sm font-semibold flex items-center justify-between">
@@ -6691,17 +6747,6 @@ export default function HostRoomPage() {
                   </div>
                 )}
 
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  {round2Phase === 'explanation' && (
-                    <button
-                      type="button"
-                      onClick={handleRound2NextQuestion}
-                      className="flex-1 py-4 rounded-2xl font-black text-lg tracking-[0.2em] bg-[#1f6ac6] text-white border-[3px] border-[#142a45]"
-                    >
-                      Следующий факт
-                    </button>
-                  )}
-                </div>
               </div>
             ) : isRound3Running ? (
               <div className="rounded-3xl border-[4px] border-[#f1532f] bg-white shadow-xl p-6 space-y-5">
@@ -6739,7 +6784,7 @@ export default function HostRoomPage() {
 
                 {!isRound3ResultsPhase && (
                   <div className="rounded-3xl border-[3px] border-[#f1532f]/20 bg-[#fff6da] p-5 space-y-2">
-                    <p className="text-[11px] tracking-[0.4em] text-[#f1532f]/60">Сейчас звучит у ведущего</p>
+                    <p className="text-[11px] tracking-[0.4em] text-[#f1532f]/60">Сейчас в эфире</p>
                     <p className="text-2xl font-black leading-snug">
                       {currentRound3Question?.question ?? 'Подождите, факты загружаются…'}
                     </p>
@@ -6764,13 +6809,6 @@ export default function HostRoomPage() {
                 {isRound3ResultsPhase && (
                   <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-white p-5 space-y-4">
                     <p className="retro-heading text-[11px] tracking-[0.5em] text-[#142a45]/70">Итоги факта</p>
-
-                    {currentRound3Question?.comment && (
-                      <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-4 space-y-2">
-                        <p className="text-[11px] tracking-[0.4em] text-[#142a45]/60">Комментарий</p>
-                        <p className="text-sm font-semibold text-[#142a45] whitespace-pre-line">{currentRound3Question.comment}</p>
-                      </div>
-                    )}
 
                     <div className="rounded-3xl border-[3px] border-dashed border-[#142a45]/30 bg-[#fff6da] p-4 space-y-3">
                       <div className="flex items-center justify-between">
@@ -6820,17 +6858,6 @@ export default function HostRoomPage() {
                     </div>
                   </div>
                 )}
-
-                <div className="flex flex-col gap-3">
-                  <button
-                    type="button"
-                    onClick={() => void (isLastRound3Fact ? handleRound3Complete() : handleRound3NextQuestion())}
-                    disabled={!currentRound3Question}
-                    className="w-full py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#f1532f] text-white border-[3px] border-[#142a45] transition disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    {isLastRound3Fact ? 'Турнирная таблица' : 'Следующий факт'}
-                  </button>
-                </div>
 
                 {round3AudioBlocked && (
                   <button
