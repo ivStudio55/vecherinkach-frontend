@@ -3193,6 +3193,18 @@ export default function HostRoomPage() {
     return [...players].sort((a, b) => b.total_points - a.total_points || a.name.localeCompare(b.name));
   }, [players]);
 
+  const postRoundLeaderboard = useMemo(() => {
+    if (roomStatus === 'final-results') {
+      return round5RoundLeaderboard;
+    }
+    if (isFinalRoundAvailable) {
+      return round4RoundLeaderboard;
+    }
+    return round3RoundLeaderboard;
+  }, [isFinalRoundAvailable, roomStatus, round3RoundLeaderboard, round4RoundLeaderboard, round5RoundLeaderboard]);
+
+  const postRoundStaggerMs = 130;
+
   const loadQuestionFromSelection = useCallback(
     (questionIndex: number, selectionOverride?: number[]) => {
       const sourceSelection = selectionOverride && selectionOverride.length ? selectionOverride : selectedQuestionIds;
@@ -6286,25 +6298,18 @@ export default function HostRoomPage() {
                   </div>
                 </div>
 
-                {(roomStatus === 'final-results'
-                  ? round5RoundLeaderboard
-                  : isFinalRoundAvailable
-                    ? round4RoundLeaderboard
-                    : round3RoundLeaderboard
-                ).length === 0 ? (
+                {postRoundLeaderboard.length === 0 ? (
                   <p className="text-sm text-[#142a45]/70">Игроки не подключены, таблица пуста.</p>
                 ) : (
                   <ol className="space-y-3">
-                    {(roomStatus === 'final-results'
-                      ? round5RoundLeaderboard
-                      : isFinalRoundAvailable
-                        ? round4RoundLeaderboard
-                        : round3RoundLeaderboard
-                    ).map((entry, index) => (
-                      <li
-                        key={entry.playerId}
-                        className="flex items-center justify-between rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-4"
-                      >
+                    {postRoundLeaderboard.map((entry, index) => {
+                      const delayMs = (postRoundLeaderboard.length - 1 - index) * postRoundStaggerMs;
+                      return (
+                        <li
+                          key={entry.playerId}
+                          className="flex items-center justify-between rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-4 animate-drop-in"
+                          style={{ animationDelay: `${delayMs}ms` }}
+                        >
                         <div className="flex items-center gap-4 min-w-0">
                           <span className={`w-10 h-10 rounded-full border-[3px] flex items-center justify-center font-black text-lg ${
                             index === 0
@@ -6325,8 +6330,9 @@ export default function HostRoomPage() {
                           </div>
                         </div>
                         <span className="font-black text-2xl text-[#f1532f]">{entry.points} 💎</span>
-                      </li>
-                    ))}
+                        </li>
+                      );
+                    })}
                   </ol>
                 )}
 
@@ -6370,11 +6376,14 @@ export default function HostRoomPage() {
                     </div>
                     <div className="space-y-4">
                       <ol className="space-y-3">
-                        {round2Leaderboard.map((entry, index) => (
-                          <li
-                            key={entry.playerId}
-                            className="flex items-center justify-between rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-4"
-                          >
+                        {round2Leaderboard.map((entry, index) => {
+                          const delayMs = (round2Leaderboard.length - 1 - index) * postRoundStaggerMs;
+                          return (
+                            <li
+                              key={entry.playerId}
+                              className="flex items-center justify-between rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-4 animate-drop-in"
+                              style={{ animationDelay: `${delayMs}ms` }}
+                            >
                             <div className="flex items-center gap-4">
                               <span className={`w-10 h-10 rounded-full border-[3px] flex items-center justify-center font-black text-lg ${
                                 index === 0 ? 'border-[#f1532f] bg-[#f1532f] text-white' :
@@ -6390,8 +6399,9 @@ export default function HostRoomPage() {
                               </div>
                             </div>
                             <span className="font-black text-2xl text-[#f1532f]">{entry.points} 💎</span>
-                          </li>
-                        ))}
+                            </li>
+                          );
+                        })}
                       </ol>
                     </div>
                   </div>
