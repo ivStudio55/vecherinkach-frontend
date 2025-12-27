@@ -4588,17 +4588,17 @@ export default function HostRoomPage() {
 
   useEffect(() => {
     // Poll answers during the fact phase so the host still sees fresh counts if realtime misses events.
-    // Disabled for Round 2 to avoid conflicts with realtime updates
-    if (roomStatus !== 'round2-running' && (roomStatus !== 'running' || round2Phase !== 'fact' || serverAllPlayersAnswered)) {
+    // Round 2 has its own answer channel + explicit loads; polling it can cause phase glitches
+    // (e.g. jumping straight to explanation when the previous interval tick races the next question start).
+    if (roomStatus !== 'running' || serverAllPlayersAnswered) {
       return;
     }
 
     const fetchLatestAnswers = () => {
-      const activeIndex = round2CurrentIndexRef.current ?? round2CurrentIndex;
-      if (activeIndex === null) {
+      if (typeof currentQuestionIndex !== 'number' || currentQuestionIndex < 0) {
         return;
       }
-      loadRound2AnswerStatsRef.current?.(activeIndex);
+      void loadAnswerCount(currentQuestionIndex);
     };
 
     fetchLatestAnswers();
@@ -4606,7 +4606,7 @@ export default function HostRoomPage() {
     return () => {
       clearInterval(intervalId);
     };
-  }, [roomStatus, round2Phase, serverAllPlayersAnswered, round2CurrentIndex]);
+  }, [currentQuestionIndex, loadAnswerCount, roomStatus, serverAllPlayersAnswered]);
 
   useEffect(() => {
     if (roomStatus !== 'waiting') {
@@ -6715,11 +6715,6 @@ export default function HostRoomPage() {
                 <div className="rounded-3xl border-[3px] border-[#b4007f]/20 bg-[#fff0fa] p-5 space-y-2">
                   <p className="text-[11px] tracking-[0.4em] text-[#b4007f]/60">Сейчас в эфире</p>
                   <p className="text-4xl sm:text-5xl font-black leading-tight text-center">{round2Statement}</p>
-                  {round2Phase !== 'fact' && (
-                    <p className={`text-xs font-semibold text-center ${round2TruthClass}`}>
-                      {round2TruthLabel}
-                    </p>
-                  )}
                 </div>
 
                 <div className="rounded-2xl border-[3px] border-[#b4007f]/25 bg-white px-4 py-3 text-sm font-semibold flex items-center justify-between">
