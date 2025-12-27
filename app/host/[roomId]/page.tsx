@@ -5586,7 +5586,7 @@ export default function HostRoomPage() {
           ? '4 раунд завершён'
           : '3 раунд завершён'
       : roomStatus === 'waiting'
-        ? 'Ожидание игроков'
+        ? 'Ожидание и подключение'
         : roomStatus === 'running'
           ? 'Раунд 1 в эфире'
           : roomStatus === 'round2-running'
@@ -5641,13 +5641,15 @@ export default function HostRoomPage() {
           </div>
         )}
 
-        <div className="grid gap-6 lg:grid-cols-5">
-          <section className="lg:col-span-1">
+        <div className="grid gap-6 lg:grid-cols-12">
+          <section className="lg:col-span-3">
             <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-5 space-y-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Состояние раунда</p>
-                  <p className="text-lg font-black text-[#142a45] truncate">{statusLabel}</p>
+              <p className="text-base sm:text-lg font-black text-[#142a45] leading-tight whitespace-normal break-words">
+              {statusLabel}
+              </p>
                   <p className="text-xs font-semibold text-[#142a45]/60">
                     {roomStatus === 'waiting' ? 'Ждём игроков' : 'Игра идёт'}
                   </p>
@@ -5688,7 +5690,7 @@ export default function HostRoomPage() {
                 {players.length === 0 ? (
                   <p className="text-sm text-[#142a45]/70 text-center py-6">Пока никто не присоединился</p>
                 ) : (
-                  <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto pr-1">
                     {players.map((player, index) => {
                       const hasAnswered = answeredPlayerIds.includes(player.id);
                       return (
@@ -5703,7 +5705,7 @@ export default function HostRoomPage() {
                               {index + 1}
                             </span>
                             <div className="min-w-0">
-                              <p className="font-semibold truncate">{player.name}</p>
+                        <p className="font-semibold text-sm leading-snug whitespace-normal break-words">{player.name}</p>
                               {roomStatus === 'running' && question ? (
                                 <p className={`text-xs font-semibold ${hasAnswered ? 'text-[#1f6ac6]' : 'text-[#142a45]/50'}`}>
                                   {hasAnswered ? 'Ответ получен' : 'Ждём ответ'}
@@ -5727,7 +5729,7 @@ export default function HostRoomPage() {
             </div>
           </section>
 
-          <div className="lg:col-span-4 space-y-6">
+              <div className="lg:col-span-9 space-y-6">
             {isTournamentVisible ? (
               <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
                 <div className="flex items-center justify-between">
