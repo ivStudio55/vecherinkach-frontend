@@ -2625,27 +2625,32 @@ export default function HostRoomPage() {
   }, []);
 
   const updateRound2Leaderboard = useCallback(() => {
-    const statsMap = round2StatsRef.current;
     const snapshot = playersRef.current;
     if (!snapshot.length) {
       setRound2Leaderboard([]);
       return;
     }
 
+    const round2Answers = round2AnswersRef.current;
+    const pointsMap = new Map<string, number>();
+    for (const answer of round2Answers) {
+      const current = pointsMap.get(answer.player_id) ?? 0;
+      pointsMap.set(answer.player_id, current + answer.points_earned);
+    }
+
     const leaderboard = snapshot
       .map((player) => {
-        const stats = statsMap.get(player.id);
+        const points = pointsMap.get(player.id) ?? 0;
         return {
           playerId: player.id,
           name: player.name,
-          points: stats?.points ?? 0,
-          correct: stats?.correct ?? 0,
-          attempts: stats?.attempts ?? 0,
+          points,
+          correct: 0, // Not used in this leaderboard
+          attempts: 0, // Not used in this leaderboard
         };
       })
       .sort((a, b) => {
         if (b.points !== a.points) return b.points - a.points;
-        if (b.correct !== a.correct) return b.correct - a.correct;
         return a.name.localeCompare(b.name);
       });
 

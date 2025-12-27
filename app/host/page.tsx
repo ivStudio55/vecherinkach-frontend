@@ -89,23 +89,25 @@ export default function HostPage() {
                   <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Шаги подключения</p>
                   <h2 className="text-2xl font-black">Как проходит запуск</h2>
                 </div>
-                <ol className="space-y-3 text-sm font-semibold text-[#142a45]/80">
-                  <li className="flex gap-3">
-                    <span className="w-9 h-9 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">1</span>
-                    Вы получаете код комнаты и выводите его на экран.
-                  </li>
-                  <li className="flex gap-3">
-                    <span className="w-9 h-9 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">2</span>
-                    <div className="flex-1">
-                      <p>Игроки переходят на экран подключения:</p>
-                      <img src="/qr-code.png" alt="QR код для подключения" className="w-20 h-20 mt-2" />
-                    </div>
-                  </li>
-                  <li className="flex gap-3">
-                    <span className="w-9 h-9 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">3</span>
-                    Панель ведущего показывает таймеры, вопросы и очередь ответов.
-                  </li>
-                </ol>
+                <div className="flex gap-6">
+                  <ol className="flex-1 space-y-3 text-sm font-semibold text-[#142a45]/80">
+                    <li className="flex gap-3">
+                      <span className="w-9 h-9 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">1</span>
+                      Вы получаете код комнаты и выводите его на экран.
+                    </li>
+                    <li className="flex gap-3">
+                      <span className="w-9 h-9 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">2</span>
+                      Игроки переходят на экран подключения.
+                    </li>
+                    <li className="flex gap-3">
+                      <span className="w-9 h-9 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">3</span>
+                      Панель ведущего показывает таймеры, вопросы и очередь ответов.
+                    </li>
+                  </ol>
+                  <div className="flex-shrink-0">
+                    <img src="/qr-code.png" alt="QR код для подключения" className="w-32 h-32" />
+                  </div>
+                </div>
                 <div className="rounded-2xl border-[3px] border-dashed border-[#142a45]/50 bg-[#fff6da] px-4 py-3 text-sm">
                   <p className="font-semibold">Подсказка</p>
                   <p className="text-[#142a45]/70">Комната активна, пока вы не завершите раунд на панели. Повторное использование кода невозможно.</p>
