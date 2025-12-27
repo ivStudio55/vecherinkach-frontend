@@ -5568,6 +5568,9 @@ export default function HostRoomPage() {
     if (roomStatus === 'finished' && showResults) {
       hasUserInteractedRef.current = true;
       if (round2Leaderboard.length > 0) {
+        // After Round 2 we may be playing the tournament jingle (ROUND1_END_JINGLE_FILE).
+        // Stop it as soon as host proceeds to Round 3.
+        stopTournamentJingle();
         setIsRound3RulesVisible(true);
       } else {
         setIsRound2RulesVisible(true);
@@ -6898,7 +6901,9 @@ export default function HostRoomPage() {
                                 >
                                   <div className="min-w-0">
                                     <p className="font-semibold text-xs truncate">{getPlayerName(row.playerId)}</p>
-                                    <p className="text-[11px] leading-tight text-[#142a45]/70 truncate">{row.text?.trim() ? row.text : '(пусто)'}</p>
+                                    <p className="text-3xl sm:text-4xl font-black leading-tight text-[#142a45] break-words">
+                                      {row.text?.trim() ? row.text : '(пусто)'}
+                                    </p>
                                     <p className="text-[11px] text-[#142a45]/60">
                                       Лайков: {row.votes} (+{row.votePoints})
                                       {row.basePoints > 0 ? ` · Точный ответ: +${row.basePoints}` : ''}
