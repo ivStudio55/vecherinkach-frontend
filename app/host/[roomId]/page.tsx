@@ -3374,6 +3374,13 @@ export default function HostRoomPage() {
         return;
       }
 
+      // Guard against races: an in-flight fetch for the previous item can resolve after
+      // the next question has already started, which would incorrectly flip UI state
+      // (e.g. stop the new timer and jump to explanation).
+      if (round2CurrentIndexRef.current !== itemIndex) {
+        return;
+      }
+
       const rows = data || [];
       setRound2Answers(rows);
 
@@ -4344,6 +4351,25 @@ export default function HostRoomPage() {
           }
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'round2_answers',
+          filter: `room_id=eq.${roomId}`,
+        },
+        async (payload: Round2AnswerInsertPayload) => {
+          if (!mounted) return;
+          const currentIndex = round2CurrentIndexRef.current;
+          if (currentIndex === null) {
+            return;
+          }
+          if (payload.new.item_index === currentIndex) {
+            await loadRound2AnswerStatsRef.current?.(currentIndex);
+          }
+        }
+      )
       .subscribe();
 
     const round4AnswersChannel = supabase
@@ -4607,6 +4633,28 @@ export default function HostRoomPage() {
       clearInterval(intervalId);
     };
   }, [currentQuestionIndex, loadAnswerCount, roomStatus, serverAllPlayersAnswered]);
+
+  useEffect(() => {
+    // Round 2: keep the “Состояние раунда” player highlights responsive even if realtime misses events.
+    // Safe because loadRound2AnswerStats ignores stale responses (previous item resolving late).
+    if (roomStatus !== 'round2-running' || round2Phase !== 'fact' || serverAllPlayersAnswered) {
+      return;
+    }
+
+    const fetchLatestRound2 = () => {
+      const activeIndex = round2CurrentIndexRef.current ?? round2CurrentIndex;
+      if (activeIndex === null) {
+        return;
+      }
+      void loadRound2AnswerStatsRef.current?.(activeIndex);
+    };
+
+    fetchLatestRound2();
+    const intervalId = setInterval(fetchLatestRound2, ROUND2_ANSWER_POLL_INTERVAL_MS);
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [roomStatus, round2Phase, round2CurrentIndex, serverAllPlayersAnswered]);
 
   useEffect(() => {
     if (roomStatus !== 'waiting') {
