@@ -4819,6 +4819,8 @@ export default function HostRoomPage() {
     hasUserInteractedRef.current = true;
     setIsTournamentVisible(false);
     stopTournamentJingle();
+    stopRound2EndCeremonyAudio();
+    stopRoundEndAudio();
 
     const shouldPlaySkip = !round3RulesAudioCompletedRef.current;
 
@@ -4872,6 +4874,8 @@ export default function HostRoomPage() {
     clearCountdownTimeout,
     isCountdownVisible,
     stopTournamentJingle,
+    stopRound2EndCeremonyAudio,
+    stopRoundEndAudio,
     playSkipAudioAndWait,
     roomId,
     round3Questions.length,
@@ -6108,9 +6112,9 @@ export default function HostRoomPage() {
                     </div>
                     <div className="space-y-4">
                       <ol className="space-y-3">
-                        {tournamentLeaderboard.map((player, index) => (
+                        {round2Leaderboard.map((entry, index) => (
                           <li
-                            key={player.id}
+                            key={entry.playerId}
                             className="flex items-center justify-between rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-4"
                           >
                             <div className="flex items-center gap-4">
@@ -6123,11 +6127,11 @@ export default function HostRoomPage() {
                                 {index + 1}
                               </span>
                               <div>
-                                <p className="font-black text-[#142a45]">{player.name}</p>
-                                <p className="text-xs text-[#142a45]/70">Всего очков: {player.total_points}</p>
+                                <p className="font-black text-[#142a45]">{entry.name}</p>
+                                <p className="text-xs text-[#142a45]/70">Очки за 2 раунд: {entry.points}</p>
                               </div>
                             </div>
-                            <span className="font-black text-2xl text-[#f1532f]">{player.total_points} 💎</span>
+                            <span className="font-black text-2xl text-[#f1532f]">{entry.points} 💎</span>
                           </li>
                         ))}
                       </ol>
