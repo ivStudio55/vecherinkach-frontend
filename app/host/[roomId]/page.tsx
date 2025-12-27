@@ -6278,23 +6278,25 @@ export default function HostRoomPage() {
                 </div>
                 {audioError && <p className="text-xs text-[#b23324] font-semibold">{audioError}</p>}
 
-                <ol className="space-y-3 text-sm font-semibold text-[#142a45]/80">
-                  <li className="flex gap-3">
-                    <span className="w-8 h-8 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">1</span>
-                    Игроки заходят на `/join` и вводят код комнаты.
-                  </li>
-                  <li className="flex gap-3">
-                    <span className="w-8 h-8 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">2</span>
-                    <div className="flex-1">
-                      <p>Игроки переходят на экран подключения:</p>
-                      <img src="/qr-code.png" alt="QR код для подключения" className="w-20 h-20 mt-2" />
-                    </div>
-                  </li>
-                  <li className="flex gap-3">
-                    <span className="w-8 h-8 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">3</span>
-                    Когда готовы — стартуйте раунд. Таймер и вопросы синхронизируются автоматически.
-                  </li>
-                </ol>
+                <div className="flex gap-6">
+                  <ol className="flex-1 space-y-3 text-sm font-semibold text-[#142a45]/80">
+                    <li className="flex gap-3">
+                      <span className="w-8 h-8 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">1</span>
+                      Игроки заходят на `/join` и вводят код комнаты.
+                    </li>
+                    <li className="flex gap-3">
+                      <span className="w-8 h-8 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">2</span>
+                      Игроки переходят на экран подключения.
+                    </li>
+                    <li className="flex gap-3">
+                      <span className="w-8 h-8 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">3</span>
+                      Когда готовы — стартуйте раунд. Таймер и вопросы синхронизируются автоматически.
+                    </li>
+                  </ol>
+                  <div className="flex-shrink-0">
+                    <img src="/qr-code.png" alt="QR код для подключения" className="w-32 h-32" />
+                  </div>
+                </div>
 
                 <button
                   onClick={handlePrepareRound}
