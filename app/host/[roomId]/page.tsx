@@ -4878,6 +4878,18 @@ export default function HostRoomPage() {
       : 'Закрыть комнату';
   const round2QuestionNumber = round2QuestionCounter > 0 ? round2QuestionCounter : 1;
   const clampedRound2QuestionNumber = Math.min(round2QuestionNumber, ROUND2_TOTAL_QUESTIONS);
+  const round1QuestionCount = ROUND_QUESTION_COUNT;
+  const round2QuestionCount = ROUND2_TOTAL_QUESTIONS;
+  const round3TotalCount = round3QuestionCount || ROUND3_TOTAL_QUESTIONS;
+  const round4TotalCount = ROUND4_TOTAL_TOURS;
+  const round5TotalCount = ROUND5_TOTAL_TOURS;
+  const round2Offset = round1QuestionCount;
+  const round3Offset = round1QuestionCount + round2QuestionCount;
+  const round4Offset = round3Offset + round3TotalCount;
+  const round5Offset = round4Offset + round4TotalCount;
+  const currentRound4TourNumber = round4CurrentPuzzle
+    ? Math.min(Math.max(round4AskedIds.length, 1), round4TotalCount)
+    : 0;
   const round2TruthLabel =
     round2Phase === 'fact'
       ? 'Правда откроется во время объяснения'
@@ -5618,7 +5630,7 @@ export default function HostRoomPage() {
   return (
     <Fragment>
       <div className="min-h-screen bg-[#fef4dc] text-[#142a45] px-4 py-6 transition-opacity duration-1000 opacity-100">
-        <div className="max-w-7xl mx-auto space-y-6">
+        <div className="max-w-[95vw] mx-auto space-y-6">
           <header className="retro-panel bg-[#142a45] text-[#ffeccd] px-6 py-5">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -5664,17 +5676,19 @@ export default function HostRoomPage() {
                 <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-[#fff6da] px-4 py-3">
                   <p className="text-[11px] text-[#142a45]/60">Вопрос</p>
                   <p className="text-2xl font-black">
-                    {isRound3Running
-                      ? currentQuestionIndex + 1
-                      : roomStatus === 'round2-running'
-                        ? round2CurrentIndex !== null
-                          ? round2CurrentIndex + 1
-                          : 0
-                      : question
-                        ? question.order
-                        : showResults
-                          ? totalQuestions
-                          : 0}
+                    {roomStatus === 'round2-running'
+                      ? round2Offset + clampedRound2QuestionNumber
+                      : isRound3Running
+                        ? round3Offset + (currentQuestionIndex + 1)
+                        : roomStatus === 'round4-running'
+                          ? round4Offset + currentRound4TourNumber
+                          : roomStatus === 'round5-running' || roomStatus === 'round5-explanation'
+                            ? round5Offset + (currentQuestionIndex + 1)
+                            : question
+                              ? question.order
+                              : showResults
+                                ? totalQuestions
+                                : 0}
                   </p>
                 </div>
                 <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-white px-4 py-3">
@@ -6101,16 +6115,12 @@ export default function HostRoomPage() {
               <div className="rounded-3xl border-[4px] border-[#f1532f] bg-white shadow-xl p-6 space-y-5">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <span className="inline-flex px-4 py-2 rounded-full border-[3px] border-[#f1532f] text-xs font-black tracking-[0.3em] text-[#f1532f]">
-                      РАУНД 3 В ЭФИРЕ
-                    </span>
-                    <h2 className="text-3xl font-black">🧠 Факт с пропуском</h2>
+                    <h2 className="text-3xl font-black">🧠 {currentRound3Question?.category ?? 'Категория не указана'}</h2>
                   </div>
                   <div className="flex flex-col items-start sm:items-end gap-2">
                     <span className="px-4 py-2 rounded-full border-[3px] border-[#f1532f] text-sm font-black text-[#f1532f]">
                       Факт <span className="text-[#142a45]">{currentQuestionIndex + 1}</span>/{round3QuestionCount || ROUND3_TOTAL_QUESTIONS}
                     </span>
-                    <span className="text-base font-black text-[#142a45]">{currentRound3Question?.category ?? 'Категория не указана'}</span>
                   </div>
                 </div>
 
@@ -6241,9 +6251,6 @@ export default function HostRoomPage() {
             ) : roomStatus === 'round4-running' ? (
               <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
                 <div className="text-center space-y-3">
-                  <span className="inline-flex px-4 py-2 rounded-full border-[3px] border-[#142a45] text-xs font-black tracking-[0.3em] text-[#142a45]">
-                    РАУНД 4 В ЭФИРЕ
-                  </span>
                   {round4CurrentPuzzle && (
                     <p className="text-3xl font-black text-[#1f6ac6] uppercase tracking-wide">
                       {round4CurrentPuzzle.category}
@@ -6293,16 +6300,13 @@ export default function HostRoomPage() {
             ) : roomStatus === 'round5-running' || roomStatus === 'round5-explanation' ? (
               <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
                 <div className="text-center space-y-3">
-                  <span className="inline-flex px-4 py-2 rounded-full border-[3px] border-[#142a45] text-xs font-black tracking-[0.3em] text-[#142a45]">
-                    РАУНД 5 В ЭФИРЕ
-                  </span>
                   <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Финал · «Цифровая интуиция»</p>
                   <h2 className="text-3xl sm:text-4xl font-black leading-tight text-center text-[#142a45]">
                     {round5CurrentQuestion?.question ?? '⏳'}
                   </h2>
                   <div className="flex items-center justify-center gap-3 flex-wrap">
                     <span className="px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
-                      Тур {Math.min(Math.max(currentQuestionIndex + 1, 1), ROUND5_TOTAL_TOURS)} / {ROUND5_TOTAL_TOURS}
+                      Тур {Math.min(Math.max(currentQuestionIndex + 1, 1), round5TotalCount)} / {round5TotalCount}
                     </span>
                     <span className="text-sm font-semibold text-[#142a45]/70">
                       Ответили: <span className="text-[#1f6ac6]">{answerCount}/{totalPlayers}</span>
