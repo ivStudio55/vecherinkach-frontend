@@ -585,6 +585,7 @@ export default function HostRoomPage() {
   const lastRound3VoteAudioKeyRef = useRef<string | null>(null);
   const handleRound3NextQuestionRef = useRef<(() => void) | null>(null);
   const autoNextTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoFinishTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const round2TimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTransitioningRound2Ref = useRef(false);
   const lastRound2AwardKeyRef = useRef<string | null>(null);
@@ -758,6 +759,13 @@ export default function HostRoomPage() {
     if (autoNextTimeoutRef.current) {
       clearTimeout(autoNextTimeoutRef.current);
       autoNextTimeoutRef.current = null;
+    }
+  }, []);
+
+  const clearAutoFinishTimeout = useCallback(() => {
+    if (autoFinishTimeoutRef.current) {
+      clearTimeout(autoFinishTimeoutRef.current);
+      autoFinishTimeoutRef.current = null;
     }
   }, []);
 
@@ -6064,11 +6072,13 @@ export default function HostRoomPage() {
   useEffect(() => {
     if (roomStatus !== 'running' || showResults) {
       clearAutoNextTimeout();
+      clearAutoFinishTimeout();
       return;
     }
 
     if (!canAdvance || isLastQuestion) {
       clearAutoNextTimeout();
+      clearAutoFinishTimeout();
       return;
     }
 
@@ -6085,6 +6095,40 @@ export default function HostRoomPage() {
       clearAutoNextTimeout();
     };
   }, [roomStatus, showResults, canAdvance, isLastQuestion, nextQuestion, clearAutoNextTimeout]);
+
+  useEffect(() => {
+    if (roomStatus !== 'running' || showResults) {
+      clearAutoFinishTimeout();
+      return;
+    }
+    if (!canAdvance || !isLastQuestion) {
+      clearAutoFinishTimeout();
+      return;
+    }
+    if (isSummaryLoading || isRoundEndButtonLocked) {
+      clearAutoFinishTimeout();
+      return;
+    }
+    if (autoFinishTimeoutRef.current) {
+      return;
+    }
+    autoFinishTimeoutRef.current = setTimeout(() => {
+      autoFinishTimeoutRef.current = null;
+      void finishRound();
+    }, 1500);
+    return () => {
+      clearAutoFinishTimeout();
+    };
+  }, [
+    roomStatus,
+    showResults,
+    canAdvance,
+    isLastQuestion,
+    isSummaryLoading,
+    isRoundEndButtonLocked,
+    finishRound,
+    clearAutoFinishTimeout,
+  ]);
 
   if (isLoading) {
     return (
@@ -6446,7 +6490,7 @@ export default function HostRoomPage() {
                           <span className="font-black text-[#f1532f]">+{summaryQuestion.points}💎</span>
                         </div>
                         <p className="text-lg font-semibold">{summaryQuestion.text}</p>
-                        <p className="text-sm text-[#1f6ac6] font-semibold">
+                        <p className="text-sm text-[#1f6ac6] font-semibold animate-correct-reveal">
                           Правильный ответ: {OPTION_LABELS[correctKey]} — {correctText}
                         </p>
                         <div className="space-y-2">
@@ -6638,7 +6682,8 @@ export default function HostRoomPage() {
                     <div className="rounded-2xl border-[3px] border-[#b4007f]/30 bg-white px-4 py-3 text-center">
                       <p className="text-[11px] tracking-[0.3em] text-[#142a45]/60">Ответ тура</p>
                       <p
-                        className={`text-4xl font-black ${round2ShowingFact ? 'text-[#1f6ac6]' : 'text-[#b4007f]'}`}
+                        className={`text-4xl font-black animate-correct-reveal ${round2ShowingFact ? 'text-[#1f6ac6]' : 'text-[#b4007f]'}`}
+                        key={`${round2CurrentIndex ?? 'x'}-${round2Phase}-${round2ShowingFact ? 't' : 'f'}`}
                       >
                         {round2ShowingFact ? 'ПРАВДА' : 'ВЫМЫСЕЛ'}
                       </p>
@@ -6672,7 +6717,10 @@ export default function HostRoomPage() {
                 </div>
 
                 {isRound3ResultsPhase && (
-                  <div className="rounded-3xl border-[3px] border-[#f1532f]/20 bg-[#fff6da] p-4 space-y-2">
+                  <div
+                    key={`round3-correct-${currentQuestionIndex}`}
+                    className="rounded-3xl border-[3px] border-[#f1532f]/20 bg-[#fff6da] p-4 space-y-2 animate-correct-reveal"
+                  >
                     <p className="text-sm tracking-[0.4em] text-[#f1532f]/60 font-semibold">Правильный ответ</p>
                     <p className="text-xl font-semibold">
                       {renderRound3QuestionWithAnswer(currentRound3Question?.question ?? '', currentRound3Question?.answer ?? '')}
@@ -6832,7 +6880,10 @@ export default function HostRoomPage() {
                 </div>
 
                 {timeLeft <= 0 && round4CurrentPuzzle && (
-                  <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-5 space-y-2 text-center">
+                  <div
+                    key={`round4-correct-${round4CurrentPuzzle.id}`}
+                    className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-5 space-y-2 text-center animate-correct-reveal"
+                  >
                     <p className="retro-heading text-[11px] tracking-[0.5em] text-[#142a45]/70">Правильный ответ</p>
                     <p className="text-4xl font-black text-[#1f6ac6]">{round4CurrentPuzzle.answers?.[0] ?? '—'}</p>
                   </div>
@@ -6884,7 +6935,10 @@ export default function HostRoomPage() {
                 </div>
 
                 {roomStatus === 'round5-explanation' && round5CurrentQuestion && (
-                  <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-5 space-y-3 text-center">
+                  <div
+                    key={`round5-correct-${round5CurrentBankIndex ?? currentQuestionIndex}`}
+                    className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-5 space-y-3 text-center animate-correct-reveal"
+                  >
                     <p className="retro-heading text-[11px] tracking-[0.5em] text-[#142a45]/70">Правильный ответ</p>
                     <p className="text-5xl font-black text-[#1f6ac6]">{round5CurrentQuestion.answer}</p>
                     {round5CurrentQuestion.explanation && (
@@ -6931,7 +6985,10 @@ export default function HostRoomPage() {
 
                 <h2 className="text-3xl font-black leading-tight text-center">
                   {canAdvance ? (
-                    <span className="text-4xl font-black text-[#1f6ac6] text-center">
+                    <span
+                      key={`round1-correct-${question.order}`}
+                      className="text-4xl font-black text-[#1f6ac6] text-center animate-correct-reveal"
+                    >
                       {getOptionText(question, question.correctIndex)}
                     </span>
                   ) : (
@@ -6939,25 +6996,13 @@ export default function HostRoomPage() {
                   )}
                 </h2>
 
-                <button
-                  onClick={isLastQuestion ? finishRound : nextQuestion}
-                  disabled={nextButtonDisabled}
-                  className="w-full py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#1f6ac6] text-white border-[3px] border-[#142a45] transition disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  {isLastQuestion ? 'Итоги' : 'Следующий вопрос'}
-                </button>
-
                 <p className="text-xs text-[#142a45]/70">
                   {isRoundEndButtonLocked
                     ? 'Подождите несколько секунд — звучит финальный джингл перед стартом следующего раунда.'
                     : canAdvance
                       ? isLastQuestion
-                        ? allPlayersAnswered
-                          ? 'Все ответили — готовимся перейти к следующему раунду.'
-                          : 'Таймер завершён, можно завершать раунд.'
-                        : allPlayersAnswered
-                          ? 'Все ответили — запускайте следующий вопрос.'
-                          : 'Таймер остановился, переходите к следующему вопросу.'
+                        ? 'Итоги появятся автоматически.'
+                        : 'Следующий вопрос появится автоматически.'
                       : 'Идёт сбор ответов…'}
                 </p>
               </div>
