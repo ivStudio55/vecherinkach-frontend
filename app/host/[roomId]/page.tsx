@@ -5666,6 +5666,10 @@ export default function HostRoomPage() {
                   <p className="text-2xl font-black">
                     {isRound3Running
                       ? currentQuestionIndex + 1
+                      : roomStatus === 'round2-running'
+                        ? round2CurrentIndex !== null
+                          ? round2CurrentIndex + 1
+                          : 0
                       : question
                         ? question.order
                         : showResults
@@ -5690,7 +5694,7 @@ export default function HostRoomPage() {
                 {players.length === 0 ? (
                   <p className="text-sm text-[#142a45]/70 text-center py-6">Пока никто не присоединился</p>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto pr-1">
+                  <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
                     {players.map((player, index) => {
                       const hasAnswered = answeredPlayerIds.includes(player.id);
                       return (
@@ -5705,7 +5709,9 @@ export default function HostRoomPage() {
                               {index + 1}
                             </span>
                             <div className="min-w-0">
-                        <p className="font-semibold text-sm leading-snug whitespace-normal break-words">{player.name}</p>
+                              <p className="font-semibold text-sm leading-snug whitespace-normal break-words overflow-hidden max-h-[2.8em]">
+                                {player.name}
+                              </p>
                               {roomStatus === 'running' && question ? (
                                 <p className={`text-xs font-semibold ${hasAnswered ? 'text-[#1f6ac6]' : 'text-[#142a45]/50'}`}>
                                   {hasAnswered ? 'Ответ получен' : 'Ждём ответ'}
