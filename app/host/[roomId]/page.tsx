@@ -557,6 +557,7 @@ export default function HostRoomPage() {
   const autoNextTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const round2TimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTransitioningRound2Ref = useRef(false);
+  const lastRound2AwardKeyRef = useRef<string | null>(null);
   const round2CurrentIndexRef = useRef<number | null>(round2CurrentIndex);
   const countdownCompleteActionRef = useRef<(() => Promise<void> | void) | null>(null);
   const round2RulesReadyAtRef = useRef<number | null>(null);
@@ -3797,6 +3798,20 @@ export default function HostRoomPage() {
           }
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'players',
+          filter: `room_id=eq.${roomId}`,
+        },
+        () => {
+          if (mounted) {
+            loadPlayersRef.current?.();
+          }
+        }
+      )
       .subscribe();
 
     const answersChannel = supabase
@@ -4344,6 +4359,14 @@ export default function HostRoomPage() {
         return;
       }
       isTransitioningRound2Ref.current = true;
+
+      const awardKey = `${round2QuestionCounterRef.current}-${index}`;
+      if (lastRound2AwardKeyRef.current === awardKey) {
+        isTransitioningRound2Ref.current = false;
+        return;
+      }
+      lastRound2AwardKeyRef.current = awardKey;
+
       clearRound2Timer();
       stopRound2Audio();
       setRound2Phase('explanation');
@@ -4361,6 +4384,47 @@ export default function HostRoomPage() {
         console.error('Не удалось переключить Раунд 2 в режим объяснения', error);
         isTransitioningRound2Ref.current = false;
         return;
+      }
+
+      // Award Round 2 points into players.total_points so the host sidebar shows updated totals.
+      try {
+        const snapshot = round2AnswersRef.current;
+        const latestByPlayer = new Map<string, Round2AnswerRow>();
+        for (const answer of snapshot) {
+          latestByPlayer.set(answer.player_id, answer);
+        }
+        const uniqueAnswers = Array.from(latestByPlayer.values());
+
+        const deltas = new Map<string, number>();
+        for (const answer of uniqueAnswers) {
+          if (!answer.is_correct) {
+            continue;
+          }
+          const points = Number.isFinite(answer.points_earned) ? answer.points_earned : ROUND2_POINTS;
+          if (points !== 0) {
+            deltas.set(answer.player_id, (deltas.get(answer.player_id) ?? 0) + points);
+          }
+        }
+
+        if (deltas.size > 0) {
+          const totalMap = new Map(playersRef.current.map((player) => [player.id, player.total_points ?? 0] as const));
+          await Promise.all(
+            Array.from(deltas.entries()).map(async ([playerId, delta]) => {
+              const currentTotal = totalMap.get(playerId) ?? 0;
+              const nextTotal = currentTotal + delta;
+              const { error: updateError } = await supabase
+                .from('players')
+                .update({ total_points: nextTotal })
+                .eq('id', playerId);
+              if (updateError) {
+                console.error('Не удалось обновить очки игрока (round2)', updateError);
+              }
+            })
+          );
+          loadPlayersRef.current?.();
+        }
+      } catch (err) {
+        console.error('Не удалось начислить очки в Раунде 2', err);
       }
 
       recordRound2QuestionStats();
@@ -4384,6 +4448,13 @@ export default function HostRoomPage() {
       setRound2Phase,
     ]
   );
+
+  useEffect(() => {
+    // Round 2 per-round leaderboard must not leak into later rounds (it causes brief flickers during transitions).
+    if (isTournamentVisible && round2Leaderboard.length > 0) {
+      setRound2Leaderboard([]);
+    }
+  }, [isTournamentVisible, round2Leaderboard.length]);
 
   useEffect(() => {
     if (roomStatus !== 'round2-running' || round2Phase !== 'fact' || !serverAllPlayersAnswered || isTransitioningRound2Ref.current) {
@@ -5474,7 +5545,13 @@ export default function HostRoomPage() {
         startRound5Countdown();
       },
     });
-  }, [isCountdownVisible, isRound5RulesAudioPlaying, playRound5RulesAudio, startRound5Countdown, stopAllAudio]);
+  }, [
+    isCountdownVisible,
+    isRound5RulesAudioPlaying,
+    stopAllAudio,
+    playRound5RulesAudio,
+    startRound5Countdown,
+  ]);
 
   const handleCancelRound5Rules = useCallback(() => {
     setIsRound5RulesVisible(false);
@@ -5684,10 +5761,12 @@ export default function HostRoomPage() {
                           ? round4Offset + currentRound4TourNumber
                           : roomStatus === 'round5-running' || roomStatus === 'round5-explanation'
                             ? round5Offset + (currentQuestionIndex + 1)
-                            : question
-                              ? question.order
-                              : showResults
-                                ? totalQuestions
+                            : showResults && roomStatus === 'finished'
+                              ? round2Leaderboard.length > 0
+                                ? round2Offset + ROUND2_TOTAL_QUESTIONS
+                                : totalQuestions
+                              : question
+                                ? question.order
                                 : 0}
                   </p>
                 </div>
@@ -5755,7 +5834,11 @@ export default function HostRoomPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">
-                      {roomStatus === 'final-results' ? 'финальные итоги' : 'итоги после 3 раунда'}
+                      {roomStatus === 'final-results'
+                        ? 'финальный рейтинг'
+                        : isFinalRoundAvailable
+                          ? 'итоги после 4 раунда'
+                          : 'итоги после 3 раунда'}
                     </p>
                     <h2 className="text-3xl font-black">🏁 Турнирная таблица</h2>
                   </div>
@@ -5821,21 +5904,21 @@ export default function HostRoomPage() {
                   <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 text-center space-y-2">
                     <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Раунд завершён</p>
                     <h2 className="text-2xl font-black">Очки начислены</h2>
-                    <p className="text-sm text-[#142a45]/70">Смотрите очки игроков в панели справа.</p>
+                    <p className="text-sm text-[#142a45]/70">Смотрите очки игроков в панели слева.</p>
                   </div>
                 ) : (
                   <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Финальные результаты</p>
-                        <h2 className="text-3xl font-black">🏆 Рейтинг Раунда 2</h2>
+                        <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Итоги после 2 раунда</p>
+                        <h2 className="text-3xl font-black">🏆 Рейтинг после 2 раунда</h2>
                       </div>
                     </div>
                     <div className="space-y-4">
                       <ol className="space-y-3">
-                        {round2Leaderboard.map((entry, index) => (
+                        {tournamentLeaderboard.map((player, index) => (
                           <li
-                            key={entry.playerId}
+                            key={player.id}
                             className="flex items-center justify-between rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-4"
                           >
                             <div className="flex items-center gap-4">
@@ -5848,13 +5931,11 @@ export default function HostRoomPage() {
                                 {index + 1}
                               </span>
                               <div>
-                                <p className="font-black text-[#142a45]">{entry.name}</p>
-                                <p className="text-xs text-[#142a45]/70">
-                                  {entry.correct}/{entry.attempts} правильных • {Math.round((entry.correct / Math.max(entry.attempts, 1)) * 100)}% точность
-                                </p>
+                                <p className="font-black text-[#142a45]">{player.name}</p>
+                                <p className="text-xs text-[#142a45]/70">Всего очков: {player.total_points}</p>
                               </div>
                             </div>
-                            <span className="font-black text-2xl text-[#f1532f]">{entry.points} 💎</span>
+                            <span className="font-black text-2xl text-[#f1532f]">{player.total_points} 💎</span>
                           </li>
                         ))}
                       </ol>
