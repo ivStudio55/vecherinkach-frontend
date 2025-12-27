@@ -4867,7 +4867,7 @@ export default function HostRoomPage() {
   }, [round2Answers]);
   const headerActionLabel = isTournamentVisible
     ? roomStatus === 'final-results'
-      ? 'Завершить игру'
+      ? 'Закрыть комнату'
       : isFinalRoundAvailable
         ? 'Финал'
         : 'Раунд 4'
@@ -4875,7 +4875,7 @@ export default function HostRoomPage() {
       ? round2Leaderboard.length > 0
         ? 'Раунд 3'
         : 'Раунд 2'
-      : 'Завершить игру';
+      : 'Закрыть комнату';
   const round2QuestionNumber = round2QuestionCounter > 0 ? round2QuestionCounter : 1;
   const clampedRound2QuestionNumber = Math.min(round2QuestionNumber, ROUND2_TOTAL_QUESTIONS);
   const round2TruthLabel =
@@ -5617,28 +5617,23 @@ export default function HostRoomPage() {
 
   return (
     <Fragment>
-      <div className="min-h-screen bg-[#fef4dc] text-[#142a45] px-4 py-8 transition-opacity duration-1000 opacity-100">
-        <div className="max-w-6xl mx-auto space-y-6">
-          <header className="retro-panel bg-[#142a45] text-[#ffeccd] px-6 py-5 space-y-4">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="retro-heading text-[11px] tracking-[0.5em] text-[#ffeccd]/70">Панель ведущего</p>
-              <h1 className="text-3xl font-black leading-tight">Комната {roomCode || '----'}</h1>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className={`px-4 py-2 rounded-full text-xs font-bold tracking-[0.3em] ${statusBadgeClass}`}>
-                {statusLabel.toUpperCase()}
-              </span>
+      <div className="min-h-screen bg-[#fef4dc] text-[#142a45] px-4 py-6 transition-opacity duration-1000 opacity-100">
+        <div className="max-w-7xl mx-auto space-y-6">
+          <header className="retro-panel bg-[#142a45] text-[#ffeccd] px-6 py-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="retro-heading text-[11px] tracking-[0.5em] text-[#ffeccd]/70">Панель ведущего</p>
+                <h1 className="text-3xl font-black leading-tight">Комната {roomCode || '----'}</h1>
+              </div>
               <button
                 type="button"
                 onClick={handlePrimaryHeaderAction}
-                className="px-4 py-2 rounded-2xl border-[3px] border-[#ffeccd] text-[#ffeccd] font-semibold hover:bg-[#ffeccd]/10 transition"
+                className="px-5 py-3 rounded-2xl border-[3px] border-[#ffeccd] text-[#ffeccd] font-black tracking-[0.2em] hover:bg-[#ffeccd]/10 transition"
               >
                 {headerActionLabel}
               </button>
             </div>
-          </div>
-        </header>
+          </header>
 
         {error && (
           <div className="rounded-3xl border-[3px] border-[#b23324] bg-[#ffd7d0] px-4 py-3 text-sm font-semibold text-[#7b1d16]">
@@ -5646,8 +5641,93 @@ export default function HostRoomPage() {
           </div>
         )}
 
-        <div className="grid gap-6 lg:grid-cols-[1.45fr,0.55fr]">
-          <div className="space-y-6">
+        <div className="grid gap-6 lg:grid-cols-5">
+          <section className="lg:col-span-1">
+            <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-5 space-y-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Состояние раунда</p>
+                  <p className="text-lg font-black text-[#142a45] truncate">{statusLabel}</p>
+                  <p className="text-xs font-semibold text-[#142a45]/60">
+                    {roomStatus === 'waiting' ? 'Ждём игроков' : 'Игра идёт'}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[11px] text-[#142a45]/60">Игроки</p>
+                  <p className="text-2xl font-black">{players.length || 0}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 text-sm font-semibold">
+                <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-[#fff6da] px-4 py-3">
+                  <p className="text-[11px] text-[#142a45]/60">Вопрос</p>
+                  <p className="text-2xl font-black">
+                    {isRound3Running
+                      ? currentQuestionIndex + 1
+                      : question
+                        ? question.order
+                        : showResults
+                          ? totalQuestions
+                          : 0}
+                  </p>
+                </div>
+                <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-white px-4 py-3">
+                  <p className="text-[11px] text-[#142a45]/60">Ответы</p>
+                  <p className="text-2xl font-black text-[#1f6ac6]">{answeredCount}</p>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Игроки и очки</p>
+                    <p className="text-xs text-[#142a45]/60">Подсветка — кто уже ответил</p>
+                  </div>
+                </div>
+
+                {players.length === 0 ? (
+                  <p className="text-sm text-[#142a45]/70 text-center py-6">Пока никто не присоединился</p>
+                ) : (
+                  <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+                    {players.map((player, index) => {
+                      const hasAnswered = answeredPlayerIds.includes(player.id);
+                      return (
+                        <div
+                          key={player.id}
+                          className={`rounded-2xl border-[3px] px-3 py-3 flex items-center justify-between ${
+                            hasAnswered ? 'border-[#1f6ac6]/40 bg-[#e9f0ff]' : 'border-[#142a45]/15 bg-white'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span className="w-8 h-8 rounded-full border-[3px] border-[#142a45]/30 flex items-center justify-center font-black">
+                              {index + 1}
+                            </span>
+                            <div className="min-w-0">
+                              <p className="font-semibold truncate">{player.name}</p>
+                              {roomStatus === 'running' && question ? (
+                                <p className={`text-xs font-semibold ${hasAnswered ? 'text-[#1f6ac6]' : 'text-[#142a45]/50'}`}>
+                                  {hasAnswered ? 'Ответ получен' : 'Ждём ответ'}
+                                </p>
+                              ) : roomStatus === 'round2-running' ? (
+                                <p className={`text-xs font-semibold ${hasAnswered ? 'text-[#b4007f]' : 'text-[#142a45]/50'}`}>
+                                  {hasAnswered ? 'Выбор сделан' : 'Ждём выбор'}
+                                </p>
+                              ) : roomStatus === 'round3-running' ? (
+                                <p className="text-xs font-semibold text-[#142a45]/50">Раунд 3</p>
+                              ) : null}
+                            </div>
+                          </div>
+                          <p className="font-black text-[#f1532f]">{player.total_points} 💎</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+
+          <div className="lg:col-span-4 space-y-6">
             {isTournamentVisible ? (
               <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
                 <div className="flex items-center justify-between">
@@ -5700,7 +5780,7 @@ export default function HostRoomPage() {
                     }}
                     className="w-full py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] hover:scale-105 hover:shadow-lg transition-all duration-200"
                   >
-                    Завершить игру
+                    Закрыть комнату
                   </button>
                 ) : isFinalRoundAvailable && (
                   <button
@@ -5871,7 +5951,7 @@ export default function HostRoomPage() {
                   <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Сцена перед стартом</p>
                   <h2 className="text-3xl font-black">⌛ Ждём подключений</h2>
                   <p className="text-sm text-[#142a45]/80">
-                    Поделитесь кодом <span className="font-mono font-black text-lg">{roomCode}</span> и следите за списком игроков справа.
+                    Поделитесь кодом <span className="font-mono font-black text-lg">{roomCode}</span> и следите за списком игроков слева.
                   </p>
                 </div>
 
@@ -6330,98 +6410,6 @@ export default function HostRoomPage() {
             )}
 
           </div>
-
-          <aside className="space-y-6">
-            <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Игроки</p>
-                  <h3 className="text-2xl font-black">{players.length || 0} подключено</h3>
-                </div>
-                <span className="text-sm font-semibold text-[#1f6ac6]">
-                  {roomStatus === 'running' ? 'Раунд 1'
-                    : roomStatus === 'round2-running' ? 'Раунд 2'
-                      : roomStatus === 'round3-running' ? 'Раунд 3'
-                        : roomStatus === 'round4-running' ? 'Раунд 4'
-                          : roomStatus === 'round5-running' || roomStatus === 'round5-explanation' ? 'Финал'
-                            : roomStatus === 'final-results' ? 'Итоги'
-                              : 'Подготовка'}
-                </span>
-              </div>
-
-              {players.length === 0 ? (
-                <p className="text-sm text-[#142a45]/70 text-center py-6">Пока никто не присоединился</p>
-              ) : (
-                <div className="space-y-3">
-                  {players.map((player, index) => {
-                    const hasAnswered = answeredPlayerIds.includes(player.id);
-                    return (
-                      <div
-                        key={player.id}
-                        className={`rounded-2xl border-[3px] px-3 py-3 flex items-center justify-between ${
-                          hasAnswered ? 'border-[#1f6ac6]/40 bg-[#e9f0ff]' : 'border-[#142a45]/15 bg-white'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="w-8 h-8 rounded-full border-[3px] border-[#142a45]/30 flex items-center justify-center font-black">
-                            {index + 1}
-                          </span>
-                          <div>
-                            <p className="font-semibold">{player.name}</p>
-                            {roomStatus === 'running' && question ? (
-                              <p className={`text-xs font-semibold ${hasAnswered ? 'text-[#1f6ac6]' : 'text-[#142a45]/50'}`}>
-                                {hasAnswered ? 'Ответ получен' : 'Ждём ответ'}
-                              </p>
-                            ) : roomStatus === 'round2-running' ? (
-                              <p className={`text-xs font-semibold ${hasAnswered ? 'text-[#b4007f]' : 'text-[#142a45]/50'}`}>
-                                {hasAnswered ? 'Выбор сделан' : 'Ждём выбор'}
-                              </p>
-                            ) : roomStatus === 'round3-running' ? (
-                              <p className="text-xs font-semibold text-[#142a45]/50">Раунд 3</p>
-                            ) : null}
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-black text-[#f1532f]">{player.total_points} 💎</p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-5 space-y-3">
-              <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Состояние раунда</p>
-              <div className="grid grid-cols-2 gap-3 text-sm font-semibold">
-                <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-[#fff6da] px-4 py-3">
-                  <p className="text-[11px] text-[#142a45]/60">Вопрос</p>
-                  <p className="text-2xl font-black">
-                    {isRound3Running
-                      ? currentQuestionIndex + 1
-                      : question
-                        ? question.order
-                        : showResults
-                          ? totalQuestions
-                          : 0}
-                  </p>
-                </div>
-                <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-[#ffe184] px-4 py-3">
-                  <p className="text-[11px] text-[#142a45]/60">Игроки</p>
-                  <p className="text-2xl font-black">{players.length}</p>
-                </div>
-                <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-white px-4 py-3">
-                  <p className="text-[11px] text-[#142a45]/60">Ответы</p>
-                  <p className="text-2xl font-black text-[#1f6ac6]">{answeredCount}</p>
-                </div>
-                <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-white px-4 py-3">
-                  <p className="text-[11px] text-[#142a45]/60">Статус</p>
-                  <p className="text-base font-black">{statusLabel}</p>
-                </div>
-              </div>
-            </div>
-
-          </aside>
         </div>
       </div>
     </div>
