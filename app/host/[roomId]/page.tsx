@@ -572,6 +572,7 @@ export default function HostRoomPage() {
   const lastJoinAudioRef = useRef<HTMLAudioElement | null>(null);
   const lobbySoundSetterRef = useRef(setIsLobbySoundOn);
   const roundEndButtonSetterRef = useRef(setIsRoundEndButtonLocked);
+  const handleCountdownStartRef = useRef<((options?: { playSkip?: boolean }) => void) | null>(null);
   const round2AskedIndicesRef = useRef<number[]>([]);
   const round2QuestionCounterRef = useRef(0);
   const handleRound2NextQuestionRef = useRef<(() => void) | null>(null);
@@ -3880,7 +3881,7 @@ export default function HostRoomPage() {
         playersRef.current.length > 0
       ) {
         setTimeout(() => {
-          handleCountdownStart({ playSkip: false });
+          handleCountdownStartRef.current?.({ playSkip: false });
         }, 0);
       }
     };
@@ -4845,6 +4846,10 @@ export default function HostRoomPage() {
     setIsCountdownVisible(true);
     runCountdownSequence(0);
   };
+
+  useEffect(() => {
+    handleCountdownStartRef.current = handleCountdownStart;
+  });
 
   const handlePrepareRound = () => {
     if (roomStatus !== 'waiting' || players.length === 0) {
@@ -6226,17 +6231,20 @@ export default function HostRoomPage() {
       clearAutoFinishTimeout();
       return;
     }
-    if (isSummaryLoading || isRoundEndButtonLocked) {
+    // On the last question we intentionally delay finishing the round to allow
+    // the end-of-round audio (round1end/* + ROUND1_END_JINGLE_FILE) to play.
+    if (isSummaryLoading || (!isLastQuestion && isRoundEndButtonLocked)) {
       clearAutoFinishTimeout();
       return;
     }
     if (autoFinishTimeoutRef.current) {
       return;
     }
+    const delayMs = isLastQuestion ? 9500 : 1500;
     autoFinishTimeoutRef.current = setTimeout(() => {
       autoFinishTimeoutRef.current = null;
       void finishRound();
-    }, 1500);
+    }, delayMs);
     return () => {
       clearAutoFinishTimeout();
     };
