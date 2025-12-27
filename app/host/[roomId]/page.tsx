@@ -237,6 +237,12 @@ type Round2AnswerInsertPayload = {
   };
 };
 
+type Round4AnswerInsertPayload = {
+  new: {
+    puzzle_id: number;
+  };
+};
+
 type AnswerInsertPayload = {
   new: {
     question_index: number;
@@ -473,6 +479,9 @@ export default function HostRoomPage() {
   const round5AdvanceLockRef = useRef(false);
   const roundEndAudioRef = useRef<HTMLAudioElement | null>(null);
   const roundEndJingleAudioRef = useRef<HTMLAudioElement | null>(null);
+  const round2EndJingleAudioRef = useRef<HTMLAudioElement | null>(null);
+  const round2EndVoiceAudioRef = useRef<HTMLAudioElement | null>(null);
+  const lastRound2EndCeremonyKeyRef = useRef<string | null>(null);
   const round2FactAudioRef = useRef<HTMLAudioElement | null>(null);
   const round2TimerJingleAudioRef = useRef<HTMLAudioElement | null>(null);
   const round2ExplanationAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -527,6 +536,7 @@ export default function HostRoomPage() {
   const round4RulesAudioCompletedRef = useRef(true);
   const round4StartLockRef = useRef(false);
   const round4AskedIdsRef = useRef<number[]>([]);
+  const round4CurrentPuzzleIdRef = useRef<number | null>(null);
   const playersRef = useRef<Player[]>(players);
   const hasUserInteractedRef = useRef(false);
   const lastJoinAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -946,6 +956,95 @@ export default function HostRoomPage() {
       roundEndJingleAudioRef.current = null;
     }
   }, []);
+
+  const stopRound2EndCeremonyAudio = useCallback(() => {
+    const jingle = round2EndJingleAudioRef.current;
+    if (jingle) {
+      try {
+        jingle.pause();
+        jingle.currentTime = 0;
+      } catch {
+        // ignore
+      }
+      jingle.onended = null;
+      jingle.onerror = null;
+      round2EndJingleAudioRef.current = null;
+    }
+
+    const voice = round2EndVoiceAudioRef.current;
+    if (voice) {
+      try {
+        voice.pause();
+        voice.currentTime = 0;
+      } catch {
+        // ignore
+      }
+      voice.onended = null;
+      voice.onerror = null;
+      round2EndVoiceAudioRef.current = null;
+    }
+  }, []);
+
+  const playRound2EndCeremony = useCallback(
+    (percent: number, key: string) => {
+      if (!hasUserInteractedRef.current) {
+        return;
+      }
+
+      if (lastRound2EndCeremonyKeyRef.current === key) {
+        return;
+      }
+      lastRound2EndCeremonyKeyRef.current = key;
+
+      stopRound2EndCeremonyAudio();
+      stopRound2Audio();
+
+      const normalized = Math.max(0, Math.min(100, Math.round(percent)));
+      const variants =
+        normalized === 100
+          ? ROUND2_BETWEEN_AUDIO_VARIANTS.full
+          : normalized >= 50
+            ? ROUND2_BETWEEN_AUDIO_VARIANTS.mid
+            : normalized >= 1
+              ? ROUND2_BETWEEN_AUDIO_VARIANTS.low
+              : ROUND2_BETWEEN_AUDIO_VARIANTS.zero;
+
+      const voiceRelative = variants.length ? `round2/${pickRandomItem(variants)}` : null;
+
+      const playVoice = () => {
+        if (!voiceRelative) {
+          return;
+        }
+        const voice = new Audio(buildAudioUrl(voiceRelative));
+        voice.volume = 0.95;
+        voice.loop = false;
+        round2EndVoiceAudioRef.current = voice;
+        voice.play().catch((err) => {
+          console.error('Не удалось проиграть диктора окончания Раунда 2', err);
+        });
+      };
+
+      const jingle = new Audio(buildAudioUrl(ROUND1_END_JINGLE_FILE));
+      jingle.volume = 0.95;
+      jingle.loop = false;
+      round2EndJingleAudioRef.current = jingle;
+
+      jingle.onended = () => {
+        round2EndJingleAudioRef.current = null;
+        playVoice();
+      };
+      jingle.onerror = () => {
+        round2EndJingleAudioRef.current = null;
+        playVoice();
+      };
+
+      jingle.play().catch((err) => {
+        console.error('Не удалось проиграть джингл окончания Раунда 2', err);
+        playVoice();
+      });
+    },
+    [stopRound2Audio, stopRound2EndCeremonyAudio]
+  );
 
   const stopTournamentJingle = useCallback(() => {
     const audio = tournamentJingleAudioRef.current;
@@ -2793,6 +2892,7 @@ export default function HostRoomPage() {
           setRound4CurrentPuzzle(null);
           setRound4AnswerRows([]);
           setIsRound4Scoring(false);
+          round4CurrentPuzzleIdRef.current = null;
         }
       if (nextStatus !== 'round5-running' && nextStatus !== 'round5-explanation') {
         setRound5CurrentBankIndex(null);
@@ -2965,6 +3065,55 @@ export default function HostRoomPage() {
     loadRound2AnswerStatsRef.current = loadRound2AnswerStats;
   }, [loadRound2AnswerStats]);
 
+  const loadRound4AnswerStats = useCallback(
+    async (puzzleId: number | null) => {
+      if (puzzleId === null || puzzleId === undefined) {
+        setAnswerCount(0);
+        setCorrectAnswerCount(0);
+        setAnsweredPlayerIds([]);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('round4_answers')
+        .select('player_id, submitted_at', { count: 'exact' })
+        .eq('room_id', roomId)
+        .eq('puzzle_id', puzzleId)
+        .order('submitted_at', { ascending: true });
+
+      if (error) {
+        console.error('Не удалось загрузить ответы Раунда 4', error);
+        setAnswerCount(0);
+        setAnsweredPlayerIds([]);
+        return;
+      }
+
+      const rows = (data || []) as Array<{ player_id: string; submitted_at: string }>;
+      const uniqueMap = new Map<string, { player_id: string; submitted_at: string }>();
+      for (const row of rows) {
+        uniqueMap.set(row.player_id, row);
+      }
+      const unique = Array.from(uniqueMap.values());
+      const ids = unique.map((row) => row.player_id);
+
+      setAnsweredPlayerIds(ids);
+      setAnswerCount(ids.length);
+      setCorrectAnswerCount(0);
+
+      const everyoneHandled = totalPlayerCount > 0 && ids.length >= totalPlayerCount;
+      if (everyoneHandled !== serverAllPlayersAnswered) {
+        setServerAllPlayersAnswered(everyoneHandled);
+      }
+    },
+    [roomId, serverAllPlayersAnswered, totalPlayerCount]
+  );
+
+  const loadRound4AnswerStatsRef = useRef(loadRound4AnswerStats);
+
+  useEffect(() => {
+    loadRound4AnswerStatsRef.current = loadRound4AnswerStats;
+  }, [loadRound4AnswerStats]);
+
   const loadRound5AnswerStats = useCallback(
     async (bankQuestionIndex: number | null) => {
       if (bankQuestionIndex === null || bankQuestionIndex === undefined) {
@@ -3108,12 +3257,11 @@ export default function HostRoomPage() {
       } else if (detectedStatus === 'round4-running') {
         const puzzleId = room.current_question_index;
         const puzzle = round4Puzzles.find((p) => p.id === puzzleId) ?? null;
+        round4CurrentPuzzleIdRef.current = puzzleId;
         setRound4CurrentPuzzle(puzzle ?? null);
         setShowResults(false);
         setQuestion(null);
-        setAnswerCount(0);
-        setCorrectAnswerCount(0);
-        setAnsweredPlayerIds([]);
+        await loadRound4AnswerStats(puzzleId);
         if (room.question_started_at) {
           syncTimerWithStart(room.question_started_at, effectiveOffset);
         } else {
@@ -3201,6 +3349,7 @@ export default function HostRoomPage() {
       setRound2CurrentIndex,
       setRound2Phase,
       round4Puzzles,
+      loadRound4AnswerStats,
       loadRound5AnswerStats,
     ]
   );
@@ -3659,7 +3808,10 @@ export default function HostRoomPage() {
     if (!questionStartedAt) {
       return;
     }
-    const key = `${round5CurrentBankIndex}-${questionStartedAt}`;
+
+    const startedAtMs = new Date(questionStartedAt).getTime();
+    const startedAtKey = Number.isFinite(startedAtMs) ? Math.floor(startedAtMs / 1000) : questionStartedAt;
+    const key = `${round5CurrentBankIndex}-${startedAtKey}`;
     if (lastRound5QuestionPlaybackKeyRef.current === key) {
       return;
     }
@@ -3684,6 +3836,7 @@ export default function HostRoomPage() {
       stopBetweenAudio();
       stopRoundEndAudio();
       stopRound2Audio();
+      stopRound2EndCeremonyAudio();
       stopRound2RulesAudio();
       stopRound4Audio();
       stopRound5RulesAudio();
@@ -3710,6 +3863,7 @@ export default function HostRoomPage() {
     stopBetweenAudio,
     stopRoundEndAudio,
     stopRound2Audio,
+    stopRound2EndCeremonyAudio,
     stopRound2RulesAudio,
     stopRound4Audio,
     stopRound5Audio,
@@ -3862,6 +4016,32 @@ export default function HostRoomPage() {
       )
       .subscribe();
 
+    const round4AnswersChannel = supabase
+      .channel(`host-round4-answers-${roomId}-${channelId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'round4_answers',
+          filter: `room_id=eq.${roomId}`,
+        },
+        async (payload: Round4AnswerInsertPayload) => {
+          if (!mounted) return;
+          if (roomStatusRef.current !== 'round4-running') {
+            return;
+          }
+          const currentPuzzleId = round4CurrentPuzzleIdRef.current;
+          if (currentPuzzleId === null) {
+            return;
+          }
+          if (payload.new.puzzle_id === currentPuzzleId) {
+            await loadRound4AnswerStatsRef.current?.(currentPuzzleId);
+          }
+        }
+      )
+      .subscribe();
+
     const round5AnswersChannel = supabase
       .channel(`host-round5-answers-${roomId}-${channelId}`)
       .on(
@@ -3917,6 +4097,9 @@ export default function HostRoomPage() {
       });
       round2AnswersChannel.unsubscribe().then(() => {
         supabase.removeChannel(round2AnswersChannel);
+      });
+      round4AnswersChannel.unsubscribe().then(() => {
+        supabase.removeChannel(round4AnswersChannel);
       });
       round5AnswersChannel.unsubscribe().then(() => {
         supabase.removeChannel(round5AnswersChannel);
@@ -4842,13 +5025,18 @@ export default function HostRoomPage() {
     setShowResults(true);
     setRound2Phase('idle');
     setRound2CurrentIndex(null);
+
+    const ceremonyKey = `round2-end-${roomId}-${round2AskedIndicesRef.current.length}`;
+    const lastPercent = Number.isFinite(round2LastAccuracyRef.current) ? round2LastAccuracyRef.current : 0;
+    playRound2EndCeremony(lastPercent, ceremonyKey);
+
     setRound2QuestionCounter(0);
     setRound2AskedIndices([]);
     round2QuestionCounterRef.current = 0;
     round2AskedIndicesRef.current = [];
     setServerAllPlayersAnswered(true);
     setQuestionStartedAt(null);
-  }, [clearRound2Timer, roomId, setRound2CurrentIndex, setRound2Phase, stopRound2Audio, stopRound2RulesAudio, updateRound2Leaderboard]);
+  }, [clearRound2Timer, playRound2EndCeremony, roomId, setRound2CurrentIndex, setRound2Phase, stopRound2Audio, stopRound2RulesAudio, updateRound2Leaderboard]);
 
   const handleRound2NextQuestion = useCallback(async () => {
     if (roomStatus !== 'round2-running') {
@@ -5780,7 +5968,6 @@ export default function HostRoomPage() {
                 <div className="flex items-center justify-between mb-3">
                   <div>
                     <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Игроки и очки</p>
-                    <p className="text-xs text-[#142a45]/60">Подсветка — кто уже ответил</p>
                   </div>
                 </div>
 
