@@ -301,6 +301,20 @@ type Round3VoteRow = {
   answer_id: string;
 };
 
+type Round3AnswerRowWithIndex = Round3AnswerRow & {
+  question_index: number;
+};
+
+type Round3VoteRowWithIndex = Round3VoteRow & {
+  question_index: number;
+};
+
+type RoundPointsLeaderboardEntry = {
+  playerId: string;
+  name: string;
+  points: number;
+};
+
 type Round3ScoredAnswer = {
   playerId: string;
   text: string;
@@ -439,6 +453,9 @@ export default function HostRoomPage() {
   const [round3VoteAnswers, setRound3VoteAnswers] = useState<Round3AnswerRow[]>([]);
   const [isRound3VoteAnswersLoading, setIsRound3VoteAnswersLoading] = useState(false);
   const [round3ScoredAnswers, setRound3ScoredAnswers] = useState<Round3ScoredAnswer[]>([]);
+  const [round3RoundLeaderboard, setRound3RoundLeaderboard] = useState<RoundPointsLeaderboardEntry[]>([]);
+  const [round4RoundLeaderboard, setRound4RoundLeaderboard] = useState<RoundPointsLeaderboardEntry[]>([]);
+  const [round5RoundLeaderboard, setRound5RoundLeaderboard] = useState<RoundPointsLeaderboardEntry[]>([]);
   const [round3SkippedVoterIds, setRound3SkippedVoterIds] = useState<string[]>([]);
   const [round3VotersCount, setRound3VotersCount] = useState(0);
   const [isTournamentVisible, setIsTournamentVisible] = useState(false);
@@ -523,6 +540,9 @@ export default function HostRoomPage() {
   const round3AnswerTimerVoteVoiceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const round4ScoredPuzzleIdsRef = useRef<Set<number>>(new Set());
   const round2AnswersRef = useRef<Round2AnswerRow[]>([]);
+  const lastRound3RoundLeaderboardKeyRef = useRef<string | null>(null);
+  const lastRound4RoundLeaderboardKeyRef = useRef<string | null>(null);
+  const lastRound5RoundLeaderboardKeyRef = useRef<string | null>(null);
   const lastRound3PlaybackKeyRef = useRef<string | null>(null);
   const lastRound3VoteKeyRef = useRef<string | null>(null);
   const lastRound3VoteAnswersKeyRef = useRef<string | null>(null);
@@ -2690,6 +2710,232 @@ export default function HostRoomPage() {
 
     updateRound2Leaderboard();
   }, [updateRound2Leaderboard]);
+
+  const loadRound4RoundLeaderboard = useCallback(async () => {
+    const key = `${roomId}-round4`;
+    if (lastRound4RoundLeaderboardKeyRef.current === key) {
+      return;
+    }
+    lastRound4RoundLeaderboardKeyRef.current = key;
+
+    try {
+      const { data, error } = await supabase
+        .from('round4_answers')
+        .select('player_id, points_earned')
+        .eq('room_id', roomId);
+
+      if (error) {
+        console.error('Не удалось загрузить очки Раунда 4', error);
+        setRound4RoundLeaderboard([]);
+        return;
+      }
+
+      const pointsMap = new Map<string, number>();
+      for (const row of (data ?? []) as Array<{ player_id: string; points_earned: number }>) {
+        pointsMap.set(row.player_id, (pointsMap.get(row.player_id) ?? 0) + (row.points_earned ?? 0));
+      }
+
+      const snapshot = playersRef.current;
+      const leaderboard = snapshot
+        .map((player) => ({
+          playerId: player.id,
+          name: player.name,
+          points: pointsMap.get(player.id) ?? 0,
+        }))
+        .sort((a, b) => {
+          if (b.points !== a.points) return b.points - a.points;
+          return a.name.localeCompare(b.name);
+        });
+
+      setRound4RoundLeaderboard(leaderboard);
+    } catch (err) {
+      console.error('Не удалось загрузить очки Раунда 4', err);
+      setRound4RoundLeaderboard([]);
+    }
+  }, [roomId]);
+
+  const loadRound5RoundLeaderboard = useCallback(async () => {
+    const key = `${roomId}-round5`;
+    if (lastRound5RoundLeaderboardKeyRef.current === key) {
+      return;
+    }
+    lastRound5RoundLeaderboardKeyRef.current = key;
+
+    try {
+      const { data, error } = await supabase
+        .from('round5_answers')
+        .select('player_id, points_earned')
+        .eq('room_id', roomId);
+
+      if (error) {
+        console.error('Не удалось загрузить очки Раунда 5', error);
+        setRound5RoundLeaderboard([]);
+        return;
+      }
+
+      const pointsMap = new Map<string, number>();
+      for (const row of (data ?? []) as Array<{ player_id: string; points_earned: number }>) {
+        pointsMap.set(row.player_id, (pointsMap.get(row.player_id) ?? 0) + (row.points_earned ?? 0));
+      }
+
+      const snapshot = playersRef.current;
+      const leaderboard = snapshot
+        .map((player) => ({
+          playerId: player.id,
+          name: player.name,
+          points: pointsMap.get(player.id) ?? 0,
+        }))
+        .sort((a, b) => {
+          if (b.points !== a.points) return b.points - a.points;
+          return a.name.localeCompare(b.name);
+        });
+
+      setRound5RoundLeaderboard(leaderboard);
+    } catch (err) {
+      console.error('Не удалось загрузить очки Раунда 5', err);
+      setRound5RoundLeaderboard([]);
+    }
+  }, [roomId]);
+
+  const loadRound3RoundLeaderboard = useCallback(async () => {
+    const key = `${roomId}-round3-${round3Questions.length}`;
+    if (lastRound3RoundLeaderboardKeyRef.current === key) {
+      return;
+    }
+    lastRound3RoundLeaderboardKeyRef.current = key;
+
+    try {
+      const snapshotPlayers = playersRef.current;
+      if (!snapshotPlayers.length) {
+        setRound3RoundLeaderboard([]);
+        return;
+      }
+
+      const { data: answersData, error: answersError } = await supabase
+        .from('round3_answers')
+        .select('id, player_id, text, submitted_at, question_index')
+        .eq('room_id', roomId)
+        .order('submitted_at', { ascending: false });
+
+      if (answersError) {
+        console.error('Не удалось загрузить ответы Раунда 3', answersError);
+        setRound3RoundLeaderboard([]);
+        return;
+      }
+
+      const { data: votesData, error: votesError } = await supabase
+        .from('round3_votes')
+        .select('voter_player_id, answer_id, question_index')
+        .eq('room_id', roomId);
+
+      if (votesError) {
+        console.error('Не удалось загрузить голоса Раунда 3', votesError);
+      }
+
+      const pointsMap = new Map<string, number>();
+      snapshotPlayers.forEach((p) => pointsMap.set(p.id, 0));
+
+      const answersByQuestion = new Map<number, Round3AnswerRowWithIndex[]>();
+      for (const row of (answersData ?? []) as Round3AnswerRowWithIndex[]) {
+        const idx = row.question_index;
+        const bucket = answersByQuestion.get(idx) ?? [];
+        bucket.push(row);
+        answersByQuestion.set(idx, bucket);
+      }
+
+      const votesByQuestion = new Map<number, Round3VoteRowWithIndex[]>();
+      for (const vote of (votesData ?? []) as Round3VoteRowWithIndex[]) {
+        const idx = vote.question_index;
+        const bucket = votesByQuestion.get(idx) ?? [];
+        bucket.push(vote);
+        votesByQuestion.set(idx, bucket);
+      }
+
+      for (let questionIndex = 0; questionIndex < ROUND3_TOTAL_QUESTIONS; questionIndex += 1) {
+        const currentQ = round3Questions[questionIndex];
+        const acceptableRaw = currentQ ? [currentQ.answer ?? '', ...(currentQ.acceptable ?? [])].filter(Boolean) : [];
+        const acceptable = new Set(acceptableRaw.map(normalizeRound3FreeText));
+
+        const rows = answersByQuestion.get(questionIndex) ?? [];
+        const deduped = new Map<string, Round3AnswerRowWithIndex>();
+        for (const row of rows) {
+          if (!deduped.has(row.player_id)) {
+            deduped.set(row.player_id, row);
+          }
+        }
+
+        const votes = votesByQuestion.get(questionIndex) ?? [];
+        const votesByAnswer = new Map<string, number>();
+        const voters = new Set<string>();
+        for (const vote of votes) {
+          voters.add(vote.voter_player_id);
+          votesByAnswer.set(vote.answer_id, (votesByAnswer.get(vote.answer_id) ?? 0) + 1);
+        }
+
+        const skippedSet = new Set(snapshotPlayers.map((p) => p.id).filter((id) => !voters.has(id)));
+        const answeredSet = new Set<string>();
+
+        for (const row of deduped.values()) {
+          answeredSet.add(row.player_id);
+          const normalized = normalizeRound3FreeText(row.text ?? '');
+          const isCorrect = normalized.length > 0 && acceptable.has(normalized);
+          const basePoints = isCorrect ? ROUND3_POINTS : 0;
+          const likeVotes = votesByAnswer.get(row.id) ?? 0;
+          const votePointsRaw = likeVotes * ROUND3_VOTE_LIKE_POINTS;
+          const penalty = skippedSet.has(row.player_id) ? ROUND3_VOTE_SKIP_PENALTY : 0;
+          const pointsEarned = basePoints + votePointsRaw - penalty;
+          if (pointsEarned !== 0) {
+            pointsMap.set(row.player_id, (pointsMap.get(row.player_id) ?? 0) + pointsEarned);
+          }
+        }
+
+        for (const playerId of skippedSet) {
+          if (answeredSet.has(playerId)) {
+            continue;
+          }
+          pointsMap.set(playerId, (pointsMap.get(playerId) ?? 0) - ROUND3_VOTE_SKIP_PENALTY);
+        }
+      }
+
+      const leaderboard = snapshotPlayers
+        .map((player) => ({
+          playerId: player.id,
+          name: player.name,
+          points: pointsMap.get(player.id) ?? 0,
+        }))
+        .sort((a, b) => {
+          if (b.points !== a.points) return b.points - a.points;
+          return a.name.localeCompare(b.name);
+        });
+
+      setRound3RoundLeaderboard(leaderboard);
+    } catch (err) {
+      console.error('Не удалось загрузить очки Раунда 3', err);
+      setRound3RoundLeaderboard([]);
+    }
+  }, [roomId, round3Questions]);
+
+  useEffect(() => {
+    if (!isTournamentVisible) {
+      return;
+    }
+    if (roomStatus === 'final-results') {
+      void loadRound5RoundLeaderboard();
+      return;
+    }
+    if (isFinalRoundAvailable) {
+      void loadRound4RoundLeaderboard();
+      return;
+    }
+    void loadRound3RoundLeaderboard();
+  }, [
+    isTournamentVisible,
+    roomStatus,
+    isFinalRoundAvailable,
+    loadRound3RoundLeaderboard,
+    loadRound4RoundLeaderboard,
+    loadRound5RoundLeaderboard,
+  ]);
 
   const playRound2FactAudio = useCallback(
     (index: number, isFact: boolean) => {
@@ -6031,7 +6277,7 @@ export default function HostRoomPage() {
                   <div>
                     <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">
                       {roomStatus === 'final-results'
-                        ? 'финальный рейтинг'
+                        ? 'итоги после 5 раунда'
                         : isFinalRoundAvailable
                           ? 'итоги после 4 раунда'
                           : 'итоги после 3 раунда'}
@@ -6040,13 +6286,23 @@ export default function HostRoomPage() {
                   </div>
                 </div>
 
-                {tournamentLeaderboard.length === 0 ? (
+                {(roomStatus === 'final-results'
+                  ? round5RoundLeaderboard
+                  : isFinalRoundAvailable
+                    ? round4RoundLeaderboard
+                    : round3RoundLeaderboard
+                ).length === 0 ? (
                   <p className="text-sm text-[#142a45]/70">Игроки не подключены, таблица пуста.</p>
                 ) : (
                   <ol className="space-y-3">
-                    {tournamentLeaderboard.map((player, index) => (
+                    {(roomStatus === 'final-results'
+                      ? round5RoundLeaderboard
+                      : isFinalRoundAvailable
+                        ? round4RoundLeaderboard
+                        : round3RoundLeaderboard
+                    ).map((entry, index) => (
                       <li
-                        key={player.id}
+                        key={entry.playerId}
                         className="flex items-center justify-between rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-4"
                       >
                         <div className="flex items-center gap-4 min-w-0">
@@ -6062,11 +6318,13 @@ export default function HostRoomPage() {
                             {index + 1}
                           </span>
                           <div className="min-w-0">
-                            <p className="font-black text-[#142a45] truncate">{player.name}</p>
-                            <p className="text-xs text-[#142a45]/60">Всего очков: {player.total_points}</p>
+                            <p className="font-black text-[#142a45] truncate">{entry.name}</p>
+                            <p className="text-xs text-[#142a45]/60">
+                              Очки за раунд: {entry.points}
+                            </p>
                           </div>
                         </div>
-                        <span className="font-black text-2xl text-[#f1532f]">{player.total_points} 💎</span>
+                        <span className="font-black text-2xl text-[#f1532f]">{entry.points} 💎</span>
                       </li>
                     ))}
                   </ol>
