@@ -86,6 +86,11 @@ body {
     animation: none;
   }
 
+  .duck-appear {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
   .duck-sprite,
   .duck-appear,
   .duck-drift-1,
