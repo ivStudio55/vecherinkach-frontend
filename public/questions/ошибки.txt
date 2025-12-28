@@ -1,0 +1,39 @@
+19:26:59.018 Running build in Washington, D.C., USA (East) – iad1
+19:26:59.018 Build machine configuration: 2 cores, 8 GB
+19:26:59.154 Cloning github.com/ivStudio55/vecherinkach-frontend (Branch: main, Commit: aa9158f)
+19:27:06.863 Cloning completed: 7.709s
+19:27:07.201 Restored build cache from previous deployment (BvNyNpmnCHeQ4D5WTyh5SoCvjFfk)
+19:27:07.861 Running "vercel build"
+19:27:08.281 Vercel CLI 50.1.3
+19:27:08.684 Installing dependencies...
+19:27:09.948 
+19:27:09.949 up to date in 993ms
+19:27:09.949 
+19:27:09.950 145 packages are looking for funding
+19:27:09.950   run `npm fund` for details
+19:27:09.975 Detected Next.js version: 16.0.8
+19:27:09.976 Running "npm run build"
+19:27:10.087 
+19:27:10.088 > vecherinkach-frontend@0.1.0 build
+19:27:10.088 > next build
+19:27:10.088 
+19:27:11.159    ▲ Next.js 16.0.8 (Turbopack)
+19:27:11.160 
+19:27:11.226    Creating an optimized production build ...
+19:27:19.286  ✓ Compiled successfully in 7.5s
+19:27:19.290    Running TypeScript ...
+19:27:26.552 Failed to compile.
+19:27:26.552 
+19:27:26.552 ./app/host/page.tsx:104:23
+19:27:26.552 Type error: Type '2 | 1 | 3 | 4' is not assignable to type '1 | undefined'.
+19:27:26.552   Type '2' is not assignable to type '1'.
+19:27:26.552 
+19:27:26.552 [0m [90m 102 |[39m                       key[33m=[39m{idx}
+19:27:26.552  [90m 103 |[39m                       variant[33m=[39m{duck[33m.[39mvariant}
+19:27:26.553 [31m[1m>[22m[39m[90m 104 |[39m                       drift[33m=[39m{duck[33m.[39mdrift}
+19:27:26.553  [90m     |[39m                       [31m[1m^[22m[39m
+19:27:26.553  [90m 105 |[39m                       delayMs[33m=[39m{duck[33m.[39mdelayMs}
+19:27:26.553  [90m 106 |[39m                       className[33m=[39m[32m"absolute duck-pop"[39m
+19:27:26.553  [90m 107 |[39m                       style[33m=[39m{duck[33m.[39mstyle}[0m
+19:27:26.579 Next.js build worker exited with code: 1 and signal: null
+19:27:26.610 Error: Command "npm run build" exited with 1

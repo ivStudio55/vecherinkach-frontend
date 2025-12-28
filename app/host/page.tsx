@@ -68,15 +68,7 @@ export default function HostPage() {
     maxHeight: 'min(calc(100vh - 48px), calc(100vw * 9 / 16))',
   };
 
-  const ducks = useMemo(
-    () => [
-      { variant: 1 as const, drift: 1 as const, delayMs: 200, style: { left: '8%', top: '12%' } },
-      { variant: 1 as const, drift: 2 as const, delayMs: 1200, style: { right: '6%', top: '18%' } },
-      { variant: 1 as const, drift: 3 as const, delayMs: 2100, style: { left: '12%', bottom: '16%' } },
-      { variant: 1 as const, drift: 4 as const, delayMs: 3000, style: { right: '10%', bottom: '18%' } },
-    ],
-    [],
-  );
+
 
   return (
     <div className="min-h-screen bg-[#fef4dc] text-[#142a45] px-4 py-6 lg:py-8" style={backgroundStyle}>
@@ -96,19 +88,6 @@ export default function HostPage() {
 
             <section className="grid min-h-0 flex-1 gap-6 overflow-auto lg:grid-cols-[1.1fr,0.9fr]">
               <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5 relative overflow-hidden">
-                <div className="absolute inset-0 pointer-events-none select-none opacity-95">
-                  {ducks.map((duck, idx) => (
-                    <DuckSprite
-                      key={idx}
-                      variant={duck.variant}
-                      drift={duck.drift}
-                      delayMs={duck.delayMs}
-                      className="absolute duck-pop"
-                      style={duck.style}
-                    />
-                  ))}
-                </div>
-
                 <div className="space-y-2">
                   <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Шаги подключения</p>
                   <h2 className="text-2xl font-black">Как проходит запуск</h2>
@@ -132,9 +111,10 @@ export default function HostPage() {
                     <img src="/qr-code.png" alt="QR код для подключения" className="w-32 h-32" />
                   </div>
                 </div>
-                <div className="rounded-2xl border-[3px] border-dashed border-[#142a45]/50 bg-[#fff6da] px-4 py-3 text-sm">
+                <div className="relative rounded-2xl border-[3px] border-dashed border-[#142a45]/50 bg-[#fff6da] px-4 py-3 text-sm">
                   <p className="font-semibold">Подсказка</p>
                   <p className="text-[#142a45]/70">Комната активна, пока вы не завершите раунд на панели. Повторное использование кода невозможно.</p>
+                  <DuckSprite variant={1} drift={1} delayMs={200} style={{ position: 'absolute', right: '10px', bottom: '10px', width: '64px', height: '64px' }} />
                 </div>
               </div>
 
