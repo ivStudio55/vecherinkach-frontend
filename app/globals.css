@@ -1,4 +1,4 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 
 :root {
   --background: #fef4dc;
@@ -102,59 +102,56 @@ body {
   }
 }
 
-/* Duck spritesheet animations (app/img/spritesheet/2.png is 1536x1024: 6x4 frames).
-   We scale it down via background-size so each frame becomes --duck-frame.
-*/
+/* Duck spritesheet animations (public/img/spritesheet/2.png is 1536x1024: 8x5 frames). */
 
 .duck-sprite {
   --duck-frame: 96px;
-  --duck-cols: 6;
-  --duck-rows: 4;
+  --duck-cols: 8;
+  --duck-rows: 5;
   --duck-row: 0;
 
   width: var(--duck-frame);
   height: var(--duck-frame);
   background-repeat: no-repeat;
-  background-position-x: 0px;
-  background-position-y: calc(var(--duck-row) * var(--duck-frame) * -1);
-  background-size: calc(var(--duck-frame) * var(--duck-cols))
-    calc(var(--duck-frame) * var(--duck-rows));
+  background-position-x: 0%;
+  background-position-y: calc(var(--duck-row) * -100%);
+  background-size: calc(var(--duck-cols) * 100%) calc(var(--duck-rows) * 100%);
   image-rendering: auto;
   will-change: background-position;
 }
 
 @keyframes duckStepX {
   from {
-    background-position-x: 0px;
+    background-position-x: 0%;
   }
   to {
-    background-position-x: calc((var(--duck-cols) - 1) * var(--duck-frame) * -1);
+    background-position-x: calc((var(--duck-cols) - 1) * -100%);
   }
 }
 
 .duck-variant-1 {
   --duck-row: 0;
-  animation: duckStepX 900ms steps(6) infinite;
+  animation: duckStepX 900ms steps(8) infinite;
 }
 
 .duck-variant-2 {
   --duck-row: 1;
-  animation: duckStepX 780ms steps(6) infinite;
+  animation: duckStepX 820ms steps(8) infinite;
 }
 
 .duck-variant-3 {
   --duck-row: 2;
-  animation: duckStepX 1050ms steps(6) infinite;
+  animation: duckStepX 1050ms steps(8) infinite;
 }
 
 .duck-variant-4 {
   --duck-row: 3;
-  animation: duckStepX 820ms steps(6) infinite;
+  animation: duckStepX 900ms steps(8) infinite;
 }
 
 .duck-variant-5 {
-  --duck-row: 1;
-  animation: duckStepX 680ms steps(6) infinite reverse;
+  --duck-row: 4;
+  animation: duckStepX 760ms steps(8) infinite reverse;
 }
 
 @keyframes duckAppear {
