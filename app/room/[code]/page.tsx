@@ -172,6 +172,11 @@ export default function RoomPage() {
   const [questionStartedAt, setQuestionStartedAt] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState(QUESTION_DURATION_SECONDS);
   const [showResults, setShowResults] = useState(false);
+  const [playerTotalPoints, setPlayerTotalPoints] = useState<number | null>(null);
+  const [playerRank, setPlayerRank] = useState<number | null>(null);
+  const [playersCount, setPlayersCount] = useState<number | null>(null);
+  const [isStandingLoading, setIsStandingLoading] = useState(false);
+  const [standingError, setStandingError] = useState('');
   const [roomStatus, setRoomStatus] = useState<RoomStatus>('waiting');
   const [round4Puzzles, setRound4Puzzles] = useState<Round4Puzzle[]>([]);
   const [round4Puzzle, setRound4Puzzle] = useState<Round4Puzzle | null>(null);
@@ -258,6 +263,59 @@ export default function RoomPage() {
   useEffect(() => {
     void loadRound5Data();
   }, [loadRound5Data]);
+
+  const loadPlayerStanding = useCallback(async () => {
+    if (!roomId || !playerId) {
+      return;
+    }
+
+    setStandingError('');
+    setIsStandingLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('players')
+        .select('id, total_points')
+        .eq('room_id', roomId);
+
+      if (error || !Array.isArray(data)) {
+        setStandingError('Не удалось загрузить рейтинг.');
+        return;
+      }
+
+      const normalized = data
+        .map((row) => ({
+          id: String((row as { id?: unknown }).id ?? ''),
+          totalPoints: coerceToNumber((row as { total_points?: unknown }).total_points) ?? 0,
+        }))
+        .filter((row) => row.id);
+
+      const me = normalized.find((row) => row.id === playerId);
+      const myPoints = me?.totalPoints ?? 0;
+
+      // Competition ranking: rank = 1 + number of players strictly above you.
+      const aboveCount = normalized.reduce((acc, row) => (row.totalPoints > myPoints ? acc + 1 : acc), 0);
+      const rank = normalized.length ? aboveCount + 1 : null;
+
+      setPlayersCount(normalized.length);
+      setPlayerTotalPoints(myPoints);
+      setPlayerRank(rank);
+    } catch (e) {
+      console.error('Failed to load player standing', e);
+      setStandingError('Не удалось загрузить рейтинг.');
+    } finally {
+      setIsStandingLoading(false);
+    }
+  }, [playerId, roomId]);
+
+  useEffect(() => {
+    if (!showResults) {
+      return;
+    }
+    if (roomStatus !== 'finished' && roomStatus !== 'final-results') {
+      return;
+    }
+    void loadPlayerStanding();
+  }, [loadPlayerStanding, roomStatus, showResults]);
 
   useEffect(() => {
     // If we are already in round4-running but puzzles didn't load (or loaded empty), retry a couple times.
@@ -1577,16 +1635,71 @@ export default function RoomPage() {
   const timerLabel = allPlayersAnswered ? 'Все ответили' : `${activeTimerSeconds} c`;
 
   if (showResults && (roomStatus === 'finished' || roomStatus === 'final-results')) {
+    const isFinal = roomStatus === 'final-results';
+    const isWinner = isFinal && playerRank === 1;
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#fef4dc] text-[#142a45] px-4 py-10">
         <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl max-w-lg w-full p-8 text-center space-y-4">
           <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">
-            {roomStatus === 'final-results' ? 'Игра завершена' : 'Раунд завершён'}
+            {isFinal ? 'Игра завершена' : 'Раунд завершён'}
           </p>
-          <h2 className="text-3xl font-black">🎉 Ждём объявления результатов</h2>
-          <p className="text-sm text-[#142a45]/80">
-            Ведущий сейчас озвучит правильные ответы и начисленные баллы. Не закрывайте вкладку, чтобы не потерять прогресс.
-          </p>
+          <h2 className="text-3xl font-black">{isFinal ? 'Финальные результаты' : 'Текущие результаты'}</h2>
+
+          <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-5 space-y-3">
+            <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/60">ВАШ ПРОГРЕСС</p>
+
+            {standingError ? (
+              <p className="text-sm font-semibold text-[#b23324]">{standingError}</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-white p-4">
+                  <p className="text-[11px] font-semibold tracking-[0.25em] text-[#142a45]/60">ОЧКИ</p>
+                  <p className="text-3xl font-black tabular-nums">{playerTotalPoints ?? (isStandingLoading ? '…' : '—')}</p>
+                </div>
+                <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-white p-4">
+                  <p className="text-[11px] font-semibold tracking-[0.25em] text-[#142a45]/60">МЕСТО</p>
+                  <p className="text-3xl font-black tabular-nums">
+                    {playerRank !== null ? `${playerRank}` : isStandingLoading ? '…' : '—'}
+                    {playersCount ? <span className="text-base font-black text-[#142a45]/60">/{playersCount}</span> : null}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={() => {
+                void loadPlayerStanding();
+              }}
+              className="w-full py-3 rounded-2xl border-[3px] border-[#142a45] bg-white font-black"
+              disabled={isStandingLoading}
+            >
+              {isStandingLoading ? 'Обновляем…' : 'Обновить данные'}
+            </button>
+            <button
+              onClick={() => {
+                window.location.reload();
+              }}
+              className="w-full py-3 rounded-2xl border-[3px] border-[#142a45] bg-[#ffe184] font-black"
+            >
+              Обновить экран
+            </button>
+          </div>
+
+          {isFinal && (
+            <div className={`rounded-3xl border-[4px] ${isWinner ? 'border-[#1f6ac6] bg-[#e9f0ff]' : 'border-[#142a45]/15 bg-[#f7f7f7]'} p-6 space-y-2`}>
+              <div className="text-5xl">{isWinner ? '🏆' : '🎊'}</div>
+              <p className={`text-2xl font-black ${isWinner ? 'text-[#1f6ac6]' : 'text-[#142a45]'}`}>
+                {isWinner ? 'Поздравляем! Ты победил!' : 'Спасибо за игру!'}
+              </p>
+              <p className="text-sm text-[#142a45]/70">
+                {isWinner
+                  ? 'Ведущий сейчас объявит результаты — наслаждайся победой.'
+                  : 'Ведущий сейчас объявит результаты и победителя.'}
+              </p>
+            </div>
+          )}
+
           <button
             onClick={() => router.push('/join')}
             className="w-full py-3 rounded-2xl border-[3px] border-[#142a45] bg-[#ffe184] font-black"
