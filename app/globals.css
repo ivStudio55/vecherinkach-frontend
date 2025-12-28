@@ -263,21 +263,21 @@ body {
 
 @keyframes duckPop {
   0%,
-  12% {
+  10% {
     opacity: 0;
-    transform: scale(0.9);
+    transform: scale(0.94);
   }
   18%,
-  78% {
+  85% {
     opacity: 1;
     transform: scale(1);
   }
   100% {
     opacity: 0;
-    transform: scale(0.9);
+    transform: scale(0.94);
   }
 }
 
 .duck-pop {
-  animation: duckPop 6.5s ease-in-out infinite;
+  animation: duckPop 9s ease-in-out infinite;
 }
