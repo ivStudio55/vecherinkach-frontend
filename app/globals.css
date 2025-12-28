@@ -105,27 +105,15 @@ body {
 /* Duck sprites: individual horizontal strips (see app/img/spritesheet/3-6.png). */
 
 .duck-sprite {
-  --duck-frame-width: 96px;
-  --duck-frame-height: 96px;
-  --duck-cols: 8;
-  --duck-rows: 1;
-
-  width: var(--duck-frame-width);
-  height: var(--duck-frame-height);
-  background-repeat: no-repeat;
-  background-position-x: 0px;
-  background-position-y: 0px;
-  background-size: calc(var(--duck-cols) * var(--duck-frame-width)) var(--duck-frame-height);
-  image-rendering: auto;
   will-change: background-position;
 }
 
-@keyframes duckStepX {
+@keyframes duckStepX-8 {
   from {
     background-position-x: 0px;
   }
   to {
-    background-position-x: calc((var(--duck-cols) - 1) * var(--duck-frame-width) * -1);
+    background-position-x: calc(7 * -177.75px);
   }
 }
 
