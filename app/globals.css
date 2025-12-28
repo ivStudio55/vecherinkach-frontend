@@ -113,19 +113,19 @@ body {
   width: var(--duck-frame);
   height: var(--duck-frame);
   background-repeat: no-repeat;
-  background-position-x: 0%;
-  background-position-y: calc(var(--duck-row) * -100%);
-  background-size: calc(var(--duck-cols) * 100%) calc(var(--duck-rows) * 100%);
+  background-position-x: 0px;
+  background-position-y: calc(var(--duck-row) * var(--duck-frame) * -1);
+  background-size: calc(var(--duck-cols) * var(--duck-frame)) calc(var(--duck-rows) * var(--duck-frame));
   image-rendering: auto;
   will-change: background-position;
 }
 
 @keyframes duckStepX {
   from {
-    background-position-x: 0%;
+    background-position-x: 0px;
   }
   to {
-    background-position-x: calc((var(--duck-cols) - 1) * -100%);
+    background-position-x: calc((var(--duck-cols) - 1) * var(--duck-frame) * -1);
   }
 }
 
