@@ -110,10 +110,10 @@ body {
 
 @keyframes duckStepX-8 {
   from {
-    background-position-x: 0px;
+    background-position-x: 0%;
   }
   to {
-    background-position-x: -448px;
+    background-position-x: calc(7 * -100%);
   }
 }
 
