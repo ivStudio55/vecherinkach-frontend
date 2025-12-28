@@ -70,10 +70,10 @@ export default function HostPage() {
 
   const ducks = useMemo(
     () => [
-      { variant: 1 as const, drift: 1 as const, size: 74, delayMs: 200, style: { left: '8%', top: '12%' } },
-      { variant: 2 as const, drift: 2 as const, size: 68, delayMs: 1200, style: { right: '6%', top: '18%' } },
-      { variant: 3 as const, drift: 3 as const, size: 80, delayMs: 2100, style: { left: '12%', bottom: '16%' } },
-      { variant: 4 as const, drift: 4 as const, size: 72, delayMs: 3000, style: { right: '10%', bottom: '18%' } },
+      { variant: 1 as const, drift: 1 as const, delayMs: 200, style: { left: '8%', top: '12%' } },
+      { variant: 2 as const, drift: 2 as const, delayMs: 1200, style: { right: '6%', top: '18%' } },
+      { variant: 3 as const, drift: 3 as const, delayMs: 2100, style: { left: '12%', bottom: '16%' } },
+      { variant: 4 as const, drift: 4 as const, delayMs: 3000, style: { right: '10%', bottom: '18%' } },
     ],
     [],
   );
@@ -102,7 +102,6 @@ export default function HostPage() {
                       key={idx}
                       variant={duck.variant}
                       drift={duck.drift}
-                      size={duck.size}
                       delayMs={duck.delayMs}
                       className="absolute duck-pop"
                       style={duck.style}
