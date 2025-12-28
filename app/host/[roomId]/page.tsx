@@ -415,6 +415,7 @@ export default function HostRoomPage() {
   const [round5CurrentQuestion, setRound5CurrentQuestion] = useState<Round5Question | null>(null);
   const [round5CurrentBankIndex, setRound5CurrentBankIndex] = useState<number | null>(null);
   const [isRound5Scoring, setIsRound5Scoring] = useState(false);
+  const [round5AnswerRows, setRound5AnswerRows] = useState<Round5AnswerRow[]>([]);
   const [isSummaryLoading, setIsSummaryLoading] = useState(false);
   const [roomStatus, setRoomStatus] = useState<RoomStatus>('waiting');
   const [serverAllPlayersAnswered, setServerAllPlayersAnswered] = useState(false);
@@ -3529,6 +3530,46 @@ export default function HostRoomPage() {
     [roomId, serverAllPlayersAnswered, totalPlayerCount]
   );
 
+  const loadRound5AnswerRows = useCallback(
+    async (bankQuestionIndex: number | null) => {
+      if (bankQuestionIndex === null || bankQuestionIndex === undefined) {
+        setRound5AnswerRows([]);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('round5_answers')
+        .select('id, player_id, answer_value, points_earned, submitted_at')
+        .eq('room_id', roomId)
+        .eq('question_index', bankQuestionIndex)
+        .order('submitted_at', { ascending: true });
+
+      if (error) {
+        console.error('Не удалось загрузить ответы Раунда 5', error);
+        setRound5AnswerRows([]);
+        return;
+      }
+
+      const rows = (data ?? []) as Round5AnswerRow[];
+      const latestByPlayer = new Map<string, Round5AnswerRow>();
+      for (const row of rows) {
+        latestByPlayer.set(row.player_id, row);
+      }
+
+      const unique = Array.from(latestByPlayer.values()).sort((a, b) =>
+        String(a.submitted_at).localeCompare(String(b.submitted_at))
+      );
+      setRound5AnswerRows(unique);
+    },
+    [roomId]
+  );
+
+  const loadRound5AnswerRowsRef = useRef(loadRound5AnswerRows);
+
+  useEffect(() => {
+    loadRound5AnswerRowsRef.current = loadRound5AnswerRows;
+  }, [loadRound5AnswerRows]);
+
   const loadRound5AnswerStatsRef = useRef(loadRound5AnswerStats);
 
   useEffect(() => {
@@ -3651,6 +3692,7 @@ export default function HostRoomPage() {
         setAnswerCount(0);
         setCorrectAnswerCount(0);
         setAnsweredPlayerIds([]);
+        setRound5AnswerRows([]);
         setRound4CurrentPuzzle(null);
         setRound4AnswerRows([]);
 
@@ -3671,6 +3713,7 @@ export default function HostRoomPage() {
         }
 
         await loadRound5AnswerStats(bankIndex);
+        await loadRound5AnswerRows(bankIndex);
         await loadRound2AnswerStats(null, { preserveRound1Counters: true });
       } else if (detectedStatus === 'final-results') {
         setIsTournamentVisible(true);
@@ -3723,6 +3766,7 @@ export default function HostRoomPage() {
       round4Puzzles,
       loadRound4AnswerStats,
       loadRound5AnswerStats,
+      loadRound5AnswerRows,
     ]
   );
 
@@ -4589,6 +4633,7 @@ export default function HostRoomPage() {
           }
           if (payload.new.question_index === currentBankIndex) {
             await loadRound5AnswerStatsRef.current?.(currentBankIndex);
+            await loadRound5AnswerRowsRef.current?.(currentBankIndex);
           }
         }
       )
@@ -4608,6 +4653,7 @@ export default function HostRoomPage() {
           }
           if (payload.new.question_index === currentBankIndex) {
             await loadRound5AnswerStatsRef.current?.(currentBankIndex);
+            await loadRound5AnswerRowsRef.current?.(currentBankIndex);
           }
         }
       )
@@ -5028,7 +5074,7 @@ export default function HostRoomPage() {
       return;
     }
     hasUserInteractedRef.current = true;
-    stopLobby();
+    stopAllAudioImmediate();
     void playConnectAudio(players.length);
     setIsPrestartVisible(true);
     setIsRulesVisible(false);
@@ -5746,6 +5792,7 @@ export default function HostRoomPage() {
         stopAllAudioImmediate();
         setIsRound3RulesVisible(true);
       } else {
+        stopAllAudioImmediate();
         setIsRound2RulesVisible(true);
       }
       return;
@@ -5926,6 +5973,12 @@ export default function HostRoomPage() {
       }
 
       const uniqueRows = Array.from(latestByPlayer.values());
+
+      setRound5AnswerRows(
+        uniqueRows
+          .slice()
+          .sort((a, b) => String(a.submitted_at).localeCompare(String(b.submitted_at)))
+      );
 
       const withPoints = uniqueRows.map((row) => {
         const points = calculateRound5Points(correct, row.answer_value);
@@ -7073,30 +7126,31 @@ export default function HostRoomPage() {
                             /{players.length}. Не проголосовали: <span className="font-semibold text-[#f1532f]">{round3SkippedVoterIds.length}</span>
                             {round3SkippedVoterIds.length > 0 ? ` (−${ROUND3_VOTE_SKIP_PENALTY} каждому)` : ''}.
                           </div>
-                          <div className="space-y-2">
+                          <div className="grid grid-cols-3 gap-2">
                             {round3ScoredAnswers
                               .slice()
                               .sort((a, b) => b.pointsEarned - a.pointsEarned || Number(b.isCorrect) - Number(a.isCorrect))
-                              .map((row) => (
+                              .map((row, index) => (
                                 <div
                                   key={row.playerId}
-                                  className={`rounded-2xl border-[3px] px-3 py-2 flex items-center justify-between ${
+                                  className={`rounded-2xl border-[3px] px-3 py-3 flex flex-col gap-2 animate-drop-in ${
                                     row.isCorrect ? 'border-[#1f6ac6]/30 bg-white' : 'border-[#f1532f]/30 bg-white'
                                   }`}
+                                  style={{ animationDelay: `${index * 35}ms` }}
                                 >
-                                  <div className="min-w-0">
-                                    <p className="font-semibold text-xs truncate">{getPlayerName(row.playerId)}</p>
-                                    <p className="text-3xl sm:text-4xl font-black leading-tight text-[#142a45] break-words">
-                                      {row.text?.trim() ? row.text : '(пусто)'}
-                                    </p>
-                                    <p className="text-[11px] text-[#142a45]/60">
-                                      Лайков: {row.votes} (+{row.votePoints})
-                                      {row.basePoints > 0 ? ` · Точный ответ: +${row.basePoints}` : ''}
-                                    </p>
+                                  <div className="flex items-start justify-between gap-2">
+                                    <p className="font-semibold text-xs truncate min-w-0">{getPlayerName(row.playerId)}</p>
+                                    <span className={`shrink-0 font-black text-xs ${row.pointsEarned > 0 ? 'text-[#1f6ac6]' : 'text-[#f1532f]'}`}>
+                                      {row.pointsEarned >= 0 ? `+${row.pointsEarned}` : row.pointsEarned}
+                                    </span>
                                   </div>
-                                  <span className={`font-black ${row.pointsEarned > 0 ? 'text-[#1f6ac6]' : 'text-[#f1532f]'}`}>
-                                    {row.pointsEarned >= 0 ? `+${row.pointsEarned}` : row.pointsEarned}
-                                  </span>
+                                  <p className="text-xl sm:text-2xl font-black leading-tight text-[#142a45] break-words">
+                                    {row.text?.trim() ? row.text : '(пусто)'}
+                                  </p>
+                                  <p className="text-[11px] text-[#142a45]/60">
+                                    Лайков: {row.votes} (+{row.votePoints})
+                                    {row.basePoints > 0 ? ` · Точный ответ: +${row.basePoints}` : ''}
+                                  </p>
                                 </div>
                               ))}
                           </div>
@@ -7173,7 +7227,7 @@ export default function HostRoomPage() {
                             .map((row, index) => (
                               <span
                                 key={row.id}
-                                className={`px-3 py-2 rounded-2xl border-[3px] font-black text-sm animate-drop-in ${
+                                className={`px-4 py-3 rounded-2xl border-[3px] font-black text-lg sm:text-xl animate-drop-in ${
                                   row.is_correct
                                     ? 'border-[#1f6ac6]/30 bg-white text-[#1f6ac6]'
                                     : 'border-[#142a45]/15 bg-white text-[#142a45]'
@@ -7235,18 +7289,101 @@ export default function HostRoomPage() {
                 </div>
 
                 {roomStatus === 'round5-explanation' && round5CurrentQuestion && (
-                  <div
-                    key={`round5-correct-${round5CurrentBankIndex ?? currentQuestionIndex}`}
-                    className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-5 space-y-3 text-center animate-correct-reveal"
-                  >
-                    <p className="retro-heading text-[11px] tracking-[0.5em] text-[#142a45]/70">Правильный ответ</p>
-                    <p className="text-5xl font-black text-[#1f6ac6]">{round5CurrentQuestion.answer}</p>
-                    {round5CurrentQuestion.explanation && (
-                      <p className="text-sm font-semibold text-[#142a45]/80 whitespace-pre-line">
-                        {round5CurrentQuestion.explanation}
-                      </p>
+                  <>
+                    <div
+                      key={`round5-correct-${round5CurrentBankIndex ?? currentQuestionIndex}`}
+                      className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-5 space-y-3 text-center animate-correct-reveal"
+                    >
+                      <p className="retro-heading text-[11px] tracking-[0.5em] text-[#142a45]/70">Правильный ответ</p>
+                      <p className="text-5xl font-black text-[#1f6ac6]">{round5CurrentQuestion.answer}</p>
+                      {round5CurrentQuestion.explanation && (
+                        <p className="text-sm font-semibold text-[#142a45]/80 whitespace-pre-line">
+                          {round5CurrentQuestion.explanation}
+                        </p>
+                      )}
+                    </div>
+
+                    {round5AnswerRows.length > 0 && (
+                      <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-white p-5 space-y-3">
+                        <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/60 text-center">Ответы игроков</p>
+                        <div className="space-y-2">
+                          {round5AnswerRows
+                            .slice()
+                            .sort((a, b) => String(a.submitted_at).localeCompare(String(b.submitted_at)))
+                            .map((row, index) => {
+                              const correct = round5CurrentQuestion.answer;
+                              const answer = row.answer_value;
+                              const outOfBounds =
+                                !Number.isFinite(correct) ||
+                                correct <= 0 ||
+                                !Number.isFinite(answer) ||
+                                answer <= 0 ||
+                                answer >= correct * 2;
+
+                              const deviationPercent =
+                                !outOfBounds && correct > 0
+                                  ? Math.max(0, Math.min(100, Math.round((Math.abs(correct - answer) / correct) * 100)))
+                                  : 100;
+
+                              const mix = deviationPercent / 100;
+                              const blue = { r: 0x1f, g: 0x6a, b: 0xc6 };
+                              const red = { r: 0xf1, g: 0x53, b: 0x2f };
+                              const tone = `rgb(${Math.round(blue.r + (red.r - blue.r) * mix)}, ${Math.round(
+                                blue.g + (red.g - blue.g) * mix
+                              )}, ${Math.round(blue.b + (red.b - blue.b) * mix)})`;
+
+                              const leftValue = answer <= correct ? answer : correct;
+                              const rightValue = answer <= correct ? correct : answer;
+                              const correctOnLeft = answer > correct;
+
+                              return (
+                                <div
+                                  key={row.id}
+                                  className="rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] px-4 py-3 animate-drop-in"
+                                  style={{ animationDelay: `${index * 40}ms` }}
+                                >
+                                  <div className="flex items-start justify-between gap-3">
+                                    <p className="text-xs font-semibold text-[#142a45]/80 truncate min-w-0">
+                                      {getPlayerName(row.player_id)}
+                                    </p>
+                                    <span
+                                      className={`font-black tabular-nums ${outOfBounds ? 'text-black text-sm' : 'text-2xl'}`}
+                                      style={outOfBounds ? undefined : { color: tone }}
+                                    >
+                                      {Number.isFinite(answer) ? Math.round(answer) : '—'}
+                                    </span>
+                                  </div>
+
+                                  <div className="mt-2 flex items-center gap-2 text-xs font-black">
+                                    <span className="text-[#142a45]/60">[</span>
+                                    <span
+                                      className={`tabular-nums ${correctOnLeft ? 'text-[#1f6ac6]' : outOfBounds ? 'text-black' : ''}`}
+                                      style={!correctOnLeft && !outOfBounds ? { color: tone } : undefined}
+                                    >
+                                      {Number.isFinite(leftValue) ? Math.round(leftValue) : '—'}
+                                    </span>
+                                    <span className="flex-1 border-t-2 border-dotted border-[#142a45]/25" />
+                                    <span
+                                      className={`tabular-nums ${!correctOnLeft ? 'text-[#1f6ac6]' : outOfBounds ? 'text-black' : ''}`}
+                                      style={correctOnLeft && !outOfBounds ? { color: tone } : undefined}
+                                    >
+                                      {Number.isFinite(rightValue) ? Math.round(rightValue) : '—'}
+                                    </span>
+                                    <span className="text-[#142a45]/60">]</span>
+                                  </div>
+
+                                  {outOfBounds && Number.isFinite(correct) && correct > 0 && (
+                                    <p className="mt-1 text-[11px] font-semibold text-[#142a45]/60">
+                                      Ответ вне диапазона (0…{Math.round(correct * 2)})
+                                    </p>
+                                  )}
+                                </div>
+                              );
+                            })}
+                        </div>
+                      </div>
                     )}
-                  </div>
+                  </>
                 )}
               </div>
             ) : question ? (
