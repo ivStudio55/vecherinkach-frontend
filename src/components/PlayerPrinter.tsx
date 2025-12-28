@@ -58,7 +58,7 @@ export const PlayerPrinter = forwardRef<PlayerPrinterRef, PlayerPrinterProps>(({
 
 
   return (
-    <div className="player-printer" style={{ width: '280px', height: '320px', position: 'relative', marginRight: '20px', marginTop: '-40px' }}>
+    <div className="player-printer" style={{ width: '280px', height: '320px', position: 'relative', marginRight: '20px', marginTop: '-80px' }}>
       <div className="top" style={{
         width: '240px',
         height: '48px',

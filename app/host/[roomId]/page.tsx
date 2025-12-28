@@ -6988,7 +6988,7 @@ export default function HostRoomPage() {
                 <button
                   onClick={handlePrepareRound}
                   disabled={players.length === 0}
-                  className="hover:scale-105 hover:shadow-lg transition-all duration-200 w-full py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] disabled:opacity-40 disabled:cursor-not-allowed host-start-blink"
+                  className="hover:scale-105 hover:shadow-lg transition-all duration-200 w-1/3 py-2 rounded-2xl font-black text-base tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] disabled:opacity-40 disabled:cursor-not-allowed host-start-blink"
                 >
                   Начать игру →
                 </button>
