@@ -4,7 +4,6 @@ import { useMemo, useState, CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import backTexture from '../img/back2.png';
-import { DuckSprite } from '@/components/DuckSprite';
 
 export default function HostPage() {
   const router = useRouter();
@@ -88,7 +87,6 @@ export default function HostPage() {
 
             <section className="grid min-h-0 flex-1 gap-6 overflow-auto lg:grid-cols-[1.1fr,0.9fr]">
               <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5 relative overflow-hidden">
-                <DuckSprite variant={2} drift={1} delayMs={0} style={{ position: 'absolute', left: '0%', bottom: '50px', width: '64px', height: '64px' }} />
                 <div className="space-y-2">
                   <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Шаги подключения</p>
                   <h2 className="text-2xl font-black">Как проходит запуск</h2>
@@ -115,7 +113,6 @@ export default function HostPage() {
                 <div className="relative rounded-2xl border-[3px] border-dashed border-[#142a45]/50 bg-[#fff6da] px-4 py-3 text-sm">
                   <p className="font-semibold">Подсказка</p>
                   <p className="text-[#142a45]/70">Комната активна, пока вы не завершите раунд на панели. Повторное использование кода невозможно.</p>
-                  <DuckSprite variant={1} drift={1} delayMs={200} style={{ position: 'absolute', right: '10px', bottom: '5px', width: '64px', height: '64px' }} />
                 </div>
               </div>
 
