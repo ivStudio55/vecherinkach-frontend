@@ -21,7 +21,7 @@ export function DuckSprite({
   style,
 }: DuckSpriteProps) {
   const spriteMap: Record<DuckVariant, { src: string; frames: number; durationMs: number; frameWidth: number; frameHeight: number }> = {
-    1: { src: '/img/spritesheet/3.png', frames: 8, durationMs: 900, frameWidth: 177.75, frameHeight: 187 },
+    1: { src: '/img/spritesheet/3.png', frames: 9, durationMs: 900, frameWidth: 158, frameHeight: 187 },
   };
 
   const sprite = spriteMap[variant];
