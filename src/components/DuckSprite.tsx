@@ -1,7 +1,7 @@
 'use client';
 
 import { CSSProperties } from 'react';
-import duckSheet from '@/../app/img/spritesheet/2.png';
+import duckSheet from '../../app/img/spritesheet/2.png';
 
 type DuckVariant = 1 | 2 | 3 | 4 | 5;
 
