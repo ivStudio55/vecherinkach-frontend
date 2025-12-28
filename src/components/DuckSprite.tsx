@@ -32,6 +32,9 @@ export function DuckSprite({
     ...style,
   };
 
+  const baseAnimation = `duckStepX-8 ${sprite.durationMs}ms steps(${sprite.frames}) infinite`;
+  const extraAnimation = variant === 2 ? ', duckFlyHorizontal 4s ease-in-out infinite alternate' : '';
+
   const spriteStyle: CSSProperties = {
     // Explicit sizing/background math to avoid bleeding or showing the whole strip at once.
     width: `${sprite.frameWidth}px`,
@@ -42,7 +45,7 @@ export function DuckSprite({
     backgroundPosition: '0px 0px',
     backgroundSize: `${sprite.frameWidth * sprite.frames}px ${sprite.frameHeight}px`,
     imageRendering: 'pixelated',
-    animation: `duckStepX-8 ${sprite.durationMs}ms steps(${sprite.frames}) infinite`,
+    animation: `${baseAnimation}${extraAnimation}`,
   } as CSSProperties;
 
   return (
