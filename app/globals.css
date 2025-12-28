@@ -115,7 +115,7 @@ body {
   background-repeat: no-repeat;
   background-position-x: 0%;
   background-position-y: 0%;
-  background-size: 100% 100%;
+  background-size: calc(var(--duck-cols) * 100%) 100%;
   image-rendering: auto;
   will-change: background-position;
 }
@@ -125,7 +125,7 @@ body {
     background-position-x: 0%;
   }
   to {
-    background-position-x: calc((var(--duck-cols) - 1) * -100% / var(--duck-cols));
+    background-position-x: calc((var(--duck-cols) - 1) * -100%);
   }
 }
 
