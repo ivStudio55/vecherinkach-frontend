@@ -7306,23 +7306,32 @@ export default function HostRoomPage() {
                     {round5AnswerRows.length > 0 && (
                       <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-white p-5 space-y-3">
                         <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/60 text-center">Ответы игроков</p>
-                        <div className="space-y-2">
-                          {round5AnswerRows
-                            .slice()
-                            .sort((a, b) => String(a.submitted_at).localeCompare(String(b.submitted_at)))
-                            .map((row, index) => {
-                              const correct = round5CurrentQuestion.answer;
-                              const answer = row.answer_value;
-                              const outOfBounds =
-                                !Number.isFinite(correct) ||
-                                correct <= 0 ||
-                                !Number.isFinite(answer) ||
-                                answer <= 0 ||
-                                answer >= correct * 2;
+                        {(() => {
+                          const correct = round5CurrentQuestion.answer;
+                          const clampedCorrect = Number.isFinite(correct) ? correct : 0;
+                          const maxAllowed = clampedCorrect > 0 ? clampedCorrect * 2 : 0;
 
+                          const sorted = round5AnswerRows
+                            .slice()
+                            .sort((a, b) => String(a.submitted_at).localeCompare(String(b.submitted_at)));
+
+                          const inRange = sorted.filter((row) => {
+                            const answer = row.answer_value;
+                            return Number.isFinite(clampedCorrect) && clampedCorrect > 0 && Number.isFinite(answer) && answer > 0 && answer < maxAllowed;
+                          });
+
+                          const outOfRange = sorted.filter((row) => {
+                            const answer = row.answer_value;
+                            return !(Number.isFinite(clampedCorrect) && clampedCorrect > 0 && Number.isFinite(answer) && answer > 0 && answer < maxAllowed);
+                          });
+
+                          const lanes = [-34, -14, 14, 34, -52, 52];
+                          const positioned = inRange
+                            .map((row) => {
+                              const answer = row.answer_value;
                               const deviationPercent =
-                                !outOfBounds && correct > 0
-                                  ? Math.max(0, Math.min(100, Math.round((Math.abs(correct - answer) / correct) * 100)))
+                                clampedCorrect > 0
+                                  ? Math.max(0, Math.min(100, Math.round((Math.abs(clampedCorrect - answer) / clampedCorrect) * 100)))
                                   : 100;
 
                               const mix = deviationPercent / 100;
@@ -7332,55 +7341,79 @@ export default function HostRoomPage() {
                                 blue.g + (red.g - blue.g) * mix
                               )}, ${Math.round(blue.b + (red.b - blue.b) * mix)})`;
 
-                              const leftValue = answer <= correct ? answer : correct;
-                              const rightValue = answer <= correct ? correct : answer;
-                              const correctOnLeft = answer > correct;
+                              const xPercent = maxAllowed > 0 ? Math.max(0, Math.min(100, (answer / maxAllowed) * 100)) : 50;
+                              return { row, xPercent, tone, deviationPercent };
+                            })
+                            .sort((a, b) => Math.abs(a.xPercent - 50) - Math.abs(b.xPercent - 50));
 
-                              return (
-                                <div
-                                  key={row.id}
-                                  className="rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] px-4 py-3 animate-drop-in"
-                                  style={{ animationDelay: `${index * 40}ms` }}
-                                >
-                                  <div className="flex items-start justify-between gap-3">
-                                    <p className="text-xs font-semibold text-[#142a45]/80 truncate min-w-0">
-                                      {getPlayerName(row.player_id)}
-                                    </p>
-                                    <span
-                                      className={`font-black tabular-nums ${outOfBounds ? 'text-black text-sm' : 'text-2xl'}`}
-                                      style={outOfBounds ? undefined : { color: tone }}
-                                    >
-                                      {Number.isFinite(answer) ? Math.round(answer) : '—'}
-                                    </span>
+                          return (
+                            <>
+                              <div className="rounded-2xl border-[3px] border-dashed border-[#142a45]/25 bg-[#fff6da] p-4">
+                                <div className="relative h-[160px]">
+                                  <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 border-t-[3px] border-[#142a45]/20" />
+                                  <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+                                    <div className="rounded-2xl border-[3px] border-[#1f6ac6]/40 bg-white px-4 py-2 text-center shadow-sm">
+                                      <p className="text-[11px] tracking-[0.3em] text-[#142a45]/60 font-semibold">правильный</p>
+                                      <p className="text-3xl font-black text-[#1f6ac6] tabular-nums">{Math.round(clampedCorrect)}</p>
+                                    </div>
                                   </div>
 
-                                  <div className="mt-2 flex items-center gap-2 text-xs font-black">
-                                    <span className="text-[#142a45]/60">[</span>
-                                    <span
-                                      className={`tabular-nums ${correctOnLeft ? 'text-[#1f6ac6]' : outOfBounds ? 'text-black' : ''}`}
-                                      style={!correctOnLeft && !outOfBounds ? { color: tone } : undefined}
-                                    >
-                                      {Number.isFinite(leftValue) ? Math.round(leftValue) : '—'}
-                                    </span>
-                                    <span className="flex-1 border-t-2 border-dotted border-[#142a45]/25" />
-                                    <span
-                                      className={`tabular-nums ${!correctOnLeft ? 'text-[#1f6ac6]' : outOfBounds ? 'text-black' : ''}`}
-                                      style={correctOnLeft && !outOfBounds ? { color: tone } : undefined}
-                                    >
-                                      {Number.isFinite(rightValue) ? Math.round(rightValue) : '—'}
-                                    </span>
-                                    <span className="text-[#142a45]/60">]</span>
-                                  </div>
+                                  {positioned.map((item, index) => {
+                                    const laneOffset = lanes[index % lanes.length] ?? 0;
+                                    return (
+                                      <div
+                                        key={item.row.id}
+                                        className="absolute top-1/2 animate-drop-in"
+                                        style={{
+                                          left: `${item.xPercent}%`,
+                                          transform: 'translate(-50%, -50%)',
+                                          marginTop: `${laneOffset}px`,
+                                          animationDelay: `${index * 35}ms`,
+                                        }}
+                                      >
+                                        <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-white px-3 py-2 text-center min-w-[84px]">
+                                          <p className="text-[11px] font-semibold text-[#142a45]/70 truncate max-w-[120px]">
+                                            {getPlayerName(item.row.player_id)}
+                                          </p>
+                                          <p className="text-xl font-black tabular-nums" style={{ color: item.tone }}>
+                                            {Math.round(item.row.answer_value)}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
 
-                                  {outOfBounds && Number.isFinite(correct) && correct > 0 && (
-                                    <p className="mt-1 text-[11px] font-semibold text-[#142a45]/60">
-                                      Ответ вне диапазона (0…{Math.round(correct * 2)})
+                                <div className="mt-2 flex items-center justify-between text-[11px] font-semibold text-[#142a45]/60">
+                                  <span>0</span>
+                                  <span>{maxAllowed > 0 ? Math.round(maxAllowed) : '—'}</span>
+                                </div>
+                              </div>
+
+                              {outOfRange.length > 0 && (
+                                <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-white p-4 mt-3">
+                                  <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/60 text-center">Вне диапазона</p>
+                                  <div className="mt-3 flex flex-wrap gap-2 justify-center">
+                                    {outOfRange.map((row, index) => (
+                                      <span
+                                        key={row.id}
+                                        className="px-3 py-2 rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] text-black text-sm font-black tabular-nums animate-drop-in"
+                                        style={{ animationDelay: `${index * 30}ms` }}
+                                      >
+                                        {getPlayerName(row.player_id)}: {Number.isFinite(row.answer_value) ? Math.round(row.answer_value) : '—'}
+                                      </span>
+                                    ))}
+                                  </div>
+                                  {maxAllowed > 0 && (
+                                    <p className="mt-2 text-[11px] font-semibold text-[#142a45]/60 text-center">
+                                      Очки начисляются только за ответы в диапазоне (0…{Math.round(maxAllowed)})
                                     </p>
                                   )}
                                 </div>
-                              );
-                            })}
-                        </div>
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
                     )}
                   </>
