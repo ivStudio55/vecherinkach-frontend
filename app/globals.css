@@ -85,4 +85,171 @@ body {
   .animate-correct-reveal {
     animation: none;
   }
+
+  .duck-sprite,
+  .duck-appear,
+  .duck-drift-1,
+  .duck-drift-2,
+  .duck-drift-3,
+  .duck-drift-4,
+  .duck-drift-5 {
+    animation: none !important;
+  }
+}
+
+/* Duck spritesheet animations (app/img/spritesheet/2.png is 1536x1024: 6x4 frames).
+   We scale it down via background-size so each frame becomes --duck-frame.
+*/
+
+.duck-sprite {
+  --duck-frame: 96px;
+  --duck-cols: 6;
+  --duck-rows: 4;
+  --duck-row: 0;
+
+  width: var(--duck-frame);
+  height: var(--duck-frame);
+  background-repeat: no-repeat;
+  background-position-x: 0px;
+  background-position-y: calc(var(--duck-row) * var(--duck-frame) * -1);
+  background-size: calc(var(--duck-frame) * var(--duck-cols))
+    calc(var(--duck-frame) * var(--duck-rows));
+  image-rendering: auto;
+  will-change: background-position;
+}
+
+@keyframes duckStepX {
+  from {
+    background-position-x: 0px;
+  }
+  to {
+    background-position-x: calc((var(--duck-cols) - 1) * var(--duck-frame) * -1);
+  }
+}
+
+.duck-variant-1 {
+  --duck-row: 0;
+  animation: duckStepX 900ms steps(6) infinite;
+}
+
+.duck-variant-2 {
+  --duck-row: 1;
+  animation: duckStepX 780ms steps(6) infinite;
+}
+
+.duck-variant-3 {
+  --duck-row: 2;
+  animation: duckStepX 1050ms steps(6) infinite;
+}
+
+.duck-variant-4 {
+  --duck-row: 3;
+  animation: duckStepX 820ms steps(6) infinite;
+}
+
+.duck-variant-5 {
+  --duck-row: 1;
+  animation: duckStepX 680ms steps(6) infinite reverse;
+}
+
+@keyframes duckAppear {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.duck-appear {
+  opacity: 0;
+  animation: duckAppear 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  will-change: transform, opacity;
+}
+
+@keyframes duckDrift1 {
+  0% {
+    transform: translate(0px, 0px) rotate(0deg);
+  }
+  50% {
+    transform: translate(8px, -6px) rotate(-1deg);
+  }
+  100% {
+    transform: translate(0px, 0px) rotate(0deg);
+  }
+}
+
+@keyframes duckDrift2 {
+  0% {
+    transform: translate(0px, 0px) rotate(0deg);
+  }
+  50% {
+    transform: translate(-10px, 7px) rotate(1deg);
+  }
+  100% {
+    transform: translate(0px, 0px) rotate(0deg);
+  }
+}
+
+@keyframes duckDrift3 {
+  0% {
+    transform: translate(0px, 0px) rotate(0deg);
+  }
+  50% {
+    transform: translate(6px, 10px) rotate(-1deg);
+  }
+  100% {
+    transform: translate(0px, 0px) rotate(0deg);
+  }
+}
+
+@keyframes duckDrift4 {
+  0% {
+    transform: translate(0px, 0px) rotate(0deg);
+  }
+  50% {
+    transform: translate(-7px, -8px) rotate(1deg);
+  }
+  100% {
+    transform: translate(0px, 0px) rotate(0deg);
+  }
+}
+
+@keyframes duckDrift5 {
+  0% {
+    transform: translate(0px, 0px) rotate(0deg);
+  }
+  50% {
+    transform: translate(12px, 0px) rotate(0deg);
+  }
+  100% {
+    transform: translate(0px, 0px) rotate(0deg);
+  }
+}
+
+.duck-drift-1 {
+  animation: duckDrift1 6.4s ease-in-out infinite;
+  will-change: transform;
+}
+
+.duck-drift-2 {
+  animation: duckDrift2 7.2s ease-in-out infinite;
+  will-change: transform;
+}
+
+.duck-drift-3 {
+  animation: duckDrift3 5.8s ease-in-out infinite;
+  will-change: transform;
+}
+
+.duck-drift-4 {
+  animation: duckDrift4 6.8s ease-in-out infinite;
+  will-change: transform;
+}
+
+.duck-drift-5 {
+  animation: duckDrift5 8.1s ease-in-out infinite;
+  will-change: transform;
 }

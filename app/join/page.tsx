@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { generateRandomName } from '@/lib/nameGenerator';
 import backTexture from '../img/back2.png';
+import { DuckSprite } from '@/components/DuckSprite';
 
 export default function JoinPage() {
   const router = useRouter();
@@ -89,8 +90,51 @@ export default function JoinPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#fef4dc] text-[#142a45] px-4 py-10" style={backgroundStyle}>
-      <div className="max-w-3xl mx-auto space-y-6">
+    <div className="min-h-screen bg-[#fef4dc] text-[#142a45] px-4 py-10 relative overflow-hidden" style={backgroundStyle}>
+      <div className="absolute inset-0 pointer-events-none select-none">
+        <DuckSprite
+          variant={1}
+          drift={1}
+          size={96}
+          delayMs={250}
+          className="absolute"
+          style={{ left: '6%', top: '14%' }}
+        />
+        <DuckSprite
+          variant={2}
+          drift={2}
+          size={84}
+          delayMs={1100}
+          className="absolute"
+          style={{ right: '10%', top: '20%' }}
+        />
+        <DuckSprite
+          variant={3}
+          drift={3}
+          size={104}
+          delayMs={1900}
+          className="absolute"
+          style={{ left: '10%', bottom: '18%' }}
+        />
+        <DuckSprite
+          variant={4}
+          drift={4}
+          size={88}
+          delayMs={2700}
+          className="absolute"
+          style={{ right: '6%', bottom: '24%' }}
+        />
+        <DuckSprite
+          variant={5}
+          drift={5}
+          size={76}
+          delayMs={3400}
+          className="absolute"
+          style={{ left: '42%', top: '9%' }}
+        />
+      </div>
+
+      <div className="max-w-3xl mx-auto space-y-6 relative z-10">
         <header className="retro-panel bg-[#142a45] text-[#ffeccd] px-6 py-5">
           <p className="retro-heading text-xs tracking-[0.5em] text-[#ffeccd]/80">Подключение игроков</p>
           <h1 className="text-3xl font-black leading-tight">Введите код комнаты и присоединяйтесь</h1>
