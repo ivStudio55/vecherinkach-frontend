@@ -3,11 +3,12 @@
 import { CSSProperties } from 'react';
 
 type DuckVariant = 1;
+type DuckDrift = 1 | 2 | 3 | 4;
 
 type DuckSpriteProps = {
   variant: DuckVariant;
   delayMs?: number;
-  drift?: DuckVariant;
+  drift?: DuckDrift;
   className?: string;
   style?: CSSProperties;
 };
@@ -15,7 +16,7 @@ type DuckSpriteProps = {
 export function DuckSprite({
   variant,
   delayMs = 0,
-  drift = variant,
+  drift = 1,
   className,
   style,
 }: DuckSpriteProps) {
