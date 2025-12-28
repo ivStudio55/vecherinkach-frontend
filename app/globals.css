@@ -260,3 +260,24 @@ body {
   outline: 3px dashed #142a45;
   outline-offset: 4px;
 }
+
+@keyframes duckPop {
+  0%,
+  12% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  18%,
+  78% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+
+.duck-pop {
+  animation: duckPop 6.5s ease-in-out infinite;
+}

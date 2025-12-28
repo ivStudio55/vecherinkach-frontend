@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, CSSProperties } from 'react';
+import { useMemo, useState, CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import backTexture from '../img/back2.png';
@@ -68,6 +68,17 @@ export default function HostPage() {
     maxHeight: 'min(calc(100vh - 48px), calc(100vw * 9 / 16))',
   };
 
+  const ducks = useMemo(
+    () => [
+      { variant: 1 as const, drift: 1 as const, size: 74, delayMs: 200, style: { left: '8%', top: '12%' } },
+      { variant: 2 as const, drift: 2 as const, size: 68, delayMs: 1200, style: { right: '6%', top: '18%' } },
+      { variant: 3 as const, drift: 3 as const, size: 80, delayMs: 2100, style: { left: '12%', bottom: '16%' } },
+      { variant: 4 as const, drift: 4 as const, size: 72, delayMs: 3000, style: { right: '10%', bottom: '18%' } },
+      { variant: 5 as const, drift: 5 as const, size: 64, delayMs: 3600, style: { left: '45%', top: '8%' } },
+    ],
+    [],
+  );
+
   return (
     <div className="min-h-screen bg-[#fef4dc] text-[#142a45] px-4 py-6 lg:py-8" style={backgroundStyle}>
       <div className="mx-auto flex w-full max-w-[1600px] items-center justify-center">
@@ -76,61 +87,30 @@ export default function HostPage() {
           style={frameStyle}
         >
           <div className="flex h-full flex-col gap-6 overflow-hidden">
-            <header className="retro-panel bg-[#142a45] text-[#ffeccd] px-6 py-5 shrink-0 relative overflow-hidden">
-              <div className="absolute inset-0 pointer-events-none select-none opacity-90">
-                <DuckSprite
-                  variant={1}
-                  drift={1}
-                  size={78}
-                  delayMs={250}
-                  className="absolute"
-                  style={{ left: '10px', top: '10px' }}
-                />
-                <DuckSprite
-                  variant={2}
-                  drift={2}
-                  size={70}
-                  delayMs={1050}
-                  className="absolute"
-                  style={{ right: '16px', top: '14px' }}
-                />
-                <DuckSprite
-                  variant={3}
-                  drift={3}
-                  size={82}
-                  delayMs={1650}
-                  className="absolute"
-                  style={{ left: '18px', bottom: '12px' }}
-                />
-                <DuckSprite
-                  variant={4}
-                  drift={4}
-                  size={72}
-                  delayMs={2350}
-                  className="absolute"
-                  style={{ right: '10px', bottom: '10px' }}
-                />
-                <DuckSprite
-                  variant={5}
-                  drift={5}
-                  size={64}
-                  delayMs={3000}
-                  className="absolute"
-                  style={{ left: '46%', top: '6px' }}
-                />
-              </div>
-
-              <div className="relative z-10">
-                <p className="retro-heading text-xs tracking-[0.5em] text-[#ffeccd]/70">Ведущая станция</p>
-                <h1 className="text-3xl sm:text-4xl font-black leading-tight">Создайте комнату и берите управление в свои руки</h1>
-                <p className="text-sm text-[#ffeccd]/70 mt-2">
-                  После создания комнаты вы получите код из четырёх цифр. Им можно делиться на экране или голосом.
-                </p>
-              </div>
+            <header className="retro-panel bg-[#142a45] text-[#ffeccd] px-6 py-5 shrink-0">
+              <p className="retro-heading text-xs tracking-[0.5em] text-[#ffeccd]/70">Ведущая станция</p>
+              <h1 className="text-3xl sm:text-4xl font-black leading-tight">Создайте комнату и берите управление в свои руки</h1>
+              <p className="text-sm text-[#ffeccd]/70 mt-2">
+                После создания комнаты вы получите код из четырёх цифр. Им можно делиться на экране или голосом.
+              </p>
             </header>
 
             <section className="grid min-h-0 flex-1 gap-6 overflow-auto lg:grid-cols-[1.1fr,0.9fr]">
-              <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
+              <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5 relative overflow-hidden">
+                <div className="absolute inset-0 pointer-events-none select-none opacity-95">
+                  {ducks.map((duck, idx) => (
+                    <DuckSprite
+                      key={idx}
+                      variant={duck.variant}
+                      drift={duck.drift}
+                      size={duck.size}
+                      delayMs={duck.delayMs}
+                      className="absolute duck-pop"
+                      style={duck.style}
+                    />
+                  ))}
+                </div>
+
                 <div className="space-y-2">
                   <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Шаги подключения</p>
                   <h2 className="text-2xl font-black">Как проходит запуск</h2>
