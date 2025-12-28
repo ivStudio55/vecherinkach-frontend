@@ -10,12 +10,20 @@ export interface PlayerPrinterRef {
   addPaper: (name: string) => void;
 }
 
+interface Paper {
+  name: string;
+  printed: boolean;
+}
+
 export const PlayerPrinter = forwardRef<PlayerPrinterRef, PlayerPrinterProps>(({ onPlayerJoin }, ref) => {
-  const [papers, setPapers] = useState<string[]>([]);
+  const [papers, setPapers] = useState<Paper[]>([]);
 
   useImperativeHandle(ref, () => ({
     addPaper: (name: string) => {
-      setPapers(prev => [...prev, name]);
+      setPapers(prev => [...prev, { name, printed: false }]);
+      setTimeout(() => {
+        setPapers(prev => prev.map((p, i) => i === prev.length - 1 ? { ...p, printed: true } : p));
+      }, 50);
     },
   }));
 
@@ -47,13 +55,6 @@ export const PlayerPrinter = forwardRef<PlayerPrinterRef, PlayerPrinterProps>(({
     document.addEventListener('mousemove', handleMouseMove);
     return () => document.removeEventListener('mousemove', handleMouseMove);
   }, []);
-
-  const addPaper = (name: string) => {
-    setPapers(prev => [...prev, name]);
-    setTimeout(() => {
-      setPapers(prev => prev.slice(1));
-    }, 2000); // Remove after animation
-  };
 
 
 
@@ -149,10 +150,10 @@ export const PlayerPrinter = forwardRef<PlayerPrinterRef, PlayerPrinterProps>(({
         boxShadow: '0 0 12px #2ecc71',
         animation: 'blink 1.5s infinite'
       }}></div>
-      {papers.map((name, index) => (
+      {papers.map((paper, index) => (
         <div
-          key={`${name}-${index}`}
-          className={`paper ${index < papers.length ? 'printed' : ''}`}
+          key={`${paper.name}-${index}`}
+          className={`paper ${paper.printed ? 'printed' : ''}`}
           style={{
             width: '200px',
             height: '280px',
@@ -174,7 +175,7 @@ export const PlayerPrinter = forwardRef<PlayerPrinterRef, PlayerPrinterProps>(({
             zIndex: 1
           }}
         >
-          {name}
+          {paper.name}
         </div>
       ))}
       <style jsx>{`
