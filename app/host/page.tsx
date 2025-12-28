@@ -74,7 +74,6 @@ export default function HostPage() {
       { variant: 2 as const, drift: 2 as const, size: 68, delayMs: 1200, style: { right: '6%', top: '18%' } },
       { variant: 3 as const, drift: 3 as const, size: 80, delayMs: 2100, style: { left: '12%', bottom: '16%' } },
       { variant: 4 as const, drift: 4 as const, size: 72, delayMs: 3000, style: { right: '10%', bottom: '18%' } },
-      { variant: 5 as const, drift: 5 as const, size: 64, delayMs: 3600, style: { left: '45%', top: '8%' } },
     ],
     [],
   );

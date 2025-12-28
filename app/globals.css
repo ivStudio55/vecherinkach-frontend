@@ -102,12 +102,12 @@ body {
   }
 }
 
-/* Duck spritesheet animations (public/img/spritesheet/2.png is 1536x1024: 8x5 frames). */
+/* Duck sprites: individual horizontal strips (see app/img/spritesheet/3-6.png). */
 
 .duck-sprite {
   --duck-frame: 96px;
   --duck-cols: 8;
-  --duck-rows: 5;
+  --duck-rows: 1;
   --duck-row: 0;
 
   width: var(--duck-frame);
@@ -127,31 +127,6 @@ body {
   to {
     background-position-x: calc((var(--duck-cols) - 1) * var(--duck-frame) * -1);
   }
-}
-
-.duck-variant-1 {
-  --duck-row: 0;
-  animation: duckStepX 900ms steps(8) infinite;
-}
-
-.duck-variant-2 {
-  --duck-row: 1;
-  animation: duckStepX 820ms steps(8) infinite;
-}
-
-.duck-variant-3 {
-  --duck-row: 2;
-  animation: duckStepX 1050ms steps(8) infinite;
-}
-
-.duck-variant-4 {
-  --duck-row: 3;
-  animation: duckStepX 900ms steps(8) infinite;
-}
-
-.duck-variant-5 {
-  --duck-row: 4;
-  animation: duckStepX 760ms steps(8) infinite reverse;
 }
 
 @keyframes duckAppear {
