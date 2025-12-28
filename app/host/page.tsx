@@ -114,7 +114,7 @@ export default function HostPage() {
                 <div className="relative rounded-2xl border-[3px] border-dashed border-[#142a45]/50 bg-[#fff6da] px-4 py-3 text-sm">
                   <p className="font-semibold">Подсказка</p>
                   <p className="text-[#142a45]/70">Комната активна, пока вы не завершите раунд на панели. Повторное использование кода невозможно.</p>
-                  <DuckSprite variant={1} drift={1} delayMs={200} style={{ position: 'absolute', right: '10px', bottom: '10px', width: '64px', height: '64px' }} />
+                  <DuckSprite variant={1} drift={1} delayMs={200} style={{ position: 'absolute', right: '10px', bottom: '5px', width: '64px', height: '64px' }} />
                 </div>
               </div>
 
