@@ -551,8 +551,13 @@ export default function RoomPage() {
         .single();
 
       if (roomError || !room) {
-        setError('Комната не найдена');
-        setIsLoading(false);
+        router.push('/join');
+        return;
+      }
+
+      // Комната закрыта ведущим (endGame): статус finished + question_started_at = null.
+      if ((room.status as RoomStatus) === 'finished' && room.question_started_at === null) {
+        router.push('/join');
         return;
       }
 
@@ -832,6 +837,12 @@ export default function RoomPage() {
           const newStatus = (payload.new.status as RoomStatus) || (payload.new.is_active ? 'waiting' : 'finished');
           const startedAt = payload.new.question_started_at as string | null;
           const newQuestionIndex = coerceToNumber(payload.new.current_question_index);
+
+          // Если ведущий закрыл комнату полностью — возвращаем на экран подключения.
+          if (newStatus === 'finished' && startedAt === null) {
+            router.push('/join');
+            return;
+          }
 
           setRoomStatus(newStatus);
           const everyoneAnsweredFlag =
@@ -1676,14 +1687,6 @@ export default function RoomPage() {
             >
               {isStandingLoading ? 'Обновляем…' : 'Обновить данные'}
             </button>
-            <button
-              onClick={() => {
-                window.location.reload();
-              }}
-              className="w-full py-3 rounded-2xl border-[3px] border-[#142a45] bg-[#ffe184] font-black"
-            >
-              Обновить экран
-            </button>
           </div>
 
           {isFinal && (
@@ -1700,12 +1703,6 @@ export default function RoomPage() {
             </div>
           )}
 
-          <button
-            onClick={() => router.push('/join')}
-            className="w-full py-3 rounded-2xl border-[3px] border-[#142a45] bg-[#ffe184] font-black"
-          >
-            Вернуться на экран подключения
-          </button>
         </div>
       </div>
     );
@@ -2101,7 +2098,7 @@ export default function RoomPage() {
                 {round3Phase === 'fact'
                   ? 'Сейчас идёт озвучка факта. Поле для ответа появится во время таймера.'
                   : round3Phase === 'answer'
-                    ? 'Во время таймера введи свой вариант ответа.'
+                    ? 'Введи свой вариант и жди голосования.'
                     : round3Phase === 'vote-countdown'
                       ? 'Сейчас начнётся голосование: приготовься выбрать лучший ответ.'
                       : round3Phase === 'vote'
