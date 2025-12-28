@@ -21,7 +21,7 @@ export function DuckSprite({
   style,
 }: DuckSpriteProps) {
   const spriteMap: Record<DuckVariant, { src: string; frames: number; durationMs: number; frameWidth: number; frameHeight: number }> = {
-    1: { src: '/img/spritesheet/3.png', frames: 9, durationMs: 900, frameWidth: 158, frameHeight: 187 },
+    1: { src: '/img/spritesheet/3.png', frames: 8, durationMs: 900, frameWidth: 64, frameHeight: 64 },
   };
 
   const sprite = spriteMap[variant];
@@ -39,9 +39,9 @@ export function DuckSprite({
     backgroundImage: `url('${sprite.src}')`,
     backgroundRepeat: 'no-repeat',
     backgroundPosition: '0px 0px',
-    backgroundSize: '1422px 187px',
+    backgroundSize: `${sprite.frameWidth * sprite.frames}px ${sprite.frameHeight}px`,
     imageRendering: 'pixelated',
-    animation: `duckStepX-9 ${sprite.durationMs}ms steps(8) infinite`,
+    animation: `duckStepX-8 ${sprite.durationMs}ms steps(${sprite.frames}) infinite`,
   } as CSSProperties;
 
   return (
