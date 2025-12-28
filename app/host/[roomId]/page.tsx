@@ -18,6 +18,7 @@ import {
 } from '@/lib/questions';
 
 const QUESTION_DURATION_SECONDS = 30;
+const ROUND1_TOTAL_QUESTIONS = 6;
 const COUNTDOWN_STEPS = ['на старт', 'внимание', '3', '2', '1', 'старт'] as const;
 const AUTO_NEXT_DELAY_MS = 6000;
 const JOIN_SOUND_FILES = [
@@ -30,6 +31,8 @@ const JOIN_SOUND_FILES = [
   'The_duk_quacked_funn_#3.mp3',
   'The_duk_quacked_funn_#4.mp3',
 ] as const;
+
+const ANSWER_DUCK_AUDIO_FILES: readonly string[] = Array.from({ length: 7 }, (_, i) => `duck/${i + 1}.mp3`);
 
 const QUESTION_JINGLE_FILE = '30_sec.mp3';
 const MEET_AUDIO_FILES = [
@@ -570,6 +573,9 @@ export default function HostRoomPage() {
   const playersRef = useRef<Player[]>(players);
   const hasUserInteractedRef = useRef(false);
   const lastJoinAudioRef = useRef<HTMLAudioElement | null>(null);
+  const lastAnswerDuckAudioRef = useRef<HTMLAudioElement | null>(null);
+  const lastAnsweredIdsRef = useRef<Set<string>>(new Set());
+  const lastAnsweredContextRef = useRef<string>('');
   const lobbySoundSetterRef = useRef(setIsLobbySoundOn);
   const roundEndButtonSetterRef = useRef(setIsRoundEndButtonLocked);
   const handleCountdownStartRef = useRef<((options?: { playSkip?: boolean }) => void) | null>(null);
@@ -1182,6 +1188,24 @@ export default function HostRoomPage() {
       console.error('Не удалось проиграть джингл завершения раунда', error);
     });
   }, [stopRoundEndAudio]);
+
+  const playRound1EndCeremonyAudio = useCallback(() => {
+    if (!hasUserInteractedRef.current) {
+      return;
+    }
+
+    stopRoundEndAudio();
+    playTournamentJingle();
+
+    const file = pickRandomItem(ROUND1_END_AUDIO_FILES);
+    const voice = new Audio(buildAudioUrl(file));
+    voice.volume = isMusicMutedRef.current ? 0 : 0.95;
+    voice.loop = false;
+    roundEndAudioRef.current = voice;
+    voice.play().catch((error) => {
+      console.error('Не удалось проиграть озвучку завершения Раунда 1', error);
+    });
+  }, [playTournamentJingle, stopRoundEndAudio]);
 
   const playRound4CategoryAudio = useCallback(
     (category: string) => {
@@ -3808,6 +3832,39 @@ export default function HostRoomPage() {
     }
   }, [isJoinSoundEnabled]);
 
+  const stopAnswerDuckSound = useCallback(() => {
+    const audio = lastAnswerDuckAudioRef.current;
+    if (!audio) {
+      return;
+    }
+    try {
+      audio.pause();
+      audio.currentTime = 0;
+    } catch {
+      // ignore
+    }
+    audio.onended = null;
+    audio.onerror = null;
+    lastAnswerDuckAudioRef.current = null;
+  }, []);
+
+  const playAnswerDuckSound = useCallback(async () => {
+    if (!hasUserInteractedRef.current || isMusicMutedRef.current) {
+      return;
+    }
+
+    stopAnswerDuckSound();
+    const file = pickRandomItem(ANSWER_DUCK_AUDIO_FILES);
+    const audio = new Audio(buildAudioUrl(file));
+    audio.volume = 0.9;
+    lastAnswerDuckAudioRef.current = audio;
+    try {
+      await audio.play();
+    } catch (err) {
+      console.error('Не удалось проиграть звук ответа игрока', err);
+    }
+  }, [stopAnswerDuckSound]);
+
   const stopConnectAudio = useCallback(() => {
     const audio = connectAudioRef.current;
     if (!audio) {
@@ -3930,7 +3987,7 @@ export default function HostRoomPage() {
   }, []);
 
   const playBetweenAudioForPercent = useCallback(
-    async (percent: number) => {
+    async (percent: number, options?: { onEnded?: () => void }) => {
       if (!hasUserInteractedRef.current) {
         return;
       }
@@ -3955,10 +4012,25 @@ export default function HostRoomPage() {
       audio.volume = 0.95;
       betweenAudioRef.current = audio;
 
+      audio.onended = () => {
+        if (betweenAudioRef.current === audio) {
+          betweenAudioRef.current = null;
+        }
+        options?.onEnded?.();
+      };
+
+      audio.onerror = () => {
+        if (betweenAudioRef.current === audio) {
+          betweenAudioRef.current = null;
+        }
+        options?.onEnded?.();
+      };
+
       try {
         await audio.play();
       } catch (error) {
         console.error('Не удалось проиграть озвучку между вопросами', error);
+        options?.onEnded?.();
       }
     },
     [stopBetweenAudio]
@@ -3993,6 +4065,64 @@ export default function HostRoomPage() {
     stopBetweenAudio();
     betweenCueQuestionRef.current = null;
   }, [question?.id, stopBetweenAudio]);
+
+  useEffect(() => {
+    const isAnswerTrackingActive =
+      !showResults &&
+      (roomStatus === 'running' ||
+        roomStatus === 'round2-running' ||
+        roomStatus === 'round4-running' ||
+        roomStatus === 'round5-running' ||
+        roomStatus === 'round5-explanation');
+
+    const context =
+      roomStatus === 'running'
+        ? `r1:${currentQuestionIndex}`
+        : roomStatus === 'round2-running'
+          ? `r2:${round2CurrentIndex ?? 'x'}:${round2Phase}`
+          : roomStatus === 'round4-running'
+            ? `r4:${round4CurrentPuzzle?.id ?? 'x'}`
+            : roomStatus === 'round5-running' || roomStatus === 'round5-explanation'
+              ? `r5:${currentQuestionIndex}`
+              : `idle:${roomStatus}`;
+
+    if (!isAnswerTrackingActive) {
+      lastAnsweredContextRef.current = context;
+      lastAnsweredIdsRef.current = new Set(answeredPlayerIds);
+      return;
+    }
+
+    if (lastAnsweredContextRef.current !== context) {
+      lastAnsweredContextRef.current = context;
+      lastAnsweredIdsRef.current = new Set(answeredPlayerIds);
+      return;
+    }
+
+    const prev = lastAnsweredIdsRef.current;
+    const next = new Set(answeredPlayerIds);
+    lastAnsweredIdsRef.current = next;
+
+    let hasNew = false;
+    for (const id of next) {
+      if (!prev.has(id)) {
+        hasNew = true;
+        break;
+      }
+    }
+
+    if (hasNew) {
+      void playAnswerDuckSound();
+    }
+  }, [
+    answeredPlayerIds,
+    currentQuestionIndex,
+    playAnswerDuckSound,
+    roomStatus,
+    round2CurrentIndex,
+    round2Phase,
+    round4CurrentPuzzle?.id,
+    showResults,
+  ]);
 
   useEffect(() => {
     stopRoundEndAudio();
@@ -4735,7 +4865,7 @@ export default function HostRoomPage() {
   };
 
   const startRound = async () => {
-    if (!hasEnoughQuestions(ROUND_QUESTION_COUNT)) {
+    if (!hasEnoughQuestions(ROUND1_TOTAL_QUESTIONS)) {
       setError('Недостаточно вопросов для начала игры. Пополните список раунда.');
       return;
     }
@@ -4744,7 +4874,7 @@ export default function HostRoomPage() {
     stopLobby();
     stopSkipAudio();
 
-    const questionIds = pickRandomQuestionIds(ROUND_QUESTION_COUNT);
+    const questionIds = pickRandomQuestionIds(ROUND1_TOTAL_QUESTIONS);
     const { iso: startedAt, offset } = await getServerIsoTimestamp();
     const { error: updateError } = await supabase
       .from('rooms')
@@ -5473,7 +5603,7 @@ export default function HostRoomPage() {
   const answeredCount = answerCount;
   const totalPlayers = players.length;
   const correctAnswerPercentage = totalPlayers > 0 ? (correctAnswerCount / totalPlayers) * 100 : 0;
-  const totalQuestions = selectedQuestionIds.length || ROUND_QUESTION_COUNT;
+  const totalQuestions = selectedQuestionIds.length || ROUND1_TOTAL_QUESTIONS;
   const allPlayersAnswered = serverAllPlayersAnswered || (totalPlayers > 0 && answeredCount >= totalPlayers);
   const isLastQuestion = totalQuestions > 0 ? currentQuestionIndex >= totalQuestions - 1 : false;
   const isRound1Active = roomStatus === 'running';
@@ -5525,7 +5655,7 @@ export default function HostRoomPage() {
       : 'Закрыть комнату';
   const round2QuestionNumber = round2QuestionCounter > 0 ? round2QuestionCounter : 1;
   const clampedRound2QuestionNumber = Math.min(round2QuestionNumber, ROUND2_TOTAL_QUESTIONS);
-  const round1QuestionCount = ROUND_QUESTION_COUNT;
+  const round1QuestionCount = totalQuestions;
   const round2QuestionCount = ROUND2_TOTAL_QUESTIONS;
   const round3TotalCount = round3QuestionCount || ROUND3_TOTAL_QUESTIONS;
   const round4TotalCount = ROUND4_TOTAL_TOURS;
@@ -6173,22 +6303,27 @@ export default function HostRoomPage() {
 
     roundEndLockQuestionRef.current = questionKey;
     roundEndButtonSetterRef.current(true);
-    void playBetweenAudioForPercent(correctAnswerPercentage);
     clearRoundEndDelayTimeout();
     clearRoundEndUnlockTimeout();
-    roundEndDelayTimeoutRef.current = setTimeout(() => {
-      playRoundEndAudio();
-      roundEndUnlockTimeoutRef.current = setTimeout(() => {
-        roundEndButtonSetterRef.current(false);
-        roundEndUnlockTimeoutRef.current = null;
-      }, 5000);
-    }, 7000);
+
+    const finishIfStillSame = () => {
+      if (roundEndLockQuestionRef.current !== questionKey) {
+        return;
+      }
+      playRound1EndCeremonyAudio();
+      roundEndButtonSetterRef.current(false);
+      void finishRound();
+    };
+
+    void playBetweenAudioForPercent(correctAnswerPercentage, { onEnded: finishIfStillSame });
+    roundEndDelayTimeoutRef.current = setTimeout(finishIfStillSame, 12000);
   }, [
     question,
     roomStatus,
     isLastQuestion,
     canAdvance,
-    playRoundEndAudio,
+    playRound1EndCeremonyAudio,
+    finishRound,
     clearRoundEndUnlockTimeout,
     playBetweenAudioForPercent,
     correctAnswerPercentage,
@@ -6227,6 +6362,10 @@ export default function HostRoomPage() {
       clearAutoFinishTimeout();
       return;
     }
+    if (isLastQuestion) {
+      clearAutoFinishTimeout();
+      return;
+    }
     if (!canAdvance || !isLastQuestion) {
       clearAutoFinishTimeout();
       return;
@@ -6240,11 +6379,10 @@ export default function HostRoomPage() {
     if (autoFinishTimeoutRef.current) {
       return;
     }
-    const delayMs = isLastQuestion ? 9500 : 1500;
     autoFinishTimeoutRef.current = setTimeout(() => {
       autoFinishTimeoutRef.current = null;
       void finishRound();
-    }, delayMs);
+    }, 1500);
     return () => {
       clearAutoFinishTimeout();
     };
@@ -7118,6 +7256,38 @@ export default function HostRoomPage() {
                     <span className="text-5xl sm:text-6xl font-black leading-tight">{question.text}</span>
                   )}
                 </h2>
+
+                <div className="rounded-3xl border-[3px] border-dashed border-[#142a45]/30 bg-[#fff6da] p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/70">Варианты</p>
+                    <span className="text-xs font-semibold text-[#142a45]/60">+{question.points} 💎</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {question.options.slice(0, 4).map((option, index) => {
+                      const isCorrect = index === question.correctIndex;
+                      const isHighlighted = canAdvance && isCorrect;
+                      return (
+                        <div
+                          key={`${question.order}-opt-${index}`}
+                          className={`relative rounded-2xl border-[3px] px-4 py-6 min-h-[110px] flex items-center justify-center text-center overflow-hidden transition-colors ${
+                            isHighlighted ? 'border-[#1f6ac6]/60 bg-[#e9f0ff]' : 'border-[#142a45]/20 bg-white'
+                          }`}
+                        >
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <span
+                              className={`w-14 h-14 rounded-full border-[3px] flex items-center justify-center font-black text-sm opacity-80 ${
+                                isHighlighted ? 'border-[#1f6ac6]/50 bg-white text-[#1f6ac6]' : 'border-[#142a45]/15 bg-[#fff6da] text-[#142a45]'
+                              }`}
+                            >
+                              +{question.points}
+                            </span>
+                          </div>
+                          <span className="relative z-10 text-xl sm:text-2xl font-black leading-tight px-2">{option}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
 
                 <p className="text-xs text-[#142a45]/70">
                   {isRoundEndButtonLocked
