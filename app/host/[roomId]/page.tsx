@@ -4,6 +4,7 @@ import { Fragment, useState, useEffect, useCallback, useMemo, useRef } from 'rea
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { TrueFalseItem, ROUND2_POINTS } from '@/lib/round2';
+import { PlayerPrinter } from '@/components/PlayerPrinter';
 import {
   ActiveRoundQuestion,
   OptionKey,
@@ -392,12 +393,14 @@ type Round2LeaderboardEntry = {
 export default function HostRoomPage() {
   const params = useParams();
   const router = useRouter();
+  const printerRef = useRef<{ addPaper: (name: string) => void } | null>(null);
   const roomId = params.roomId as string;
 
   const [roomCode, setRoomCode] = useState('');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [question, setQuestionState] = useState<Question | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
+  const [previousPlayers, setPreviousPlayers] = useState<Player[]>([]);
   const [totalPlayerCount, setTotalPlayerCount] = useState(0);
   const [answerCount, setAnswerCount] = useState(0);
   const [correctAnswerCount, setCorrectAnswerCount] = useState(0);
@@ -3343,6 +3346,17 @@ export default function HostRoomPage() {
     setTotalPlayerCount(list.length);
     setIsPlayerLimitReached(list.length > 10);
   }, [roomId]);
+
+  // Track new players for printer
+  useEffect(() => {
+    const newPlayers = players.filter(p => !previousPlayers.some(pp => pp.id === p.id));
+    newPlayers.forEach(player => {
+      if (printerRef.current) {
+        printerRef.current.addPaper(player.name);
+      }
+    });
+    setPreviousPlayers(players);
+  }, [players, previousPlayers]);
 
   const loadAnswerCount = useCallback(
     async (questionIndex: number) => {
@@ -6968,8 +6982,11 @@ export default function HostRoomPage() {
                       Когда готовы — стартуйте раунд. Таймер и вопросы синхронизируются автоматически.
                     </li>
                   </ol>
-                  <div className="flex-shrink-0">
-                    <img src="/qr-code.png" alt="QR код для подключения" className="w-32 h-32" />
+                  <div className="flex items-center gap-4">
+                    <PlayerPrinter ref={printerRef} />
+                    <div className="flex-shrink-0">
+                      <img src="/qr-code.png" alt="QR код для подключения" className="w-32 h-32" />
+                    </div>
                   </div>
                 </div>
 

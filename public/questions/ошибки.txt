@@ -1,39 +1,194 @@
-19:26:59.018 Running build in Washington, D.C., USA (East) – iad1
-19:26:59.018 Build machine configuration: 2 cores, 8 GB
-19:26:59.154 Cloning github.com/ivStudio55/vecherinkach-frontend (Branch: main, Commit: aa9158f)
-19:27:06.863 Cloning completed: 7.709s
-19:27:07.201 Restored build cache from previous deployment (BvNyNpmnCHeQ4D5WTyh5SoCvjFfk)
-19:27:07.861 Running "vercel build"
-19:27:08.281 Vercel CLI 50.1.3
-19:27:08.684 Installing dependencies...
-19:27:09.948 
-19:27:09.949 up to date in 993ms
-19:27:09.949 
-19:27:09.950 145 packages are looking for funding
-19:27:09.950   run `npm fund` for details
-19:27:09.975 Detected Next.js version: 16.0.8
-19:27:09.976 Running "npm run build"
-19:27:10.087 
-19:27:10.088 > vecherinkach-frontend@0.1.0 build
-19:27:10.088 > next build
-19:27:10.088 
-19:27:11.159    ▲ Next.js 16.0.8 (Turbopack)
-19:27:11.160 
-19:27:11.226    Creating an optimized production build ...
-19:27:19.286  ✓ Compiled successfully in 7.5s
-19:27:19.290    Running TypeScript ...
-19:27:26.552 Failed to compile.
-19:27:26.552 
-19:27:26.552 ./app/host/page.tsx:104:23
-19:27:26.552 Type error: Type '2 | 1 | 3 | 4' is not assignable to type '1 | undefined'.
-19:27:26.552   Type '2' is not assignable to type '1'.
-19:27:26.552 
-19:27:26.552 [0m [90m 102 |[39m                       key[33m=[39m{idx}
-19:27:26.552  [90m 103 |[39m                       variant[33m=[39m{duck[33m.[39mvariant}
-19:27:26.553 [31m[1m>[22m[39m[90m 104 |[39m                       drift[33m=[39m{duck[33m.[39mdrift}
-19:27:26.553  [90m     |[39m                       [31m[1m^[22m[39m
-19:27:26.553  [90m 105 |[39m                       delayMs[33m=[39m{duck[33m.[39mdelayMs}
-19:27:26.553  [90m 106 |[39m                       className[33m=[39m[32m"absolute duck-pop"[39m
-19:27:26.553  [90m 107 |[39m                       style[33m=[39m{duck[33m.[39mstyle}[0m
-19:27:26.579 Next.js build worker exited with code: 1 and signal: null
-19:27:26.610 Error: Command "npm run build" exited with 1
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Принтер игроков с глазами</title>
+  <style>
+    body {
+      background: #f5f5f5;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      font-family: sans-serif;
+      overflow: hidden;
+      cursor: pointer;
+    }
+
+    .printer {
+      width: 140px;
+      height: 160px;
+      position: relative;
+      margin-bottom: 20px;
+    }
+
+    .top {
+      width: 120px;
+      height: 24px;
+      background: #555;
+      border-radius: 6px 6px 0 0;
+      position: absolute;
+      top: 0;
+      left: 10px;
+    }
+
+    .middle {
+      width: 140px;
+      height: 100px;
+      background: #333;
+      border-radius: 0 0 8px 8px;
+      position: absolute;
+      top: 24px;
+      left: 0;
+    }
+
+    .tray {
+      width: 100px;
+      height: 10px;
+      background: #444;
+      position: absolute;
+      bottom: -12px;
+      left: 20px;
+      border-radius: 2px;
+    }
+
+    /* Глаза */
+    .eye {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      background: white;
+      border-radius: 50%;
+      border: 2px solid black;
+      top: -8px;
+      z-index: 10;
+      transition: transform 0.2s ease;
+    }
+    .eye.left { left: 40px; }
+    .eye.right { right: 40px; }
+
+    .pupil {
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      background: black;
+      border-radius: 50%;
+      top: 3px;
+      left: 3px;
+    }
+
+    /* LED-индикатор */
+    .led {
+      width: 8px;
+      height: 8px;
+      background: #2ecc71;
+      border-radius: 50%;
+      position: absolute;
+      top: 8px;
+      right: 12px;
+      box-shadow: 0 0 6px #2ecc71;
+      animation: blink 1.5s infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .paper {
+      width: 100px;
+      height: 140px;
+      background: white;
+      position: absolute;
+      top: 24px;
+      left: 20px;
+      border-radius: 2px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 48px;
+      font-weight: bold;
+      color: #333;
+      transform: translateY(0);
+      transition: transform 1.2s ease-out;
+      z-index: 1;
+    }
+
+    .paper.printed {
+      transform: translateY(120px);
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 18px;
+      background: #3498db;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #2980b9;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="printer">
+    <div class="top"></div>
+    <div class="middle"></div>
+    <div class="tray"></div>
+    <div class="eye left"><div class="pupil"></div></div>
+    <div class="eye right"><div class="pupil"></div></div>
+    <div class="led"></div>
+  </div>
+
+  <button id="joinBtn">Подключить игрока</button>
+
+  <script>
+    let playerCount = 0;
+
+    // Следим за мышкой
+    document.addEventListener('mousemove', (e) => {
+      const eyes = document.querySelectorAll('.eye');
+      const rect = document.querySelector('.printer').getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+
+      eyes.forEach(eye => {
+        const eyeRect = eye.getBoundingClientRect();
+        const eyeX = eyeRect.left + eyeRect.width / 2;
+        const eyeY = eyeRect.top + eyeRect.height / 2;
+
+        // Угол между глазом и курсором
+        const angle = Math.atan2(e.clientY - eyeY, e.clientX - eyeX);
+        // Смещение зрачка (не слишком далеко)
+        const dx = Math.cos(angle) * 2;
+        const dy = Math.sin(angle) * 2;
+
+        const pupil = eye.querySelector('.pupil');
+        pupil.style.transform = `translate(${dx}px, ${dy}px)`;
+      });
+    });
+
+    document.getElementById('joinBtn').addEventListener('click', () => {
+      playerCount++;
+
+      const paper = document.createElement('div');
+      paper.className = 'paper';
+      paper.textContent = playerCount;
+
+      document.querySelector('.printer').appendChild(paper);
+
+      setTimeout(() => {
+        paper.classList.add('printed');
+      }, 50);
+    });
+  </script>
+
+</body>
+</html>
