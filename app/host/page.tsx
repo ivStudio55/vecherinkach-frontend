@@ -107,12 +107,7 @@ export default function HostPage() {
                       Панель ведущего показывает таймеры, вопросы и очередь ответов.
                     </li>
                   </ol>
-                  <div className="flex items-center gap-4">
-                    <PlayerPrinter />
-                    <div className="flex-shrink-0">
-                      <img src="/qr-code.png" alt="QR код для подключения" className="w-32 h-32" />
-                    </div>
-                  </div>
+                  <PlayerPrinter />
                 </div>
                 <div className="relative rounded-2xl border-[3px] border-dashed border-[#142a45]/50 bg-[#fff6da] px-4 py-3 text-sm">
                   <p className="font-semibold">Подсказка</p>

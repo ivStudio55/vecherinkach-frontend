@@ -6982,12 +6982,7 @@ export default function HostRoomPage() {
                       Когда готовы — стартуйте раунд. Таймер и вопросы синхронизируются автоматически.
                     </li>
                   </ol>
-                  <div className="flex items-center gap-4">
-                    <PlayerPrinter ref={printerRef} />
-                    <div className="flex-shrink-0">
-                      <img src="/qr-code.png" alt="QR код для подключения" className="w-32 h-32" />
-                    </div>
-                  </div>
+                  <PlayerPrinter ref={printerRef} />
                 </div>
 
                 <button

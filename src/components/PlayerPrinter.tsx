@@ -16,9 +16,6 @@ export const PlayerPrinter = forwardRef<PlayerPrinterRef, PlayerPrinterProps>(({
   useImperativeHandle(ref, () => ({
     addPaper: (name: string) => {
       setPapers(prev => [...prev, name]);
-      setTimeout(() => {
-        setPapers(prev => prev.slice(1));
-      }, 2000);
     },
   }));
 
@@ -61,110 +58,118 @@ export const PlayerPrinter = forwardRef<PlayerPrinterRef, PlayerPrinterProps>(({
 
 
   return (
-    <div className="player-printer" style={{ width: '140px', height: '160px', position: 'relative', marginRight: '20px' }}>
+    <div className="player-printer" style={{ width: '280px', height: '320px', position: 'relative', marginRight: '20px' }}>
       <div className="top" style={{
-        width: '120px',
-        height: '24px',
+        width: '240px',
+        height: '48px',
         background: '#555',
-        borderRadius: '6px 6px 0 0',
+        borderRadius: '12px 12px 0 0',
         position: 'absolute',
         top: 0,
-        left: '10px'
-      }}></div>
+        left: '20px'
+      }}>
+        <img src="/qr-code.png" alt="QR код" style={{
+          width: '80px',
+          height: '80px',
+          position: 'absolute',
+          top: '-20px',
+          left: '80px'
+        }} />
+      </div>
       <div className="middle" style={{
-        width: '140px',
-        height: '100px',
+        width: '280px',
+        height: '200px',
         background: '#333',
-        borderRadius: '0 0 8px 8px',
+        borderRadius: '0 0 16px 16px',
         position: 'absolute',
-        top: '24px',
+        top: '48px',
         left: 0
       }}></div>
       <div className="tray" style={{
-        width: '100px',
-        height: '10px',
+        width: '200px',
+        height: '20px',
         background: '#444',
         position: 'absolute',
-        bottom: '-12px',
-        left: '20px',
-        borderRadius: '2px'
+        bottom: '-24px',
+        left: '40px',
+        borderRadius: '4px'
       }}></div>
       <div className="eye left" style={{
         position: 'absolute',
-        width: '12px',
-        height: '12px',
+        width: '24px',
+        height: '24px',
         background: 'white',
         borderRadius: '50%',
-        border: '2px solid black',
-        top: '-8px',
-        left: '40px',
+        border: '4px solid black',
+        top: '-16px',
+        left: '80px',
         zIndex: 10,
         transition: 'transform 0.2s ease'
       }}>
         <div className="pupil" style={{
           position: 'absolute',
-          width: '6px',
-          height: '6px',
+          width: '12px',
+          height: '12px',
           background: 'black',
           borderRadius: '50%',
-          top: '3px',
-          left: '3px'
+          top: '6px',
+          left: '6px'
         }}></div>
       </div>
       <div className="eye right" style={{
         position: 'absolute',
-        width: '12px',
-        height: '12px',
+        width: '24px',
+        height: '24px',
         background: 'white',
         borderRadius: '50%',
-        border: '2px solid black',
-        top: '-8px',
-        right: '40px',
+        border: '4px solid black',
+        top: '-16px',
+        right: '80px',
         zIndex: 10,
         transition: 'transform 0.2s ease'
       }}>
         <div className="pupil" style={{
           position: 'absolute',
-          width: '6px',
-          height: '6px',
+          width: '12px',
+          height: '12px',
           background: 'black',
           borderRadius: '50%',
-          top: '3px',
-          left: '3px'
+          top: '6px',
+          left: '6px'
         }}></div>
       </div>
       <div className="led" style={{
-        width: '8px',
-        height: '8px',
+        width: '16px',
+        height: '16px',
         background: '#2ecc71',
         borderRadius: '50%',
         position: 'absolute',
-        top: '8px',
-        right: '12px',
-        boxShadow: '0 0 6px #2ecc71',
+        top: '16px',
+        right: '24px',
+        boxShadow: '0 0 12px #2ecc71',
         animation: 'blink 1.5s infinite'
       }}></div>
       {papers.map((name, index) => (
         <div
-          key={index}
-          className="paper"
+          key={`${name}-${index}`}
+          className={`paper ${index < papers.length ? 'printed' : ''}`}
           style={{
-            width: '100px',
-            height: '140px',
+            width: '200px',
+            height: '280px',
             background: 'white',
             position: 'absolute',
-            top: '24px',
-            left: '20px',
-            borderRadius: '2px',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+            top: '48px',
+            left: '40px',
+            borderRadius: '4px',
+            boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: '16px',
+            fontSize: '32px',
             fontWeight: 'bold',
             color: '#333',
             transform: 'translateY(0)',
-            transition: 'transform 1.2s ease-out',
+            transition: 'transform 2.4s ease-out',
             zIndex: 1
           }}
         >
@@ -176,12 +181,8 @@ export const PlayerPrinter = forwardRef<PlayerPrinterRef, PlayerPrinterProps>(({
           0%, 100% { opacity: 1; }
           50% { opacity: 0.3; }
         }
-        .paper {
-          animation: print 1.2s ease-out forwards;
-        }
-        @keyframes print {
-          0% { transform: translateY(0); }
-          100% { transform: translateY(120px); }
+        .paper.printed {
+          transform: translateY(240px) !important;
         }
       `}</style>
     </div>
