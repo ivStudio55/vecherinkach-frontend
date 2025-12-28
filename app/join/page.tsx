@@ -14,7 +14,6 @@ export default function JoinPage() {
   const [playerName, setPlayerName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [duckDebug, setDuckDebug] = useState(false);
 
   const handleJoinRoom = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,56 +91,58 @@ export default function JoinPage() {
 
   return (
     <div className="min-h-screen bg-[#fef4dc] text-[#142a45] px-4 py-10 relative overflow-hidden" style={backgroundStyle}>
-      <div className="absolute inset-0 pointer-events-none select-none z-10">
-        <DuckSprite
-          variant={1}
-          drift={1}
-          size={96}
-          delayMs={250}
-          className={duckDebug ? 'absolute duck-debug' : 'absolute'}
-          style={{ left: '6%', top: '14%' }}
-        />
-        <DuckSprite
-          variant={2}
-          drift={2}
-          size={84}
-          delayMs={1100}
-          className={duckDebug ? 'absolute duck-debug' : 'absolute'}
-          style={{ right: '10%', top: '20%' }}
-        />
-        <DuckSprite
-          variant={3}
-          drift={3}
-          size={104}
-          delayMs={1900}
-          className={duckDebug ? 'absolute duck-debug' : 'absolute'}
-          style={{ left: '10%', bottom: '18%' }}
-        />
-        <DuckSprite
-          variant={4}
-          drift={4}
-          size={88}
-          delayMs={2700}
-          className={duckDebug ? 'absolute duck-debug' : 'absolute'}
-          style={{ right: '6%', bottom: '24%' }}
-        />
-        <DuckSprite
-          variant={5}
-          drift={5}
-          size={76}
-          delayMs={3400}
-          className={duckDebug ? 'absolute duck-debug' : 'absolute'}
-          style={{ left: '42%', top: '9%' }}
-        />
-      </div>
-
       <div className="max-w-3xl mx-auto space-y-6 relative z-20">
-        <header className="retro-panel bg-[#142a45] text-[#ffeccd] px-6 py-5">
-          <p className="retro-heading text-xs tracking-[0.5em] text-[#ffeccd]/80">Подключение игроков</p>
-          <h1 className="text-3xl font-black leading-tight">Введите код комнаты и присоединяйтесь</h1>
-          <p className="text-sm text-[#ffeccd]/80 mt-2">
-            Этот экран можно отправить игрокам. Они самостоятельно введут код и свой ник.
-          </p>
+        <header className="retro-panel bg-[#142a45] text-[#ffeccd] px-6 py-5 relative overflow-hidden">
+          <div className="absolute inset-0 pointer-events-none select-none opacity-90">
+            <DuckSprite
+              variant={1}
+              drift={1}
+              size={74}
+              delayMs={250}
+              className="absolute"
+              style={{ left: '10px', top: '10px' }}
+            />
+            <DuckSprite
+              variant={2}
+              drift={2}
+              size={66}
+              delayMs={1050}
+              className="absolute"
+              style={{ right: '16px', top: '14px' }}
+            />
+            <DuckSprite
+              variant={3}
+              drift={3}
+              size={78}
+              delayMs={1650}
+              className="absolute"
+              style={{ left: '18px', bottom: '12px' }}
+            />
+            <DuckSprite
+              variant={4}
+              drift={4}
+              size={70}
+              delayMs={2350}
+              className="absolute"
+              style={{ right: '10px', bottom: '10px' }}
+            />
+            <DuckSprite
+              variant={5}
+              drift={5}
+              size={62}
+              delayMs={3000}
+              className="absolute"
+              style={{ left: '46%', top: '6px' }}
+            />
+          </div>
+
+          <div className="relative z-10">
+            <p className="retro-heading text-xs tracking-[0.5em] text-[#ffeccd]/80">Подключение игроков</p>
+            <h1 className="text-3xl font-black leading-tight">Введите код комнаты и присоединяйтесь</h1>
+            <p className="text-sm text-[#ffeccd]/80 mt-2">
+              Этот экран можно отправить игрокам. Они самостоятельно введут код и свой ник.
+            </p>
+          </div>
         </header>
 
         <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
@@ -216,15 +217,6 @@ export default function JoinPage() {
               className="px-4 py-2 rounded-2xl border-[3px] border-[#142a45] font-semibold bg-white hover:bg-[#fef4dc] transition"
             >
               Стать ведущим
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setDuckDebug((value) => !value)}
-              className="px-4 py-2 rounded-2xl border-[3px] border-[#142a45] font-semibold bg-white hover:bg-[#fef4dc] transition"
-              title="Отладка: показать рамки вокруг уточек"
-            >
-              Уточки: {duckDebug ? 'Debug' : 'Off'}
             </button>
           </div>
         </section>
