@@ -34,10 +34,17 @@ export function DuckSprite({
   };
 
   const spriteStyle: CSSProperties = {
+    // Explicit sizing/background math to avoid bleeding or showing the whole strip at once.
     '--duck-frame-width': `${sprite.frameWidth}px`,
     '--duck-frame-height': `${sprite.frameHeight}px`,
     '--duck-cols': sprite.frames,
+    width: `${sprite.frameWidth}px`,
+    height: `${sprite.frameHeight}px`,
     backgroundImage: `url('${sprite.src}')`,
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: '0px 0px',
+    backgroundSize: `${sprite.frameWidth * sprite.frames}px ${sprite.frameHeight}px`,
+    imageRendering: 'auto',
     animation: `duckStepX ${sprite.durationMs}ms steps(${sprite.frames}) infinite`,
   } as CSSProperties;
 
