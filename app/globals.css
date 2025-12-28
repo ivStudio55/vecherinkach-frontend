@@ -113,7 +113,7 @@ body {
     background-position-x: 0px;
   }
   to {
-    background-position-x: calc(8 * -158px);
+    background-position-x: -1264px;
   }
 }
 
