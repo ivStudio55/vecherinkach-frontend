@@ -41,7 +41,7 @@ export function DuckSprite({
     backgroundPosition: '0px 0px',
     backgroundSize: `${sprite.frameWidth * sprite.frames}px ${sprite.frameHeight}px`,
     imageRendering: 'pixelated',
-    animation: `duckStepX-8 ${sprite.durationMs}ms steps(${sprite.frames}, end) infinite`,
+    animation: `duckStepX-8 ${sprite.durationMs}ms steps(${sprite.frames}) infinite`,
   } as CSSProperties;
 
   return (
