@@ -35,6 +35,7 @@ export function DuckSprite({
     // Explicit sizing/background math to avoid bleeding or showing the whole strip at once.
     width: `${sprite.frameWidth}px`,
     height: `${sprite.frameHeight}px`,
+    overflow: 'hidden',
     backgroundImage: `url('${sprite.src}')`,
     backgroundRepeat: 'no-repeat',
     backgroundPosition: '0px 0px',
