@@ -91,7 +91,7 @@ export default function JoinPage() {
 
   return (
     <div className="min-h-screen bg-[#fef4dc] text-[#142a45] px-4 py-10 relative overflow-hidden" style={backgroundStyle}>
-      <div className="absolute inset-0 pointer-events-none select-none">
+      <div className="absolute inset-0 pointer-events-none select-none z-10">
         <DuckSprite
           variant={1}
           drift={1}
@@ -134,7 +134,7 @@ export default function JoinPage() {
         />
       </div>
 
-      <div className="max-w-3xl mx-auto space-y-6 relative z-10">
+      <div className="max-w-3xl mx-auto space-y-6 relative z-20">
         <header className="retro-panel bg-[#142a45] text-[#ffeccd] px-6 py-5">
           <p className="retro-heading text-xs tracking-[0.5em] text-[#ffeccd]/80">Подключение игроков</p>
           <h1 className="text-3xl font-black leading-tight">Введите код комнаты и присоединяйтесь</h1>
