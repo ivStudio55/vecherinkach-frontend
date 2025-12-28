@@ -58,7 +58,7 @@ export const PlayerPrinter = forwardRef<PlayerPrinterRef, PlayerPrinterProps>(({
 
 
   return (
-    <div className="player-printer" style={{ width: '280px', height: '320px', position: 'relative', marginRight: '20px' }}>
+    <div className="player-printer" style={{ width: '280px', height: '320px', position: 'relative', marginRight: '20px', marginTop: '-40px' }}>
       <div className="top" style={{
         width: '240px',
         height: '48px',
@@ -67,15 +67,7 @@ export const PlayerPrinter = forwardRef<PlayerPrinterRef, PlayerPrinterProps>(({
         position: 'absolute',
         top: 0,
         left: '20px'
-      }}>
-        <img src="/qr-code.png" alt="QR код" style={{
-          width: '80px',
-          height: '80px',
-          position: 'absolute',
-          top: '-20px',
-          left: '80px'
-        }} />
-      </div>
+      }}></div>
       <div className="middle" style={{
         width: '280px',
         height: '200px',
@@ -84,7 +76,15 @@ export const PlayerPrinter = forwardRef<PlayerPrinterRef, PlayerPrinterProps>(({
         position: 'absolute',
         top: '48px',
         left: 0
-      }}></div>
+      }}>
+        <img src="/qr-code.png" alt="QR код" style={{
+          width: '120px',
+          height: '120px',
+          position: 'absolute',
+          top: '40px',
+          left: '80px'
+        }} />
+      </div>
       <div className="tray" style={{
         width: '200px',
         height: '20px',
@@ -165,6 +165,7 @@ export const PlayerPrinter = forwardRef<PlayerPrinterRef, PlayerPrinterProps>(({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            textAlign: 'center',
             fontSize: '32px',
             fontWeight: 'bold',
             color: '#333',
