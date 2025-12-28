@@ -29,24 +29,20 @@ export function DuckSprite({
 
   return (
     <div
-      className={[
-        'duck-appear',
-        `duck-drift-${drift}`,
-        className,
-      ]
-        .filter(Boolean)
-        .join(' ')}
+      className={['duck-appear', className].filter(Boolean).join(' ')}
       style={outerStyle}
     >
-      <div
-        className={['duck-sprite', `duck-variant-${variant}`].join(' ')}
-        style={
-          {
-            '--duck-frame': `${size}px`,
-            backgroundImage: `url(${duckSheet.src})`,
-          } as CSSProperties
-        }
-      />
+      <div className={[`duck-drift-${drift}`].join(' ')}>
+        <div
+          className={['duck-sprite', `duck-variant-${variant}`].join(' ')}
+          style={
+            {
+              '--duck-frame': `${size}px`,
+              backgroundImage: `url(${duckSheet.src})`,
+            } as CSSProperties
+          }
+        />
+      </div>
     </div>
   );
 }
