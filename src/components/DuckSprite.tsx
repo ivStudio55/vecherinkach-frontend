@@ -39,9 +39,9 @@ export function DuckSprite({
     backgroundImage: `url('${sprite.src}')`,
     backgroundRepeat: 'no-repeat',
     backgroundPosition: '0px 0px',
-    backgroundSize: `${sprite.frameWidth * sprite.frames}px ${sprite.frameHeight}px`,
+    backgroundSize: '1422px 187px',
     imageRendering: 'pixelated',
-    animation: `duckStepX-${sprite.frames} ${sprite.durationMs}ms steps(${sprite.frames}) infinite`,
+    animation: `duckStepX-9 ${sprite.durationMs}ms steps(8) infinite`,
   } as CSSProperties;
 
   return (
