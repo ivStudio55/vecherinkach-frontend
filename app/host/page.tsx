@@ -4,6 +4,7 @@ import { useState, CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import backTexture from '../img/back2.png';
+import { DuckSprite } from '@/components/DuckSprite';
 
 export default function HostPage() {
   const router = useRouter();
@@ -75,12 +76,57 @@ export default function HostPage() {
           style={frameStyle}
         >
           <div className="flex h-full flex-col gap-6 overflow-hidden">
-            <header className="retro-panel bg-[#142a45] text-[#ffeccd] px-6 py-5 shrink-0">
-              <p className="retro-heading text-xs tracking-[0.5em] text-[#ffeccd]/70">Ведущая станция</p>
-              <h1 className="text-3xl sm:text-4xl font-black leading-tight">Создайте комнату и берите управление в свои руки</h1>
-              <p className="text-sm text-[#ffeccd]/70 mt-2">
-                После создания комнаты вы получите код из четырёх цифр. Им можно делиться на экране или голосом.
-              </p>
+            <header className="retro-panel bg-[#142a45] text-[#ffeccd] px-6 py-5 shrink-0 relative overflow-hidden">
+              <div className="absolute inset-0 pointer-events-none select-none opacity-90">
+                <DuckSprite
+                  variant={1}
+                  drift={1}
+                  size={78}
+                  delayMs={250}
+                  className="absolute"
+                  style={{ left: '10px', top: '10px' }}
+                />
+                <DuckSprite
+                  variant={2}
+                  drift={2}
+                  size={70}
+                  delayMs={1050}
+                  className="absolute"
+                  style={{ right: '16px', top: '14px' }}
+                />
+                <DuckSprite
+                  variant={3}
+                  drift={3}
+                  size={82}
+                  delayMs={1650}
+                  className="absolute"
+                  style={{ left: '18px', bottom: '12px' }}
+                />
+                <DuckSprite
+                  variant={4}
+                  drift={4}
+                  size={72}
+                  delayMs={2350}
+                  className="absolute"
+                  style={{ right: '10px', bottom: '10px' }}
+                />
+                <DuckSprite
+                  variant={5}
+                  drift={5}
+                  size={64}
+                  delayMs={3000}
+                  className="absolute"
+                  style={{ left: '46%', top: '6px' }}
+                />
+              </div>
+
+              <div className="relative z-10">
+                <p className="retro-heading text-xs tracking-[0.5em] text-[#ffeccd]/70">Ведущая станция</p>
+                <h1 className="text-3xl sm:text-4xl font-black leading-tight">Создайте комнату и берите управление в свои руки</h1>
+                <p className="text-sm text-[#ffeccd]/70 mt-2">
+                  После создания комнаты вы получите код из четырёх цифр. Им можно делиться на экране или голосом.
+                </p>
+              </div>
             </header>
 
             <section className="grid min-h-0 flex-1 gap-6 overflow-auto lg:grid-cols-[1.1fr,0.9fr]">
