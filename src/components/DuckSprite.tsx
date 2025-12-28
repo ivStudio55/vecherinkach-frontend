@@ -21,7 +21,7 @@ export function DuckSprite({
   style,
 }: DuckSpriteProps) {
   const spriteMap: Record<DuckVariant, { src: string; frames: number; durationMs: number; frameWidth: number; frameHeight: number }> = {
-    1: { src: '/img/spritesheet/3.png', frames: 8, durationMs: 900, frameWidth: 177.75, frameHeight: 187 },
+    1: { src: '/img/spritesheet/3.png', frames: 8, durationMs: 900, frameWidth: 165, frameHeight: 187 },
   };
 
   const sprite = spriteMap[variant];
@@ -40,7 +40,7 @@ export function DuckSprite({
     height: `${sprite.frameHeight}px`,
     backgroundImage: `url('${sprite.src}')`,
     backgroundRepeat: 'no-repeat',
-    backgroundPosition: '0px 0px',
+    backgroundPosition: '0% 0%',
     backgroundSize: `${sprite.frames * 100}% 100%`,
     imageRendering: 'auto',
     animation: `duckStepX ${sprite.durationMs}ms steps(${sprite.frames}) infinite`,
