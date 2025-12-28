@@ -1,7 +1,6 @@
 'use client';
 
 import { CSSProperties } from 'react';
-import duckSheet from '../../app/img/spritesheet/2.png';
 
 type DuckVariant = 1 | 2 | 3 | 4 | 5;
 
@@ -38,7 +37,7 @@ export function DuckSprite({
           style={
             {
               '--duck-frame': `${size}px`,
-              backgroundImage: `url(${duckSheet.src})`,
+              backgroundImage: "url('/img/spritesheet/2.png')",
             } as CSSProperties
           }
         />

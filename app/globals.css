@@ -258,3 +258,8 @@ body {
   animation: duckDrift5 8.1s ease-in-out infinite;
   will-change: transform;
 }
+
+.duck-debug {
+  outline: 3px dashed #142a45;
+  outline-offset: 4px;
+}

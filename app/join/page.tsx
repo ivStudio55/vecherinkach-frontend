@@ -14,6 +14,7 @@ export default function JoinPage() {
   const [playerName, setPlayerName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [duckDebug, setDuckDebug] = useState(false);
 
   const handleJoinRoom = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,7 +98,7 @@ export default function JoinPage() {
           drift={1}
           size={96}
           delayMs={250}
-          className="absolute"
+          className={duckDebug ? 'absolute duck-debug' : 'absolute'}
           style={{ left: '6%', top: '14%' }}
         />
         <DuckSprite
@@ -105,7 +106,7 @@ export default function JoinPage() {
           drift={2}
           size={84}
           delayMs={1100}
-          className="absolute"
+          className={duckDebug ? 'absolute duck-debug' : 'absolute'}
           style={{ right: '10%', top: '20%' }}
         />
         <DuckSprite
@@ -113,7 +114,7 @@ export default function JoinPage() {
           drift={3}
           size={104}
           delayMs={1900}
-          className="absolute"
+          className={duckDebug ? 'absolute duck-debug' : 'absolute'}
           style={{ left: '10%', bottom: '18%' }}
         />
         <DuckSprite
@@ -121,7 +122,7 @@ export default function JoinPage() {
           drift={4}
           size={88}
           delayMs={2700}
-          className="absolute"
+          className={duckDebug ? 'absolute duck-debug' : 'absolute'}
           style={{ right: '6%', bottom: '24%' }}
         />
         <DuckSprite
@@ -129,7 +130,7 @@ export default function JoinPage() {
           drift={5}
           size={76}
           delayMs={3400}
-          className="absolute"
+          className={duckDebug ? 'absolute duck-debug' : 'absolute'}
           style={{ left: '42%', top: '9%' }}
         />
       </div>
@@ -215,6 +216,15 @@ export default function JoinPage() {
               className="px-4 py-2 rounded-2xl border-[3px] border-[#142a45] font-semibold bg-white hover:bg-[#fef4dc] transition"
             >
               Стать ведущим
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setDuckDebug((value) => !value)}
+              className="px-4 py-2 rounded-2xl border-[3px] border-[#142a45] font-semibold bg-white hover:bg-[#fef4dc] transition"
+              title="Отладка: показать рамки вокруг уточек"
+            >
+              Уточки: {duckDebug ? 'Debug' : 'Off'}
             </button>
           </div>
         </section>
