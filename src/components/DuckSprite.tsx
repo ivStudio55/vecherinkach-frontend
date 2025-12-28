@@ -20,9 +20,9 @@ export function DuckSprite({
   style,
 }: DuckSpriteProps) {
   const spriteMap: Record<DuckVariant, { src: string; frames: number; durationMs: number; frameWidth: number; frameHeight: number }> = {
-    1: { src: '/img/spritesheet/3.png', frames: 8, durationMs: 900, frameWidth: 165, frameHeight: 187 },
-    2: { src: '/img/spritesheet/4.png', frames: 8, durationMs: 820, frameWidth: 165, frameHeight: 168 },
-    3: { src: '/img/spritesheet/5.png', frames: 7, durationMs: 1050, frameWidth: 165, frameHeight: 181 },
+    1: { src: '/img/spritesheet/3.png', frames: 8, durationMs: 900, frameWidth: 177.75, frameHeight: 187 },
+    2: { src: '/img/spritesheet/4.png', frames: 8, durationMs: 820, frameWidth: 178, frameHeight: 168 },
+    3: { src: '/img/spritesheet/5.png', frames: 7, durationMs: 1050, frameWidth: 205.7142857, frameHeight: 181 },
     4: { src: '/img/spritesheet/6.png', frames: 8, durationMs: 900, frameWidth: 165, frameHeight: 200 },
   };
 
