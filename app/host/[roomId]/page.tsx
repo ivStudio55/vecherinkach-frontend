@@ -3832,6 +3832,22 @@ export default function HostRoomPage() {
     }
   }, [isJoinSoundEnabled]);
 
+  const stopJoinSound = useCallback(() => {
+    const audio = lastJoinAudioRef.current;
+    if (!audio) {
+      return;
+    }
+    try {
+      audio.pause();
+      audio.currentTime = 0;
+    } catch {
+      // ignore
+    }
+    audio.onended = null;
+    audio.onerror = null;
+    lastJoinAudioRef.current = null;
+  }, []);
+
   const stopAnswerDuckSound = useCallback(() => {
     const audio = lastAnswerDuckAudioRef.current;
     if (!audio) {
@@ -4210,6 +4226,32 @@ export default function HostRoomPage() {
       questionVoiceAudioRef.current = null;
     }
   }, []);
+
+  const stopAllAudioImmediate = useCallback(() => {
+    stopAllAudio();
+    stopLobby();
+    stopRulesAudio();
+    stopSkipAudio();
+    stopConnectAudio();
+    stopJoinSound();
+    stopAnswerDuckSound();
+    stopQuestionAudio();
+    stopRound2EndCeremonyAudio();
+    stopRound3VoteAudio();
+    stopRound3ResultsAudio();
+  }, [
+    stopAllAudio,
+    stopLobby,
+    stopRulesAudio,
+    stopSkipAudio,
+    stopConnectAudio,
+    stopJoinSound,
+    stopAnswerDuckSound,
+    stopQuestionAudio,
+    stopRound2EndCeremonyAudio,
+    stopRound3VoteAudio,
+    stopRound3ResultsAudio,
+  ]);
 
   const playQuestionAudio = useCallback(
     async (questionId: number) => {
@@ -5286,6 +5328,7 @@ export default function HostRoomPage() {
     }
 
     hasUserInteractedRef.current = true;
+    stopAllAudioImmediate();
     const shouldPlaySkip = !round2RulesAudioCompletedRef.current;
 
     setIsRound2RulesVisible(false);
@@ -5309,6 +5352,7 @@ export default function HostRoomPage() {
     setCountdownContext,
     setIsCountdownVisible,
     setIsRound2RulesVisible,
+    stopAllAudioImmediate,
     stopRound2RulesAudio,
   ]);
 
@@ -5322,10 +5366,8 @@ export default function HostRoomPage() {
     }
     round3StartLockRef.current = true;
     hasUserInteractedRef.current = true;
+    stopAllAudioImmediate();
     setIsTournamentVisible(false);
-    stopTournamentJingle();
-    stopRound2EndCeremonyAudio();
-    stopRoundEndAudio();
 
     const shouldPlaySkip = !round3RulesAudioCompletedRef.current;
 
@@ -5378,9 +5420,7 @@ export default function HostRoomPage() {
   }, [
     clearCountdownTimeout,
     isCountdownVisible,
-    stopTournamentJingle,
-    stopRound2EndCeremonyAudio,
-    stopRoundEndAudio,
+    stopAllAudioImmediate,
     playSkipAudio,
     roomId,
     round3Questions.length,
@@ -5703,9 +5743,7 @@ export default function HostRoomPage() {
     if (roomStatus === 'finished' && showResults) {
       hasUserInteractedRef.current = true;
       if (round2Leaderboard.length > 0) {
-        // After Round 2 we may be playing the tournament jingle (ROUND1_END_JINGLE_FILE).
-        // Stop it as soon as host proceeds to Round 3.
-        stopTournamentJingle();
+        stopAllAudioImmediate();
         setIsRound3RulesVisible(true);
       } else {
         setIsRound2RulesVisible(true);
@@ -5717,15 +5755,15 @@ export default function HostRoomPage() {
 
   const handleOpenRound4Rules = useCallback(() => {
     hasUserInteractedRef.current = true;
-    stopAllAudio();
+    stopAllAudioImmediate();
     setIsRound4RulesVisible(true);
-  }, [stopAllAudio]);
+  }, [stopAllAudioImmediate]);
 
   const handleOpenRound5Rules = useCallback(() => {
     hasUserInteractedRef.current = true;
-    stopAllAudio();
+    stopAllAudioImmediate();
     setIsRound5RulesVisible(true);
-  }, [stopAllAudio]);
+  }, [stopAllAudioImmediate]);
 
   const calculateRound5Points = useCallback((correct: number, answer: number) => {
     if (!Number.isFinite(correct) || correct <= 0) {
@@ -5753,9 +5791,8 @@ export default function HostRoomPage() {
 
     try {
       hasUserInteractedRef.current = true;
-      stopAllAudio();
+      stopAllAudioImmediate();
       setIsTournamentVisible(false);
-      stopTournamentJingle();
 
       const bank = round5QuestionsRef.current;
       if (bank.length < ROUND5_TOTAL_TOURS) {
@@ -5807,7 +5844,7 @@ export default function HostRoomPage() {
     } finally {
       round5StartLockRef.current = false;
     }
-  }, [getServerIsoTimestamp, roomId, stopAllAudio, stopTournamentJingle, syncTimerWithStart, updateRoomStatus]);
+  }, [getServerIsoTimestamp, roomId, stopAllAudioImmediate, syncTimerWithStart, updateRoomStatus]);
 
   const advanceRound5Tour = useCallback(async () => {
     if (round5AdvanceLockRef.current) {
@@ -6188,8 +6225,8 @@ export default function HostRoomPage() {
     }
     round4StartLockRef.current = true;
     hasUserInteractedRef.current = true;
+    stopAllAudioImmediate();
     setIsTournamentVisible(false);
-    stopTournamentJingle();
 
     const shouldPlaySkip = !round4RulesAudioCompletedRef.current;
 
@@ -6210,7 +6247,7 @@ export default function HostRoomPage() {
   }, [
     clearCountdownTimeout,
     isCountdownVisible,
-    stopTournamentJingle,
+    stopAllAudioImmediate,
     playSkipAudio,
     runCountdownSequence,
     setCountdownContext,
@@ -6255,6 +6292,7 @@ export default function HostRoomPage() {
       return;
     }
     hasUserInteractedRef.current = true;
+    stopAllAudioImmediate();
     const shouldPlaySkip = isRound5RulesAudioPlaying;
     setIsRound5RulesVisible(false);
     stopRound5RulesAudio();
@@ -6269,6 +6307,7 @@ export default function HostRoomPage() {
     isRound5RulesAudioPlaying,
     playSkipAudio,
     startRound5Countdown,
+    stopAllAudioImmediate,
     stopRound5RulesAudio,
   ]);
 
@@ -7262,30 +7301,28 @@ export default function HostRoomPage() {
                     <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/70">Варианты</p>
                     <span className="text-xs font-semibold text-[#142a45]/60">+{question.points} 💎</span>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    {question.options.slice(0, 4).map((option, index) => {
-                      const isCorrect = index === question.correctIndex;
-                      const isHighlighted = canAdvance && isCorrect;
-                      return (
-                        <div
-                          key={`${question.order}-opt-${index}`}
-                          className={`relative rounded-2xl border-[3px] px-4 py-6 min-h-[110px] flex items-center justify-center text-center overflow-hidden transition-colors ${
-                            isHighlighted ? 'border-[#1f6ac6]/60 bg-[#e9f0ff]' : 'border-[#142a45]/20 bg-white'
-                          }`}
-                        >
-                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <span
-                              className={`w-14 h-14 rounded-full border-[3px] flex items-center justify-center font-black text-sm opacity-80 ${
-                                isHighlighted ? 'border-[#1f6ac6]/50 bg-white text-[#1f6ac6]' : 'border-[#142a45]/15 bg-[#fff6da] text-[#142a45]'
-                              }`}
-                            >
-                              +{question.points}
-                            </span>
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+                      <span className="w-14 h-14 rounded-full border-[3px] flex items-center justify-center font-black text-sm opacity-85 border-[#142a45]/15 bg-[#fff6da] text-[#142a45]">
+                        +{question.points}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      {question.options.slice(0, 4).map((option, index) => {
+                        const isCorrect = index === question.correctIndex;
+                        const isHighlighted = canAdvance && isCorrect;
+                        return (
+                          <div
+                            key={`${question.order}-opt-${index}`}
+                            className={`rounded-2xl border-[3px] px-4 py-6 min-h-[110px] flex items-center justify-center text-center overflow-hidden transition-colors ${
+                              isHighlighted ? 'border-[#1f6ac6]/60 bg-[#e9f0ff]' : 'border-[#142a45]/20 bg-white'
+                            }`}
+                          >
+                            <span className="text-xl sm:text-2xl font-black leading-tight px-2">{option}</span>
                           </div>
-                          <span className="relative z-10 text-xl sm:text-2xl font-black leading-tight px-2">{option}</span>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
 
