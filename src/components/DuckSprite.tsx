@@ -38,10 +38,10 @@ export function DuckSprite({
     overflow: 'hidden',
     backgroundImage: `url('${sprite.src}')`,
     backgroundRepeat: 'no-repeat',
-    backgroundPosition: '0% 0%';
-    backgroundSize: '800% 100%';
+    backgroundPosition: '0% 0%',
+    backgroundSize: '800% 100%',
     imageRendering: 'pixelated',
-    animation: `duckStepX-8 ${sprite.durationMs}ms steps(${sprite.frames}, end) infinite`;
+    animation: `duckStepX-8 ${sprite.durationMs}ms steps(${sprite.frames}, end) infinite`,
   } as CSSProperties;
 
   return (
