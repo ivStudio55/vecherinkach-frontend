@@ -88,6 +88,7 @@ export default function HostPage() {
 
             <section className="grid min-h-0 flex-1 gap-6 overflow-auto lg:grid-cols-[1.1fr,0.9fr]">
               <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5 relative overflow-hidden">
+                <DuckSprite variant={2} drift={1} delayMs={0} style={{ position: 'absolute', right: '10px', bottom: '10px', width: '64px', height: '64px' }} />
                 <div className="space-y-2">
                   <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Шаги подключения</p>
                   <h2 className="text-2xl font-black">Как проходит запуск</h2>

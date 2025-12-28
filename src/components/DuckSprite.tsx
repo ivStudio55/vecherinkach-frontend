@@ -2,7 +2,7 @@
 
 import { CSSProperties } from 'react';
 
-type DuckVariant = 1;
+type DuckVariant = 1 | 2;
 type DuckDrift = 1 | 2 | 3 | 4;
 
 type DuckSpriteProps = {
@@ -22,6 +22,7 @@ export function DuckSprite({
 }: DuckSpriteProps) {
   const spriteMap: Record<DuckVariant, { src: string; frames: number; durationMs: number; frameWidth: number; frameHeight: number }> = {
     1: { src: '/img/spritesheet/3.png', frames: 8, durationMs: 900, frameWidth: 64, frameHeight: 64 },
+    2: { src: '/img/spritesheet/duckinglass/flyDuck.png', frames: 8, durationMs: 900, frameWidth: 64, frameHeight: 64 },
   };
 
   const sprite = spriteMap[variant];
