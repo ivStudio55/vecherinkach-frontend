@@ -21,6 +21,7 @@ export const PlayerPrinter = forwardRef<PlayerPrinterRef, PlayerPrinterProps>(({
   useImperativeHandle(ref, () => ({
     addPaper: (name: string) => {
       setPapers(prev => [...prev, { name, printed: false }]);
+      new Audio('/audio/printer/printer.mp3').play().catch(() => {});
       setTimeout(() => {
         setPapers(prev => prev.map((p, i) => i === prev.length - 1 ? { ...p, printed: true } : p));
       }, 50);
@@ -159,7 +160,7 @@ export const PlayerPrinter = forwardRef<PlayerPrinterRef, PlayerPrinterProps>(({
             height: '280px',
             background: 'white',
             position: 'absolute',
-            top: '0',
+            top: '48px',
             left: '40px',
             borderRadius: '4px',
             boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
@@ -171,7 +172,8 @@ export const PlayerPrinter = forwardRef<PlayerPrinterRef, PlayerPrinterProps>(({
             fontWeight: '900',
             color: '#333',
             transform: 'translateY(0)',
-            transition: 'transform 2.4s ease-out',
+            opacity: 0,
+            transition: 'transform 2.4s ease-out, opacity 0.5s ease-out',
             zIndex: 1
           }}
         >
@@ -184,7 +186,8 @@ export const PlayerPrinter = forwardRef<PlayerPrinterRef, PlayerPrinterProps>(({
           50% { opacity: 0.3; }
         }
         .paper.printed {
-          transform: translateY(288px) !important;
+          transform: translateY(240px) !important;
+          opacity: 1 !important;
         }
       `}</style>
     </div>
