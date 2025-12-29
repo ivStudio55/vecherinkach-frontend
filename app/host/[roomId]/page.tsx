@@ -4,7 +4,6 @@ import { Fragment, useState, useEffect, useCallback, useMemo, useRef } from 'rea
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { TrueFalseItem, ROUND2_POINTS } from '@/lib/round2';
-import { Round1VariantsPanel, type Round1VariantsPanelHandle } from '@/components/Round1VariantsPanel';
 import { PlayerPrinter } from '@/components/PlayerPrinter';
 import {
   ActiveRoundQuestion,
@@ -6456,18 +6455,13 @@ export default function HostRoomPage() {
 
     autoNextTimeoutRef.current = setTimeout(() => {
       autoNextTimeoutRef.current = null;
-      void (async () => {
-        await round1VariantsPanelRef.current?.hideCorrect();
-        await nextQuestion();
-      })();
+      void nextQuestion();
     }, AUTO_NEXT_DELAY_MS);
 
     return () => {
       clearAutoNextTimeout();
     };
   }, [roomStatus, showResults, canAdvance, isLastQuestion, nextQuestion, clearAutoNextTimeout]);
-
-  const round1VariantsPanelRef = useRef<Round1VariantsPanelHandle | null>(null);
 
   useEffect(() => {
     if (roomStatus !== 'running' || showResults) {
@@ -7489,14 +7483,29 @@ export default function HostRoomPage() {
                     <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/70">Варианты</p>
                     <span className="text-xs font-semibold text-[#142a45]/60">+{question.points} 💎</span>
                   </div>
-                  <Round1VariantsPanel
-                    ref={round1VariantsPanelRef}
-                    options={question.options.slice(0, 4)}
-                    correctIndex={question.correctIndex}
-                    points={question.points}
-                    revealCorrect={canAdvance}
-                    questionKey={question.order}
-                  />
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+                      <span className="w-14 h-14 rounded-full border-[3px] flex items-center justify-center font-black text-sm opacity-85 border-[#142a45]/15 bg-[#fff6da] text-[#142a45]">
+                        +{question.points}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      {question.options.slice(0, 4).map((option, index) => {
+                        const isCorrect = index === question.correctIndex;
+                        const isHighlighted = canAdvance && isCorrect;
+                        return (
+                          <div
+                            key={`${question.order}-opt-${index}`}
+                            className={`rounded-2xl border-[3px] px-4 py-6 min-h-[110px] flex items-center justify-center text-center overflow-hidden transition-colors ${
+                              isHighlighted ? 'border-[#1f6ac6]/60 bg-[#e9f0ff]' : 'border-[#142a45]/20 bg-white'
+                            }`}
+                          >
+                            <span className="text-xl sm:text-2xl font-black leading-tight px-2">{option}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
 
                 <p className="text-xs text-[#142a45]/70">
