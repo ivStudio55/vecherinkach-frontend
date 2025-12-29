@@ -298,21 +298,20 @@ body {
 @keyframes variantsEnter {
   from {
     opacity: 0;
-    transform: translate3d(var(--to-x, 0px), var(--to-y, 0px), 0) scale(0.22);
+    /* Start from under the center circle (towards center from each tile). */
+    transform: translate3d(var(--to-x, 0px), var(--to-y, 0px), 0) scale(0.18);
     filter: blur(3px);
+  }
+  72% {
+    opacity: 1;
+    transform: translate3d(-6px, 6px, 0) scale(1.02);
+    filter: blur(0px);
   }
   to {
     opacity: 1;
     transform: translate3d(0, 0, 0) scale(1);
     filter: blur(0px);
   }
-}
-
-/* Prevent a one-frame flash before the enter animation is attached. */
-.variants-tile-pre {
-  opacity: 0;
-  transform: translate3d(var(--to-x, 0px), var(--to-y, 0px), 0) scale(0.22);
-  filter: blur(3px);
 }
 
 .variants-tile-enter {
@@ -323,11 +322,13 @@ body {
 @keyframes variantsFall {
   from {
     opacity: 1;
-    transform: translate3d(0, 0, 0) rotate(0deg);
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+    filter: blur(0px);
   }
   to {
     opacity: 0;
-    transform: translate3d(var(--dx, 0px), var(--drop, 560px), 0) rotate(var(--rot, 0deg));
+    transform: translate3d(var(--dx, 0px), var(--drop, 560px), 0) rotate(var(--rot, 0deg)) scale(0.9);
+    filter: blur(2px);
   }
 }
 
