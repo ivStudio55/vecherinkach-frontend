@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { TrueFalseItem, ROUND2_POINTS } from '@/lib/round2';
 import { PlayerPrinter } from '@/components/PlayerPrinter';
+import { Round1VariantsPanel, Round1VariantsPanelHandle } from '@/components/Round1VariantsPanel';
 import {
   ActiveRoundQuestion,
   OptionKey,
@@ -22,6 +23,7 @@ const QUESTION_DURATION_SECONDS = 30;
 const ROUND1_TOTAL_QUESTIONS = 6;
 const COUNTDOWN_STEPS = ['на старт', 'внимание', '3', '2', '1', 'старт'] as const;
 const AUTO_NEXT_DELAY_MS = 6000;
+const ROUND1_VARIANTS_OUTRO_MS = 950;
 const JOIN_SOUND_FILES = [
   'The_duck_quacked_fun_#1.mp3',
   'The_duck_quacked_fun_#2.mp3',
@@ -586,6 +588,7 @@ export default function HostRoomPage() {
   const round2AskedIndicesRef = useRef<number[]>([]);
   const round2QuestionCounterRef = useRef(0);
   const handleRound2NextQuestionRef = useRef<(() => void) | null>(null);
+  const round1VariantsPanelRef = useRef<Round1VariantsPanelHandle | null>(null);
   const previousPlayerIdsRef = useRef<Set<string>>(new Set());
   const hasSnapshotRef = useRef(false);
   const countdownTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -605,6 +608,7 @@ export default function HostRoomPage() {
   const lastRound3VoteAudioKeyRef = useRef<string | null>(null);
   const handleRound3NextQuestionRef = useRef<(() => void) | null>(null);
   const autoNextTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const round1VariantsOutroTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoFinishTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const round2TimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTransitioningRound2Ref = useRef(false);
@@ -778,6 +782,11 @@ export default function HostRoomPage() {
     if (autoNextTimeoutRef.current) {
       clearTimeout(autoNextTimeoutRef.current);
       autoNextTimeoutRef.current = null;
+    }
+
+    if (round1VariantsOutroTimeoutRef.current) {
+      clearTimeout(round1VariantsOutroTimeoutRef.current);
+      round1VariantsOutroTimeoutRef.current = null;
     }
   }, []);
 
@@ -6453,6 +6462,12 @@ export default function HostRoomPage() {
       return;
     }
 
+    const outroDelay = Math.max(0, AUTO_NEXT_DELAY_MS - ROUND1_VARIANTS_OUTRO_MS);
+    round1VariantsOutroTimeoutRef.current = setTimeout(() => {
+      round1VariantsOutroTimeoutRef.current = null;
+      void round1VariantsPanelRef.current?.hideCorrect();
+    }, outroDelay);
+
     autoNextTimeoutRef.current = setTimeout(() => {
       autoNextTimeoutRef.current = null;
       void nextQuestion();
@@ -7478,7 +7493,7 @@ export default function HostRoomPage() {
                           {getOptionText(question, question.correctIndex)}
                         </span>
                       ) : (
-                        <span className="text-5xl sm:text-6xl font-black leading-tight">{question.text}</span>
+                        <span className="text-4xl sm:text-5xl font-black leading-tight">{question.text}</span>
                       )}
                     </h2>
                   </div>
@@ -7488,29 +7503,14 @@ export default function HostRoomPage() {
                       <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/70">Варианты</p>
                       <span className="text-xs font-semibold text-[#142a45]/60">+{question.points} 💎</span>
                     </div>
-                    <div className="relative">
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
-                        <span className="w-14 h-14 rounded-full border-[3px] flex items-center justify-center font-black text-sm opacity-85 border-[#142a45]/15 bg-[#fff6da] text-[#142a45]">
-                          +{question.points}
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        {question.options.slice(0, 4).map((option, index) => {
-                          const isCorrect = index === question.correctIndex;
-                          const isHighlighted = canAdvance && isCorrect;
-                          return (
-                            <div
-                              key={`${question.order}-opt-${index}`}
-                              className={`rounded-2xl border-[3px] px-4 py-6 min-h-[110px] flex items-center justify-center text-center overflow-hidden transition-colors ${
-                                isHighlighted ? 'border-[#1f6ac6]/60 bg-[#e9f0ff]' : 'border-[#142a45]/20 bg-white'
-                              }`}
-                            >
-                              <span className="text-xl sm:text-2xl font-black leading-tight px-2">{option}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
+                    <Round1VariantsPanel
+                      ref={round1VariantsPanelRef}
+                      options={question.options.slice(0, 4)}
+                      correctIndex={question.correctIndex}
+                      points={question.points}
+                      revealCorrect={canAdvance}
+                      questionKey={typeof question.id === 'number' ? question.id : question.order}
+                    />
                   </div>
 
                   <p className="text-xs text-[#142a45]/70 shrink-0">
