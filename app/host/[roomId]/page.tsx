@@ -6591,9 +6591,21 @@ export default function HostRoomPage() {
           ? 'bg-[#ffe184] text-[#142a45]'
           : 'bg-[#1f6ac6] text-white';
 
+  const shouldLockViewport =
+    roomStatus === 'running' ||
+    roomStatus === 'round2-running' ||
+    roomStatus === 'round3-running' ||
+    roomStatus === 'round4-running' ||
+    roomStatus === 'round5-running' ||
+    roomStatus === 'round5-explanation';
+
   return (
     <Fragment>
-      <div className="min-h-screen bg-[#fef4dc] text-[#142a45] px-4 py-6 transition-opacity duration-1000 opacity-100">
+      <div
+        className={`${
+          shouldLockViewport ? 'h-[100dvh] overflow-hidden' : 'min-h-screen'
+        } bg-[#fef4dc] text-[#142a45] px-4 py-6 transition-opacity duration-1000 opacity-100`}
+      >
         <div className="max-w-[95vw] mx-auto space-y-6">
           <header className="retro-panel bg-[#142a45] text-[#ffeccd] px-6 py-5">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
