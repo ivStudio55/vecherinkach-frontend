@@ -9,6 +9,8 @@
   --accent-red: #f1532f;
   --accent-blue: #1f6ac6;
   --accent-green: #65b058;
+  --border: rgba(20, 42, 69, 0.1);
+  --muted: rgba(20, 42, 69, 0.6);
 }
 
 body {
