@@ -28,35 +28,6 @@ export const PlayerPrinter = forwardRef<PlayerPrinterRef, PlayerPrinterProps>(({
     },
   }));
 
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      const eyes = document.querySelectorAll('.player-printer .eye');
-      const printer = document.querySelector('.player-printer');
-      if (!printer) return;
-      const rect = printer.getBoundingClientRect();
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
-
-      eyes.forEach(eye => {
-        const eyeRect = (eye as HTMLElement).getBoundingClientRect();
-        const eyeX = eyeRect.left + eyeRect.width / 2;
-        const eyeY = eyeRect.top + eyeRect.height / 2;
-
-        const angle = Math.atan2(e.clientY - eyeY, e.clientX - eyeX);
-        const dx = Math.cos(angle) * 2;
-        const dy = Math.sin(angle) * 2;
-
-        const pupil = eye.querySelector('.pupil') as HTMLElement;
-        if (pupil) {
-          pupil.style.transform = `translate(${dx}px, ${dy}px)`;
-        }
-      });
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    return () => document.removeEventListener('mousemove', handleMouseMove);
-  }, []);
-
 
 
   return (
@@ -96,50 +67,6 @@ export const PlayerPrinter = forwardRef<PlayerPrinterRef, PlayerPrinterProps>(({
         left: '40px',
         borderRadius: '4px'
       }}></div>
-      <div className="eye left" style={{
-        position: 'absolute',
-        width: '24px',
-        height: '24px',
-        background: 'white',
-        borderRadius: '50%',
-        border: '4px solid black',
-        top: '-16px',
-        left: '80px',
-        zIndex: 10,
-        transition: 'transform 0.2s ease'
-      }}>
-        <div className="pupil" style={{
-          position: 'absolute',
-          width: '12px',
-          height: '12px',
-          background: 'black',
-          borderRadius: '50%',
-          top: '6px',
-          left: '6px'
-        }}></div>
-      </div>
-      <div className="eye right" style={{
-        position: 'absolute',
-        width: '24px',
-        height: '24px',
-        background: 'white',
-        borderRadius: '50%',
-        border: '4px solid black',
-        top: '-16px',
-        right: '80px',
-        zIndex: 10,
-        transition: 'transform 0.2s ease'
-      }}>
-        <div className="pupil" style={{
-          position: 'absolute',
-          width: '12px',
-          height: '12px',
-          background: 'black',
-          borderRadius: '50%',
-          top: '6px',
-          left: '6px'
-        }}></div>
-      </div>
       <div className="led" style={{
         width: '16px',
         height: '16px',
