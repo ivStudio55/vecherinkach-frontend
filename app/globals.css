@@ -222,7 +222,8 @@ body {
 
 :root {
   --variants-gap: 16px;
-  --variants-tile-size: 132px;
+  /* Width is fluid (2 columns), height is controlled separately to keep tiles rectangular. */
+  --variants-tile-height: clamp(84px, 10vh, 128px);
   --variants-radius: 16px;
   --variants-enter-duration: 850ms;
   --variants-hide-duration: 600ms;
@@ -230,7 +231,8 @@ body {
 
 .variants-stage {
   position: relative;
-  width: calc(var(--variants-tile-size) * 2 + var(--variants-gap));
+  width: 100%;
+  max-width: 720px;
   max-width: 100%;
   margin: 0 auto;
   padding: 6px;
@@ -239,8 +241,8 @@ body {
 .variants-grid {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(2, var(--variants-tile-size));
-  grid-template-rows: repeat(2, var(--variants-tile-size));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: var(--variants-tile-height);
   gap: var(--variants-gap);
   justify-content: center;
   align-content: center;
@@ -255,6 +257,8 @@ body {
   border-radius: 16px;
   border-width: 3px;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08), 0 4px 10px rgba(0, 0, 0, 0.05);
+  width: 100%;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -276,23 +280,23 @@ body {
 
 /* Per-position hide direction (towards center circle). */
 .variants-pos-0 {
-  --to-x: calc(var(--variants-tile-size) / 2 + var(--variants-gap) / 2);
-  --to-y: calc(var(--variants-tile-size) / 2 + var(--variants-gap) / 2);
+  --to-x: calc(50% + var(--variants-gap) / 2);
+  --to-y: calc(50% + var(--variants-gap) / 2);
 }
 
 .variants-pos-1 {
-  --to-x: calc(-1 * (var(--variants-tile-size) / 2 + var(--variants-gap) / 2));
-  --to-y: calc(var(--variants-tile-size) / 2 + var(--variants-gap) / 2);
+  --to-x: calc(-1 * (50% + var(--variants-gap) / 2));
+  --to-y: calc(50% + var(--variants-gap) / 2);
 }
 
 .variants-pos-2 {
-  --to-x: calc(var(--variants-tile-size) / 2 + var(--variants-gap) / 2);
-  --to-y: calc(-1 * (var(--variants-tile-size) / 2 + var(--variants-gap) / 2));
+  --to-x: calc(50% + var(--variants-gap) / 2);
+  --to-y: calc(-1 * (50% + var(--variants-gap) / 2));
 }
 
 .variants-pos-3 {
-  --to-x: calc(-1 * (var(--variants-tile-size) / 2 + var(--variants-gap) / 2));
-  --to-y: calc(-1 * (var(--variants-tile-size) / 2 + var(--variants-gap) / 2));
+  --to-x: calc(-1 * (50% + var(--variants-gap) / 2));
+  --to-y: calc(-1 * (50% + var(--variants-gap) / 2));
 }
 
 @keyframes variantsEnter {
