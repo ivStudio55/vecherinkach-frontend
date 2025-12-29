@@ -225,6 +225,7 @@ body {
 :root {
   --variants-gap: 16px;
   --variants-tile-size: 132px;
+  --variants-tile-height: 80px;
   --variants-radius: 16px;
   --variants-enter-duration: 850ms;
   --variants-hide-duration: 600ms;
@@ -233,6 +234,7 @@ body {
 .variants-stage {
   position: relative;
   width: calc(var(--variants-tile-size) * 2 + var(--variants-gap));
+  height: calc(var(--variants-tile-height) * 2 + var(--variants-gap));
   max-width: 100%;
   margin: 0 auto;
   padding: 6px;
@@ -242,7 +244,7 @@ body {
   position: relative;
   display: grid;
   grid-template-columns: repeat(2, var(--variants-tile-size));
-  grid-template-rows: repeat(2, var(--variants-tile-size));
+  grid-template-rows: repeat(2, var(--variants-tile-height));
   gap: var(--variants-gap);
   justify-content: center;
   align-content: center;
@@ -264,6 +266,8 @@ body {
   user-select: none;
   transform: translate3d(0, 0, 0);
   will-change: transform, filter, opacity;
+  width: var(--variants-tile-size);
+  height: var(--variants-tile-height);
 }
 
 .variants-tile-neutral {
@@ -279,22 +283,22 @@ body {
 /* Per-position hide direction (towards center circle). */
 .variants-pos-0 {
   --to-x: calc(var(--variants-tile-size) / 2 + var(--variants-gap) / 2);
-  --to-y: calc(var(--variants-tile-size) / 2 + var(--variants-gap) / 2);
+  --to-y: calc(var(--variants-tile-height) / 2 + var(--variants-gap) / 2);
 }
 
 .variants-pos-1 {
   --to-x: calc(-1 * (var(--variants-tile-size) / 2 + var(--variants-gap) / 2));
-  --to-y: calc(var(--variants-tile-size) / 2 + var(--variants-gap) / 2);
+  --to-y: calc(var(--variants-tile-height) / 2 + var(--variants-gap) / 2);
 }
 
 .variants-pos-2 {
   --to-x: calc(var(--variants-tile-size) / 2 + var(--variants-gap) / 2);
-  --to-y: calc(-1 * (var(--variants-tile-size) / 2 + var(--variants-gap) / 2));
+  --to-y: calc(-1 * (var(--variants-tile-height) / 2 + var(--variants-gap) / 2));
 }
 
 .variants-pos-3 {
   --to-x: calc(-1 * (var(--variants-tile-size) / 2 + var(--variants-gap) / 2));
-  --to-y: calc(-1 * (var(--variants-tile-size) / 2 + var(--variants-gap) / 2));
+  --to-y: calc(-1 * (var(--variants-tile-height) / 2 + var(--variants-gap) / 2));
 }
 
 @keyframes variantsEnter {
