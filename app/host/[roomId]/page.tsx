@@ -7448,12 +7448,12 @@ export default function HostRoomPage() {
               </div>
             ) : question ? (
               <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 flex flex-col gap-5 h-[78vh] max-h-[860px]">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between min-h-[44px]">
                   <span className="px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
                     Вопрос {question.order} / {totalQuestions}
                   </span>
-                  <span className="text-sm font-semibold text-[#142a45]/70">
-                    Ответили: <span className="text-[#1f6ac6]">{answeredCount}/{totalPlayers}</span>
+                  <span className="text-sm font-semibold text-[#142a45]/70 whitespace-nowrap">
+                    Ответили: <span className="text-[#1f6ac6] tabular-nums">{answeredCount}/{totalPlayers}</span>
                   </span>
                 </div>
 
