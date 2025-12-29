@@ -23,7 +23,7 @@ type Props = {
 };
 
 const ENTER_TOTAL_MS = 850 + 100 * 3 + 60;
-const HIDE_TOTAL_MS = 600 + 40;
+const HIDE_TOTAL_MS = 900 + 40;
 
 const prefersReducedMotion = () =>
   typeof window !== 'undefined' &&
@@ -115,9 +115,9 @@ export const Round1VariantsPanel = forwardRef<Round1VariantsPanelHandle, Props>(
   const applyRandomFallVars = useCallback((el: HTMLDivElement) => {
     const dx = Math.round(randomBetween(-180, 180));
     const rot = Math.round(randomBetween(-200, 200));
-    const dur = Math.round(randomBetween(800, 1300));
+    const dur = Math.round(randomBetween(1400, 2200));
     const delay = Math.round(randomBetween(0, 220));
-    const drop = Math.round(randomBetween(500, 680));
+    const drop = Math.round(randomBetween(640, 900));
 
     el.style.setProperty('--dx', `${dx}px`);
     el.style.setProperty('--rot', `${rot}deg`);
@@ -237,7 +237,6 @@ export const Round1VariantsPanel = forwardRef<Round1VariantsPanelHandle, Props>(
             const option = options[index] ?? '';
             const isCorrect = index === correctIndex;
             const isHighlighted = revealCorrect && isCorrect;
-            const isEntering = phase === 'entering';
 
             return (
               <div
@@ -245,7 +244,6 @@ export const Round1VariantsPanel = forwardRef<Round1VariantsPanelHandle, Props>(
                 ref={tileRefs[index]}
                 className={
                   `variants-tile variants-pos-${index} ` +
-                  (isEntering ? 'variants-tile-pre ' : '') +
                   (isHighlighted ? 'variants-tile-correct' : 'variants-tile-neutral')
                 }
                 aria-hidden={phase === 'entering' ? 'true' : 'false'}

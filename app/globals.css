@@ -226,7 +226,7 @@ body {
   --variants-tile-height: clamp(84px, 10vh, 128px);
   --variants-radius: 16px;
   --variants-enter-duration: 850ms;
-  --variants-hide-duration: 600ms;
+  --variants-hide-duration: 900ms;
 }
 
 .variants-stage {
