@@ -5,7 +5,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { TrueFalseItem, ROUND2_POINTS } from '@/lib/round2';
 import { PlayerPrinter } from '@/components/PlayerPrinter';
-import { Round1VariantsPanel } from '@/components/Round1VariantsPanel';
 import {
   ActiveRoundQuestion,
   OptionKey,
@@ -7433,7 +7432,7 @@ export default function HostRoomPage() {
                 )}
               </div>
             ) : question ? (
-              <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
+              <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 flex flex-col gap-5 h-[78vh] max-h-[860px]">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <span className="px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
                     Вопрос {question.order} / {totalQuestions}
@@ -7456,9 +7455,11 @@ export default function HostRoomPage() {
                       style={{ width: `${progressPercent}%` }}
                     />
                   </div>
-                  {allPlayersAnswered && (
-                    <p className="text-xs text-[#1f6ac6] font-semibold mt-2">Все игроки уже ответили — можно переходить дальше.</p>
-                  )}
+                  <div className="min-h-[20px]">
+                    {allPlayersAnswered && (
+                      <p className="text-xs text-[#1f6ac6] font-semibold mt-2">Все игроки уже ответили — можно переходить дальше.</p>
+                    )}
+                  </div>
                 </div>
 
                 <div className="rounded-2xl border-[3px] border-[#142a45]/25 bg-white px-4 py-3 text-sm font-semibold flex items-center justify-between">
@@ -7466,42 +7467,62 @@ export default function HostRoomPage() {
                   <span className="text-[#1f6ac6] font-black">+{question.points} 💎</span>
                 </div>
 
-                <h2 className="text-3xl font-black leading-tight text-center">
-                  {canAdvance ? (
-                    <span
-                      key={`round1-correct-${question.order}`}
-                      className="text-6xl sm:text-7xl font-black text-[#1f6ac6] text-center animate-correct-reveal"
-                    >
-                      {getOptionText(question, question.correctIndex)}
-                    </span>
-                  ) : (
-                    <span className="text-5xl sm:text-6xl font-black leading-tight">{question.text}</span>
-                  )}
-                </h2>
-
-                <div className="rounded-3xl border-[3px] border-dashed border-[#142a45]/30 bg-[#fff6da] p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/70">Варианты</p>
-                    <span className="text-xs font-semibold text-[#142a45]/60">+{question.points} 💎</span>
+                <div className="flex-1 min-h-0 flex flex-col gap-5">
+                  <div className="flex-1 min-h-0 flex items-center justify-center">
+                    <h2 className="text-3xl font-black leading-tight text-center max-h-full overflow-y-auto">
+                      {canAdvance ? (
+                        <span
+                          key={`round1-correct-${question.order}`}
+                          className="text-6xl sm:text-7xl font-black text-[#1f6ac6] text-center animate-correct-reveal"
+                        >
+                          {getOptionText(question, question.correctIndex)}
+                        </span>
+                      ) : (
+                        <span className="text-5xl sm:text-6xl font-black leading-tight">{question.text}</span>
+                      )}
+                    </h2>
                   </div>
-                  <Round1VariantsPanel
-                    options={question.options.slice(0, 4)}
-                    correctIndex={question.correctIndex}
-                    points={question.points}
-                    revealCorrect={canAdvance}
-                    questionKey={typeof question.id === 'number' ? question.id : question.order}
-                  />
-                </div>
 
-                <p className="text-xs text-[#142a45]/70">
-                  {isRoundEndButtonLocked
-                    ? 'Подождите несколько секунд — звучит финальный джингл перед стартом следующего раунда.'
-                    : canAdvance
-                      ? isLastQuestion
-                        ? 'Итоги появятся автоматически.'
-                        : 'Следующий вопрос появится автоматически.'
-                      : 'Идёт сбор ответов…'}
-                </p>
+                  <div className="rounded-3xl border-[3px] border-dashed border-[#142a45]/30 bg-[#fff6da] p-4 space-y-3 shrink-0">
+                    <div className="flex items-center justify-between">
+                      <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/70">Варианты</p>
+                      <span className="text-xs font-semibold text-[#142a45]/60">+{question.points} 💎</span>
+                    </div>
+                    <div className="relative">
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+                        <span className="w-14 h-14 rounded-full border-[3px] flex items-center justify-center font-black text-sm opacity-85 border-[#142a45]/15 bg-[#fff6da] text-[#142a45]">
+                          +{question.points}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        {question.options.slice(0, 4).map((option, index) => {
+                          const isCorrect = index === question.correctIndex;
+                          const isHighlighted = canAdvance && isCorrect;
+                          return (
+                            <div
+                              key={`${question.order}-opt-${index}`}
+                              className={`rounded-2xl border-[3px] px-4 py-6 min-h-[110px] flex items-center justify-center text-center overflow-hidden transition-colors ${
+                                isHighlighted ? 'border-[#1f6ac6]/60 bg-[#e9f0ff]' : 'border-[#142a45]/20 bg-white'
+                              }`}
+                            >
+                              <span className="text-xl sm:text-2xl font-black leading-tight px-2">{option}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-[#142a45]/70 shrink-0">
+                    {isRoundEndButtonLocked
+                      ? 'Подождите несколько секунд — звучит финальный джингл перед стартом следующего раунда.'
+                      : canAdvance
+                        ? isLastQuestion
+                          ? 'Итоги появятся автоматически.'
+                          : 'Следующий вопрос появится автоматически.'
+                        : 'Идёт сбор ответов…'}
+                  </p>
+                </div>
               </div>
             ) : (
               <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 text-center space-y-3">
