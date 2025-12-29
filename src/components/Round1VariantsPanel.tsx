@@ -82,14 +82,6 @@ export const Round1VariantsPanel = forwardRef<Round1VariantsPanelHandle, Props>(
       el.style.removeProperty('--delay');
       el.style.removeProperty('--drop');
       el.style.setProperty('--enter-delay', `${positionIndex * 100}ms`);
-
-      // Set random enter animation vars
-      const fromX = randomBetween(-200, 200);
-      const fromY = randomBetween(-200, 200);
-      const enterRot = randomBetween(-45, 45);
-      el.style.setProperty('--from-x', `${fromX}px`);
-      el.style.setProperty('--from-y', `${fromY}px`);
-      el.style.setProperty('--enter-rot', `${enterRot}deg`);
     });
 
     setPhase('entering');
@@ -213,40 +205,6 @@ export const Round1VariantsPanel = forwardRef<Round1VariantsPanelHandle, Props>(
 
     clearTimers();
     setPhase('hiding');
-
-    // Set hide animation vars based on position
-    const tileSize = 140; // --variants-tile-size
-    const tileHeight = 70; // --variants-tile-height
-    const gap = 16; // --variants-gap
-    const halfTile = tileSize / 2;
-    const halfTileHeight = tileHeight / 2;
-    const halfGap = gap / 2;
-
-    let toX: number, toY: number;
-    switch (correctIndex) {
-      case 0: // top-left
-        toX = halfTile + halfGap;
-        toY = halfTileHeight + halfGap;
-        break;
-      case 1: // top-right
-        toX = - (halfTile + halfGap);
-        toY = halfTileHeight + halfGap;
-        break;
-      case 2: // bottom-left
-        toX = halfTile + halfGap;
-        toY = - (halfTileHeight + halfGap);
-        break;
-      case 3: // bottom-right
-        toX = - (halfTile + halfGap);
-        toY = - (halfTileHeight + halfGap);
-        break;
-      default:
-        toX = 0;
-        toY = 0;
-    }
-
-    correctEl.style.setProperty('--to-x', `${toX}px`);
-    correctEl.style.setProperty('--to-y', `${toY}px`);
 
     correctEl.classList.add('variants-tile-hide');
 
