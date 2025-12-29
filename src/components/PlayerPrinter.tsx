@@ -159,7 +159,7 @@ export const PlayerPrinter = forwardRef<PlayerPrinterRef, PlayerPrinterProps>(({
             height: '280px',
             background: 'white',
             position: 'absolute',
-            top: '48px',
+            top: '0',
             left: '40px',
             borderRadius: '4px',
             boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
@@ -167,8 +167,8 @@ export const PlayerPrinter = forwardRef<PlayerPrinterRef, PlayerPrinterProps>(({
             alignItems: 'center',
             justifyContent: 'center',
             textAlign: 'center',
-            fontSize: '32px',
-            fontWeight: 'bold',
+            fontSize: '48px',
+            fontWeight: '900',
             color: '#333',
             transform: 'translateY(0)',
             transition: 'transform 2.4s ease-out',
@@ -184,7 +184,7 @@ export const PlayerPrinter = forwardRef<PlayerPrinterRef, PlayerPrinterProps>(({
           50% { opacity: 0.3; }
         }
         .paper.printed {
-          transform: translateY(240px) !important;
+          transform: translateY(288px) !important;
         }
       `}</style>
     </div>
