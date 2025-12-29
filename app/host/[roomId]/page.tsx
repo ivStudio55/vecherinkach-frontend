@@ -7484,15 +7484,7 @@ export default function HostRoomPage() {
                   )}
                 </h2>
 
-                <div className="card" style={{
-                  width: 'min(520px, 100%)',
-                  background: 'rgba(255, 255, 255, 0.7)',
-                  border: '1px solid var(--border)',
-                  borderRadius: '22px',
-                  boxShadow: '0 12px 30px rgba(0, 0, 0, 0.07)',
-                  backdropFilter: 'blur(10px)',
-                  padding: '18px 16px 14px'
-                }}>
+                <div className="rounded-3xl border-[3px] border-dashed border-[#142a45]/30 bg-[#fff6da] p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/70">Варианты</p>
                     <span className="text-xs font-semibold text-[#142a45]/60">+{question.points} 💎</span>
