@@ -7489,24 +7489,10 @@ export default function HostRoomPage() {
                   </div>
                 </div>
 
-                <div className="rounded-2xl border-[3px] border-[#142a45]/25 bg-white px-4 py-3 text-sm font-semibold flex items-center justify-between">
-                  <span>Награда за правильный ответ</span>
-                  <span className="text-[#1f6ac6] font-black">+{question.points} 💎</span>
-                </div>
-
                 <div className="flex-1 min-h-0 flex flex-col gap-5">
                   <div className="flex-1 min-h-0 flex items-center justify-center">
                     <h2 className="text-3xl font-black leading-tight text-center max-h-full overflow-y-auto">
-                      {canAdvance ? (
-                        <span
-                          key={`round1-correct-${question.order}`}
-                          className="text-6xl sm:text-7xl font-black text-[#1f6ac6] text-center animate-correct-reveal"
-                        >
-                          {getOptionText(question, question.correctIndex)}
-                        </span>
-                      ) : (
-                        <span className="text-4xl sm:text-5xl font-black leading-tight">{question.text}</span>
-                      )}
+                      <span className="text-4xl sm:text-5xl font-black leading-tight">{question.text}</span>
                     </h2>
                   </div>
 
