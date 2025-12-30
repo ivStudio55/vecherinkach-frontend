@@ -198,7 +198,11 @@ const normalizeRound4Answer = (value: string) => normalizeRound3FreeText(value);
 
 const renderRound3QuestionWithAnswer = (questionText: string, answerText: string) => {
   const parts = (questionText ?? '').split(/(\*{3,})/g);
-  const answerNode = <span className="font-black text-2xl">{answerText}</span>;
+  const answerNode = (
+    <span className="inline-block align-baseline px-3 py-1 rounded-2xl border-[3px] border-[#1f6ac6]/30 bg-white font-black text-3xl sm:text-4xl text-[#1f6ac6]">
+      {answerText}
+    </span>
+  );
   let replacedAny = false;
   const nodes = parts.map((part, idx) => {
     if (/^\*{3,}$/.test(part)) {
@@ -211,7 +215,7 @@ const renderRound3QuestionWithAnswer = (questionText: string, answerText: string
   if (!replacedAny) {
     return (
       <>
-        {questionText} <span className="font-black text-2xl">({answerText})</span>
+        {questionText} <span className="font-black text-2xl text-[#1f6ac6]">({answerText})</span>
       </>
     );
   }

@@ -179,17 +179,17 @@ body {
 @keyframes textDepthCharIn {
   0% {
     opacity: 0;
-    transform: translate3d(0, 0.24em, -70px) rotateX(38deg) scale(0.98);
+    transform: translate3d(0, 0.24em, -70px) rotateX(38deg);
     filter: blur(8px);
   }
   70% {
     opacity: 1;
-    transform: translate3d(0, 0, 0) rotateX(0deg) scale(1.01);
+    transform: translate3d(0, 0, 0) rotateX(0deg);
     filter: blur(0);
   }
   100% {
     opacity: 1;
-    transform: translate3d(0, 0, 0) rotateX(0deg) scale(1);
+    transform: translate3d(0, 0, 0) rotateX(0deg);
     filter: blur(0);
   }
 }
@@ -198,6 +198,11 @@ body {
   display: inline;
   white-space: pre-wrap;
   perspective: 900px;
+}
+
+.animated-text-word {
+  display: inline-block;
+  white-space: nowrap;
 }
 
 .animated-text-char {

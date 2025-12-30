@@ -318,6 +318,21 @@ export default function RoomPage() {
     void loadPlayerStanding();
   }, [loadPlayerStanding, roomStatus, showResults]);
 
+  const isIntermission = roomStatus === 'waiting' && selectedQuestionIds.length > 0 && Boolean(roomId) && Boolean(playerId);
+
+  useEffect(() => {
+    if (!isIntermission) {
+      return;
+    }
+
+    void loadPlayerStanding();
+    const intervalId = window.setInterval(() => {
+      void loadPlayerStanding();
+    }, 2500);
+
+    return () => window.clearInterval(intervalId);
+  }, [isIntermission, loadPlayerStanding]);
+
   useEffect(() => {
     // If we are already in round4-running but puzzles didn't load (or loaded empty), retry a couple times.
     if (roomStatus !== 'round4-running') {
@@ -1763,11 +1778,46 @@ export default function RoomPage() {
 
         {roomStatus === 'waiting' && (
           <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-8 text-center space-y-4">
-            <div className="text-5xl">⏳</div>
-            <h2 className="text-3xl font-black">Ждём старт от ведущего</h2>
-            <p className="text-sm text-[#142a45]/80">
-              Вы подключены. Ведущий начнёт раунд, когда все игроки войдут. Ничего нажимать не нужно — просто ждите звукового сигнала.
-            </p>
+            {isIntermission ? (
+              <>
+                <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">ПЕРЕРЫВ МЕЖДУ РАУНДАМИ</p>
+                <h2 className="text-3xl font-black">🏁 Текущие результаты</h2>
+
+                <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-5 space-y-3 animate-final-panel">
+                  <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/60">ВАШ ПРОГРЕСС</p>
+
+                  {standingError ? (
+                    <p className="text-sm font-semibold text-[#b23324]">{standingError}</p>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-white p-4">
+                        <p className="text-[11px] font-semibold tracking-[0.25em] text-[#142a45]/60">ОЧКИ</p>
+                        <p className="text-3xl font-black tabular-nums">{playerTotalPoints ?? (isStandingLoading ? '…' : '—')}</p>
+                      </div>
+                      <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-white p-4">
+                        <p className="text-[11px] font-semibold tracking-[0.25em] text-[#142a45]/60">МЕСТО</p>
+                        <p className="text-3xl font-black tabular-nums">
+                          {playerRank !== null ? `${playerRank}` : isStandingLoading ? '…' : '—'}
+                          {playersCount ? <span className="text-base font-black text-[#142a45]/60">/{playersCount}</span> : null}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <p className="text-sm text-[#142a45]/80">
+                  Ждём следующий раунд от ведущего. Ничего нажимать не нужно.
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="text-5xl">⏳</div>
+                <h2 className="text-3xl font-black">Ждём старт от ведущего</h2>
+                <p className="text-sm text-[#142a45]/80">
+                  Вы подключены. Ведущий начнёт раунд, когда все игроки войдут. Ничего нажимать не нужно — просто ждите звукового сигнала.
+                </p>
+              </>
+            )}
           </section>
         )}
 
