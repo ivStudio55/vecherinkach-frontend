@@ -2629,12 +2629,15 @@ export default function HostRoomPage() {
       return;
     }
 
-    stopRound3VoteAudio();
+    // We intentionally do NOT stop/cancel the vote voice here.
+    // It is scheduled to play at +30s (end of answer phase) and must not be cancelled
+    // by re-renders during the answer phase.
+    stopRound3VoteTimerAudio();
     stopRound3ResultsAudio();
     lastRound3VoteKeyRef.current = null;
     lastRound3ResultsAudioKeyRef.current = null;
     lastRound3ResultsScoringKeyRef.current = null;
-  }, [currentQuestionIndex, isRound3ResultsPhase, loadRound3VoteAnswers, playRound3ResultsAudio, playRound3VoteAudio, questionStartedAt, roomStatus, round3Phase, stopRound3ResultsAudio, stopRound3VoteAudio]);
+  }, [currentQuestionIndex, isRound3ResultsPhase, loadRound3VoteAnswers, playRound3ResultsAudio, playRound3VoteAudio, questionStartedAt, roomStatus, round3Phase, stopRound3ResultsAudio, stopRound3VoteAudio, stopRound3VoteTimerAudio]);
 
   useEffect(() => {
     if (roomStatus !== 'round3-running') {
