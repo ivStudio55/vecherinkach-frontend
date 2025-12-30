@@ -2077,7 +2077,9 @@ export default function HostRoomPage() {
               }
 
               setQuestionStartedAt(startedAt);
-              setTimeLeft(getRemainingSeconds(startedAt, ROUND3_ANSWER_SECONDS, offset));
+              const totalRound3Seconds =
+                ROUND3_ANSWER_SECONDS + ROUND3_VOTE_COUNTDOWN_SECONDS + ROUND3_VOTE_SECONDS;
+              setTimeLeft(getRemainingSeconds(startedAt, totalRound3Seconds, offset));
 
               if (round3AnswerTimerVoteVoiceTimeoutRef.current) {
                 clearTimeout(round3AnswerTimerVoteVoiceTimeoutRef.current);
@@ -2102,7 +2104,7 @@ export default function HostRoomPage() {
               try {
                 const startTimerAt = context.currentTime + 0.01;
                 timerSource.start(startTimerAt);
-                timerSource.stop(startTimerAt + ROUND3_ANSWER_SECONDS);
+                timerSource.stop(startTimerAt + totalRound3Seconds);
               } catch (err) {
                 console.error('Не удалось запустить таймерный джингл Раунда 3', err);
               }
@@ -5832,9 +5834,11 @@ export default function HostRoomPage() {
   const round4ProgressPercent = Math.max(0, Math.min(100, (timeLeft / QUESTION_DURATION_SECONDS) * 100));
   const round3ElapsedSeconds = isRound3Running ? getRound3ElapsedSeconds(questionStartedAt) : null;
 
-  const round3TimerDuration = ROUND3_ANSWER_SECONDS;
+  const round3TotalSeconds = ROUND3_ANSWER_SECONDS + ROUND3_VOTE_COUNTDOWN_SECONDS + ROUND3_VOTE_SECONDS;
+
+  const round3TimerDuration = round3TotalSeconds;
   const round3TimerTimeLeft = isRound3Running
-    ? getRemainingSeconds(questionStartedAt, ROUND3_ANSWER_SECONDS, timeOffsetMs)
+    ? getRemainingSeconds(questionStartedAt, round3TotalSeconds, timeOffsetMs)
     : effectiveTimeLeft;
   const round3ProgressPercent = Math.max(0, Math.min(100, (round3TimerTimeLeft / round3TimerDuration) * 100));
   const isLastRound3Fact = isRound3Running && currentQuestionIndex + 1 >= round3QuestionCount;
