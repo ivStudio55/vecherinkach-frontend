@@ -28,7 +28,7 @@ export default function JoinPage() {
 
       const { data: room, error: roomError } = await supabase
         .from('rooms')
-        .select('id, is_active')
+        .select('id, is_active, status')
         .eq('code', roomCode)
         .single();
 
@@ -38,7 +38,10 @@ export default function JoinPage() {
         return;
       }
 
-      if (!room.is_active) {
+      // Treat room as inactive only when the host explicitly ended the game.
+      // Some transitions between rounds may temporarily flip flags; joining should still work.
+      const roomStatus = typeof (room as { status?: unknown }).status === 'string' ? (room as { status: string }).status : '';
+      if (!room.is_active && roomStatus === 'finished') {
         setError('Эта комната уже не активна');
         setIsLoading(false);
         return;

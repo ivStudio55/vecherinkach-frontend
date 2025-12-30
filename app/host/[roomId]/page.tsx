@@ -5553,7 +5553,8 @@ export default function HostRoomPage() {
       .from('rooms')
       .update({
         status: 'finished',
-        is_active: false,
+        // Keep room joinable for reconnections / late joins between rounds.
+        is_active: true,
         all_players_answered: true,
         question_started_at: null,
         round2_phase: 'idle',
@@ -5624,7 +5625,8 @@ export default function HostRoomPage() {
       .from('rooms')
       .update({
         status: 'finished',
-        is_active: false,
+        // Keep room joinable for reconnections / late joins between rounds.
+        is_active: true,
         all_players_answered: true,
         question_started_at: null,
         round2_phase: 'idle',
@@ -5668,7 +5670,8 @@ export default function HostRoomPage() {
       .from('rooms')
       .update({
         status: 'finished',
-        is_active: false,
+        // Keep room joinable for reconnections / late joins between rounds.
+        is_active: true,
         all_players_answered: true,
         question_started_at: null,
         round2_phase: 'idle',
@@ -6207,7 +6210,8 @@ export default function HostRoomPage() {
       .from('rooms')
       .update({
         status: 'finished',
-        is_active: false,
+        // Keep room joinable for reconnections / late joins between rounds.
+        is_active: true,
         all_players_answered: true,
         question_started_at: null,
       })
@@ -7480,6 +7484,26 @@ export default function HostRoomPage() {
                             return !(Number.isFinite(clampedCorrect) && clampedCorrect > 0 && Number.isFinite(answer) && answer > 0 && answer < maxAllowed);
                           });
 
+                          const hashSeed = (value: string) => {
+                            let h = 2166136261;
+                            for (let i = 0; i < value.length; i += 1) {
+                              h ^= value.charCodeAt(i);
+                              h = Math.imul(h, 16777619);
+                            }
+                            return h >>> 0;
+                          };
+
+                          const mulberry32 = (seed: number) => {
+                            let a = seed >>> 0;
+                            return () => {
+                              a = (a + 0x6d2b79f5) >>> 0;
+                              let t = a;
+                              t = Math.imul(t ^ (t >>> 15), t | 1);
+                              t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+                              return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+                            };
+                          };
+
                           const lanes = [-34, -14, 14, 34, -52, 52];
                           const positioned = inRange
                             .map((row) => {
@@ -7518,12 +7542,11 @@ export default function HostRoomPage() {
                                     return (
                                       <div
                                         key={item.row.id}
-                                        className="absolute top-1/2 animate-drop-in"
+                                        className="absolute top-1/2"
                                         style={{
                                           left: `${item.xPercent}%`,
                                           transform: 'translate(-50%, -50%)',
                                           marginTop: `${laneOffset}px`,
-                                          animationDelay: `${index * 35}ms`,
                                         }}
                                       >
                                         <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-white px-3 py-2 text-center min-w-[84px]">
@@ -7548,16 +7571,31 @@ export default function HostRoomPage() {
                               {outOfRange.length > 0 && (
                                 <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-white p-4 mt-3">
                                   <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/60 text-center">Вне диапазона</p>
-                                  <div className="mt-3 flex flex-wrap gap-2 justify-center">
-                                    {outOfRange.map((row, index) => (
-                                      <span
-                                        key={row.id}
-                                        className="px-3 py-2 rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] text-black text-sm font-black tabular-nums animate-drop-in"
-                                        style={{ animationDelay: `${index * 30}ms` }}
-                                      >
-                                        {getPlayerName(row.player_id)}: {Number.isFinite(row.answer_value) ? Math.round(row.answer_value) : '—'}
-                                      </span>
-                                    ))}
+                                  <div className="mt-3 relative h-[160px] rounded-2xl border-[3px] border-dashed border-[#142a45]/15 bg-[#fff6da] overflow-hidden">
+                                    {outOfRange.map((row, index) => {
+                                      const seed = hashSeed(String(row.id ?? `${row.player_id}-${index}`));
+                                      const rand = mulberry32(seed);
+                                      const left = 10 + rand() * 80;
+                                      const top = 18 + rand() * 64;
+                                      const rotate = (rand() - 0.5) * 18;
+                                      return (
+                                        <div
+                                          key={row.id}
+                                          className="absolute"
+                                          style={{
+                                            left: `${left}%`,
+                                            top: `${top}%`,
+                                            transform: `translate(-50%, -50%) rotate(${rotate}deg)`,
+                                          }}
+                                        >
+                                          <div className="px-3 py-2 rounded-2xl border-[3px] border-[#142a45]/15 bg-white text-black text-sm font-black tabular-nums max-w-[220px]">
+                                            <span className="block truncate">
+                                              {getPlayerName(row.player_id)}: {Number.isFinite(row.answer_value) ? Math.round(row.answer_value) : '—'}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
                                   </div>
                                   {maxAllowed > 0 && (
                                     <p className="mt-2 text-[11px] font-semibold text-[#142a45]/60 text-center">
