@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { TrueFalseItem, ROUND2_POINTS } from '@/lib/round2';
+import { AnimatedText } from '@/components/AnimatedText';
 import {
   ActiveRoundQuestion,
   OPTION_LABELS,
@@ -1652,13 +1653,22 @@ export default function RoomPage() {
 
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#fef4dc] text-[#142a45] px-4 py-10">
-        <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl max-w-lg w-full p-8 text-center space-y-4">
+        <div
+          className={`rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl max-w-lg w-full p-8 text-center space-y-4 ${
+            isFinal ? 'animate-final-panel' : ''
+          }`}
+        >
           <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">
             {isFinal ? 'Игра завершена' : 'Раунд завершён'}
           </p>
           <h2 className="text-3xl font-black">{isFinal ? 'Финальные результаты' : 'Текущие результаты'}</h2>
 
-          <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-5 space-y-3">
+          <div
+            className={`rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-5 space-y-3 ${
+              isFinal ? 'animate-final-panel' : ''
+            }`}
+            style={isFinal ? { animationDelay: '120ms' } : undefined}
+          >
             <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/60">ВАШ ПРОГРЕСС</p>
 
             {standingError ? (
@@ -1691,7 +1701,12 @@ export default function RoomPage() {
           </div>
 
           {isFinal && (
-            <div className={`rounded-3xl border-[4px] ${isWinner ? 'border-[#1f6ac6] bg-[#e9f0ff]' : 'border-[#142a45]/15 bg-[#f7f7f7]'} p-6 space-y-2`}>
+            <div
+              className={`rounded-3xl border-[4px] ${
+                isWinner ? 'border-[#1f6ac6] bg-[#e9f0ff]' : 'border-[#142a45]/15 bg-[#f7f7f7]'
+              } p-6 space-y-2 animate-final-panel`}
+              style={{ animationDelay: '240ms' }}
+            >
               <div className="text-5xl">{isWinner ? '🏆' : '🎊'}</div>
               <p className={`text-2xl font-black ${isWinner ? 'text-[#1f6ac6]' : 'text-[#142a45]'}`}>
                 {isWinner ? 'Поздравляем! Ты победил!' : 'Спасибо за игру!'}
@@ -1848,7 +1863,16 @@ export default function RoomPage() {
               <span className="mx-auto px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
                 Финал · Цифровая интуиция
               </span>
-              <h2 className="text-3xl font-black leading-tight">{round5CurrentQuestion?.question ?? '⏳'}</h2>
+              <h2 className="text-3xl font-black leading-tight">
+                {round5CurrentQuestion?.question ? (
+                  <AnimatedText
+                    key={`r5-q-${round5CurrentBankIndex ?? 'x'}`}
+                    text={round5CurrentQuestion.question}
+                  />
+                ) : (
+                  '⏳'
+                )}
+              </h2>
             </div>
 
             <div>
@@ -1930,7 +1954,9 @@ export default function RoomPage() {
               <span className="mx-auto px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
                 Вопрос #{question.order}
               </span>
-              <h2 className="text-3xl font-black leading-tight">{question.text}</h2>
+              <h2 className="text-3xl font-black leading-tight">
+                <AnimatedText key={`r1-q-${typeof question.id === 'number' ? question.id : question.order}`} text={question.text} />
+              </h2>
             </div>
 
             <div>
@@ -2005,11 +2031,16 @@ export default function RoomPage() {
                 Раунд 2 · Фейколов
               </span>
               <h2 className="text-3xl font-black leading-tight">
-                {round2ItemIndex !== null && round2Items[round2ItemIndex]
-                  ? round2ShowingFact
-                    ? round2Items[round2ItemIndex].fact
-                    : round2Items[round2ItemIndex].fiction
-                  : 'Подождите, факт загружается…'}
+                <AnimatedText
+                  key={`r2-q-${round2ItemIndex ?? 'x'}-${round2ShowingFact ? 't' : 'f'}`}
+                  text={
+                    round2ItemIndex !== null && round2Items[round2ItemIndex]
+                      ? round2ShowingFact
+                        ? round2Items[round2ItemIndex].fact
+                        : round2Items[round2ItemIndex].fiction
+                      : 'Подождите, факт загружается…'
+                  }
+                />
               </h2>
             </div>
 
@@ -2114,7 +2145,11 @@ export default function RoomPage() {
             <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] px-4 py-3 text-center space-y-2">
               <p className="text-[10px] font-black tracking-[0.35em] text-[#142a45]/60">ВОПРОС</p>
               <p className="text-xl sm:text-2xl font-black leading-tight">
-                {currentRound3Question?.question ?? 'Вопрос загружается…'}
+                {currentRound3Question?.question ? (
+                  <AnimatedText key={`r3-q-${round3QuestionIndex ?? 'x'}`} text={currentRound3Question.question} />
+                ) : (
+                  'Вопрос загружается…'
+                )}
               </p>
             </div>
 

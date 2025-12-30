@@ -154,6 +154,59 @@ body {
   animation: round4PanelIn 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+@keyframes finalPanelIn {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+    filter: blur(10px);
+  }
+  65% {
+    opacity: 1;
+    transform: translateY(0) scale(1.01);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+.animate-final-panel {
+  animation: finalPanelIn 760ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes textDepthCharIn {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0.24em, -70px) rotateX(38deg) scale(0.98);
+    filter: blur(8px);
+  }
+  70% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotateX(0deg) scale(1.01);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotateX(0deg) scale(1);
+    filter: blur(0);
+  }
+}
+
+.animated-text {
+  display: inline;
+  white-space: pre-wrap;
+  perspective: 900px;
+}
+
+.animated-text-char {
+  display: inline-block;
+  transform-style: preserve-3d;
+  will-change: transform, opacity, filter;
+  animation: textDepthCharIn 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 @keyframes correctAnswerReveal {
   from {
     opacity: 0;
@@ -472,6 +525,18 @@ body {
   .animate-round2-answer {
     animation: none !important;
     filter: none !important;
+  }
+
+  .animate-final-panel {
+    animation: none !important;
+    filter: none !important;
+  }
+
+  .animated-text-char {
+    animation: none !important;
+    filter: none !important;
+    opacity: 1 !important;
+    transform: none !important;
   }
 }
 

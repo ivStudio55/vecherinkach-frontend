@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { TrueFalseItem, ROUND2_POINTS } from '@/lib/round2';
 import { PlayerPrinter } from '@/components/PlayerPrinter';
 import { Round1VariantsPanel, Round1VariantsPanelHandle } from '@/components/Round1VariantsPanel';
+import { AnimatedText } from '@/components/AnimatedText';
 import {
   ActiveRoundQuestion,
   OptionKey,
@@ -6809,7 +6810,11 @@ export default function HostRoomPage() {
 
               <div className="lg:col-span-9 space-y-6">
             {isTournamentVisible ? (
-              <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
+              <div
+                className={`rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6 ${
+                  roomStatus === 'final-results' ? 'animate-final-panel' : ''
+                }`}
+              >
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">
@@ -7130,7 +7135,12 @@ export default function HostRoomPage() {
                   </p>
 
                   {round2Phase === 'fact' ? (
-                    <p className="text-4xl sm:text-5xl font-black leading-tight text-center">{round2Statement}</p>
+                    <p className="text-4xl sm:text-5xl font-black leading-tight text-center">
+                      <AnimatedText
+                        key={`r2-fact-${round2CurrentIndex ?? clampedRound2QuestionNumber}`}
+                        text={round2Statement}
+                      />
+                    </p>
                   ) : (
                     <div className="space-y-4">
                       <div className="rounded-2xl border-[3px] border-[#b4007f]/30 bg-white px-4 py-5 text-center">
@@ -7141,7 +7151,12 @@ export default function HostRoomPage() {
                           {round2ShowingFact ? 'ПРАВДА' : 'ВЫМЫСЕЛ'}
                         </p>
                       </div>
-                      <p className="text-3xl sm:text-4xl font-black leading-tight text-center">{round2ExplanationText}</p>
+                      <p className="text-3xl sm:text-4xl font-black leading-tight text-center">
+                        <AnimatedText
+                          key={`r2-expl-${round2CurrentIndex ?? clampedRound2QuestionNumber}-${round2ShowingFact ? 't' : 'f'}`}
+                          text={round2ExplanationText}
+                        />
+                      </p>
                     </div>
                   )}
                 </div>
@@ -7208,7 +7223,11 @@ export default function HostRoomPage() {
                   >
                     <p className="text-[11px] tracking-[0.4em] text-[#f1532f]/60">Сейчас в эфире</p>
                     <p className="text-4xl sm:text-5xl font-black leading-tight">
-                      {currentRound3Question?.question ?? 'Подождите, факты загружаются…'}
+                      {currentRound3Question?.question ? (
+                        <AnimatedText key={`r3-q-${currentQuestionIndex}`} text={currentRound3Question.question} />
+                      ) : (
+                        'Подождите, факты загружаются…'
+                      )}
                     </p>
                   </div>
                 )}
@@ -7379,7 +7398,14 @@ export default function HostRoomPage() {
                 <div className="text-center space-y-3">
                   <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Финал · «Цифровая интуиция»</p>
                   <h2 className="text-5xl sm:text-6xl font-black leading-tight text-center text-[#142a45]">
-                    {round5CurrentQuestion?.question ?? '⏳'}
+                    {round5CurrentQuestion?.question ? (
+                      <AnimatedText
+                        key={`r5-q-${round5CurrentBankIndex ?? currentQuestionIndex}`}
+                        text={round5CurrentQuestion.question}
+                      />
+                    ) : (
+                      '⏳'
+                    )}
                   </h2>
                   <div className="flex items-center justify-center gap-3 flex-wrap">
                     <span className="px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
@@ -7578,7 +7604,11 @@ export default function HostRoomPage() {
                 <div className="flex-1 min-h-0 flex flex-col gap-5">
                   <div className="flex-1 min-h-0 flex items-center justify-center">
                     <h2 className="text-3xl font-black leading-tight text-center max-h-full overflow-y-auto">
-                      <span className="text-4xl sm:text-5xl font-black leading-tight">{question.text}</span>
+                      <AnimatedText
+                        key={`r1-q-${typeof question.id === 'number' ? question.id : question.order}`}
+                        text={question.text}
+                        className="text-4xl sm:text-5xl font-black leading-tight"
+                      />
                     </h2>
                   </div>
 
