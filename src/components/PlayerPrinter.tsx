@@ -95,7 +95,7 @@ export const PlayerPrinter = forwardRef<PlayerPrinterRef, PlayerPrinterProps>(({
             alignItems: 'center',
             justifyContent: 'center',
             textAlign: 'center',
-            fontSize: '48px',
+            fontSize: '32px',
             fontWeight: '900',
             color: '#333',
             transform: 'translateY(0)',
