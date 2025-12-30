@@ -88,7 +88,6 @@ const ROUND2_EXPLANATION_BG_FILE = 'round2/explanation.mp3';
 const ROUND2_ANSWER_POLL_INTERVAL_MS = 1000;
 const ROUND2_TOTAL_QUESTIONS = ROUND_QUESTION_COUNT;
 const ROUND2_EXPLANATION_FALLBACK = 'Без объяснения';
-const ROUND2_FAKE_LABEL = 'Вранье';
 
 const ROUND3_TOTAL_QUESTIONS = 6;
 const ROUND3_POINTS = 200;
@@ -5743,7 +5742,9 @@ export default function HostRoomPage() {
     : 'Подождите, факт загружается…';
   const round2Explanation = currentRound2Item?.explanation ?? '';
   const round2FictionExplanation = currentRound2Item?.fictionExplanation ?? '';
-  const round2ExplanationText = round2ShowingFact ? round2Explanation || ROUND2_EXPLANATION_FALLBACK : round2FictionExplanation || ROUND2_FAKE_LABEL;
+  const round2ExplanationText = round2ShowingFact
+    ? round2Explanation || ROUND2_EXPLANATION_FALLBACK
+    : round2FictionExplanation || ROUND2_EXPLANATION_FALLBACK;
   const dedupedRound2Answers = useMemo(() => {
     const unique = new Map<string, Round2AnswerRow>();
     for (const answer of round2Answers) {
@@ -7044,8 +7045,14 @@ export default function HostRoomPage() {
                   key={`round2-onair-${round2CurrentIndex ?? clampedRound2QuestionNumber}-${round2Phase}`}
                   className="rounded-3xl border-[3px] border-[#b4007f]/20 bg-[#fff0fa] p-5 space-y-2 animate-round2-onair"
                 >
-                  <p className="text-[11px] tracking-[0.4em] text-[#b4007f]/60">Сейчас в эфире</p>
-                  <p className="text-4xl sm:text-5xl font-black leading-tight text-center">{round2Statement}</p>
+                  <p className="text-[11px] tracking-[0.4em] text-[#b4007f]/60">
+                    {round2Phase === 'fact' ? 'Сейчас в эфире' : 'Объяснение'}
+                  </p>
+                  {round2Phase === 'fact' ? (
+                    <p className="text-4xl sm:text-5xl font-black leading-tight text-center">{round2Statement}</p>
+                  ) : (
+                    <p className="text-3xl sm:text-4xl font-black leading-tight text-center">{round2ExplanationText}</p>
+                  )}
                 </div>
 
                 {round2Phase === 'fact' ? (
