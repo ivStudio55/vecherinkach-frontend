@@ -7040,14 +7040,12 @@ export default function HostRoomPage() {
                   </div>
                 </div>
 
-                <div className="rounded-3xl border-[3px] border-[#b4007f]/20 bg-[#fff0fa] p-5 space-y-2">
+                <div
+                  key={`round2-onair-${round2CurrentIndex ?? clampedRound2QuestionNumber}-${round2Phase}`}
+                  className="rounded-3xl border-[3px] border-[#b4007f]/20 bg-[#fff0fa] p-5 space-y-2 animate-round2-onair"
+                >
                   <p className="text-[11px] tracking-[0.4em] text-[#b4007f]/60">Сейчас в эфире</p>
                   <p className="text-4xl sm:text-5xl font-black leading-tight text-center">{round2Statement}</p>
-                </div>
-
-                <div className="rounded-2xl border-[3px] border-[#b4007f]/25 bg-white px-4 py-3 text-sm font-semibold flex items-center justify-between">
-                  <span>Награда за правильный ответ</span>
-                  <span className="text-[#b4007f] font-black">+{ROUND2_POINTS} 💎</span>
                 </div>
 
                 {round2Phase === 'fact' ? (
@@ -7069,15 +7067,10 @@ export default function HostRoomPage() {
                     )}
                   </div>
                 ) : (
-                  <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-4 space-y-3">
-                    <p className="text-[11px] tracking-[0.3em] text-[#142a45]/60">Объяснение</p>
-                    <p className="text-base font-semibold text-[#142a45]">
-                      {round2ExplanationText}
-                    </p>
-                    <div className="rounded-2xl border-[3px] border-[#b4007f]/30 bg-white px-4 py-3 text-center">
-                      <p className="text-[11px] tracking-[0.3em] text-[#142a45]/60">Ответ тура</p>
+                  <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-4">
+                    <div className="rounded-2xl border-[3px] border-[#b4007f]/30 bg-white px-4 py-5 text-center">
                       <p
-                        className={`text-4xl font-black animate-correct-reveal ${round2ShowingFact ? 'text-[#1f6ac6]' : 'text-[#b4007f]'}`}
+                        className={`text-5xl sm:text-6xl font-black ${round2ShowingFact ? 'text-[#1f6ac6]' : 'text-[#b4007f]'} animate-round2-answer`}
                         key={`${round2CurrentIndex ?? 'x'}-${round2Phase}-${round2ShowingFact ? 't' : 'f'}`}
                       >
                         {round2ShowingFact ? 'ПРАВДА' : 'ВЫМЫСЕЛ'}

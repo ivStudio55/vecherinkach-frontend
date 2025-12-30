@@ -66,6 +66,50 @@ body {
   animation: dropInFromTop 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
+@keyframes round2OnAirIn {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+    filter: blur(6px);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(0) scale(1.02);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+.animate-round2-onair {
+  animation: round2OnAirIn 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes round2AnswerIn {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.92);
+    filter: blur(8px);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(0) scale(1.04);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+.animate-round2-answer {
+  animation: round2AnswerIn 650ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 @keyframes correctAnswerReveal {
   from {
     opacity: 0;
@@ -370,6 +414,12 @@ body {
   .variants-tile-fall,
   .variants-tile-hide {
     animation: none !important;
+  }
+
+  .animate-round2-onair,
+  .animate-round2-answer {
+    animation: none !important;
+    filter: none !important;
   }
 }
 
