@@ -196,6 +196,60 @@ const normalizeRound3FreeText = (value: string) => {
 
 const normalizeRound4Answer = (value: string) => normalizeRound3FreeText(value);
 
+const TweenedInteger = ({
+  from,
+  to,
+  durationMs,
+  delayMs = 0,
+}: {
+  from: number;
+  to: number;
+  durationMs: number;
+  delayMs?: number;
+}) => {
+  const safeFrom = Number.isFinite(from) ? from : 0;
+  const safeTo = Number.isFinite(to) ? to : safeFrom;
+  const [value, setValue] = useState(safeFrom);
+
+  useEffect(() => {
+    setValue(safeFrom);
+
+    const resolvedDuration = Math.max(0, Math.floor(durationMs));
+    const resolvedDelay = Math.max(0, Math.floor(delayMs));
+    let rafId = 0;
+    let timeoutId: number | undefined;
+    let startTs = 0;
+
+    const tick = (ts: number) => {
+      if (!startTs) {
+        startTs = ts;
+      }
+      const elapsed = ts - startTs;
+      const t = resolvedDuration > 0 ? Math.min(1, elapsed / resolvedDuration) : 1;
+      const next = safeFrom + (safeTo - safeFrom) * t;
+      setValue(next);
+      if (t < 1) {
+        rafId = window.requestAnimationFrame(tick);
+      }
+    };
+
+    timeoutId = window.setTimeout(() => {
+      rafId = window.requestAnimationFrame(tick);
+    }, resolvedDelay);
+
+    return () => {
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+      }
+      if (rafId) {
+        window.cancelAnimationFrame(rafId);
+      }
+    };
+  }, [safeFrom, safeTo, durationMs, delayMs]);
+
+  return <>{Number.isFinite(value) ? Math.round(value) : '—'}</>;
+};
+
 const renderRound3QuestionWithAnswer = (questionText: string, answerText: string) => {
   const parts = (questionText ?? '').split(/(\*{3,})/g);
   const answerNode = (
@@ -223,10 +277,14 @@ const renderRound3QuestionWithAnswer = (questionText: string, answerText: string
   return <>{nodes}</>;
 };
 
-const renderRound3WrongAnswerExcerpt = (questionText: string, answerText: string) => {
+const renderRound3AnswerExcerpt = (
+  questionText: string,
+  answerText: string,
+  renderAnswer: (text: string) => React.ReactNode
+) => {
   const normalized = (questionText ?? '').replace(/\s+/g, ' ').trim();
   if (!normalized) {
-    return <span className="font-black text-2xl sm:text-3xl">{answerText}</span>;
+    return renderAnswer(answerText);
   }
 
   const split = normalized.split(/\*{3,}/);
@@ -240,17 +298,29 @@ const renderRound3WrongAnswerExcerpt = (questionText: string, answerText: string
   const beforeWords = before ? before.split(/\s+/).filter(Boolean) : [];
   const afterWords = after ? after.split(/\s+/).filter(Boolean) : [];
 
-  const beforeSnippet = beforeWords.slice(-4).join(' ');
-  const afterSnippet = afterWords.slice(0, 4).join(' ');
+  const beforeSnippet = beforeWords.slice(-5).join(' ');
+  const afterSnippet = afterWords.slice(0, 5).join(' ');
 
   return (
     <>
       …{beforeSnippet ? ` ${beforeSnippet} ` : ' '}
-      <span className="font-black text-2xl sm:text-3xl text-[#b4007f]">{answerText}</span>
+      {renderAnswer(answerText)}
       {afterSnippet ? ` ${afterSnippet}` : ''} …
     </>
   );
 };
+
+const renderRound3CorrectAnswerExcerpt = (questionText: string, answerText: string) =>
+  renderRound3AnswerExcerpt(questionText, answerText, (text) => (
+    <span className="inline-block align-baseline px-3 py-1 rounded-2xl border-[3px] border-[#1f6ac6]/30 bg-white font-black text-3xl sm:text-4xl text-[#1f6ac6]">
+      {text}
+    </span>
+  ));
+
+const renderRound3WrongAnswerExcerpt = (questionText: string, answerText: string) =>
+  renderRound3AnswerExcerpt(questionText, answerText, (text) => (
+    <span className="font-black text-2xl sm:text-3xl text-[#b4007f]">{text}</span>
+  ));
 
 const getRemainingSeconds = (startedAt: string | null, durationSeconds: number, offsetMs = 0) => {
   if (!startedAt) {
@@ -7251,7 +7321,7 @@ export default function HostRoomPage() {
                   >
                     <p className="text-lg sm:text-xl tracking-[0.35em] text-[#f1532f]/70 font-black">Правильный ответ</p>
                     <p className="text-2xl sm:text-3xl font-black leading-snug">
-                      {renderRound3QuestionWithAnswer(currentRound3Question?.question ?? '', currentRound3Question?.answer ?? '')}
+                      {renderRound3CorrectAnswerExcerpt(currentRound3Question?.question ?? '', currentRound3Question?.answer ?? '')}
                     </p>
                   </div>
                 )}
@@ -7604,6 +7674,7 @@ export default function HostRoomPage() {
                                         style={{
                                           ['--pill-left' as any]: `${item.xPercent}%`,
                                           ['--pill-top' as any]: `${laneOffset}px`,
+                                          ['--pill-duration' as any]: '1560ms',
                                           animationDelay: `${index * 70}ms`,
                                         }}
                                       >
@@ -7612,7 +7683,12 @@ export default function HostRoomPage() {
                                             {getPlayerName(item.row.player_id)}
                                           </p>
                                           <p className="text-xl font-black tabular-nums" style={{ color: item.tone }}>
-                                            {Math.round(item.row.answer_value)}
+                                            <TweenedInteger
+                                              from={clampedCorrect}
+                                              to={item.row.answer_value}
+                                              durationMs={1560}
+                                              delayMs={index * 70}
+                                            />
                                           </p>
                                         </div>
                                       </div>
@@ -7628,17 +7704,24 @@ export default function HostRoomPage() {
                                         style={{
                                           ['--pill-left' as any]: `${item.left}%`,
                                           ['--pill-top' as any]: `${item.top}px`,
+                                          ['--pill-duration' as any]: '1560ms',
                                           animationDelay: `${delayBase + index * 80}ms`,
-                                          transform: `translate(-50%, -50%) rotate(${item.rotate}deg)`,
                                         }}
                                       >
-                                        <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-white px-3 py-2 text-center min-w-[84px] max-w-[220px]">
-                                          <p className="text-[11px] font-semibold text-[#142a45]/70 truncate">
-                                            {getPlayerName(item.row.player_id)}
-                                          </p>
-                                          <p className="text-lg font-black tabular-nums text-[#f1532f] truncate">
-                                            {Number.isFinite(item.row.answer_value) ? Math.round(item.row.answer_value) : '—'}
-                                          </p>
+                                        <div style={{ transform: `rotate(${item.rotate}deg)` }}>
+                                          <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-white px-3 py-2 text-center min-w-[84px] max-w-[220px]">
+                                            <p className="text-[11px] font-semibold text-[#142a45]/70 truncate">
+                                              {getPlayerName(item.row.player_id)}
+                                            </p>
+                                            <p className="text-lg font-black tabular-nums text-[#f1532f] truncate">
+                                              <TweenedInteger
+                                                from={clampedCorrect}
+                                                to={Number.isFinite(item.row.answer_value) ? item.row.answer_value : clampedCorrect}
+                                                durationMs={1560}
+                                                delayMs={delayBase + index * 80}
+                                              />
+                                            </p>
+                                          </div>
                                         </div>
                                       </div>
                                     );
