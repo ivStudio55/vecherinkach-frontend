@@ -576,7 +576,10 @@ export default function HostRoomPage() {
   const lastRound3ResultsAudioKeyRef = useRef<string | null>(null);
   const lastRound3ResultsScoringKeyRef = useRef<string | null>(null);
   const round3PlaybackTokenRef = useRef(0);
-  const round3VotePlaybackTokenRef = useRef(0);
+  // Vote timer and vote voice use independent playback tokens so the 15s timer start
+  // cannot cancel/cut the voice clip (vote/*.mp3).
+  const round3VoteTimerPlaybackTokenRef = useRef(0);
+  const round3VoteVoicePlaybackTokenRef = useRef(0);
   const currentRound3QuestionIndexRef = useRef(currentQuestionIndex);
   const round3AnswerTimerVoteVoiceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const round4ScoredPuzzleIdsRef = useRef<Set<number>>(new Set());
@@ -1768,8 +1771,8 @@ export default function HostRoomPage() {
       return;
     }
 
-    const token = round3VotePlaybackTokenRef.current + 1;
-    round3VotePlaybackTokenRef.current = token;
+    const token = round3VoteVoicePlaybackTokenRef.current + 1;
+    round3VoteVoicePlaybackTokenRef.current = token;
 
     const voteVariant = Math.floor(Math.random() * 9) + 1;
     const voteUrl = buildAudioUrl(`${ROUND3_VOTE_AUDIO_DIR}/${voteVariant}.mp3`);
@@ -1797,7 +1800,7 @@ export default function HostRoomPage() {
         }
       }
 
-      if (round3VotePlaybackTokenRef.current !== token) {
+      if (round3VoteVoicePlaybackTokenRef.current !== token) {
         return;
       }
 
@@ -1812,7 +1815,7 @@ export default function HostRoomPage() {
 
       try {
         const voteBuffer = await decodeFromUrl(voteUrl);
-        if (round3VotePlaybackTokenRef.current !== token) {
+        if (round3VoteVoicePlaybackTokenRef.current !== token) {
           return;
         }
 
@@ -1892,6 +1895,36 @@ export default function HostRoomPage() {
         console.error('Не удалось воспроизвести голос для голосования Раунда 3', err);
       }
     })();
+  }, []);
+
+  const stopRound3VoteTimerAudio = useCallback(() => {
+    round3VoteTimerPlaybackTokenRef.current += 1;
+
+    const timerSource = round3VoteTimerBufferSourceRef.current;
+    if (timerSource) {
+      try {
+        timerSource.onended = null;
+        timerSource.stop(0);
+      } catch {
+        // ignore
+      }
+      try {
+        timerSource.disconnect();
+      } catch {
+        // ignore
+      }
+      round3VoteTimerBufferSourceRef.current = null;
+    }
+
+    const timerGain = round3VoteTimerGainNodeRef.current;
+    if (timerGain) {
+      try {
+        timerGain.disconnect();
+      } catch {
+        // ignore
+      }
+      round3VoteTimerGainNodeRef.current = null;
+    }
   }, []);
 
   const playRound3Audio = useCallback(
@@ -2146,33 +2179,11 @@ export default function HostRoomPage() {
   );
 
   const stopRound3VoteAudio = useCallback(() => {
-    round3VotePlaybackTokenRef.current += 1;
+    // Full stop: cancel both timer + voice and release nodes.
+    round3VoteTimerPlaybackTokenRef.current += 1;
+    round3VoteVoicePlaybackTokenRef.current += 1;
 
-    const timerSource = round3VoteTimerBufferSourceRef.current;
-    if (timerSource) {
-      try {
-        timerSource.onended = null;
-        timerSource.stop(0);
-      } catch {
-        // ignore
-      }
-      try {
-        timerSource.disconnect();
-      } catch {
-        // ignore
-      }
-      round3VoteTimerBufferSourceRef.current = null;
-    }
-
-    const timerGain = round3VoteTimerGainNodeRef.current;
-    if (timerGain) {
-      try {
-        timerGain.disconnect();
-      } catch {
-        // ignore
-      }
-      round3VoteTimerGainNodeRef.current = null;
-    }
+    stopRound3VoteTimerAudio();
 
     const voteSource = round3VoteVoiceBufferSourceRef.current;
     if (voteSource) {
@@ -2199,7 +2210,7 @@ export default function HostRoomPage() {
       }
       round3VoteVoiceGainNodeRef.current = null;
     }
-  }, []);
+  }, [stopRound3VoteTimerAudio]);
 
 
   const playRound3VoteAudio = useCallback(
@@ -2207,10 +2218,12 @@ export default function HostRoomPage() {
       if (typeof window === 'undefined') {
         return;
       }
-      stopRound3VoteAudio();
+      // Important: do NOT stop/cancel vote voice here.
+      // The vote voice clip starts at the end of the answer phase and must play fully.
+      stopRound3VoteTimerAudio();
 
-      const token = round3VotePlaybackTokenRef.current + 1;
-      round3VotePlaybackTokenRef.current = token;
+      const token = round3VoteTimerPlaybackTokenRef.current + 1;
+      round3VoteTimerPlaybackTokenRef.current = token;
 
       const timerUrl = buildAudioUrl(ROUND3_VOTE_TIMER_JINGLE_FILE);
       // Голос диктора (vote/*.mp3) стартует на фазе обратного отсчёта,
@@ -2237,7 +2250,7 @@ export default function HostRoomPage() {
           }
         }
 
-        if (round3VotePlaybackTokenRef.current !== token) {
+        if (round3VoteTimerPlaybackTokenRef.current !== token) {
           return;
         }
 
@@ -2253,7 +2266,7 @@ export default function HostRoomPage() {
         try {
           const timerBuffer = await decodeFromUrl(timerUrl);
 
-          if (round3VotePlaybackTokenRef.current !== token) {
+          if (round3VoteTimerPlaybackTokenRef.current !== token) {
             return;
           }
 
@@ -2308,7 +2321,7 @@ export default function HostRoomPage() {
         }
       })();
     },
-    [stopRound3VoteAudio]
+    [stopRound3VoteTimerAudio]
   );
 
   const loadRound3VoteAnswers = useCallback(async () => {
@@ -6799,7 +6812,7 @@ export default function HostRoomPage() {
                 {players.length === 0 ? (
                   <p className="text-sm text-[#142a45]/70 text-center py-6">Пока никто не присоединился</p>
                 ) : (
-                  <div ref={playersListRef} className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+                  <div ref={playersListRef} className="space-y-3 max-h-[60vh] overflow-y-auto pr-1 no-scrollbar">
                     {players.map((player, index) => {
                       const hasAnswered = answeredPlayerIds.includes(player.id);
                       return (
@@ -7554,6 +7567,19 @@ export default function HostRoomPage() {
                             })
                             .sort((a, b) => Math.abs(a.xPercent - 50) - Math.abs(b.xPercent - 50));
 
+                          const outOfRangePositioned = outOfRange.map((row, index) => {
+                            const seed = hashSeed(String(row.id ?? `${row.player_id}-${index}`));
+                            const rand = mulberry32(seed);
+
+                            // Target positions are intentionally outside the panel bounds.
+                            // We animate pills from the center to these positions and clip them via overflow-hidden.
+                            const left = 50 + (rand() - 0.5) * 220; // ~(-60%..160%)
+                            const top = (rand() - 0.5) * 420; // px: move far above/below
+                            const rotate = (rand() - 0.5) * 18;
+
+                            return { row, left, top, rotate };
+                          });
+
                           return (
                             <>
                               <div className="rounded-2xl border-[3px] border-dashed border-[#142a45]/25 bg-[#fff6da] p-4 overflow-hidden">
@@ -7589,6 +7615,31 @@ export default function HostRoomPage() {
                                       </div>
                                     );
                                   })}
+
+                                  {outOfRangePositioned.map((item, index) => {
+                                    const delayBase = positioned.length * 70;
+                                    return (
+                                      <div
+                                        key={item.row.id}
+                                        className="animate-pill-from-center"
+                                        style={{
+                                          ['--pill-left' as any]: `${item.left}%`,
+                                          ['--pill-top' as any]: `${item.top}px`,
+                                          animationDelay: `${delayBase + index * 80}ms`,
+                                          transform: `translate(-50%, -50%) rotate(${item.rotate}deg)`,
+                                        }}
+                                      >
+                                        <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-white px-3 py-2 text-center min-w-[84px] max-w-[220px]">
+                                          <p className="text-[11px] font-semibold text-[#142a45]/70 truncate">
+                                            {getPlayerName(item.row.player_id)}
+                                          </p>
+                                          <p className="text-lg font-black tabular-nums text-[#f1532f] truncate">
+                                            {Number.isFinite(item.row.answer_value) ? Math.round(item.row.answer_value) : '—'}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
 
                                 <div className="mt-2 flex items-center justify-between text-[11px] font-semibold text-[#142a45]/60">
@@ -7597,41 +7648,10 @@ export default function HostRoomPage() {
                                 </div>
                               </div>
 
-                              {outOfRange.length > 0 && (
-                                <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-white p-4 mt-3">
-                                  <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/60 text-center">Вне диапазона</p>
-                                  <div className="mt-3 relative h-[160px] rounded-2xl border-[3px] border-dashed border-[#142a45]/15 bg-[#fff6da] overflow-hidden">
-                                    {outOfRange.map((row, index) => {
-                                      const seed = hashSeed(String(row.id ?? `${row.player_id}-${index}`));
-                                      const rand = mulberry32(seed);
-                                      const left = 10 + rand() * 80;
-                                      const top = 18 + rand() * 64;
-                                      const rotate = (rand() - 0.5) * 18;
-                                      return (
-                                        <div
-                                          key={row.id}
-                                          className="absolute"
-                                          style={{
-                                            left: `${left}%`,
-                                            top: `${top}%`,
-                                            transform: `translate(-50%, -50%) rotate(${rotate}deg)`,
-                                          }}
-                                        >
-                                          <div className="px-3 py-2 rounded-2xl border-[3px] border-[#142a45]/15 bg-white text-black text-sm font-black tabular-nums max-w-[220px]">
-                                            <span className="block truncate">
-                                              {getPlayerName(row.player_id)}: {Number.isFinite(row.answer_value) ? Math.round(row.answer_value) : '—'}
-                                            </span>
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                  {maxAllowed > 0 && (
-                                    <p className="mt-2 text-[11px] font-semibold text-[#142a45]/60 text-center">
-                                      Очки начисляются только за ответы в диапазоне (0…{Math.round(maxAllowed)})
-                                    </p>
-                                  )}
-                                </div>
+                              {maxAllowed > 0 && outOfRange.length > 0 && (
+                                <p className="mt-3 text-[11px] font-semibold text-[#142a45]/60 text-center">
+                                  Очки начисляются только за ответы в диапазоне (0…{Math.round(maxAllowed)})
+                                </p>
                               )}
                             </>
                           );
