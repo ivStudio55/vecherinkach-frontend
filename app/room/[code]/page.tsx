@@ -555,8 +555,8 @@ export default function RoomPage() {
         return;
       }
 
-      // Комната закрыта ведущим (endGame): статус finished + question_started_at = null.
-      if ((room.status as RoomStatus) === 'finished' && room.question_started_at === null) {
+      // Комната закрыта ведущим (endGame): is_active=false + status=finished + question_started_at=null.
+      if ((room.status as RoomStatus) === 'finished' && room.question_started_at === null && room.is_active === false) {
         router.push('/join');
         return;
       }
@@ -839,7 +839,8 @@ export default function RoomPage() {
           const newQuestionIndex = coerceToNumber(payload.new.current_question_index);
 
           // Если ведущий закрыл комнату полностью — возвращаем на экран подключения.
-          if (newStatus === 'finished' && startedAt === null) {
+          // Важно: не редиректим во время переходов между раундами, когда ведущий может временно сбросить таймер.
+          if (newStatus === 'finished' && startedAt === null && payload.new.is_active === false) {
             router.push('/join');
             return;
           }
@@ -1756,7 +1757,10 @@ export default function RoomPage() {
         )}
 
         {roomStatus === 'round4-running' && (
-          <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
+          <section
+            key={`round4-player-${round4PuzzleId ?? 'none'}-${allPlayersAnswered ? 'answered' : 'run'}`}
+            className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6 animate-round4-panel"
+          >
             <div className="flex flex-col gap-3 text-center">
               <span className="mx-auto px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
                 Раунд 4 · Дэшифровщик

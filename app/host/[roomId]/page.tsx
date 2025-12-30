@@ -5727,6 +5727,10 @@ export default function HostRoomPage() {
       return;
     }
 
+    if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) {
+      return;
+    }
+
     const items = Array.from(container.querySelectorAll<HTMLElement>('[data-flip-id]'));
     const nextRects = new Map<string, DOMRect>();
 
@@ -5756,8 +5760,8 @@ export default function HostRoomPage() {
       }
 
       el.animate([{ transform: `translateY(${dy}px)` }, { transform: 'translateY(0px)' }], {
-        duration: 420,
-        easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
+        duration: 1200,
+        easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
       });
     }
 
@@ -7292,7 +7296,10 @@ export default function HostRoomPage() {
 
               </div>
             ) : roomStatus === 'round4-running' ? (
-              <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
+              <div
+                key={`round4-panel-${round4CurrentPuzzle?.id ?? 'none'}-${timeLeft <= 0 ? 'reveal' : 'run'}`}
+                className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5 animate-round4-panel"
+              >
                 <div className="text-center space-y-3">
                   {round4CurrentPuzzle && (
                     <p className="text-3xl font-black text-[#1f6ac6] uppercase tracking-wide">
