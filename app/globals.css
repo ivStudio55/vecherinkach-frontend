@@ -110,6 +110,28 @@ body {
   animation: round2AnswerIn 650ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+@keyframes round3PanelIn {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+    filter: blur(6px);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(0) scale(1.01);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+.animate-round3-panel {
+  animation: round3PanelIn 560ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 @keyframes correctAnswerReveal {
   from {
     opacity: 0;
@@ -127,6 +149,10 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .animate-drop-in {
+    animation: none;
+  }
+
+  .animate-round3-panel {
     animation: none;
   }
 

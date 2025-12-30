@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Fragment, useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { TrueFalseItem, ROUND2_POINTS } from '@/lib/round2';
@@ -216,6 +216,35 @@ const renderRound3QuestionWithAnswer = (questionText: string, answerText: string
   }
 
   return <>{nodes}</>;
+};
+
+const renderRound3WrongAnswerExcerpt = (questionText: string, answerText: string) => {
+  const normalized = (questionText ?? '').replace(/\s+/g, ' ').trim();
+  if (!normalized) {
+    return <span className="font-black text-2xl sm:text-3xl">{answerText}</span>;
+  }
+
+  const split = normalized.split(/\*{3,}/);
+  if (split.length < 2) {
+    return renderRound3QuestionWithAnswer(normalized, answerText);
+  }
+
+  const before = (split[0] ?? '').trim();
+  const after = split.slice(1).join(' ').trim();
+
+  const beforeWords = before ? before.split(/\s+/).filter(Boolean) : [];
+  const afterWords = after ? after.split(/\s+/).filter(Boolean) : [];
+
+  const beforeSnippet = beforeWords.slice(-4).join(' ');
+  const afterSnippet = afterWords.slice(0, 4).join(' ');
+
+  return (
+    <>
+      …{beforeSnippet ? ` ${beforeSnippet} ` : ' '}
+      <span className="font-black text-2xl sm:text-3xl text-[#b4007f]">{answerText}</span>
+      {afterSnippet ? ` ${afterSnippet}` : ''} …
+    </>
+  );
 };
 
 const getRemainingSeconds = (startedAt: string | null, durationSeconds: number, offsetMs = 0) => {
@@ -5689,6 +5718,52 @@ export default function HostRoomPage() {
     handleRound2NextQuestionRef.current = handleRound2NextQuestion;
   }, [handleRound2NextQuestion]);
 
+  const playersListRef = useRef<HTMLDivElement | null>(null);
+  const playersListRectsRef = useRef<Map<string, DOMRect>>(new Map());
+
+  useLayoutEffect(() => {
+    const container = playersListRef.current;
+    if (!container) {
+      return;
+    }
+
+    const items = Array.from(container.querySelectorAll<HTMLElement>('[data-flip-id]'));
+    const nextRects = new Map<string, DOMRect>();
+
+    for (const el of items) {
+      const id = el.dataset.flipId;
+      if (!id) {
+        continue;
+      }
+      nextRects.set(id, el.getBoundingClientRect());
+    }
+
+    const prevRects = playersListRectsRef.current;
+    for (const el of items) {
+      const id = el.dataset.flipId;
+      if (!id) {
+        continue;
+      }
+      const prev = prevRects.get(id);
+      const next = nextRects.get(id);
+      if (!prev || !next) {
+        continue;
+      }
+
+      const dy = prev.top - next.top;
+      if (Math.abs(dy) < 1) {
+        continue;
+      }
+
+      el.animate([{ transform: `translateY(${dy}px)` }, { transform: 'translateY(0px)' }], {
+        duration: 420,
+        easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
+      });
+    }
+
+    playersListRectsRef.current = nextRects;
+  }, [players]);
+
   const handleRound2Reveal = useCallback(() => {
     if (round2CurrentIndex === null) {
       return;
@@ -6686,12 +6761,13 @@ export default function HostRoomPage() {
                 {players.length === 0 ? (
                   <p className="text-sm text-[#142a45]/70 text-center py-6">Пока никто не присоединился</p>
                 ) : (
-                  <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+                  <div ref={playersListRef} className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
                     {players.map((player, index) => {
                       const hasAnswered = answeredPlayerIds.includes(player.id);
                       return (
                         <div
                           key={player.id}
+                          data-flip-id={player.id}
                           className={`rounded-2xl border-[3px] px-3 py-3 flex items-center justify-between ${
                             hasAnswered ? 'border-[#1f6ac6]/40 bg-[#e9f0ff]' : 'border-[#142a45]/15 bg-white'
                           }`}
@@ -7048,10 +7124,21 @@ export default function HostRoomPage() {
                   <p className="text-[11px] tracking-[0.4em] text-[#b4007f]/60">
                     {round2Phase === 'fact' ? 'Сейчас в эфире' : 'Объяснение'}
                   </p>
+
                   {round2Phase === 'fact' ? (
                     <p className="text-4xl sm:text-5xl font-black leading-tight text-center">{round2Statement}</p>
                   ) : (
-                    <p className="text-3xl sm:text-4xl font-black leading-tight text-center">{round2ExplanationText}</p>
+                    <div className="space-y-4">
+                      <div className="rounded-2xl border-[3px] border-[#b4007f]/30 bg-white px-4 py-5 text-center">
+                        <p
+                          className={`text-5xl sm:text-6xl font-black ${round2ShowingFact ? 'text-[#1f6ac6]' : 'text-[#b4007f]'} animate-round2-answer`}
+                          key={`${round2CurrentIndex ?? 'x'}-${round2Phase}-${round2ShowingFact ? 't' : 'f'}`}
+                        >
+                          {round2ShowingFact ? 'ПРАВДА' : 'ВЫМЫСЕЛ'}
+                        </p>
+                      </div>
+                      <p className="text-3xl sm:text-4xl font-black leading-tight text-center">{round2ExplanationText}</p>
+                    </div>
                   )}
                 </div>
 
@@ -7073,18 +7160,7 @@ export default function HostRoomPage() {
                       <p className="text-xs text-[#b4007f] font-semibold mt-2">Можно открывать правду прямо сейчас.</p>
                     )}
                   </div>
-                ) : (
-                  <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-4">
-                    <div className="rounded-2xl border-[3px] border-[#b4007f]/30 bg-white px-4 py-5 text-center">
-                      <p
-                        className={`text-5xl sm:text-6xl font-black ${round2ShowingFact ? 'text-[#1f6ac6]' : 'text-[#b4007f]'} animate-round2-answer`}
-                        key={`${round2CurrentIndex ?? 'x'}-${round2Phase}-${round2ShowingFact ? 't' : 'f'}`}
-                      >
-                        {round2ShowingFact ? 'ПРАВДА' : 'ВЫМЫСЕЛ'}
-                      </p>
-                    </div>
-                  </div>
-                )}
+                ) : null}
 
               </div>
             ) : isRound3Running ? (
@@ -7103,26 +7179,29 @@ export default function HostRoomPage() {
                 {isRound3ResultsPhase && (
                   <div
                     key={`round3-correct-${currentQuestionIndex}`}
-                    className="rounded-3xl border-[3px] border-[#f1532f]/20 bg-[#fff6da] p-4 space-y-2 animate-correct-reveal"
+                    className="rounded-3xl border-[3px] border-[#f1532f]/20 bg-[#fff6da] p-4 space-y-3 animate-round3-panel"
                   >
-                    <p className="text-sm tracking-[0.4em] text-[#f1532f]/60 font-semibold">Правильный ответ</p>
-                    <p className="text-xl font-semibold">
+                    <p className="text-lg sm:text-xl tracking-[0.35em] text-[#f1532f]/70 font-black">Правильный ответ</p>
+                    <p className="text-2xl sm:text-3xl font-black leading-snug">
                       {renderRound3QuestionWithAnswer(currentRound3Question?.question ?? '', currentRound3Question?.answer ?? '')}
                     </p>
                   </div>
                 )}
 
                 {isRound3ResultsPhase && bestRound3WrongAnswerText && (
-                  <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-white p-4 space-y-2">
-                    <p className="text-sm tracking-[0.4em] text-[#142a45]/60 font-semibold">Лучший неправильный ответ</p>
-                    <p className="text-xl font-semibold">
-                      {renderRound3QuestionWithAnswer(currentRound3Question?.question ?? '', bestRound3WrongAnswerText)}
+                  <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-white p-4 space-y-3 animate-round3-panel">
+                    <p className="text-base sm:text-lg tracking-[0.25em] text-[#142a45]/65 font-black">Лучший неправильный ответ</p>
+                    <p className="text-2xl sm:text-3xl font-black leading-snug">
+                      {renderRound3WrongAnswerExcerpt(currentRound3Question?.question ?? '', bestRound3WrongAnswerText)}
                     </p>
                   </div>
                 )}
 
                 {!isRound3ResultsPhase && (
-                  <div className="rounded-3xl border-[3px] border-[#f1532f]/20 bg-[#fff6da] p-5 space-y-2">
+                  <div
+                    key={`round3-onair-${currentQuestionIndex}`}
+                    className="rounded-3xl border-[3px] border-[#f1532f]/20 bg-[#fff6da] p-5 space-y-2 animate-round3-panel"
+                  >
                     <p className="text-[11px] tracking-[0.4em] text-[#f1532f]/60">Сейчас в эфире</p>
                     <p className="text-4xl sm:text-5xl font-black leading-tight">
                       {currentRound3Question?.question ?? 'Подождите, факты загружаются…'}
@@ -7146,7 +7225,7 @@ export default function HostRoomPage() {
                 </div>
 
                 {isRound3ResultsPhase && (
-                  <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-white p-5 space-y-4">
+                  <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-white p-5 space-y-4 animate-round3-panel">
                     <p className="retro-heading text-[11px] tracking-[0.5em] text-[#142a45]/70">Итоги факта</p>
 
                     <div className="rounded-3xl border-[3px] border-dashed border-[#142a45]/30 bg-[#fff6da] p-4 space-y-3">
