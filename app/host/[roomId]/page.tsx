@@ -92,9 +92,9 @@ const ROUND2_EXPLANATION_FALLBACK = 'Без объяснения';
 
 const ROUND3_TOTAL_QUESTIONS = 6;
 const ROUND3_POINTS = 200;
-const ROUND3_ANSWER_SECONDS = 48;
-const ROUND3_VOTE_COUNTDOWN_SECONDS = 0;
-const ROUND3_VOTE_SECONDS = 0;
+const ROUND3_ANSWER_SECONDS = 30;
+const ROUND3_VOTE_COUNTDOWN_SECONDS = 3;
+const ROUND3_VOTE_SECONDS = 15;
 const ROUND3_QUESTIONS_AUDIO_DIR = 'round3/questions3';
 const ROUND3_BG_JINGLE_FILE = 'round2/jingle (5).mp3';
 const ROUND3_ANSWER_TIMER_JINGLE_FILE = 'round3/60_sec.mp3';
@@ -125,8 +125,8 @@ const ROUND3_RULES_TEXT =
   'Угадал точное слово — 200 очков.\n' +
   'За каждый голос за ваш ответ — +50 очков.\n' +
   'Не проголосовал — –50 очков.\n\n' +
-  'Время на ввод ответа — 60 секунд.\n' +
-  'Время на голосование — 30 секунд.\n' +
+  `Время на ввод ответа — ${ROUND3_ANSWER_SECONDS} секунд.\n` +
+  `Время на голосование — ${ROUND3_VOTE_SECONDS} секунд.\n` +
   'Синонимы могут засчитаться (на усмотрение ведущего).\n\n' +
   'Готовы угадывать и голосовать? Давайте устроим настоящий мозговой штурм!';
 
@@ -683,6 +683,12 @@ export default function HostRoomPage() {
     }
     if (elapsed < ROUND3_ANSWER_SECONDS) {
       return 'answer' as const;
+    }
+    if (elapsed < ROUND3_ANSWER_SECONDS + ROUND3_VOTE_COUNTDOWN_SECONDS) {
+      return 'vote-countdown' as const;
+    }
+    if (elapsed < ROUND3_ANSWER_SECONDS + ROUND3_VOTE_COUNTDOWN_SECONDS + ROUND3_VOTE_SECONDS) {
+      return 'vote' as const;
     }
     return 'results' as const;
     // timeLeft is included to force re-evaluation as the timer ticks down.
@@ -2078,7 +2084,7 @@ export default function HostRoomPage() {
                 round3AnswerTimerVoteVoiceTimeoutRef.current = null;
               }
 
-              // Через 30 секунд после старта таймера запускаем рандомный голос vote/*.mp3.
+              // В конце фазы ответа запускаем рандомный голос vote/*.mp3 (подводка к голосованию).
               round3AnswerTimerVoteVoiceTimeoutRef.current = setTimeout(() => {
                 if (round3PlaybackTokenRef.current !== token) {
                   return;
@@ -2087,7 +2093,7 @@ export default function HostRoomPage() {
                   return;
                 }
                 playRound3VoteVoiceAudio();
-              }, 30_000);
+              }, Math.max(0, ROUND3_ANSWER_SECONDS * 1000));
 
               if (round3PlaybackTokenRef.current !== token) {
                 return;
@@ -2575,6 +2581,22 @@ export default function HostRoomPage() {
 
     const baseKey = `${currentQuestionIndex}-${questionStartedAt}`;
 
+    if (round3Phase === 'vote' || round3Phase === 'vote-countdown') {
+      if (lastRound3VoteAnswersKeyRef.current !== baseKey) {
+        lastRound3VoteAnswersKeyRef.current = baseKey;
+        void loadRound3VoteAnswers();
+      }
+
+      // Play vote timer once per question.
+      if (round3Phase === 'vote') {
+        const voteKey = `${baseKey}-vote`;
+        if (lastRound3VoteAudioKeyRef.current !== voteKey) {
+          lastRound3VoteAudioKeyRef.current = voteKey;
+          playRound3VoteAudio(currentQuestionIndex);
+        }
+      }
+    }
+
     // During results phase, load answers (for scoring) and play the comment audio once.
     if (isRound3ResultsPhase) {
       const resultsKey = `${baseKey}-results`;
@@ -2594,11 +2616,10 @@ export default function HostRoomPage() {
 
     stopRound3VoteAudio();
     stopRound3ResultsAudio();
-    lastRound3VoteAudioKeyRef.current = null;
     lastRound3VoteKeyRef.current = null;
     lastRound3ResultsAudioKeyRef.current = null;
     lastRound3ResultsScoringKeyRef.current = null;
-  }, [currentQuestionIndex, isRound3ResultsPhase, loadRound3VoteAnswers, playRound3ResultsAudio, questionStartedAt, roomStatus, stopRound3ResultsAudio, stopRound3VoteAudio]);
+  }, [currentQuestionIndex, isRound3ResultsPhase, loadRound3VoteAnswers, playRound3ResultsAudio, playRound3VoteAudio, questionStartedAt, roomStatus, round3Phase, stopRound3ResultsAudio, stopRound3VoteAudio]);
 
   useEffect(() => {
     if (roomStatus !== 'round3-running') {

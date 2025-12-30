@@ -1480,6 +1480,26 @@ export default function RoomPage() {
     void loadRound3VoteState();
   }, [loadRound3VoteState, round3Phase]);
 
+  useEffect(() => {
+    if (roomStatus !== 'round3-running') {
+      return;
+    }
+    if (round3Phase !== 'vote' && round3Phase !== 'vote-countdown') {
+      return;
+    }
+
+    const refresh = () => {
+      void loadRound3VoteOptions();
+      void loadRound3VoteState();
+    };
+
+    // Realtime is not subscribed to round3_answers/round3_votes on the player,
+    // so poll during voting to avoid “empty list” races.
+    refresh();
+    const intervalId = setInterval(refresh, 1000);
+    return () => clearInterval(intervalId);
+  }, [loadRound3VoteOptions, loadRound3VoteState, roomStatus, round3Phase]);
+
   const submitRound3Vote = useCallback(
     async (answerId: string) => {
       if (isSubmitting || round3HasVoted) {
@@ -1494,19 +1514,24 @@ export default function RoomPage() {
       if (round3QuestionIndex === null) {
         return;
       }
-      if (round3Phase !== 'vote') {
+      if (round3Phase !== 'vote' && round3Phase !== 'vote-countdown') {
         return;
       }
 
       setError('');
       setIsSubmitting(true);
       try {
-        const { error } = await supabase.from('round3_votes').insert({
-          room_id: roomId,
-          voter_player_id: playerId,
-          question_index: round3QuestionIndex,
-          answer_id: answerId,
-        });
+        const { error } = await supabase
+          .from('round3_votes')
+          .upsert(
+            {
+              room_id: roomId,
+              voter_player_id: playerId,
+              question_index: round3QuestionIndex,
+              answer_id: answerId,
+            },
+            { onConflict: 'room_id,voter_player_id,question_index' }
+          );
         if (error) {
           console.error('Failed to submit round3 vote', error);
           setError('Не удалось отправить голос (проверьте, что применён SQL для Раунда 3).');
@@ -2212,10 +2237,10 @@ export default function RoomPage() {
               <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
                 <span>
                   {round3Phase === 'vote'
-                    ? 'Голосование · 15 сек'
+                    ? `Голосование · ${ROUND3_VOTE_SECONDS} сек`
                     : round3Phase === 'vote-countdown'
                       ? 'Голосуем через…'
-                      : 'Таймер · 30 сек'}
+                      : `Таймер · ${ROUND3_ANSWER_SECONDS} сек`}
                 </span>
                 <span className={`font-black ${allPlayersAnswered ? 'text-[#1f6ac6]' : 'text-[#142a45]'}`}>{timerLabel}</span>
               </div>
