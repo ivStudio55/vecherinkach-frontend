@@ -7430,16 +7430,20 @@ export default function HostRoomPage() {
               <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
                 <div className="text-center space-y-3">
                   <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Финал · «Цифровая интуиция»</p>
-                  <h2 className="text-5xl sm:text-6xl font-black leading-tight text-center text-[#142a45]">
-                    {round5CurrentQuestion?.question ? (
-                      <AnimatedText
-                        key={`r5-q-${round5CurrentBankIndex ?? currentQuestionIndex}`}
-                        text={round5CurrentQuestion.question}
-                      />
-                    ) : (
-                      '⏳'
-                    )}
-                  </h2>
+                  {roomStatus === 'round5-running' ? (
+                    <h2 className="text-5xl sm:text-6xl font-black leading-tight text-center text-[#142a45]">
+                      {round5CurrentQuestion?.question ? (
+                        <AnimatedText
+                          key={`r5-q-${round5CurrentBankIndex ?? currentQuestionIndex}`}
+                          text={round5CurrentQuestion.question}
+                        />
+                      ) : (
+                        '⏳'
+                      )}
+                    </h2>
+                  ) : (
+                    <div className="h-[44px] sm:h-[56px]" aria-hidden="true" />
+                  )}
                   <div className="flex items-center justify-center gap-3 flex-wrap">
                     <span className="px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
                       Тур {Math.min(Math.max(currentQuestionIndex + 1, 1), round5TotalCount)} / {round5TotalCount}
@@ -7552,7 +7556,7 @@ export default function HostRoomPage() {
 
                           return (
                             <>
-                              <div className="rounded-2xl border-[3px] border-dashed border-[#142a45]/25 bg-[#fff6da] p-4">
+                              <div className="rounded-2xl border-[3px] border-dashed border-[#142a45]/25 bg-[#fff6da] p-4 overflow-hidden">
                                 <div className="relative h-[160px]">
                                   <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 border-t-[3px] border-[#142a45]/20" />
                                   <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
@@ -7567,11 +7571,11 @@ export default function HostRoomPage() {
                                     return (
                                       <div
                                         key={item.row.id}
-                                        className="absolute top-1/2"
+                                        className="animate-pill-from-center"
                                         style={{
-                                          left: `${item.xPercent}%`,
-                                          transform: 'translate(-50%, -50%)',
-                                          marginTop: `${laneOffset}px`,
+                                          ['--pill-left' as any]: `${item.xPercent}%`,
+                                          ['--pill-top' as any]: `${laneOffset}px`,
+                                          animationDelay: `${index * 70}ms`,
                                         }}
                                       >
                                         <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-white px-3 py-2 text-center min-w-[84px]">
