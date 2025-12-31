@@ -65,12 +65,45 @@ export default function HomePage() {
   const [buttonAnimating, setButtonAnimating] = useState(false);
   const meetAudioRef = useRef<HTMLAudioElement | null>(null);
 
+  const fadeVolume = (audio: HTMLAudioElement, targetVolume: number, duration: number) => {
+    const startVolume = audio.volume;
+    const volumeDiff = targetVolume - startVolume;
+    const steps = 50; // количество шагов для плавности
+    const stepDuration = duration / steps;
+    let currentStep = 0;
+
+    const fadeStep = () => {
+      currentStep++;
+      const progress = currentStep / steps;
+      audio.volume = startVolume + volumeDiff * progress;
+
+      if (currentStep < steps) {
+        setTimeout(fadeStep, stepDuration);
+      }
+    };
+
+    fadeStep();
+  };
+
   const playRandomMeet = () => {
     const meetFiles = ['1.mp3', '2.mp3', '3.mp3', '4.mp3'];
     const randomFile = meetFiles[Math.floor(Math.random() * meetFiles.length)];
     const audio = new Audio(`/audio/meet1/${randomFile}`);
     audio.volume = 0.6;
     meetAudioRef.current = audio;
+
+    // Приглушить основную музыку
+    const jingleAudio = audioRef.current;
+    if (jingleAudio) {
+      const originalVolume = jingleAudio.volume;
+      fadeVolume(jingleAudio, originalVolume * 0.7, 1000); // 30% тише за 1 секунду
+
+      // Вернуть громкость когда meet закончится
+      audio.onended = () => {
+        fadeVolume(jingleAudio, originalVolume, 1000);
+      };
+    }
+
     audio.play().catch(err => console.error('Meet audio play error:', err));
   };
 
