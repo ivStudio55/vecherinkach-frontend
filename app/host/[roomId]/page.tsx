@@ -6813,13 +6813,23 @@ export default function HostRoomPage() {
                 <p className="retro-heading text-[11px] tracking-[0.5em] text-[#ffeccd]/70">Панель ведущего</p>
                 <h1 className="text-3xl font-black leading-tight">Комната {roomCode || '----'}</h1>
               </div>
-              <button
-                type="button"
-                onClick={handlePrimaryHeaderAction}
-                className="px-5 py-3 rounded-2xl border-[3px] border-[#ffeccd] text-[#ffeccd] font-black tracking-[0.2em] hover:bg-[#ffeccd]/10 transition"
-              >
-                {headerActionLabel}
-              </button>
+              <div className="flex gap-3">
+                <a
+                  href="https://donatty.com/aleksandri"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#f1532f] to-[#ff6b35] text-[#ffeccd] font-bold text-sm border-2 border-[#ffeccd] hover:scale-105 transition-all duration-200 text-center"
+                >
+                  Поддержать разработчика
+                </a>
+                <button
+                  type="button"
+                  onClick={handlePrimaryHeaderAction}
+                  className="px-5 py-3 rounded-2xl border-[3px] border-[#ffeccd] text-[#ffeccd] font-black tracking-[0.2em] hover:bg-[#ffeccd]/10 transition"
+                >
+                  {headerActionLabel}
+                </button>
+              </div>
             </div>
           </header>
 
@@ -6987,15 +6997,6 @@ export default function HostRoomPage() {
 
                 {roomStatus === 'final-results' ? (
                   <>
-                    <a
-                      href="https://donatty.com/aleksandri"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-gradient-to-r from-[#f1532f] to-[#ff6b35] text-[#ffeccd] border-[4px] border-[#142a45] hover:scale-110 hover:shadow-2xl transition-all duration-300 animate-pulse hover:animate-none text-center"
-                    >
-                      💖 Поддержать разработчика 💖
-                    </a>
-
                     <button
                       type="button"
                       onClick={() => {
