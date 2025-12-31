@@ -6986,16 +6986,27 @@ export default function HostRoomPage() {
                 )}
 
                 {roomStatus === 'final-results' ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      hasUserInteractedRef.current = true;
-                      void endGame();
-                    }}
-                    className="w-full py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] hover:scale-105 hover:shadow-lg transition-all duration-200"
-                  >
-                    Закрыть комнату
-                  </button>
+                  <>
+                    <a
+                      href="https://donatty.com/aleksandri"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full py-4 rounded-2xl font-black text-xl tracking-[0.12em] bg-white text-[#142a45] border-[3px] border-[#142a45] hover:scale-[1.02] hover:shadow-lg transition-all duration-200 text-center"
+                    >
+                      Поддержать разработчика
+                    </a>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        hasUserInteractedRef.current = true;
+                        void endGame();
+                      }}
+                      className="w-full py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] hover:scale-105 hover:shadow-lg transition-all duration-200"
+                    >
+                      Закрыть комнату
+                    </button>
+                  </>
                 ) : isFinalRoundAvailable && (
                   <button
                     type="button"

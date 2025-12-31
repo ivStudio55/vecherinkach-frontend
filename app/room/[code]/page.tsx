@@ -1759,6 +1759,17 @@ export default function RoomPage() {
             </div>
           )}
 
+          {isFinal && (
+            <a
+              href="https://donatty.com/aleksandri"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full inline-flex items-center justify-center py-4 rounded-2xl border-[3px] border-[#142a45] bg-[#ffe184] font-black tracking-[0.08em] hover:scale-[1.02] hover:shadow-lg transition-all duration-200"
+            >
+              Поддержать разработчика
+            </a>
+          )}
+
         </div>
       </div>
     );
