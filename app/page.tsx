@@ -32,7 +32,7 @@ export default function HomePage() {
     },
     {
       id: 'music-battle',
-      title: 'Battle Хитов',
+      title: '????',
       description:
         'Музыкальная дуэль на скорость звучания. Выбираем плейлист, угадываем треки, зарабатываем баллы.',
       accent: 'from-orange-400 via-amber-500 to-rose-500',
@@ -40,7 +40,7 @@ export default function HomePage() {
     },
     {
       id: 'meme-bingo',
-      title: 'Meme Bingo',
+      title: '????',
       description:
         'Листайте карточки, закрывайте мемы, собирайте смешные комбинации и делитесь результатами.',
       accent: 'from-blue-500 via-sky-500 to-cyan-400',
@@ -48,7 +48,7 @@ export default function HomePage() {
     },
     {
       id: 'mystery',
-      title: '???',
+      title: '????',
       description:
         'Экспериментальная вечеринка, где правила меняются на лету. Подпишитесь, чтобы узнать первыми.',
       accent: 'from-emerald-500 via-teal-500 to-slate-500',
@@ -64,6 +64,7 @@ export default function HomePage() {
 
   const [buttonAnimating, setButtonAnimating] = useState(false);
   const meetAudioRef = useRef<HTMLAudioElement | null>(null);
+  const [isMeetPlaying, setIsMeetPlaying] = useState(false);
 
   const fadeVolume = (audio: HTMLAudioElement, targetVolume: number, duration: number) => {
     const startVolume = audio.volume;
@@ -91,6 +92,7 @@ export default function HomePage() {
     const audio = new Audio(`/audio/meet1/${randomFile}`);
     audio.volume = 0.6;
     meetAudioRef.current = audio;
+    setIsMeetPlaying(true);
 
     // Приглушить основную музыку
     const jingleAudio = audioRef.current;
@@ -101,10 +103,16 @@ export default function HomePage() {
       // Вернуть громкость когда meet закончится
       audio.onended = () => {
         fadeVolume(jingleAudio, originalVolume, 1000);
+        setIsMeetPlaying(false);
       };
+    } else {
+      audio.onended = () => setIsMeetPlaying(false);
     }
 
-    audio.play().catch(err => console.error('Meet audio play error:', err));
+    audio.play().catch(err => {
+      console.error('Meet audio play error:', err);
+      setIsMeetPlaying(false);
+    });
   };
 
   const handleStart = () => {
@@ -313,7 +321,8 @@ export default function HomePage() {
                     <button
                       type="button"
                       onClick={playRandomMeet}
-                      className="px-4 py-2 rounded-full border-2 border-[#142a45] bg-white hover:bg-[#ffe184] transition-colors"
+                      disabled={isMeetPlaying}
+                      className={`px-4 py-2 rounded-full border-2 border-[#142a45] bg-white hover:bg-[#ffe184] transition-colors ${isMeetPlaying ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       Учение
                     </button>
@@ -395,16 +404,16 @@ export default function HomePage() {
                   <button
                     type="button"
                     onClick={() => navigateWithExit(() => router.push('/join'))}
-                    className="hover:scale-105 hover:shadow-lg transition-all duration-200 w-full py-4 rounded-2xl font-black text-lg tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45]"
+                    className="hover:scale-105 hover:shadow-lg transition-all duration-200 w-full py-3 rounded-2xl border-[3px] border-[#142a45] font-semibold bg-white hover:bg-gray-50 text-[#142a45]"
                   >
                     Пройти на экран подключения
                   </button>
                   <button
                     type="button"
                     onClick={() => navigateWithExit(() => router.push('/host'))}
-                    className="hover:scale-105 hover:shadow-lg transition-all duration-200 w-full py-3 rounded-2xl border-[3px] border-[#142a45] font-semibold bg-[#ffe184] hover:bg-[#ffd463]"
+                    className="hover:scale-110 hover:shadow-2xl transition-all duration-300 w-full py-5 rounded-2xl font-black text-xl tracking-[0.2em] bg-gradient-to-r from-[#f1532f] to-[#ff6b35] text-[#ffeccd] border-[4px] border-[#142a45] animate-pulse hover:animate-none"
                   >
-                    Пройти к созданию комнаты
+                    🚀 Пройти к созданию комнаты 🚀
                   </button>
                 </div>
               </div>
@@ -426,7 +435,7 @@ export default function HomePage() {
                   </div>
                   <p className="text-sm text-[#142a45]/80 flex-1">{game.description}</p>
                   {game.id === 'vecherinkach' ? (
-                    <div className="text-xs font-semibold text-[#1f6ac6]">Первый раунд доступен прямо сейчас.</div>
+                    <div className="text-xs font-semibold text-[#1f6ac6]">уже в эфире</div>
                   ) : (
                     <div className="text-xs font-semibold text-[#f1532f]">Скоро в эфире</div>
                   )}
