@@ -96,7 +96,7 @@ export default function HomePage() {
     const jingleAudio = audioRef.current;
     if (jingleAudio) {
       const originalVolume = jingleAudio.volume;
-      fadeVolume(jingleAudio, originalVolume * 0.7, 1000); // 30% тише за 1 секунду
+      fadeVolume(jingleAudio, originalVolume * 0.4, 1000); // 60% тише за 1 секунду
 
       // Вернуть громкость когда meet закончится
       audio.onended = () => {
