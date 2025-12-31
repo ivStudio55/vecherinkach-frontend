@@ -26,7 +26,7 @@ export default function HomePage() {
       id: 'vecherinkach',
       title: 'Вечеринкач',
       description:
-        'Игра с вопросами на вечеринке: ведущий зачитывает, игроки отвечают с телефонов. Первый раунд готов!',
+        'Вечеринкач — взрывной квиз для тусы! Создай комнату за секунду, разошли 4-значный код — друзья играют с телефонов. 6 раундов угара. Ржи, голосуй, позорься — король дивана ждёт! не требует установки, просто жги! 🎉🚀',
       accent: 'from-purple-500 via-pink-500 to-red-500',
       status: 'Доступна',
     },
@@ -238,6 +238,9 @@ export default function HomePage() {
   const playersCountLabel = cardsVisible ? '4/8' : '0/8';
   const roomCodeDisplay = cardsVisible ? 'CTRL' : '____';
 
+  const EMOTION_MAX_ROOMS = 20;
+  const emotionPercent = Math.max(0, Math.min(100, (roomsToday / EMOTION_MAX_ROOMS) * 100));
+
   const backgroundStyle: CSSProperties = {
     backgroundImage: `url(${backTexture.src})`,
     backgroundSize: 'cover',
@@ -261,7 +264,7 @@ export default function HomePage() {
         const { count: playersCount } = await supabase
           .from('players')
           .select('*', { count: 'exact', head: true })
-          .gte('created_at', startOfDay);
+          .gte('joined_at', startOfDay);
 
         setRoomsToday(roomsCount || 0);
         setPlayersToday(playersCount || 0);
@@ -330,10 +333,21 @@ export default function HomePage() {
                     <span className="text-lg">🙂</span>
                   </div>
                   <div className="h-3 rounded-full bg-white/50 relative">
-                    <div className="absolute inset-y-0 left-0 bg-[#1f6ac6] rounded-full" style={{ width: '68%' }} />
-                    <div className="absolute -top-1 left-[68%] h-5 w-5 rounded-full border-2 border-[#142a45] bg-white" />
+                    <div
+                      className="absolute inset-y-0 left-0 bg-[#1f6ac6] rounded-full"
+                      style={{ width: `${emotionPercent}%` }}
+                    />
+                    <div
+                      className="absolute -top-2 h-7 w-7 rounded-full border-2 border-[#142a45] bg-white flex items-center justify-center"
+                      style={{ left: `calc(${emotionPercent}% - 14px)` }}
+                      aria-label="Индикатор эмоций"
+                    >
+                      🙂
+                    </div>
                   </div>
-                  <p className="text-sm font-semibold">Уровень азарта группы стабилен. Держим темп.</p>
+                  <p className="text-sm font-semibold">
+                    Сегодня создано {roomsToday} {roomsToday === 1 ? 'комната' : roomsToday > 1 && roomsToday < 5 ? 'комнаты' : 'комнат'} — смайлик двигается вместе с тусовкой.
+                  </p>
                 </div>
 
                 <div className="rounded-3xl border-[3px] border-[#142a45] bg-[#fff6da] p-4 space-y-4">
