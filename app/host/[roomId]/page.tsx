@@ -6991,7 +6991,7 @@ export default function HostRoomPage() {
                       href="https://donatty.com/aleksandri"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="w-full py-5 rounded-2xl font-black text-xl tracking-[0.2em] bg-gradient-to-r from-[#f1532f] to-[#ff6b35] text-[#ffeccd] border-[4px] border-[#142a45] hover:scale-110 hover:shadow-2xl transition-all duration-300 animate-pulse hover:animate-none text-center"
+                      className="w-full py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-gradient-to-r from-[#f1532f] to-[#ff6b35] text-[#ffeccd] border-[4px] border-[#142a45] hover:scale-110 hover:shadow-2xl transition-all duration-300 animate-pulse hover:animate-none text-center"
                     >
                       💖 Поддержать разработчика 💖
                     </a>
