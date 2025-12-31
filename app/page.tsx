@@ -24,9 +24,9 @@ export default function HomePage() {
   const games = [
     {
       id: 'vecherinkach',
-      title: 'Вечеринкач · Раунд 1',
+      title: 'Вечеринкач',
       description:
-        'Игра, где ведущий зачитывает каверзные вопросы, а игроки отвечают с мобильных. Уже готов первый раунд!',
+        'Игра с вопросами на вечеринке: ведущий зачитывает, игроки отвечают с телефонов. Первый раунд готов!',
       accent: 'from-purple-500 via-pink-500 to-red-500',
       status: 'Доступна',
     },
@@ -63,6 +63,16 @@ export default function HomePage() {
   };
 
   const [buttonAnimating, setButtonAnimating] = useState(false);
+  const meetAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  const playRandomMeet = () => {
+    const meetFiles = ['1.mp3', '2.mp3', '3.mp3', '4.mp3'];
+    const randomFile = meetFiles[Math.floor(Math.random() * meetFiles.length)];
+    const audio = new Audio(`/audio/meet1/${randomFile}`);
+    audio.volume = 0.6;
+    meetAudioRef.current = audio;
+    audio.play().catch(err => console.error('Meet audio play error:', err));
+  };
 
   const handleStart = () => {
     setButtonAnimating(true);
@@ -264,11 +274,19 @@ export default function HomePage() {
                   </div>
                   <div className="flex flex-wrap gap-3 text-sm font-semibold">
                     <button type="button" className="px-4 py-2 rounded-full border-2 border-[#142a45] bg-white">Общее</button>
-                    <button type="button" className="px-4 py-2 rounded-full border-2 border-dashed border-[#142a45] text-[#142a45]/60" disabled>
+                    <button
+                      type="button"
+                      onClick={playRandomMeet}
+                      className="px-4 py-2 rounded-full border-2 border-[#142a45] bg-white hover:bg-[#ffe184] transition-colors"
+                    >
                       Учение
                     </button>
-                    <button type="button" className="px-4 py-2 rounded-full border-2 border-dashed border-[#142a45] text-[#142a45]/60" disabled>
-                      Ритуал
+                    <button
+                      type="button"
+                      onClick={() => window.open('https://donatty.com/aleksandri', '_blank')}
+                      className="px-4 py-2 rounded-full border-2 border-[#142a45] bg-white hover:bg-[#ffe184] transition-colors"
+                    >
+                      Поддержка
                     </button>
                   </div>
                 </div>
@@ -349,7 +367,7 @@ export default function HomePage() {
               {games.map((game, index) => (
                 <article
                   key={game.id}
-                  className={`rounded-3xl border-[3px] border-[#142a45] bg-white/90 p-4 flex flex-col gap-3 transition transform ${isExiting ? 'scale-95 opacity-70' : cardsVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0 translate-y-3'}`}
+                  className={`rounded-3xl border-[3px] border-[#142a45] bg-white/90 p-4 flex flex-col gap-3 transition transform hover:scale-105 ${isExiting ? 'scale-95 opacity-70' : cardsVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0 translate-y-3'} ${game.status !== 'Доступна' ? 'grayscale' : ''}`}
                   style={{ transitionDelay: `${index * 70}ms` }}
                 >
                   <div className="flex items-center justify-between">
