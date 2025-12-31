@@ -302,7 +302,7 @@ export default function HomePage() {
               <p className="retro-heading text-xs tracking-[0.5em]">Редактор квиза</p>
               <h1 className="text-3xl sm:text-4xl font-black leading-tight">Когнитивное программирование вечеринки</h1>
             </div>
-            <div className="text-sm font-semibold uppercase tracking-[0.3em]">Reality template v3.6</div>
+            <div className="text-sm font-semibold uppercase tracking-[0.3em]">v 1.0</div>
           </header>
 
           <section className="retro-panel bg-[#ffe184] border-[4px] border-[#142a45] p-6 space-y-6">
@@ -311,10 +311,10 @@ export default function HomePage() {
                 <div className="rounded-3xl border-[3px] border-[#142a45] bg-[#fff2c8] p-4 space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Режим игры</p>
+                      <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">вечеринкач классический режим</p>
                       <p className="text-2xl font-black text-[#142a45]">Вечеринкач · Раунд 1</p>
                     </div>
-                    <span className="px-3 py-1 rounded-full text-xs font-bold tracking-[0.3em] bg-[#142a45] text-[#ffeccd]">LIVE</span>
+                    <span className="px-3 py-1 rounded-full text-xs font-bold tracking-[0.3em] bg-[#142a45] text-[#ffeccd] animate-pulse">LIVE</span>
                   </div>
                   <div className="flex flex-wrap gap-3 text-sm font-semibold">
                     <button type="button" className="px-4 py-2 rounded-full border-2 border-[#142a45] bg-white">Общее</button>
@@ -413,11 +413,13 @@ export default function HomePage() {
                     onClick={() => navigateWithExit(() => router.push('/host'))}
                     className="hover:scale-110 hover:shadow-2xl transition-all duration-300 w-full py-5 rounded-2xl font-black text-xl tracking-[0.2em] bg-gradient-to-r from-[#f1532f] to-[#ff6b35] text-[#ffeccd] border-[4px] border-[#142a45] animate-pulse hover:animate-none"
                   >
-                    🚀 Пройти к созданию комнаты 🚀
+                    Пройти к созданию комнаты
                   </button>
                 </div>
               </div>
             </div>
+
+            <h2 className="text-2xl font-black text-[#142a45] text-center">выбрать режим игры</h2>
 
             <div className="grid sm:grid-cols-2 gap-4">
               {games.map((game, index) => (
