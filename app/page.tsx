@@ -350,14 +350,14 @@ export default function HomePage() {
                     onClick={() => navigateWithExit(() => router.push('/join'))}
                     className="hover:scale-105 hover:shadow-lg transition-all duration-200 w-full py-4 rounded-2xl font-black text-lg tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45]"
                   >
-                    Открыть экран подключения
+                    Пройти на экран подключения
                   </button>
                   <button
                     type="button"
                     onClick={() => navigateWithExit(() => router.push('/host'))}
                     className="hover:scale-105 hover:shadow-lg transition-all duration-200 w-full py-3 rounded-2xl border-[3px] border-[#142a45] font-semibold bg-[#ffe184] hover:bg-[#ffd463]"
                   >
-                    Стать ведущим
+                    Пройти к созданию комнаты
                   </button>
                 </div>
               </div>
