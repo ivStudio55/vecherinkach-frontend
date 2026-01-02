@@ -299,7 +299,6 @@ body {
   }
 }
 
-/* Duck sprites: individual horizontal strips (see app/img/spritesheet/3-6.png). */
 
 .duck-sprite {
   will-change: background-position;
