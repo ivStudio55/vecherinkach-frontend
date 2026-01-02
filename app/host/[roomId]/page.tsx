@@ -4475,7 +4475,7 @@ export default function HostRoomPage() {
       jingle.volume = 0.45;
       questionJingleAudioRef.current = jingle;
 
-      const voice = new Audio(buildAudioUrl(`questions/${questionId}.mp3`));
+      const voice = new Audio(buildAudioUrl(`round1/questions/${questionId}.mp3`));
       voice.loop = false;
       voice.volume = 0.95;
       questionVoiceAudioRef.current = voice;

@@ -2,11 +2,19 @@ import { NextResponse } from 'next/server';
 import path from 'path';
 import { promises as fs } from 'fs';
 
-const AUDIO_DIR = path.join(process.cwd(), 'public', 'audio');
+const AUDIO_ROOT = path.join(process.cwd(), 'public', 'audio');
 const MIME_TYPES: Record<string, string> = {
   '.mp3': 'audio/mpeg',
   '.wav': 'audio/wav',
   '.ogg': 'audio/ogg',
+};
+
+const sanitizeRelativePath = (input: string) => {
+  const normalized = path.posix.normalize(input.replace(/\\/g, '/'));
+  if (normalized.startsWith('..')) {
+    throw new Error('Invalid path traversal');
+  }
+  return normalized.replace(/^\//, '');
 };
 
 export async function GET(request: Request) {
@@ -17,12 +25,22 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Missing "file" query parameter' }, { status: 400 });
   }
 
-  const safeFileName = path.basename(requestedFile);
-  const filePath = path.join(AUDIO_DIR, safeFileName);
+  let safeRelativePath: string;
+  try {
+    safeRelativePath = sanitizeRelativePath(requestedFile);
+  } catch {
+    return NextResponse.json({ error: 'Invalid file path' }, { status: 400 });
+  }
+
+  const filePath = path.join(AUDIO_ROOT, safeRelativePath);
+
+  if (!filePath.startsWith(AUDIO_ROOT)) {
+    return NextResponse.json({ error: 'Invalid file path' }, { status: 400 });
+  }
 
   try {
     const fileBuffer = await fs.readFile(filePath);
-    const ext = path.extname(safeFileName).toLowerCase();
+    const ext = path.extname(filePath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
 
     return new NextResponse(fileBuffer, {
