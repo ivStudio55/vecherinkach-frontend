@@ -44,7 +44,7 @@ export async function GET(request: Request) {
     const countParam = url.searchParams.get('count');
     const requestedCount = countParam ? Number.parseInt(countParam, 10) : NaN;
 
-    const jsonPath = path.join(process.cwd(), 'app', 'public', 'questions', '3round_questions.json');
+    const jsonPath = path.join(process.cwd(), 'public', 'questions', '3round_questions.json');
     const raw = await readFile(jsonPath, 'utf-8');
     const parsed = JSON.parse(raw) as { questions?: unknown[] } | null;
 

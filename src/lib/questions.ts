@@ -1,4 +1,4 @@
-import round1 from '../../app/public/questions/round1.json';
+import round1 from '../../public/questions/round1.json';
 
 export const ROUND_QUESTION_COUNT = 6;
 
