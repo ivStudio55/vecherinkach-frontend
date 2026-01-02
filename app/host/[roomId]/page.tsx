@@ -61,8 +61,8 @@ const CONNECT_AUDIO_CLIPS: Record<number, readonly string[]> = (() => {
   return base;
 })();
 const RULES_ROUND1_FILES = [
-  'ruels/round1/ruelsround(1)2.mp3',
-  'ruels/round1/ruelsround(1)3.mp3',
+  'round1/rules/ruelsround(1)2.mp3',
+  'round1/rules/ruelsround(1)3.mp3',
 ] as const;
 const SKIP_AUDIO_FILES = [
   'skip/skip.mp3',
@@ -78,11 +78,11 @@ const ROUND1_END_JINGLE_FILE = 'round1_end/jingle_(after_round1).mp3';
 const ROUND2_RULES_JINGLE_FILE = 'round2/explanation.mp3';
 const ROUND2_RULES_VOICE_FILES = ['round2/ruels/1.mp3', 'round2/ruels/2.mp3'] as const;
 const ROUND2_BETWEEN_AUDIO_VARIANTS = {
-  full: ['between/100%/1.mp3', 'between/100%/2.mp3', 'between/100%/3.mp3', 'between/100%/4.mp3'],
-  mid: ['between/50-99%/1.mp3', 'between/50-99%/2.mp3', 'between/50-99%/3.mp3', 'between/50-99%/4.mp3'],
-  low: ['between/1-49%/1.mp3', 'between/1-49%/2.mp3', 'between/1-49%/3.mp3', 'between/1-49%/4.mp3'],
-  none: ['between/0%/1.mp3', 'between/0%/2.mp3', 'between/0%/3.mp3'],
-  zero: ['between/0%/1.mp3', 'between/0%/2.mp3', 'between/0%/3.mp3'],
+  full: ['round1/between/100%/1.mp3', 'round1/between/100%/2.mp3', 'round1/between/100%/3.mp3', 'round1/between/100%/4.mp3'],
+  mid: ['round1/between/50-99%/1.mp3', 'round1/between/50-99%/2.mp3', 'round1/between/50-99%/3.mp3', 'round1/between/50-99%/4.mp3'],
+  low: ['round1/between/1-49%/1.mp3', 'round1/between/1-49%/2.mp3', 'round1/between/1-49%/3.mp3', 'round1/between/1-49%/4.mp3'],
+  none: ['round1/between/0%/1.mp3', 'round1/between/0%/2.mp3', 'round1/between/0%/3.mp3'],
+  zero: ['round1/between/0%/1.mp3', 'round1/between/0%/2.mp3', 'round1/between/0%/3.mp3'],
 } as const;
 const BETWEEN_AUDIO_VARIANTS = ROUND2_BETWEEN_AUDIO_VARIANTS;
 const ROUND2_EXPLANATION_BG_FILE = 'round2/explanation.mp3';
@@ -100,7 +100,7 @@ const ROUND3_BG_JINGLE_FILE = 'round2/jingle (5).mp3';
 const ROUND3_ANSWER_TIMER_JINGLE_FILE = 'round3/60_sec.mp3';
 const ROUND3_VOTE_TIMER_JINGLE_FILE = '30_sec.mp3';
 const ROUND3_TIMER_JINGLE_FILE = ROUND3_ANSWER_TIMER_JINGLE_FILE;
-const ROUND3_VOTE_AUDIO_DIR = 'vote';
+const ROUND3_VOTE_AUDIO_DIR = 'round3/vote';
 const ROUND3_COMMENTS_AUDIO_DIR = 'round3/comments';
 const ROUND3_RESULTS_BG_FILE = 'round2/explanation.mp3';
 const ROUND3_BG_VOLUME = 0.25;
