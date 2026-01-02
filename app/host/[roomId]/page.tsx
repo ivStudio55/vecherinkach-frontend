@@ -26,19 +26,19 @@ const COUNTDOWN_STEPS = ['на старт', 'внимание', '3', '2', '1', '
 const AUTO_NEXT_DELAY_MS = 6000;
 const ROUND1_VARIANTS_OUTRO_MS = 950;
 const JOIN_SOUND_FILES = [
-  'The_duck_quacked_fun_#1.mp3',
-  'The_duck_quacked_fun_#2.mp3',
-  'The_duck_quacked_fun_#3.mp3',
-  'The_duck_quacked_fun_#4.mp3',
-  'The_duk_quacked_funn_#1.mp3',
-  'The_duk_quacked_funn_#2.mp3',
-  'The_duk_quacked_funn_#3.mp3',
-  'The_duk_quacked_funn_#4.mp3',
+  'sound/The_duck_quacked_fun_#1.mp3',
+  'sound/The_duck_quacked_fun_#2.mp3',
+  'sound/The_duck_quacked_fun_#3.mp3',
+  'sound/The_duck_quacked_fun_#4.mp3',
+  'sound/The_duk_quacked_funn_#1.mp3',
+  'sound/The_duk_quacked_funn_#2.mp3',
+  'sound/The_duk_quacked_funn_#3.mp3',
+  'sound/The_duk_quacked_funn_#4.mp3',
 ] as const;
 
 const ANSWER_DUCK_AUDIO_FILES: readonly string[] = Array.from({ length: 7 }, (_, i) => `duck/${i + 1}.mp3`);
 
-const QUESTION_JINGLE_FILE = '30_sec.mp3';
+const QUESTION_JINGLE_FILE = 'sound/30_sec.mp3';
 const MEET_AUDIO_FILES = [
   'meet/meetText1.mp3',
   'meet/meetText2.mp3',
@@ -98,7 +98,7 @@ const ROUND3_VOTE_SECONDS = 15;
 const ROUND3_QUESTIONS_AUDIO_DIR = 'round3/questions3';
 const ROUND3_BG_JINGLE_FILE = 'round2/jingle (5).mp3';
 const ROUND3_ANSWER_TIMER_JINGLE_FILE = 'round3/60_sec.mp3';
-const ROUND3_VOTE_TIMER_JINGLE_FILE = '30_sec.mp3';
+const ROUND3_VOTE_TIMER_JINGLE_FILE = 'sound/30_sec.mp3';
 const ROUND3_TIMER_JINGLE_FILE = ROUND3_ANSWER_TIMER_JINGLE_FILE;
 const ROUND3_VOTE_AUDIO_DIR = 'round3/vote';
 const ROUND3_COMMENTS_AUDIO_DIR = 'round3/comments';
@@ -4000,7 +4000,7 @@ export default function HostRoomPage() {
       previous.onended = null;
     }
 
-    const nextAudio = new Audio('/audio/jingle-lobby.mp3');
+    const nextAudio = new Audio('/audio/sound/jingle-lobby.mp3');
     nextAudio.loop = true;
     nextAudio.volume = 0.3;
     meetAudioRef.current = nextAudio;
