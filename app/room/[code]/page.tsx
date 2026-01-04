@@ -9,8 +9,13 @@ import {
   ActiveRoundQuestion,
   OPTION_LABELS,
   getOptionKeyByIndex,
+  createQuestionBank,
+  DEFAULT_QUESTION_BANK,
   getQuestionForIndex,
+  type QuestionBank,
 } from '@/lib/questions';
+
+import { DEFAULT_PACK_ID, getQuestionsBaseUrl, normalizePackId, type PackId } from '@/lib/questionPacks';
 
 const QUESTION_DURATION_SECONDS = 30;
 const APP_VERSION = '1.0.9'; // Инкрементируйте при важных изменениях
@@ -170,6 +175,8 @@ export default function RoomPage() {
   const [playerId, setPlayerId] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [roomId, setRoomId] = useState('');
+  const [packId, setPackId] = useState<PackId>(DEFAULT_PACK_ID);
+  const [isPackReady, setIsPackReady] = useState(true);
   const [questionStartedAt, setQuestionStartedAt] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState(QUESTION_DURATION_SECONDS);
   const [showResults, setShowResults] = useState(false);
@@ -201,6 +208,8 @@ export default function RoomPage() {
   const [round3HasVoted, setRound3HasVoted] = useState(false);
   const roomIdRef = useRef('');
   const playerIdRef = useRef('');
+  const packIdRef = useRef<PackId>(DEFAULT_PACK_ID);
+  const round1BankRef = useRef<QuestionBank>(DEFAULT_QUESTION_BANK);
   const round3VoiceRef = useRef<HTMLAudioElement | null>(null);
   const round3BgRef = useRef<HTMLAudioElement | null>(null);
   const lastRound3PlaybackKeyRef = useRef<string | null>(null);
@@ -214,7 +223,7 @@ export default function RoomPage() {
   useEffect(() => {
     const loadRound2Data = async () => {
       try {
-        const res = await fetch('/questions/true_false_explanation.json', { cache: 'no-store' });
+        const res = await fetch(`${getQuestionsBaseUrl(packId)}/true_false_explanation.json`, { cache: 'no-store' });
         if (!res.ok) {
           return;
         }
@@ -225,11 +234,11 @@ export default function RoomPage() {
       }
     };
     void loadRound2Data();
-  }, []);
+  }, [packId]);
 
   const loadRound4Data = useCallback(async () => {
     try {
-      const res = await fetch('/questions/4round.json', { cache: 'no-store' });
+      const res = await fetch(`${getQuestionsBaseUrl(packId)}/4round.json`, { cache: 'no-store' });
       if (!res.ok) {
         console.warn('Round4 puzzles fetch failed', res.status, res.statusText);
         return;
@@ -240,11 +249,11 @@ export default function RoomPage() {
     } catch (e) {
       console.error('Failed to load round4 data', e);
     }
-  }, []);
+  }, [packId]);
 
   const loadRound5Data = useCallback(async () => {
     try {
-      const res = await fetch('/questions/5round_question.json', { cache: 'no-store' });
+      const res = await fetch(`${getQuestionsBaseUrl(packId)}/5round_question.json`, { cache: 'no-store' });
       if (!res.ok) {
         console.warn('Round5 questions fetch failed', res.status, res.statusText);
         return;
@@ -255,7 +264,7 @@ export default function RoomPage() {
     } catch (e) {
       console.error('Failed to load round5 data', e);
     }
-  }, []);
+  }, [packId]);
 
   useEffect(() => {
     void loadRound4Data();
@@ -372,7 +381,7 @@ export default function RoomPage() {
 
     const loadRound3Data = async () => {
       try {
-        const url = `/api/round3/questions?roomId=${encodeURIComponent(roomId)}&count=${ROUND3_TOTAL_QUESTIONS}`;
+        const url = `/api/round3/questions?roomId=${encodeURIComponent(roomId)}&count=${ROUND3_TOTAL_QUESTIONS}&packId=${encodeURIComponent(packId)}`;
         const res = await fetch(url, { cache: 'no-store' });
         if (!res.ok) {
           return;
@@ -391,7 +400,7 @@ export default function RoomPage() {
     };
 
     void loadRound3Data();
-  }, [roomId]);
+  }, [packId, roomId]);
 
   const stopRound3Audio = useCallback(() => {
     const voice = round3VoiceRef.current;
@@ -502,6 +511,10 @@ export default function RoomPage() {
     playerIdRef.current = playerId;
   }, [playerId]);
 
+  useEffect(() => {
+    packIdRef.current = packId;
+  }, [packId]);
+
   const loadQuestionFromSelection = useCallback(
     (questionIndex: number, selectionOverride?: number[]) => {
       const selection = selectionOverride && selectionOverride.length ? selectionOverride : selectedQuestionIds;
@@ -509,7 +522,7 @@ export default function RoomPage() {
         setQuestion(null);
         return;
       }
-      const nextQuestion = getQuestionForIndex(selection, questionIndex);
+      const nextQuestion = getQuestionForIndex(selection, questionIndex, round1BankRef.current);
       if (!nextQuestion) {
         setQuestion(null);
         return;
@@ -561,7 +574,7 @@ export default function RoomPage() {
       const { data: room, error: roomError } = await supabase
         .from('rooms')
         .select(
-          'id, current_question_index, is_active, status, question_started_at, all_players_answered, selected_question_ids, round2_item_index, round2_showing_fact, round2_phase'
+          'id, pack_id, current_question_index, is_active, status, question_started_at, all_players_answered, selected_question_ids, round2_item_index, round2_showing_fact, round2_phase'
         )
         .eq('code', roomCode)
         .single();
@@ -575,6 +588,31 @@ export default function RoomPage() {
       if ((room.status as RoomStatus) === 'finished' && room.question_started_at === null && room.is_active === false) {
         router.push('/join');
         return;
+      }
+
+      const nextPack = normalizePackId((room as { pack_id?: unknown }).pack_id);
+      setPackId(nextPack);
+      packIdRef.current = nextPack;
+
+      if (nextPack === 'classic') {
+        round1BankRef.current = DEFAULT_QUESTION_BANK;
+        setIsPackReady(true);
+      } else {
+        setIsPackReady(false);
+        try {
+          const res = await fetch(`${getQuestionsBaseUrl(nextPack)}/round1.json`, { cache: 'no-store' });
+          if (!res.ok) {
+            throw new Error(`round1.json fetch failed: ${res.status}`);
+          }
+          const payload = (await res.json()) as unknown;
+          round1BankRef.current = createQuestionBank(payload);
+          setIsPackReady(true);
+        } catch (e) {
+          console.error('Failed to load round1 question bank', e);
+          setError('Не удалось загрузить пакет вопросов. Попробуйте зайти ещё раз.');
+          router.push('/join');
+          return;
+        }
       }
 
   setRoomId(room.id);

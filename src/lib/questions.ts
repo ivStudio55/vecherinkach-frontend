@@ -22,6 +22,12 @@ type RawRoundQuestion = {
   audio?: string;
 };
 
+export type Round1QuestionsPayload = {
+  name?: string;
+  description?: string;
+  questions?: RawRoundQuestion[];
+};
+
 export interface RoundQuestion {
   id: number;
   text: string;
@@ -35,29 +41,62 @@ export interface ActiveRoundQuestion extends RoundQuestion {
   order: number;
 }
 
-const rawQuestions: RawRoundQuestion[] = (round1.questions || []) as RawRoundQuestion[];
+export type QuestionBank = {
+  name: string;
+  description: string;
+  questions: RoundQuestion[];
+  questionMap: Map<number, RoundQuestion>;
+  allQuestionIds: number[];
+};
 
-const QUESTIONS: RoundQuestion[] = rawQuestions.map((question) => ({
-  id: question.id,
-  text: question.text,
-  options: question.options,
-  correctIndex: typeof question.correct === 'number' ? question.correct : 0,
-  points: question.points,
-  audio: question.audio,
-}));
+const parseRound1Payload = (value: unknown): Round1QuestionsPayload => {
+  if (!value || typeof value !== 'object') {
+    return {};
+  }
+  return value as Round1QuestionsPayload;
+};
 
-const QUESTION_MAP = new Map<number, RoundQuestion>(QUESTIONS.map((q) => [q.id, q]));
+export const createQuestionBank = (payload: unknown): QuestionBank => {
+  const parsed = parseRound1Payload(payload);
+  const name = typeof parsed.name === 'string' ? parsed.name : '';
+  const description = typeof parsed.description === 'string' ? parsed.description : '';
+  const raw = Array.isArray(parsed.questions) ? parsed.questions : [];
 
-const ALL_QUESTION_IDS = QUESTIONS.map((q) => q.id);
+  const questions: RoundQuestion[] = raw
+    .filter((q): q is RawRoundQuestion => Boolean(q && typeof q === 'object'))
+    .map((question) => ({
+      id: Number(question.id),
+      text: String(question.text ?? ''),
+      options: Array.isArray(question.options) ? question.options.map((opt) => String(opt)) : [],
+      correctIndex: typeof question.correct === 'number' ? question.correct : 0,
+      points: typeof question.points === 'number' ? question.points : 0,
+      audio: typeof question.audio === 'string' ? question.audio : undefined,
+    }))
+    .filter((q) => Number.isFinite(q.id) && q.id >= 0);
 
-export const hasEnoughQuestions = (count: number) => QUESTIONS.length >= count;
+  const questionMap = new Map<number, RoundQuestion>(questions.map((q) => [q.id, q]));
+  const allQuestionIds = questions.map((q) => q.id);
 
-export const pickRandomQuestionIds = (count = ROUND_QUESTION_COUNT) => {
-  if (!hasEnoughQuestions(count)) {
+  return {
+    name,
+    description,
+    questions,
+    questionMap,
+    allQuestionIds,
+  };
+};
+
+export const DEFAULT_QUESTION_BANK: QuestionBank = createQuestionBank(round1);
+
+export const hasEnoughQuestions = (count: number, bank: QuestionBank = DEFAULT_QUESTION_BANK) =>
+  bank.questions.length >= count;
+
+export const pickRandomQuestionIds = (count = ROUND_QUESTION_COUNT, bank: QuestionBank = DEFAULT_QUESTION_BANK) => {
+  if (!hasEnoughQuestions(count, bank)) {
     throw new Error('Недостаточно вопросов для генерации раунда');
   }
 
-  const ids = [...ALL_QUESTION_IDS];
+  const ids = [...bank.allQuestionIds];
   for (let i = ids.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));
     [ids[i], ids[j]] = [ids[j], ids[i]];
@@ -65,11 +104,13 @@ export const pickRandomQuestionIds = (count = ROUND_QUESTION_COUNT) => {
   return ids.slice(0, count);
 };
 
-export const getQuestionById = (id: number): RoundQuestion | null => QUESTION_MAP.get(id) ?? null;
+export const getQuestionById = (id: number, bank: QuestionBank = DEFAULT_QUESTION_BANK): RoundQuestion | null =>
+  bank.questionMap.get(id) ?? null;
 
 export const getQuestionForIndex = (
   selectedIds: number[],
-  questionIndex: number
+  questionIndex: number,
+  bank: QuestionBank = DEFAULT_QUESTION_BANK
 ): ActiveRoundQuestion | null => {
   if (!selectedIds.length) {
     return null;
@@ -78,7 +119,7 @@ export const getQuestionForIndex = (
   if (!questionId && questionId !== 0) {
     return null;
   }
-  const question = getQuestionById(questionId);
+  const question = getQuestionById(questionId, bank);
   if (!question) {
     return null;
   }
@@ -88,9 +129,12 @@ export const getQuestionForIndex = (
   };
 };
 
-export const buildQuestionsFromSelection = (selectedIds: number[]): ActiveRoundQuestion[] =>
+export const buildQuestionsFromSelection = (
+  selectedIds: number[],
+  bank: QuestionBank = DEFAULT_QUESTION_BANK
+): ActiveRoundQuestion[] =>
   selectedIds
-    .map((_, index) => getQuestionForIndex(selectedIds, index))
+    .map((_, index) => getQuestionForIndex(selectedIds, index, bank))
     .filter((question): question is ActiveRoundQuestion => Boolean(question));
 
 export const getOptionKeyByIndex = (index: number): OptionKey => OPTION_KEYS[index] ?? OPTION_KEYS[0];
@@ -100,5 +144,5 @@ export const getOptionIndexFromKey = (key: string): number => {
   return idx >= 0 ? idx : 0;
 };
 
-export const getRoundTitle = () => round1.name;
-export const getRoundDescription = () => round1.description;
+export const getRoundTitle = (bank: QuestionBank = DEFAULT_QUESTION_BANK) => bank.name;
+export const getRoundDescription = (bank: QuestionBank = DEFAULT_QUESTION_BANK) => bank.description;

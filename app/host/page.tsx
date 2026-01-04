@@ -1,21 +1,30 @@
 'use client';
 
-import { useMemo, useState, CSSProperties } from 'react';
+import { useEffect, useMemo, useState, CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import backTexture from '../img/back2.png';
 import { PlayerPrinter } from '@/components/PlayerPrinter';
+import { DEFAULT_PACK_ID, normalizePackId, QUESTION_PACKS, type PackId } from '@/lib/questionPacks';
 
 export default function HostPage() {
   const router = useRouter();
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState('');
+  const [packId, setPackId] = useState<PackId>(DEFAULT_PACK_ID);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('hostPackId');
+    setPackId(normalizePackId(stored));
+  }, []);
 
   const generateRoomCode = (): string => Math.floor(1000 + Math.random() * 9000).toString();
 
   const createRoom = async () => {
     setError('');
     setIsCreating(true);
+
+    localStorage.setItem('hostPackId', packId);
 
     try {
       let attempts = 0;
@@ -32,6 +41,7 @@ export default function HostPage() {
             is_active: true,
             status: 'waiting',
             question_started_at: null,
+            pack_id: packId,
           })
           .select()
           .single();
@@ -39,6 +49,7 @@ export default function HostPage() {
         if (!insertError && data) {
           localStorage.setItem('hostRoomId', data.id);
           localStorage.setItem('hostRoomCode', roomCode);
+          localStorage.setItem('hostPackId', packId);
           router.push(`/host/${data.id}`);
           return;
         }
@@ -127,6 +138,25 @@ export default function HostPage() {
                     {error}
                   </div>
                 )}
+
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-[#142a45]/80">Пакет вопросов</p>
+                  <select
+                    value={packId}
+                    onChange={(e) => {
+                      const next = normalizePackId(e.target.value);
+                      setPackId(next);
+                      localStorage.setItem('hostPackId', next);
+                    }}
+                    className="w-full rounded-2xl border-[3px] border-[#142a45] bg-white px-4 py-3 text-base font-semibold"
+                  >
+                    {QUESTION_PACKS.map((pack) => (
+                      <option key={pack.id} value={pack.id}>
+                        {pack.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
                 <button
                   onClick={createRoom}

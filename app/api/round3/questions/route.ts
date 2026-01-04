@@ -41,10 +41,14 @@ export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
     const roomId = url.searchParams.get('roomId') || url.searchParams.get('seed');
+    const packId = url.searchParams.get('packId');
     const countParam = url.searchParams.get('count');
     const requestedCount = countParam ? Number.parseInt(countParam, 10) : NaN;
 
-    const jsonPath = path.join(process.cwd(), 'public', 'questions', '3round_questions.json');
+    const jsonPath =
+      packId === '03012026'
+        ? path.join(process.cwd(), 'public', 'packs', '03012026', 'questions', '3round_questions.json')
+        : path.join(process.cwd(), 'public', 'questions', '3round_questions.json');
     const raw = await readFile(jsonPath, 'utf-8');
     const parsed = JSON.parse(raw) as { questions?: unknown[] } | null;
 

@@ -12,6 +12,9 @@ import {
   OptionKey,
   OPTION_LABELS,
   ROUND_QUESTION_COUNT,
+  createQuestionBank,
+  DEFAULT_QUESTION_BANK,
+  type QuestionBank,
   buildQuestionsFromSelection,
   getOptionIndexFromKey,
   getOptionKeyByIndex,
@@ -19,6 +22,13 @@ import {
   hasEnoughQuestions,
   pickRandomQuestionIds,
 } from '@/lib/questions';
+import {
+  DEFAULT_PACK_ID,
+  getQuestionsBaseUrl,
+  normalizePackId,
+  type PackId,
+  withAudioPackPrefix,
+} from '@/lib/questionPacks';
 
 const QUESTION_DURATION_SECONDS = 30;
 const ROUND1_TOTAL_QUESTIONS = 6;
@@ -159,6 +169,7 @@ const ROUND5_FINAL_NARRATOR_AUDIO_DIR = 'round5/final';
 const ROUND5_FINAL_NARRATOR_VARIANTS = 6;
 
   const ROUND4_CATEGORY_AUDIO_MAP: Record<string, string> = {
+    'новый год': 'new_year',
     'дисней': 'disney',
     'американский кинематограф': 'american_cinema',
     'американские мультфильмы': 'american_cartoons',
@@ -500,6 +511,58 @@ export default function HostRoomPage() {
   const router = useRouter();
   const printerRef = useRef<{ addPaper: (name: string) => void } | null>(null);
   const roomId = params.roomId as string;
+
+  const [packId, setPackId] = useState<PackId>(DEFAULT_PACK_ID);
+  const packIdRef = useRef<PackId>(DEFAULT_PACK_ID);
+  const [isPackReady, setIsPackReady] = useState(true);
+  const round1BankRef = useRef<QuestionBank>(DEFAULT_QUESTION_BANK);
+
+  const buildAudioUrl = useCallback((relativePath: string) => {
+    const withPack = withAudioPackPrefix(packIdRef.current, relativePath);
+    return `/api/audio?file=${encodeURIComponent(withPack)}&t=${Date.now()}`;
+  }, []);
+
+  useEffect(() => {
+    packIdRef.current = packId;
+  }, [packId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadPackQuestions = async () => {
+      if (packId === 'classic') {
+        round1BankRef.current = DEFAULT_QUESTION_BANK;
+        setIsPackReady(true);
+        return;
+      }
+
+      setIsPackReady(false);
+      try {
+        const url = `${getQuestionsBaseUrl(packId)}/round1.json`;
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) {
+          throw new Error(`Round1 questions fetch failed (${res.status} ${res.statusText})`);
+        }
+        const payload = (await res.json()) as unknown;
+        const bank = createQuestionBank(payload);
+        round1BankRef.current = bank;
+        if (!cancelled) {
+          setIsPackReady(true);
+        }
+      } catch (err) {
+        console.error('Failed to load question pack round1 bank', err);
+        if (!cancelled) {
+          setIsPackReady(false);
+        }
+      }
+    };
+
+    void loadPackQuestions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [packId]);
 
   const [roomCode, setRoomCode] = useState('');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -2735,7 +2798,7 @@ export default function HostRoomPage() {
   useEffect(() => {
     const loadRound2Data = async () => {
       try {
-        const res = await fetch('/questions/true_false_explanation.json', { cache: 'no-store' });
+        const res = await fetch(`${getQuestionsBaseUrl(packId)}/true_false_explanation.json`, { cache: 'no-store' });
         if (!res.ok) return;
         const json = (await res.json()) as TrueFalseItem[];
         setRound2Items(json);
@@ -2744,12 +2807,12 @@ export default function HostRoomPage() {
       }
     };
     loadRound2Data();
-  }, []);
+  }, [packId]);
 
   useEffect(() => {
     const loadRound3Data = async () => {
       try {
-        const url = `/api/round3/questions?roomId=${encodeURIComponent(roomId)}&count=${ROUND3_TOTAL_QUESTIONS}`;
+        const url = `/api/round3/questions?roomId=${encodeURIComponent(roomId)}&count=${ROUND3_TOTAL_QUESTIONS}&packId=${encodeURIComponent(packId)}`;
         const res = await fetch(url, { cache: 'no-store' });
         if (!res.ok) return;
         const payload = (await res.json()) as Round3QuestionsPayload;
@@ -2768,12 +2831,12 @@ export default function HostRoomPage() {
     if (roomId) {
       void loadRound3Data();
     }
-  }, [roomId]);
+  }, [packId, roomId]);
 
   useEffect(() => {
     const loadRound4Data = async () => {
       try {
-        const res = await fetch('/questions/4round.json', { cache: 'no-store' });
+        const res = await fetch(`${getQuestionsBaseUrl(packId)}/4round.json`, { cache: 'no-store' });
         if (!res.ok) return;
         const payload = await res.json();
         const puzzles = Array.isArray(payload?.puzzles) ? (payload.puzzles as Round4Puzzle[]) : [];
@@ -2784,12 +2847,12 @@ export default function HostRoomPage() {
     };
 
     void loadRound4Data();
-  }, []);
+  }, [packId]);
 
   useEffect(() => {
     const loadRound5Data = async () => {
       try {
-        const res = await fetch('/questions/5round_question.json', { cache: 'no-store' });
+        const res = await fetch(`${getQuestionsBaseUrl(packId)}/5round_question.json`, { cache: 'no-store' });
         if (!res.ok) {
           return;
         }
@@ -2802,7 +2865,7 @@ export default function HostRoomPage() {
     };
 
     void loadRound5Data();
-  }, []);
+  }, [packId]);
 
   useEffect(() => {
     if (isRound2RulesVisible) {
@@ -3439,8 +3502,8 @@ export default function HostRoomPage() {
     if (!selectedQuestionIds.length) {
       return [];
     }
-    return buildQuestionsFromSelection(selectedQuestionIds);
-  }, [selectedQuestionIds]);
+    return buildQuestionsFromSelection(selectedQuestionIds, round1BankRef.current);
+  }, [selectedQuestionIds, packId]);
 
   const playerRatings = useMemo(() => {
     return [...players].sort((a, b) => b.total_points - a.total_points);
@@ -3469,7 +3532,7 @@ export default function HostRoomPage() {
         setQuestion(null);
         return;
       }
-      const nextQuestion = getQuestionForIndex(sourceSelection, questionIndex);
+      const nextQuestion = getQuestionForIndex(sourceSelection, questionIndex, round1BankRef.current);
       if (!nextQuestion) {
         setQuestion(null);
         return;
@@ -3759,9 +3822,7 @@ export default function HostRoomPage() {
         const effectiveOffset = typeof offsetOverride === 'number' ? offsetOverride : timeOffsetMs;
         const { data: room, error: roomError } = await supabase
           .from('rooms')
-          .select(
-            'code, current_question_index, question_started_at, status, all_players_answered, selected_question_ids, is_active, round2_item_index, round2_showing_fact, round2_phase'
-          )
+          .select('*')
           .eq('id', roomId)
           .single();
 
@@ -3769,6 +3830,13 @@ export default function HostRoomPage() {
           console.error('Room not found or error:', roomError);
           setError('Комната не найдена или недоступна');
           return;
+        }
+
+        const storedPack = normalizePackId(localStorage.getItem('hostPackId'));
+        const rawPack = (room as { pack_id?: unknown }).pack_id;
+        const nextPack = rawPack ? normalizePackId(rawPack) : storedPack;
+        if (nextPack !== packIdRef.current) {
+          setPackId(nextPack);
         }
 
         const selection = (room.selected_question_ids as number[] | null) || [];
@@ -5118,7 +5186,12 @@ export default function HostRoomPage() {
   };
 
   const startRound = async () => {
-    if (!hasEnoughQuestions(ROUND1_TOTAL_QUESTIONS)) {
+    if (!isPackReady) {
+      setError('Пакет вопросов ещё загружается. Подождите пару секунд и попробуйте снова.');
+      return;
+    }
+
+    if (!hasEnoughQuestions(ROUND1_TOTAL_QUESTIONS, round1BankRef.current)) {
       setError('Недостаточно вопросов для начала игры. Пополните список раунда.');
       return;
     }
@@ -5127,7 +5200,7 @@ export default function HostRoomPage() {
     stopLobby();
     stopSkipAudio();
 
-    const questionIds = pickRandomQuestionIds(ROUND1_TOTAL_QUESTIONS);
+    const questionIds = pickRandomQuestionIds(ROUND1_TOTAL_QUESTIONS, round1BankRef.current);
     const { iso: startedAt, offset } = await getServerIsoTimestamp();
     const { error: updateError } = await supabase
       .from('rooms')
