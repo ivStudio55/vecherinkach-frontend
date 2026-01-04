@@ -161,7 +161,7 @@ const ROUND5_RULES_TEXT =
 
 const ROUND4_TOTAL_TOURS = 6;
 
-const ROUND5_TOTAL_TOURS = 7;
+const ROUND5_TOTAL_TOURS = 6;
 const ROUND5_MAX_POINTS = 400;
 const ROUND5_QUESTION_AUDIO_DIR = 'round5/questions';
 const ROUND5_EXPLANATION_AUDIO_DIR = 'round5/explanation';
