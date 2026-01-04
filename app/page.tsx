@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, useCallback, CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import backTexture from './img/back.png';
 import { supabase } from '../src/lib/supabase';
+import { normalizePackId, type PackId } from '@/lib/questionPacks';
 
 export default function HomePage() {
   const router = useRouter();
@@ -21,40 +22,24 @@ export default function HomePage() {
   const [roomsToday, setRoomsToday] = useState(0);
   const [playersToday, setPlayersToday] = useState(0);
 
-  const games = [
+  const packCards: Array<{ id: PackId; title: string; description: string; badge?: string }> = [
     {
-      id: 'vecherinkach',
-      title: 'Вечеринкач',
-      description:
-        'Вечеринкач — взрывной квиз для тусы! Создай комнату за секунду, разошли 4-значный код — друзья играют с телефонов. 6 раундов угара. Ржи, голосуй, позорься — король дивана ждёт! не требует установки, просто жги! 🎉🚀',
-      accent: 'from-purple-500 via-pink-500 to-red-500',
-      status: 'Доступна',
+      id: 'classic',
+      title: 'Классический',
+      description: 'Оригинальный пакет вопросов.',
     },
     {
-      id: 'music-battle',
-      title: '????',
-      description:
-        'Музыкальная дуэль на скорость звучания. Выбираем плейлист, угадываем треки, зарабатываем баллы.',
-      accent: 'from-orange-400 via-amber-500 to-rose-500',
-      status: 'Скоро',
-    },
-    {
-      id: 'meme-bingo',
-      title: '????',
-      description:
-        'Листайте карточки, закрывайте мемы, собирайте смешные комбинации и делитесь результатами.',
-      accent: 'from-blue-500 via-sky-500 to-cyan-400',
-      status: 'Скоро',
-    },
-    {
-      id: 'mystery',
-      title: '????',
-      description:
-        'Экспериментальная вечеринка, где правила меняются на лету. Подпишитесь, чтобы узнать первыми.',
-      accent: 'from-emerald-500 via-teal-500 to-slate-500',
-      status: 'Скоро',
+      id: '03012026',
+      title: 'Новогодний 2026',
+      description: 'Праздничный пакет (пока бесплатный).',
+      badge: 'бесплатно',
     },
   ];
+
+  const choosePackAndGoHost = (nextPackId: PackId) => {
+    localStorage.setItem('hostPackId', nextPackId);
+    navigateWithExit(() => router.push('/host'));
+  };
 
   const handleUserInteraction = () => {
     if (!hasUserInteracted) {
@@ -419,29 +404,34 @@ export default function HomePage() {
               </div>
             </div>
 
-            <h2 className="text-2xl font-black text-[#142a45] text-center">выбрать режим игры</h2>
+            <h2 className="text-2xl font-black text-[#142a45] text-center">выбрать пакет вопросов</h2>
 
             <div className="grid sm:grid-cols-2 gap-4">
-              {games.map((game, index) => (
-                <article
-                  key={game.id}
-                  className={`rounded-3xl border-[3px] border-[#142a45] bg-white/90 p-4 flex flex-col gap-3 transition transform hover:scale-105 ${isExiting ? 'scale-95 opacity-70' : cardsVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0 translate-y-3'} ${game.status !== 'Доступна' ? 'grayscale' : ''}`}
+              {packCards.map((pack, index) => (
+                <button
+                  key={pack.id}
+                  type="button"
+                  onClick={() => choosePackAndGoHost(normalizePackId(pack.id))}
+                  className={`text-left rounded-3xl border-[3px] border-[#142a45] bg-white/90 p-4 flex flex-col gap-3 transition transform hover:scale-105 ${isExiting ? 'scale-95 opacity-70' : cardsVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0 translate-y-3'}`}
                   style={{ transitionDelay: `${index * 70}ms` }}
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">{game.status}</p>
-                      <h3 className="text-xl font-black text-[#142a45]">{game.title}</h3>
+                      <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Пакет</p>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-xl font-black text-[#142a45]">{pack.title}</h3>
+                        {pack.badge ? (
+                          <span className="rounded-full border-[2px] border-[#142a45] bg-[#ffe184] px-2 py-0.5 text-xs font-black tracking-[0.12em] text-[#142a45]">
+                            {pack.badge}
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
-                    <span className="text-3xl">{game.id === 'vecherinkach' ? '🎉' : game.id === 'music-battle' ? '🎧' : game.id === 'meme-bingo' ? '🃏' : '✨'}</span>
+                    <span className="text-3xl">{pack.id === 'classic' ? '🎉' : '🎄'}</span>
                   </div>
-                  <p className="text-sm text-[#142a45]/80 flex-1">{game.description}</p>
-                  {game.id === 'vecherinkach' ? (
-                    <div className="text-xs font-semibold text-[#1f6ac6]">уже в эфире</div>
-                  ) : (
-                    <div className="text-xs font-semibold text-[#f1532f]">Скоро в эфире</div>
-                  )}
-                </article>
+                  <p className="text-sm text-[#142a45]/80 flex-1">{pack.description}</p>
+                  <div className="text-xs font-semibold text-[#1f6ac6]">выбрать и перейти к созданию</div>
+                </button>
               ))}
             </div>
           </section>
