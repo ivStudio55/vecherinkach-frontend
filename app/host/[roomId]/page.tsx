@@ -161,12 +161,12 @@ const ROUND5_RULES_TEXT =
 
 const ROUND4_TOTAL_TOURS = 6;
 
-const ROUND5_TOTAL_TOURS = 6;
+const ROUND5_TOTAL_TOURS = 7;
 const ROUND5_MAX_POINTS = 400;
 const ROUND5_QUESTION_AUDIO_DIR = 'round5/questions';
 const ROUND5_EXPLANATION_AUDIO_DIR = 'round5/explanation';
 const ROUND5_FINAL_NARRATOR_AUDIO_DIR = 'round5/final';
-const ROUND5_FINAL_NARRATOR_VARIANTS = 6;
+const ROUND5_FINAL_NARRATOR_VARIANTS = 7;
 
   const ROUND4_CATEGORY_AUDIO_MAP: Record<string, string> = {
     'новый год': 'new_year',

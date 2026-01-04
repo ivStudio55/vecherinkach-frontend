@@ -28,7 +28,7 @@ const ROUND3_TOTAL_QUESTIONS = 6;
 const ROUND3_QUESTIONS_AUDIO_DIR = 'round3/questions3';
 const ROUND3_BG_JINGLE_FILE = 'round2/jingle (5).mp3';
 
-const ROUND5_TOTAL_TOURS = 6;
+const ROUND5_TOTAL_TOURS = 7;
 const ROUND5_MAX_POINTS = 400;
 const ROUND5_QUESTION_AUDIO_DIR = 'round5/questions';
 const ROUND5_EXPLANATION_AUDIO_DIR = 'round5/explanation';
