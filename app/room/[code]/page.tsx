@@ -223,7 +223,7 @@ export default function RoomPage() {
   useEffect(() => {
     const loadRound2Data = async () => {
       try {
-        const res = await fetch(`${getQuestionsBaseUrl(packId)}/true_false_explanation.json`, { cache: 'no-store' });
+          const res = await fetch(`${getQuestionsBaseUrl(packId)}/true_false_explanation.json?t=${Date.now()}`, { cache: 'no-store' });
         if (!res.ok) {
           return;
         }
