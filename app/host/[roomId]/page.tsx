@@ -27,7 +27,7 @@ import {
   getQuestionsBaseUrl,
   normalizePackId,
   type PackId,
-  withAudioPackPrefix,
+  withAudioPackPrefixIfNeeded,
 } from '@/lib/questionPacks';
 
 const QUESTION_DURATION_SECONDS = 30;
@@ -518,8 +518,8 @@ export default function HostRoomPage() {
   const round1BankRef = useRef<QuestionBank>(DEFAULT_QUESTION_BANK);
 
   const buildAudioUrl = useCallback((relativePath: string) => {
-    const withPack = withAudioPackPrefix(packIdRef.current, relativePath);
-    return `/api/audio?file=${encodeURIComponent(withPack)}&t=${Date.now()}`;
+    const resolved = withAudioPackPrefixIfNeeded(packIdRef.current, relativePath);
+    return `/api/audio?file=${encodeURIComponent(resolved)}&t=${Date.now()}`;
   }, []);
 
   useEffect(() => {

@@ -29,3 +29,30 @@ export const withAudioPackPrefix = (packId: PackId, relativePath: string): strin
   const prefix = getAudioPrefix(packId);
   return prefix ? `${prefix}/${cleaned}` : cleaned;
 };
+
+const PACK_SCOPED_AUDIO_PREFIXES: readonly string[] = [
+  'round1/questions/',
+  'round2/true/',
+  'round2/false/',
+  'round2/explanation/',
+  'round2/fictionExplanation/',
+  'round3/questions3/',
+  'round3/comments/',
+  'round4/questions/',
+  'round4/category/',
+  'round5/questions/',
+  'round5/explanation/',
+];
+
+export const withAudioPackPrefixIfNeeded = (packId: PackId, relativePath: string): string => {
+  const cleaned = String(relativePath || '')
+    .replace(/^\/+/, '')
+    .replace(/\\/g, '/');
+
+  if (packId === 'classic') {
+    return cleaned;
+  }
+
+  const needsPackPrefix = PACK_SCOPED_AUDIO_PREFIXES.some((prefix) => cleaned.startsWith(prefix));
+  return needsPackPrefix ? withAudioPackPrefix(packId, cleaned) : cleaned;
+};
