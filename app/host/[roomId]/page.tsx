@@ -5569,7 +5569,8 @@ export default function HostRoomPage() {
       round2QuestionCounterRef.current = questionNumber;
       setRound2QuestionCounter(questionNumber);
       const remaining = Math.max(0, round2Items.length - nextUsedDeduped.length);
-      isLastRound2QuestionRef.current = questionNumber >= ROUND2_TOTAL_QUESTIONS || remaining === 0;
+      const effectiveTotal = Math.min(ROUND2_TOTAL_QUESTIONS, round2Items.length || ROUND2_TOTAL_QUESTIONS);
+      isLastRound2QuestionRef.current = questionNumber >= effectiveTotal || remaining === 0;
 
       const { iso: startedAt } = await getServerIsoTimestamp();
 
@@ -5962,8 +5963,10 @@ export default function HostRoomPage() {
       return;
     }
 
+    const effectiveTotal = Math.min(ROUND2_TOTAL_QUESTIONS, round2Items.length || ROUND2_TOTAL_QUESTIONS);
+
     const currentStep = round2QuestionCounterRef.current;
-    if (currentStep >= ROUND2_TOTAL_QUESTIONS) {
+    if (currentStep >= effectiveTotal) {
       await completeRound2();
       return;
     }
@@ -6122,9 +6125,10 @@ export default function HostRoomPage() {
         : 'Раунд 2'
       : 'Закрыть комнату';
   const round2QuestionNumber = round2QuestionCounter > 0 ? round2QuestionCounter : 1;
-  const clampedRound2QuestionNumber = Math.min(round2QuestionNumber, ROUND2_TOTAL_QUESTIONS);
+  const effectiveRound2Total = Math.min(ROUND2_TOTAL_QUESTIONS, round2Items.length || ROUND2_TOTAL_QUESTIONS);
+  const clampedRound2QuestionNumber = Math.min(round2QuestionNumber, effectiveRound2Total);
   const round1QuestionCount = totalQuestions;
-  const round2QuestionCount = ROUND2_TOTAL_QUESTIONS;
+  const round2QuestionCount = effectiveRound2Total;
   const round3TotalCount = round3QuestionCount || ROUND3_TOTAL_QUESTIONS;
   const round4TotalCount = ROUND4_TOTAL_TOURS;
   const round5TotalCount = ROUND5_TOTAL_TOURS;
