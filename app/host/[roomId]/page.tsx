@@ -538,7 +538,7 @@ export default function HostRoomPage() {
 
       setIsPackReady(false);
       try {
-        const url = `${getQuestionsBaseUrl(packId)}/round1.json`;
+        const url = `${getQuestionsBaseUrl(packId)}/round1.json?t=${Date.now()}`;
         const res = await fetch(url, { cache: 'no-store' });
         if (!res.ok) {
           throw new Error(`Round1 questions fetch failed (${res.status} ${res.statusText})`);
@@ -2798,7 +2798,7 @@ export default function HostRoomPage() {
   useEffect(() => {
     const loadRound2Data = async () => {
       try {
-        const res = await fetch(`${getQuestionsBaseUrl(packId)}/true_false_explanation.json`, { cache: 'no-store' });
+        const res = await fetch(`${getQuestionsBaseUrl(packId)}/true_false_explanation.json?t=${Date.now()}`, { cache: 'no-store' });
         if (!res.ok) return;
         const json = (await res.json()) as TrueFalseItem[];
         setRound2Items(json);
@@ -2812,7 +2812,7 @@ export default function HostRoomPage() {
   useEffect(() => {
     const loadRound3Data = async () => {
       try {
-        const url = `/api/round3/questions?roomId=${encodeURIComponent(roomId)}&count=${ROUND3_TOTAL_QUESTIONS}&packId=${encodeURIComponent(packId)}`;
+        const url = `/api/round3/questions?roomId=${encodeURIComponent(roomId)}&count=${ROUND3_TOTAL_QUESTIONS}&packId=${encodeURIComponent(packId)}&t=${Date.now()}`;
         const res = await fetch(url, { cache: 'no-store' });
         if (!res.ok) return;
         const payload = (await res.json()) as Round3QuestionsPayload;
@@ -2836,7 +2836,7 @@ export default function HostRoomPage() {
   useEffect(() => {
     const loadRound4Data = async () => {
       try {
-        const res = await fetch(`${getQuestionsBaseUrl(packId)}/4round.json`, { cache: 'no-store' });
+        const res = await fetch(`${getQuestionsBaseUrl(packId)}/4round.json?t=${Date.now()}`, { cache: 'no-store' });
         if (!res.ok) return;
         const payload = await res.json();
         const puzzles = Array.isArray(payload?.puzzles) ? (payload.puzzles as Round4Puzzle[]) : [];
@@ -2852,7 +2852,7 @@ export default function HostRoomPage() {
   useEffect(() => {
     const loadRound5Data = async () => {
       try {
-        const res = await fetch(`${getQuestionsBaseUrl(packId)}/5round_question.json`, { cache: 'no-store' });
+        const res = await fetch(`${getQuestionsBaseUrl(packId)}/5round_question.json?t=${Date.now()}`, { cache: 'no-store' });
         if (!res.ok) {
           return;
         }
@@ -3031,6 +3031,60 @@ export default function HostRoomPage() {
 
     updateRound2Leaderboard();
   }, [updateRound2Leaderboard]);
+
+  const loadUsedRound2ItemIndices = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('round2_answers')
+        .select('item_index')
+        .eq('room_id', roomId);
+
+      if (error) {
+        console.error('Не удалось загрузить использованные вопросы Раунда 2', error);
+        return [] as number[];
+      }
+
+      const used = new Set<number>();
+      for (const row of (data ?? []) as Array<{ item_index: number | null }>) {
+        const idx = row.item_index;
+        if (typeof idx === 'number' && Number.isFinite(idx)) {
+          used.add(idx);
+        }
+      }
+
+      return Array.from(used);
+    } catch (err) {
+      console.error('Не удалось загрузить использованные вопросы Раунда 2', err);
+      return [] as number[];
+    }
+  }, [roomId]);
+
+  const loadUsedRound4PuzzleIds = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('round4_answers')
+        .select('puzzle_id')
+        .eq('room_id', roomId);
+
+      if (error) {
+        console.error('Не удалось загрузить использованные вопросы Раунда 4', error);
+        return [] as number[];
+      }
+
+      const used = new Set<number>();
+      for (const row of (data ?? []) as Array<{ puzzle_id: number | null }>) {
+        const id = row.puzzle_id;
+        if (typeof id === 'number' && Number.isFinite(id)) {
+          used.add(id);
+        }
+      }
+
+      return Array.from(used);
+    } catch (err) {
+      console.error('Не удалось загрузить использованные вопросы Раунда 4', err);
+      return [] as number[];
+    }
+  }, [roomId]);
 
   const loadRound4RoundLeaderboard = useCallback(async () => {
     const key = `${roomId}-round4`;
@@ -5497,18 +5551,25 @@ export default function HostRoomPage() {
       stopRoundEndAudio();
       stopRound2RulesAudio();
       setIsRound2RulesVisible(false);
-      if (options?.resetTrackers) {
-        round2AskedIndicesRef.current = [index];
-        setRound2AskedIndices([index]);
-      } else {
-        const nextUsed = [...round2AskedIndicesRef.current, index];
-        round2AskedIndicesRef.current = nextUsed;
-        setRound2AskedIndices(nextUsed);
-      }
+      const nextUsedRaw = options?.resetTrackers
+        ? [...round2AskedIndicesRef.current, index]
+        : [...round2AskedIndicesRef.current, index];
+
+      const nextUsedDeduped = Array.from(
+        new Set(
+          nextUsedRaw
+            .filter((idx) => typeof idx === 'number' && Number.isFinite(idx))
+            .filter((idx) => idx >= 0 && idx < round2Items.length)
+        )
+      );
+
+      round2AskedIndicesRef.current = nextUsedDeduped;
+      setRound2AskedIndices(nextUsedDeduped);
 
       round2QuestionCounterRef.current = questionNumber;
       setRound2QuestionCounter(questionNumber);
-      isLastRound2QuestionRef.current = questionNumber >= ROUND2_TOTAL_QUESTIONS;
+      const remaining = Math.max(0, round2Items.length - nextUsedDeduped.length);
+      isLastRound2QuestionRef.current = questionNumber >= ROUND2_TOTAL_QUESTIONS || remaining === 0;
 
       const { iso: startedAt } = await getServerIsoTimestamp();
 
@@ -5563,6 +5624,7 @@ export default function HostRoomPage() {
       setIsRound2RulesVisible,
       getServerIsoTimestamp,
       roomId,
+      round2Items.length,
       setError,
       setShowResults,
       setIsRatingVisible,
@@ -5580,11 +5642,10 @@ export default function HostRoomPage() {
     const used = new Set(round2AskedIndicesRef.current);
     const allIndices = round2Items.map((_, idx) => idx);
     const available = allIndices.filter((idx) => !used.has(idx));
-    const pool = available.length ? available : allIndices;
-    if (!pool.length) {
+    if (!available.length) {
       return null;
     }
-    return pickRandomItem(pool);
+    return pickRandomItem(available);
   }, [round2Items]);
 
 
@@ -5595,6 +5656,19 @@ export default function HostRoomPage() {
       return;
     }
 
+    const usedFromDb = await loadUsedRound2ItemIndices();
+    if (usedFromDb.length) {
+      const merged = Array.from(
+        new Set(
+          [...round2AskedIndicesRef.current, ...usedFromDb]
+            .filter((idx) => typeof idx === 'number' && Number.isFinite(idx))
+            .filter((idx) => idx >= 0 && idx < round2Items.length)
+        )
+      );
+      round2AskedIndicesRef.current = merged;
+      setRound2AskedIndices(merged);
+    }
+
     const index = pickNextRound2Index();
     if (index === null) {
       setError('Не удалось выбрать факт для Раунда 2');
@@ -5603,7 +5677,7 @@ export default function HostRoomPage() {
 
     const showingFact = Math.random() < 0.5;
     await launchRound2Question(index, showingFact, 1, { resetTrackers: true });
-  }, [launchRound2Question, pickNextRound2Index, resetRound2Stats, round2Items.length, setError]);
+  }, [launchRound2Question, loadUsedRound2ItemIndices, pickNextRound2Index, resetRound2Stats, round2Items.length, setError]);
 
   const startRound2 = useCallback(() => {
     if (!round2Items.length) {
@@ -5894,6 +5968,19 @@ export default function HostRoomPage() {
       return;
     }
 
+    const usedFromDb = await loadUsedRound2ItemIndices();
+    if (usedFromDb.length) {
+      const merged = Array.from(
+        new Set(
+          [...round2AskedIndicesRef.current, ...usedFromDb]
+            .filter((idx) => typeof idx === 'number' && Number.isFinite(idx))
+            .filter((idx) => idx >= 0 && idx < round2Items.length)
+        )
+      );
+      round2AskedIndicesRef.current = merged;
+      setRound2AskedIndices(merged);
+    }
+
     const nextIndex = pickNextRound2Index();
     if (nextIndex === null) {
       await completeRound2();
@@ -5902,7 +5989,7 @@ export default function HostRoomPage() {
 
     const showingFact = Math.random() < 0.5;
     await launchRound2Question(nextIndex, showingFact, currentStep + 1);
-  }, [completeRound2, launchRound2Question, pickNextRound2Index, roomStatus]);
+  }, [completeRound2, launchRound2Question, loadUsedRound2ItemIndices, pickNextRound2Index, roomStatus, round2Items.length]);
 
   useEffect(() => {
     handleRound2NextQuestionRef.current = handleRound2NextQuestion;
@@ -6319,29 +6406,40 @@ export default function HostRoomPage() {
     }
   }, [calculateRound5Points, isRound5Scoring, roomId, round5CurrentBankIndex, round5CurrentQuestion]);
 
-  const pickRound4Puzzle = useCallback(() => {
-    if (!round4Puzzles.length) {
-      return null;
-    }
-    const used = new Set(round4AskedIds);
-    const available = round4Puzzles.filter((puzzle) => !used.has(puzzle.id));
-    const pool = available.length ? available : round4Puzzles;
-    return pickRandomItem(pool);
-  }, [round4AskedIds, round4Puzzles]);
-
   const startRound4Game = useCallback(async () => {
-    if (round4AskedIdsRef.current.length >= ROUND4_TOTAL_TOURS) {
+    const usedFromDb = await loadUsedRound4PuzzleIds();
+    const mergedUsed = Array.from(
+      new Set(
+        [...round4AskedIdsRef.current, ...usedFromDb].filter((id) => typeof id === 'number' && Number.isFinite(id))
+      )
+    );
+
+    if (mergedUsed.length !== round4AskedIdsRef.current.length) {
+      round4AskedIdsRef.current = mergedUsed;
+      setRound4AskedIds(mergedUsed);
+    }
+
+    if (mergedUsed.length >= ROUND4_TOTAL_TOURS) {
       setError('Раунд 4 уже отыгран: 6 туров завершены');
       round4StartLockRef.current = false;
       return;
     }
 
-    const puzzle = pickRound4Puzzle();
-    if (!puzzle) {
+    if (!round4Puzzles.length) {
       setError('Вопросы Раунда 4 ещё не загружены');
       round4StartLockRef.current = false;
       return;
     }
+
+    const usedSet = new Set(mergedUsed);
+    const available = round4Puzzles.filter((puzzle) => !usedSet.has(puzzle.id));
+    if (!available.length) {
+      setError('Раунд 4 завершён: вопросы закончились');
+      round4StartLockRef.current = false;
+      return;
+    }
+
+    const puzzle = pickRandomItem(available);
 
     const { iso: startedAt, offset } = await getServerIsoTimestamp();
 
@@ -6364,7 +6462,9 @@ export default function HostRoomPage() {
     round4ScoredPuzzleIdsRef.current.delete(puzzle.id);
     setRound4CurrentPuzzle(puzzle);
     setRound4AnswerRows([]);
-    setRound4AskedIds((prev) => [...prev, puzzle.id]);
+    const nextAsked = Array.from(new Set([...mergedUsed, puzzle.id]));
+    round4AskedIdsRef.current = nextAsked;
+    setRound4AskedIds(nextAsked);
     setShowResults(false);
     setQuestion(null);
     setAnswerCount(0);
@@ -6377,7 +6477,7 @@ export default function HostRoomPage() {
     playRound4CategoryAudio(puzzle.category);
     playRound4TimerAudio();
     round4StartLockRef.current = false;
-  }, [pickRound4Puzzle, getServerIsoTimestamp, roomId, updateRoomStatus, syncTimerWithStart, playRound4CategoryAudio, playRound4TimerAudio]);
+  }, [getServerIsoTimestamp, loadUsedRound4PuzzleIds, roomId, round4Puzzles, updateRoomStatus, syncTimerWithStart, playRound4CategoryAudio, playRound4TimerAudio]);
 
   const handleRound4Complete = useCallback(async () => {
     stopRound4Audio();

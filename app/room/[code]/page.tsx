@@ -600,7 +600,7 @@ export default function RoomPage() {
       } else {
         setIsPackReady(false);
         try {
-          const res = await fetch(`${getQuestionsBaseUrl(nextPack)}/round1.json`, { cache: 'no-store' });
+          const res = await fetch(`${getQuestionsBaseUrl(nextPack)}/round1.json?t=${Date.now()}`, { cache: 'no-store' });
           if (!res.ok) {
             throw new Error(`round1.json fetch failed: ${res.status}`);
           }
