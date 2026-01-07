@@ -234,6 +234,14 @@ export default function HomePage() {
   const EMOTION_MAX_ROOMS = 20;
   const emotionPercent = Math.max(0, Math.min(100, (roomsToday / EMOTION_MAX_ROOMS) * 100));
 
+  const emotionEmoji = (() => {
+    if (emotionPercent < 20) return '😢';
+    if (emotionPercent < 40) return '🙁';
+    if (emotionPercent < 60) return '😐';
+    if (emotionPercent < 80) return '🙂';
+    return '😄';
+  })();
+
   const backgroundStyle: CSSProperties = {
     backgroundImage: `url(${backTexture.src})`,
     backgroundSize: 'cover',
@@ -324,7 +332,9 @@ export default function HomePage() {
                 <div className="rounded-3xl border-[3px] border-[#142a45] bg-[#fdd17a] p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Эмоции</p>
-                    <span className="text-lg">🙂</span>
+                    <span className="text-lg" aria-label="Текущая эмоция">
+                      {emotionEmoji}
+                    </span>
                   </div>
                   <div className="h-3 rounded-full bg-white/50 relative">
                     <div
@@ -336,7 +346,7 @@ export default function HomePage() {
                       style={{ left: `calc(${emotionPercent}% - 14px)` }}
                       aria-label="Индикатор эмоций"
                     >
-                      🙂
+                      {emotionEmoji}
                     </div>
                   </div>
                   <p className="text-sm font-semibold">

@@ -32,6 +32,10 @@ export default function AdminPage() {
   const [leaderboardTotal, setLeaderboardTotal] = useState<Array<{ playerId: string; name: string; points: number }> | null>(null);
   const [leaderboardRound2, setLeaderboardRound2] = useState<Array<{ playerId: string; name: string; points: number }> | null>(null);
 
+  const [activeRooms, setActiveRooms] = useState<
+    Array<{ id: string; code: string; status: string | null; createdAt: string | null }> | null
+  >(null);
+
   const [roomCode, setRoomCode] = useState('');
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
@@ -103,6 +107,16 @@ export default function AdminPage() {
         name: String(it.name ?? ''),
         points: Number(it.points ?? 0),
       })));
+
+      const roomsRes = await fetch('/api/admin/rooms/active', { cache: 'no-store' });
+      const roomsPayload = await roomsRes.json().catch(() => null);
+      if (!roomsRes.ok) throw new Error(roomsPayload?.error ?? 'Не удалось загрузить активные комнаты');
+      setActiveRooms((roomsPayload?.items ?? []).map((it: any) => ({
+        id: String(it.id),
+        code: String(it.code),
+        status: it.status ? String(it.status) : null,
+        createdAt: it.createdAt ? String(it.createdAt) : null,
+      })));
     } catch (e: any) {
       setError(e?.message ?? 'Не удалось загрузить статистику');
     } finally {
@@ -132,6 +146,31 @@ export default function AdminPage() {
     setActionMessage(`Комната ${code} закрыта`);
     void loadStats();
   }, [loadStats, roomCode]);
+
+  const closeRoomByCode = useCallback(
+    async (code: string) => {
+      setActionMessage(null);
+      setError(null);
+      if (!/^\d{4}$/.test(code)) {
+        setError('Некорректный код комнаты');
+        return;
+      }
+      if (!confirm(`Закрыть комнату ${code}?`)) return;
+      const res = await fetch('/api/admin/room/close', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      });
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) {
+        setError(payload?.error ?? 'Не удалось закрыть комнату');
+        return;
+      }
+      setActionMessage(`Комната ${code} закрыта`);
+      void loadStats();
+    },
+    [loadStats]
+  );
 
   const deleteRoom = useCallback(async () => {
     setActionMessage(null);
@@ -312,6 +351,43 @@ export default function AdminPage() {
             </div>
             <div className="text-xs font-semibold text-[#142a45]/60">
               Удаление комнаты делает последовательные DELETE по таблицам: round2_answers, answers, round3_votes, round3_answers, round4_answers, round5_answers, players, rooms.
+            </div>
+          </div>
+
+          <div className="rounded-3xl border-[3px] border-[#142a45] bg-white p-4 space-y-4">
+            <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Активные комнаты</p>
+            <div className="text-xs font-semibold text-[#142a45]/60">
+              Показаны комнаты с is_active=true. Можно закрыть без знания кода заранее.
+            </div>
+            <div className="space-y-2">
+              {(activeRooms ?? []).map((room) => (
+                <div
+                  key={room.id}
+                  className="flex flex-col gap-2 rounded-2xl border-[2px] border-[#142a45]/20 bg-[#fffaf0] px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="min-w-0">
+                    <div className="text-sm font-black text-[#142a45]">
+                      Код: <span className="tracking-[0.25em]">{room.code}</span>
+                    </div>
+                    <div className="text-xs font-semibold text-[#142a45]/70">
+                      Статус: {room.status ?? '—'}{room.createdAt ? ` · ${new Date(room.createdAt).toLocaleString()}` : ''}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void closeRoomByCode(room.code)}
+                    className="px-4 py-2 rounded-2xl border-[3px] border-[#142a45] text-[#142a45] font-black tracking-[0.18em] hover:bg-[#142a45]/5 transition"
+                  >
+                    Закрыть
+                  </button>
+                </div>
+              ))}
+              {!loading && (activeRooms?.length ?? 0) === 0 ? (
+                <div className="text-sm font-semibold text-[#142a45]/60">Активных комнат нет</div>
+              ) : null}
+              {loading && !activeRooms ? (
+                <div className="text-sm font-semibold text-[#142a45]/60">Загрузка…</div>
+              ) : null}
             </div>
           </div>
 
