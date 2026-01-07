@@ -114,7 +114,7 @@ export default function AdminPage() {
           </div>
 
           <div className="text-sm font-semibold text-[#142a45]/70">
-            Примечание: страница не защищена (пока). Если нужно — добавим авторизацию/пароль или доступ только для admin в Supabase.
+            Примечание: доступ защищён Basic Auth (см. переменные окружения `ADMIN_USER` и `ADMIN_PASSWORD`).
           </div>
         </section>
       </div>
