@@ -4,19 +4,28 @@
 
 begin;
 
+-- 0) Private schema for backups (avoid PostgREST exposure)
+create schema if not exists backups;
+revoke all on schema backups from public;
+revoke all on schema backups from anon;
+revoke all on schema backups from authenticated;
+
 -- 1) Backup (structure + data)
 -- Creates/refreshes a dated backup table you can roll back to.
 -- NOTE: adjust the suffix if you run this on another date.
 do $$
 begin
-  if to_regclass('public.round2_answers_backup_20251231') is null then
-    execute 'create table public.round2_answers_backup_20251231 (like public.round2_answers including all)';
+  if to_regclass('backups.round2_answers_backup_20251231') is null then
+    execute 'create table backups.round2_answers_backup_20251231 (like public.round2_answers including all)';
+    execute 'alter table backups.round2_answers_backup_20251231 enable row level security';
+    execute 'revoke all on table backups.round2_answers_backup_20251231 from anon';
+    execute 'revoke all on table backups.round2_answers_backup_20251231 from authenticated';
   else
-    execute 'truncate table public.round2_answers_backup_20251231';
+    execute 'truncate table backups.round2_answers_backup_20251231';
   end if;
 end $$;
 
-insert into public.round2_answers_backup_20251231
+insert into backups.round2_answers_backup_20251231
 select * from public.round2_answers;
 
 -- 2) Enable RLS
@@ -36,4 +45,4 @@ commit;
 
 -- Quick sanity checks
 -- select count(*) as round2_answers_count from public.round2_answers;
--- select count(*) as backup_count from public.round2_answers_backup_20251231;
+-- select count(*) as backup_count from backups.round2_answers_backup_20251231;
