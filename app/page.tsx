@@ -344,23 +344,6 @@ export default function HomePage() {
                   </p>
                 </div>
 
-                <div className="rounded-3xl border-[3px] border-[#142a45] bg-[#fff6da] p-4 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Память</p>
-                    <span className="text-xs font-semibold px-2 py-1 rounded bg-[#142a45]/10">полная синхронизация</span>
-                  </div>
-                  <div className="space-y-2 text-sm font-mono">
-                    <div className="flex justify-between border-2 border-[#142a45] rounded-xl px-3 py-2 bg-white/70">
-                      <span>Комнаты</span>
-                      <span className="font-bold text-[#1f6ac6]">{roomsToday}</span>
-                    </div>
-                    <div className="flex justify-between border-2 border-[#142a45] rounded-xl px-3 py-2 bg-white/70">
-                      <span>Игроки</span>
-                      <span className="font-bold text-[#f1532f]">{playersToday}</span>
-                    </div>
-                  </div>
-                </div>
-
                 <div className="rounded-3xl border-[3px] border-[#142a45] bg-[#fff2c8] p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Аудио канал</p>
