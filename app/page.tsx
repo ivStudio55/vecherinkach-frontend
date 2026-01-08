@@ -373,40 +373,41 @@ export default function HomePage() {
                 </div>
               </div>
 
-              </div>
+            </div>
+          </section>
 
-            {/* Отдельная панель выбора пакета вопросов */}
-            <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5 mt-8">
-              <h2 className="text-2xl font-black text-[#142a45] text-center">выбрать пакет вопросов</h2>
-              <div className="grid sm:grid-cols-2 gap-4">
-                {packCards.map((pack, index) => (
-                  <button
-                    key={pack.id}
-                    type="button"
-                    onClick={() => choosePackAndGoHost(normalizePackId(pack.id))}
-                    className={`text-left rounded-3xl border-[3px] border-[#142a45] bg-white/90 p-4 flex flex-col gap-3 transition transform hover:scale-105 ${isExiting ? 'scale-95 opacity-70' : cardsVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0 translate-y-3'}`}
-                    style={{ transitionDelay: `${index * 70}ms` }}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Пакет</p>
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-xl font-black text-[#142a45]">{pack.title}</h3>
-                          {pack.badge ? (
-                            <span className="rounded-full border-[2px] border-[#142a45] bg-[#ffe184] px-2 py-0.5 text-xs font-black tracking-[0.12em] text-[#142a45]">
-                              {pack.badge}
-                            </span>
-                          ) : null}
-                        </div>
+          {/* Отдельная панель выбора пакета вопросов */}
+          <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
+            <h2 className="text-2xl font-black text-[#142a45] text-center">выбрать пакет вопросов</h2>
+            <div className="grid sm:grid-cols-2 gap-4">
+              {packCards.map((pack, index) => (
+                <button
+                  key={pack.id}
+                  type="button"
+                  onClick={() => choosePackAndGoHost(normalizePackId(pack.id))}
+                  className={`text-left rounded-3xl border-[3px] border-[#142a45] bg-white/90 p-4 flex flex-col gap-3 transition transform hover:scale-105 ${isExiting ? 'scale-95 opacity-70' : cardsVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0 translate-y-3'}`}
+                  style={{ transitionDelay: `${index * 70}ms` }}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Пакет</p>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-xl font-black text-[#142a45]">{pack.title}</h3>
+                        {pack.badge ? (
+                          <span className="rounded-full border-[2px] border-[#142a45] bg-[#ffe184] px-2 py-0.5 text-xs font-black tracking-[0.12em] text-[#142a45]">
+                            {pack.badge}
+                          </span>
+                        ) : null}
                       </div>
-                      <span className="text-3xl">{pack.id === 'classic' ? '🎉' : '🎄'}</span>
                     </div>
-                    <p className="text-sm text-[#142a45]/80 flex-1">{pack.description}</p>
-                    <div className="text-xs font-semibold text-[#1f6ac6]">выбрать и перейти к созданию</div>
-                  </button>
-                ))}
-              </div>
-            </section>
+                    <span className="text-3xl">{pack.id === 'classic' ? '🎉' : '🎄'}</span>
+                  </div>
+                  <p className="text-sm text-[#142a45]/80 flex-1">{pack.description}</p>
+                  <div className="text-xs font-semibold text-[#1f6ac6]">выбрать и перейти к созданию</div>
+                </button>
+              ))}
+            </div>
+          </section>
         </div>
       )}
     </div>
