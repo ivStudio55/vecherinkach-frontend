@@ -535,9 +535,21 @@ export default function HostRoomPage() {
       const width = typeof window !== 'undefined' ? window.innerWidth : 1200;
       const height = typeof window !== 'undefined' ? window.innerHeight : 800;
       const minSide = Math.min(width, height);
+      const maxSide = Math.max(width, height);
 
       // Heuristic: smaller screens need more compact UI.
-            const next = minSide < 720 ? 0.82 : minSide < 900 ? 0.88 : minSide < 1000 ? 0.94 : 1;
+      // Also keep it slightly compact even on large TVs where fonts can render huge.
+      const nextRaw =
+        minSide < 650
+          ? 0.74
+          : minSide < 800
+            ? 0.78
+            : minSide < 1000
+              ? 0.84
+              : maxSide < 1400
+                ? 0.88
+                : 0.92;
+      const next = Math.min(1, Math.max(0.7, Math.round(nextRaw * 100) / 100));
       setForcedLayoutScale(next);
     };
 
@@ -7030,33 +7042,43 @@ export default function HostRoomPage() {
     roomStatus === 'round5-running' ||
     roomStatus === 'round5-explanation';
 
+  const isCompactForcedLayout = isDesktopLayoutForced;
+
   return (
     <Fragment>
       <div
         style={isDesktopLayoutForced ? ({ zoom: forcedLayoutScale } as any) : undefined}
         className={`${
           shouldLockViewport && !isDesktopLayoutForced ? 'h-[100dvh] overflow-hidden' : 'min-h-screen'
-        } bg-[#fef4dc] text-[#142a45] px-4 py-6 transition-opacity duration-1000 opacity-100`}
+        } bg-[#fef4dc] text-[#142a45] ${isCompactForcedLayout ? 'px-2 py-3' : 'px-4 py-6'} transition-opacity duration-1000 opacity-100`}
       >
-        <div className="max-w-[95vw] mx-auto space-y-6">
+        <div className={`max-w-[95vw] mx-auto ${isCompactForcedLayout ? 'space-y-3' : 'space-y-6'}`}>
           <header className="retro-panel bg-[#142a45] text-[#ffeccd] px-6 py-5">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="retro-heading text-[11px] tracking-[0.5em] text-[#ffeccd]/70">Панель ведущего</p>
-                <h1 className="text-3xl font-black leading-tight">Комната {roomCode || '----'}</h1>
+                <h1 className={`${isCompactForcedLayout ? 'text-xl' : 'text-3xl'} font-black leading-tight`}>
+                  Комната {roomCode || '----'}
+                </h1>
               </div>
               <div className="flex gap-3">
                 <button
                   type="button"
                   onClick={handlePrimaryHeaderAction}
-                  className="px-5 py-3 rounded-2xl border-[3px] border-[#ffeccd] text-[#ffeccd] font-black tracking-[0.2em] hover:bg-[#ffeccd]/10 transition"
+                  className={`${
+                    isCompactForcedLayout
+                      ? 'px-3 py-2 rounded-xl border-2 text-xs tracking-[0.14em]'
+                      : 'px-5 py-3 rounded-2xl border-[3px] text-base tracking-[0.2em]'
+                  } border-[#ffeccd] text-[#ffeccd] font-black hover:bg-[#ffeccd]/10 transition`}
                 >
                   {headerActionLabel}
                 </button>
                 <button
                   type="button"
                   onClick={toggleDesktopLayout}
-                  className="px-4 py-2 rounded-xl border-2 border-[#ffeccd] text-[#ffeccd] font-bold text-sm hover:bg-[#ffeccd]/10 transition"
+                  className={`${
+                    isCompactForcedLayout ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'
+                  } rounded-xl border-2 border-[#ffeccd] text-[#ffeccd] font-bold hover:bg-[#ffeccd]/10 transition`}
                 >
                   Панели: {isDesktopLayoutForced ? 'ноутбук' : 'авто'}
                 </button>
@@ -7064,7 +7086,9 @@ export default function HostRoomPage() {
                   href="https://donatty.com/aleksandri"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#f1532f] to-[#ff6b35] text-[#ffeccd] font-bold text-sm border-2 border-[#ffeccd] hover:scale-105 transition-all duration-200 text-center"
+                  className={`${
+                    isCompactForcedLayout ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'
+                  } rounded-xl bg-gradient-to-r from-[#f1532f] to-[#ff6b35] text-[#ffeccd] font-bold border-2 border-[#ffeccd] hover:scale-105 transition-all duration-200 text-center`}
                 >
                   Поддержать
                 </a>
@@ -7078,13 +7102,21 @@ export default function HostRoomPage() {
           </div>
         )}
 
-        <div className={`grid gap-6 ${isDesktopLayoutForced ? 'grid-cols-12' : 'lg:grid-cols-12'}`}>
+        <div
+          className={`grid ${isCompactForcedLayout ? 'gap-3' : 'gap-6'} ${
+            isDesktopLayoutForced ? 'grid-cols-12' : 'lg:grid-cols-12'
+          }`}
+        >
           <section className={isDesktopLayoutForced ? 'col-span-3' : 'lg:col-span-3'}>
             <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-5 space-y-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Состояние раунда</p>
-              <p className="text-base sm:text-lg font-black text-[#142a45] leading-tight whitespace-normal break-words">
+              <p
+                className={`${
+                  isCompactForcedLayout ? 'text-sm' : 'text-base sm:text-lg'
+                } font-black text-[#142a45] leading-tight whitespace-normal break-words`}
+              >
               {statusLabel}
               </p>
                   <p className="text-xs font-semibold text-[#142a45]/60">
