@@ -512,6 +512,28 @@ export default function HostRoomPage() {
   const printerRef = useRef<{ addPaper: (name: string) => void } | null>(null);
   const roomId = params.roomId as string;
 
+  const [isDesktopLayoutForced, setIsDesktopLayoutForced] = useState(false);
+
+  useEffect(() => {
+    try {
+      setIsDesktopLayoutForced(localStorage.getItem('forceDesktopLayout') === '1');
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const toggleDesktopLayout = () => {
+    setIsDesktopLayoutForced((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('forceDesktopLayout', next ? '1' : '0');
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
   const [packId, setPackId] = useState<PackId>(DEFAULT_PACK_ID);
   const packIdRef = useRef<PackId>(DEFAULT_PACK_ID);
   const [isPackReady, setIsPackReady] = useState(true);
@@ -6980,7 +7002,7 @@ export default function HostRoomPage() {
     <Fragment>
       <div
         className={`${
-          shouldLockViewport ? 'h-[100dvh] overflow-hidden' : 'min-h-screen'
+          shouldLockViewport && !isDesktopLayoutForced ? 'h-[100dvh] overflow-hidden' : 'min-h-screen'
         } bg-[#fef4dc] text-[#142a45] px-4 py-6 transition-opacity duration-1000 opacity-100`}
       >
         <div className="max-w-[95vw] mx-auto space-y-6">
@@ -6991,6 +7013,13 @@ export default function HostRoomPage() {
                 <h1 className="text-3xl font-black leading-tight">Комната {roomCode || '----'}</h1>
               </div>
               <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={toggleDesktopLayout}
+                  className="px-4 py-2 rounded-xl border-2 border-[#ffeccd] text-[#ffeccd] font-bold text-sm hover:bg-[#ffeccd]/10 transition"
+                >
+                  Панели: {isDesktopLayoutForced ? 'ноутбук' : 'авто'}
+                </button>
                 <a
                   href="https://donatty.com/aleksandri"
                   target="_blank"
@@ -7016,8 +7045,8 @@ export default function HostRoomPage() {
           </div>
         )}
 
-        <div className="grid gap-6 lg:grid-cols-12">
-          <section className="lg:col-span-3">
+        <div className={`grid gap-6 ${isDesktopLayoutForced ? 'grid-cols-12' : 'lg:grid-cols-12'}`}>
+          <section className={isDesktopLayoutForced ? 'col-span-3' : 'lg:col-span-3'}>
             <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-5 space-y-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
@@ -7114,7 +7143,7 @@ export default function HostRoomPage() {
             </div>
           </section>
 
-              <div className="lg:col-span-9 space-y-6">
+              <div className={`${isDesktopLayoutForced ? 'col-span-9' : 'lg:col-span-9'} space-y-6`}>
             {isTournamentVisible ? (
               <div
                 className={`rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6 ${
