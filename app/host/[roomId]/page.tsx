@@ -7015,6 +7015,13 @@ export default function HostRoomPage() {
               <div className="flex gap-3">
                 <button
                   type="button"
+                  onClick={handlePrimaryHeaderAction}
+                  className="px-5 py-3 rounded-2xl border-[3px] border-[#ffeccd] text-[#ffeccd] font-black tracking-[0.2em] hover:bg-[#ffeccd]/10 transition"
+                >
+                  {headerActionLabel}
+                </button>
+                <button
+                  type="button"
                   onClick={toggleDesktopLayout}
                   className="px-4 py-2 rounded-xl border-2 border-[#ffeccd] text-[#ffeccd] font-bold text-sm hover:bg-[#ffeccd]/10 transition"
                 >
@@ -7026,15 +7033,8 @@ export default function HostRoomPage() {
                   rel="noopener noreferrer"
                   className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#f1532f] to-[#ff6b35] text-[#ffeccd] font-bold text-sm border-2 border-[#ffeccd] hover:scale-105 transition-all duration-200 text-center"
                 >
-                  Поддержать разработчика
+                  Поддержать
                 </a>
-                <button
-                  type="button"
-                  onClick={handlePrimaryHeaderAction}
-                  className="px-5 py-3 rounded-2xl border-[3px] border-[#ffeccd] text-[#ffeccd] font-black tracking-[0.2em] hover:bg-[#ffeccd]/10 transition"
-                >
-                  {headerActionLabel}
-                </button>
               </div>
             </div>
           </header>
