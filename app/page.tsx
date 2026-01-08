@@ -31,8 +31,8 @@ export default function HomePage() {
     {
       id: '03012026',
       title: 'Новогодний 2026',
-      description: 'Праздничный пакет (пока бесплатный).',
-      badge: 'бесплатно',
+      description: 'праздничный актуальный пакет вопросов',
+      badge: 'праздничный актуальный пакет вопросов',
     },
   ];
 
@@ -295,7 +295,7 @@ export default function HomePage() {
               <p className="retro-heading text-xs tracking-[0.5em]">Редактор квиза</p>
               <h1 className="text-3xl sm:text-4xl font-black leading-tight">Когнитивное программирование вечеринки</h1>
             </div>
-            <div className="text-sm font-semibold uppercase tracking-[0.3em]">v 1.0</div>
+            <div className="text-sm font-semibold uppercase tracking-[0.3em]">v 1.0.1</div>
           </header>
 
           <section className="retro-panel bg-[#ffe184] border-[4px] border-[#142a45] p-6 space-y-6">
