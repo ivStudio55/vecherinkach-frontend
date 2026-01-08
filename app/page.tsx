@@ -378,7 +378,7 @@ export default function HomePage() {
 
           {/* Отдельная панель выбора пакета вопросов */}
           <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
-            <h2 className="text-2xl font-black text-[#142a45] text-center">выбрать пакет вопросов</h2>
+            <h2 className="text-2xl font-black text-[#142a45] text-center">перейти к созданию комнаты</h2>
             <div className="grid sm:grid-cols-2 gap-4">
               {packCards.map((pack, index) => (
                 <button
