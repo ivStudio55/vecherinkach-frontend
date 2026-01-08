@@ -32,7 +32,7 @@ export default function HomePage() {
       id: '03012026',
       title: 'Новогодний 2026',
       description: 'праздничный актуальный пакет вопросов',
-      badge: 'праздничный актуальный пакет вопросов',
+      badge: 'бесплатно',
     },
   ];
 
@@ -373,61 +373,40 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
-                <div className="space-y-2">
-                  <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Подключение игроков</p>
-                  <h2 className="text-2xl font-black text-[#142a45]">Пульт подключения вынесен отдельно</h2>
-                </div>
-                <div className="space-y-3">
-                  <button
-                    type="button"
-                    onClick={() => navigateWithExit(() => router.push('/join'))}
-                    className="hover:scale-105 hover:shadow-lg transition-all duration-200 w-full py-3 rounded-2xl border-[3px] border-[#142a45] font-semibold bg-white hover:bg-gray-50 text-[#142a45]"
-                  >
-                    Пройти на экран подключения
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => navigateWithExit(() => router.push('/host'))}
-                    className="hover:scale-110 hover:shadow-2xl transition-all duration-300 w-full py-5 rounded-2xl font-black text-xl tracking-[0.2em] bg-gradient-to-r from-[#f1532f] to-[#ff6b35] text-[#ffeccd] border-[4px] border-[#142a45] animate-pulse hover:animate-none"
-                  >
-                    Пройти к созданию комнаты
-                  </button>
-                </div>
               </div>
-            </div>
 
-            <h2 className="text-2xl font-black text-[#142a45] text-center">выбрать пакет вопросов</h2>
-
-            <div className="grid sm:grid-cols-2 gap-4">
-              {packCards.map((pack, index) => (
-                <button
-                  key={pack.id}
-                  type="button"
-                  onClick={() => choosePackAndGoHost(normalizePackId(pack.id))}
-                  className={`text-left rounded-3xl border-[3px] border-[#142a45] bg-white/90 p-4 flex flex-col gap-3 transition transform hover:scale-105 ${isExiting ? 'scale-95 opacity-70' : cardsVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0 translate-y-3'}`}
-                  style={{ transitionDelay: `${index * 70}ms` }}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Пакет</p>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-xl font-black text-[#142a45]">{pack.title}</h3>
-                        {pack.badge ? (
-                          <span className="rounded-full border-[2px] border-[#142a45] bg-[#ffe184] px-2 py-0.5 text-xs font-black tracking-[0.12em] text-[#142a45]">
-                            {pack.badge}
-                          </span>
-                        ) : null}
+            {/* Отдельная панель выбора пакета вопросов */}
+            <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5 mt-8">
+              <h2 className="text-2xl font-black text-[#142a45] text-center">выбрать пакет вопросов</h2>
+              <div className="grid sm:grid-cols-2 gap-4">
+                {packCards.map((pack, index) => (
+                  <button
+                    key={pack.id}
+                    type="button"
+                    onClick={() => choosePackAndGoHost(normalizePackId(pack.id))}
+                    className={`text-left rounded-3xl border-[3px] border-[#142a45] bg-white/90 p-4 flex flex-col gap-3 transition transform hover:scale-105 ${isExiting ? 'scale-95 opacity-70' : cardsVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0 translate-y-3'}`}
+                    style={{ transitionDelay: `${index * 70}ms` }}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Пакет</p>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-xl font-black text-[#142a45]">{pack.title}</h3>
+                          {pack.badge ? (
+                            <span className="rounded-full border-[2px] border-[#142a45] bg-[#ffe184] px-2 py-0.5 text-xs font-black tracking-[0.12em] text-[#142a45]">
+                              {pack.badge}
+                            </span>
+                          ) : null}
+                        </div>
                       </div>
+                      <span className="text-3xl">{pack.id === 'classic' ? '🎉' : '🎄'}</span>
                     </div>
-                    <span className="text-3xl">{pack.id === 'classic' ? '🎉' : '🎄'}</span>
-                  </div>
-                  <p className="text-sm text-[#142a45]/80 flex-1">{pack.description}</p>
-                  <div className="text-xs font-semibold text-[#1f6ac6]">выбрать и перейти к созданию</div>
-                </button>
-              ))}
-            </div>
-          </section>
+                    <p className="text-sm text-[#142a45]/80 flex-1">{pack.description}</p>
+                    <div className="text-xs font-semibold text-[#1f6ac6]">выбрать и перейти к созданию</div>
+                  </button>
+                ))}
+              </div>
+            </section>
         </div>
       )}
     </div>
