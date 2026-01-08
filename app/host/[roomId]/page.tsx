@@ -513,6 +513,7 @@ export default function HostRoomPage() {
   const roomId = params.roomId as string;
 
   const [isDesktopLayoutForced, setIsDesktopLayoutForced] = useState(false);
+  const [forcedLayoutScale, setForcedLayoutScale] = useState(1);
 
   useEffect(() => {
     try {
@@ -521,6 +522,37 @@ export default function HostRoomPage() {
       // ignore
     }
   }, []);
+
+  useEffect(() => {
+    const computeScale = () => {
+      if (!isDesktopLayoutForced) {
+        setForcedLayoutScale(1);
+        return;
+      }
+
+      // Compact mode for SmartTV/tablets that show desktop grid but keep large fonts.
+      // zoom is widely supported in Chromium-based browsers and many WebViews.
+      const width = typeof window !== 'undefined' ? window.innerWidth : 1200;
+      const height = typeof window !== 'undefined' ? window.innerHeight : 800;
+      const minSide = Math.min(width, height);
+
+      // Heuristic: smaller screens need more compact UI.
+            const next = minSide < 720 ? 0.82 : minSide < 900 ? 0.88 : minSide < 1000 ? 0.94 : 1;
+      setForcedLayoutScale(next);
+    };
+
+    computeScale();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('resize', computeScale);
+      window.addEventListener('orientationchange', computeScale);
+      return () => {
+        window.removeEventListener('resize', computeScale);
+        window.removeEventListener('orientationchange', computeScale);
+      };
+    }
+
+    return;
+  }, [isDesktopLayoutForced]);
 
   const toggleDesktopLayout = () => {
     setIsDesktopLayoutForced((prev) => {
@@ -7001,6 +7033,7 @@ export default function HostRoomPage() {
   return (
     <Fragment>
       <div
+        style={isDesktopLayoutForced ? ({ zoom: forcedLayoutScale } as any) : undefined}
         className={`${
           shouldLockViewport && !isDesktopLayoutForced ? 'h-[100dvh] overflow-hidden' : 'min-h-screen'
         } bg-[#fef4dc] text-[#142a45] px-4 py-6 transition-opacity duration-1000 opacity-100`}
