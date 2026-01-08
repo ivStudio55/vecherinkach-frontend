@@ -7107,11 +7107,13 @@ export default function HostRoomPage() {
             isDesktopLayoutForced ? 'grid-cols-12' : 'lg:grid-cols-12'
           }`}
         >
-          <section className={isDesktopLayoutForced ? 'col-span-3' : 'lg:col-span-3'}>
-            <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-5 space-y-4">
+          <section className={isDesktopLayoutForced ? 'col-span-4' : 'lg:col-span-3'}>
+            <div className={`rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl ${isCompactForcedLayout ? 'p-4' : 'p-5'} space-y-4`}>
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Состояние раунда</p>
+                  <p className={`retro-heading ${isCompactForcedLayout ? 'text-sm tracking-[0.25em]' : 'text-xs tracking-[0.4em]'} text-[#142a45]/60`}>
+                    Состояние раунда
+                  </p>
               <p
                 className={`${
                   isCompactForcedLayout ? 'text-sm' : 'text-base sm:text-lg'
@@ -7119,20 +7121,20 @@ export default function HostRoomPage() {
               >
               {statusLabel}
               </p>
-                  <p className="text-xs font-semibold text-[#142a45]/60">
+                  <p className={`${isCompactForcedLayout ? 'text-sm' : 'text-xs'} font-semibold text-[#142a45]/60`}>
                     {roomStatus === 'waiting' ? 'Ждём игроков' : 'Игра идёт'}
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-[11px] text-[#142a45]/60">Игроки</p>
-                  <p className="text-2xl font-black">{players.length || 0}</p>
+                  <p className={`${isCompactForcedLayout ? 'text-xs' : 'text-[11px]'} text-[#142a45]/60`}>Игроки</p>
+                  <p className={`${isCompactForcedLayout ? 'text-3xl' : 'text-2xl'} font-black`}>{players.length || 0}</p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 text-sm font-semibold">
+              <div className={`grid grid-cols-2 gap-3 ${isCompactForcedLayout ? 'text-base' : 'text-sm'} font-semibold`}>
                 <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-[#fff6da] px-4 py-3">
-                  <p className="text-[11px] text-[#142a45]/60">Вопрос</p>
-                  <p className="text-2xl font-black">
+                  <p className={`${isCompactForcedLayout ? 'text-xs' : 'text-[11px]'} text-[#142a45]/60`}>Вопрос</p>
+                  <p className={`${isCompactForcedLayout ? 'text-3xl' : 'text-2xl'} font-black`}>
                     {roomStatus === 'round2-running'
                       ? round2Offset + clampedRound2QuestionNumber
                       : isRound3Running
@@ -7151,22 +7153,27 @@ export default function HostRoomPage() {
                   </p>
                 </div>
                 <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-white px-4 py-3">
-                  <p className="text-[11px] text-[#142a45]/60">Ответы</p>
-                  <p className="text-2xl font-black text-[#1f6ac6]">{answeredCount}</p>
+                  <p className={`${isCompactForcedLayout ? 'text-xs' : 'text-[11px]'} text-[#142a45]/60`}>Ответы</p>
+                  <p className={`${isCompactForcedLayout ? 'text-3xl' : 'text-2xl'} font-black text-[#1f6ac6]`}>{answeredCount}</p>
                 </div>
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <div>
-                    <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Игроки и очки</p>
+                    <p className={`retro-heading ${isCompactForcedLayout ? 'text-sm tracking-[0.25em]' : 'text-xs tracking-[0.4em]'} text-[#142a45]/60`}>
+                      Игроки и очки
+                    </p>
                   </div>
                 </div>
 
                 {players.length === 0 ? (
                   <p className="text-sm text-[#142a45]/70 text-center py-6">Пока никто не присоединился</p>
                 ) : (
-                  <div ref={playersListRef} className="space-y-3 max-h-[60vh] overflow-y-auto pr-1 no-scrollbar">
+                  <div
+                    ref={playersListRef}
+                    className={`space-y-3 ${isCompactForcedLayout ? 'max-h-[58vh]' : 'max-h-[60vh]'} overflow-y-auto pr-1 no-scrollbar`}
+                  >
                     {players.map((player, index) => {
                       const hasAnswered = answeredPlayerIds.includes(player.id);
                       return (
@@ -7198,7 +7205,7 @@ export default function HostRoomPage() {
                               ) : null}
                             </div>
                           </div>
-                          <p className="font-black text-[#f1532f]">{player.total_points} 💎</p>
+                          <p className={`font-black text-[#f1532f] ${isCompactForcedLayout ? 'text-base' : ''}`}>{player.total_points} 💎</p>
                         </div>
                       );
                     })}
@@ -7208,7 +7215,9 @@ export default function HostRoomPage() {
             </div>
           </section>
 
-              <div className={`${isDesktopLayoutForced ? 'col-span-9' : 'lg:col-span-9'} space-y-6`}>
+              <div
+                className={`${isDesktopLayoutForced ? 'col-span-8' : 'lg:col-span-9'} ${isCompactForcedLayout ? 'space-y-3' : 'space-y-6'}`}
+              >
             {isTournamentVisible ? (
               <div
                 className={`rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6 ${
@@ -7516,10 +7525,14 @@ export default function HostRoomPage() {
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="retro-heading text-xs tracking-[0.4em] text-[#b4007f]/70">Раунд 2 · «Фейколов»</p>
-                    <h2 className="text-3xl font-black">⚡ Охота на фейк</h2>
+                    <h2 className={`${isCompactForcedLayout ? 'text-xl' : 'text-3xl'} font-black`}>⚡ Охота на фейк</h2>
                   </div>
                   <div className="flex flex-col items-start sm:items-end gap-2">
-                    <span className="px-4 py-2 rounded-full border-[3px] border-[#b4007f] text-sm font-black text-[#b4007f]">
+                    <span
+                      className={`px-4 py-2 rounded-full border-[3px] border-[#b4007f] ${
+                        isCompactForcedLayout ? 'text-xs' : 'text-sm'
+                      } font-black text-[#b4007f]`}
+                    >
                       Факт <span className="text-[#142a45]">{clampedRound2QuestionNumber}</span>/{ROUND2_TOTAL_QUESTIONS}
                     </span>
                     <span className="text-xs font-semibold text-[#142a45]/70">
@@ -7537,7 +7550,11 @@ export default function HostRoomPage() {
                   </p>
 
                   {round2Phase === 'fact' ? (
-                    <p className="text-4xl sm:text-5xl font-black leading-tight text-center">
+                    <p
+                      className={`${
+                        isCompactForcedLayout ? 'text-2xl sm:text-3xl' : 'text-4xl sm:text-5xl'
+                      } font-black leading-tight text-center`}
+                    >
                       <AnimatedText
                         key={`r2-fact-${round2CurrentIndex ?? clampedRound2QuestionNumber}`}
                         text={round2Statement}
@@ -7547,13 +7564,19 @@ export default function HostRoomPage() {
                     <div className="space-y-4">
                       <div className="rounded-2xl border-[3px] border-[#b4007f]/30 bg-white px-4 py-5 text-center">
                         <p
-                          className={`text-5xl sm:text-6xl font-black ${round2ShowingFact ? 'text-[#1f6ac6]' : 'text-[#b4007f]'} animate-round2-answer`}
+                          className={`${
+                            isCompactForcedLayout ? 'text-3xl sm:text-4xl' : 'text-5xl sm:text-6xl'
+                          } font-black ${round2ShowingFact ? 'text-[#1f6ac6]' : 'text-[#b4007f]'} animate-round2-answer`}
                           key={`${round2CurrentIndex ?? 'x'}-${round2Phase}-${round2ShowingFact ? 't' : 'f'}`}
                         >
                           {round2ShowingFact ? 'ПРАВДА' : 'ВЫМЫСЕЛ'}
                         </p>
                       </div>
-                      <p className="text-3xl sm:text-4xl font-black leading-tight text-center">
+                      <p
+                        className={`${
+                          isCompactForcedLayout ? 'text-xl sm:text-2xl' : 'text-3xl sm:text-4xl'
+                        } font-black leading-tight text-center`}
+                      >
                         <AnimatedText
                           key={`r2-expl-${round2CurrentIndex ?? clampedRound2QuestionNumber}-${round2ShowingFact ? 't' : 'f'}`}
                           text={round2ExplanationText}
@@ -7588,7 +7611,9 @@ export default function HostRoomPage() {
               <div className="rounded-3xl border-[4px] border-[#f1532f] bg-white shadow-xl p-6 space-y-5">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h2 className="text-3xl font-black">🧠 {currentRound3Question?.category ?? 'Категория не указана'}</h2>
+                    <h2 className={`${isCompactForcedLayout ? 'text-xl' : 'text-3xl'} font-black`}>
+                      🧠 {currentRound3Question?.category ?? 'Категория не указана'}
+                    </h2>
                   </div>
                   <div className="flex flex-col items-start sm:items-end gap-2">
                     <span className="px-4 py-2 rounded-full border-[3px] border-[#f1532f] text-sm font-black text-[#f1532f]">
@@ -7624,7 +7649,7 @@ export default function HostRoomPage() {
                     className="rounded-3xl border-[3px] border-[#f1532f]/20 bg-[#fff6da] p-5 space-y-2 animate-round3-panel"
                   >
                     <p className="text-[11px] tracking-[0.4em] text-[#f1532f]/60">Сейчас в эфире</p>
-                    <p className="text-4xl sm:text-5xl font-black leading-tight">
+                    <p className={`${isCompactForcedLayout ? 'text-2xl sm:text-3xl' : 'text-4xl sm:text-5xl'} font-black leading-tight`}>
                       {currentRound3Question?.question ? (
                         <AnimatedText key={`r3-q-${currentQuestionIndex}`} text={currentRound3Question.question} />
                       ) : (
@@ -7727,7 +7752,7 @@ export default function HostRoomPage() {
                       {round4CurrentPuzzle.category}
                     </p>
                   )}
-                  <h2 className="text-5xl sm:text-6xl font-black leading-tight text-center">
+                  <h2 className={`${isCompactForcedLayout ? 'text-3xl sm:text-4xl' : 'text-5xl sm:text-6xl'} font-black leading-tight text-center`}>
                     {round4CurrentPuzzle ? round4CurrentPuzzle.emoji : '⏳'}
                   </h2>
                   {!round4CurrentPuzzle && (
@@ -7800,7 +7825,11 @@ export default function HostRoomPage() {
                 <div className="text-center space-y-3">
                   <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Финал · «Цифровая интуиция»</p>
                   {roomStatus === 'round5-running' ? (
-                    <h2 className="text-5xl sm:text-6xl font-black leading-tight text-center text-[#142a45]">
+                    <h2
+                      className={`${
+                        isCompactForcedLayout ? 'text-2xl sm:text-3xl' : 'text-5xl sm:text-6xl'
+                      } font-black leading-tight text-center text-[#142a45]`}
+                    >
                       {round5CurrentQuestion?.question ? (
                         <AnimatedText
                           key={`r5-q-${round5CurrentBankIndex ?? currentQuestionIndex}`}
