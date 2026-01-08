@@ -15,6 +15,8 @@ export default function HomePage() {
   const [audioError, setAudioError] = useState('');
   const [hasUserInteracted, setHasUserInteracted] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
+  const [panelStage, setPanelStage] = useState<0 | 1 | 2 | 3>(0);
+  const panelTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const exitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const appearTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -104,7 +106,8 @@ export default function HomePage() {
     setButtonAnimating(true);
     setTimeout(() => {
       setHasStarted(true);
-      setCardsVisible(true);
+      setPanelStage(0);
+      setCardsVisible(false);
       handleToggleSound();
       setButtonAnimating(false);
     }, 600); // Длительность анимации кнопки
@@ -163,18 +166,36 @@ export default function HomePage() {
   };
 
   useEffect(() => {
-    if (hasStarted) {
-      appearTimeoutRef.current = setTimeout(() => {
-        setCardsVisible(true);
-      }, 50);
+    panelTimeoutsRef.current.forEach(timeoutId => clearTimeout(timeoutId));
+    panelTimeoutsRef.current = [];
+
+    if (!hasStarted) {
+      setPanelStage(0);
+      setCardsVisible(false);
+      return;
     }
 
+    setPanelStage(0);
+    setCardsVisible(false);
+
+    // Ступенчатое появление панелей после нажатия "НАЧАТЬ ВЕСЕЛУХУ"
+    panelTimeoutsRef.current.push(
+      setTimeout(() => setPanelStage(3), 30),
+      setTimeout(() => setCardsVisible(true), 330),
+    );
+
     return () => {
-      if (appearTimeoutRef.current) {
-        clearTimeout(appearTimeoutRef.current);
-      }
+      panelTimeoutsRef.current.forEach(timeoutId => clearTimeout(timeoutId));
+      panelTimeoutsRef.current = [];
     };
   }, [hasStarted]);
+
+  const panelEnterClass = (isVisible: boolean) =>
+    `transition-all duration-700 ease-out transform ${isVisible ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95 pointer-events-none'}`;
+
+  const panelEnterStyle = (isVisible: boolean, delayMs: number): CSSProperties => ({
+    transitionDelay: isVisible ? `${delayMs}ms` : '0ms',
+  });
 
   useEffect(() => {
     return () => {
@@ -289,16 +310,19 @@ export default function HomePage() {
           </button>
         </div>
       ) : (
-        <div className={`max-w-5xl mx-auto px-4 sm:px-6 py-10 space-y-8 transition-all duration-700 ${cardsVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
-          <header className="retro-panel bg-[#f1532f] text-[#ffeccd] px-6 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-              <p className="retro-heading text-xs tracking-[0.5em]">Редактор квиза</p>
-              <h1 className="text-3xl sm:text-4xl font-black leading-tight">Когнитивное программирование вечеринки</h1>
-            </div>
-            <div className="text-sm font-semibold uppercase tracking-[0.3em]">v 1.0.1</div>
-          </header>
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 space-y-8">
+          <div className={panelEnterClass(panelStage >= 1)} style={panelEnterStyle(panelStage >= 1, 0)}>
+            <header className="retro-panel bg-[#f1532f] text-[#ffeccd] px-6 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <p className="retro-heading text-xs tracking-[0.5em]">Редактор квиза</p>
+                <h1 className="text-3xl sm:text-4xl font-black leading-tight">Когнитивное программирование вечеринки</h1>
+              </div>
+              <div className="text-sm font-semibold uppercase tracking-[0.3em]">v 1.0.1</div>
+            </header>
+          </div>
 
-          <section className="retro-panel bg-[#ffe184] border-[4px] border-[#142a45] p-6 space-y-6">
+          <div className={panelEnterClass(panelStage >= 2)} style={panelEnterStyle(panelStage >= 2, 140)}>
+            <section className="retro-panel bg-[#ffe184] border-[4px] border-[#142a45] p-6 space-y-6">
             <div className="grid lg:grid-cols-[1.15fr,0.95fr] gap-6">
               <div className="space-y-5">
                 <div className="rounded-3xl border-[3px] border-[#142a45] bg-[#fff2c8] p-4 space-y-4">
@@ -376,38 +400,42 @@ export default function HomePage() {
             </div>
           </section>
 
+          </div>
+
           {/* Отдельная панель выбора пакета вопросов */}
-          <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
-            <h2 className="text-2xl font-black text-[#142a45] text-center">перейти к созданию комнаты</h2>
-            <div className="grid sm:grid-cols-2 gap-4">
-              {packCards.map((pack, index) => (
-                <button
-                  key={pack.id}
-                  type="button"
-                  onClick={() => choosePackAndGoHost(normalizePackId(pack.id))}
-                  className={`text-left rounded-3xl border-[3px] border-[#142a45] bg-white/90 p-4 flex flex-col gap-3 transition transform hover:scale-105 ${isExiting ? 'scale-95 opacity-70' : cardsVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0 translate-y-3'}`}
-                  style={{ transitionDelay: `${index * 70}ms` }}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Пакет</p>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-xl font-black text-[#142a45]">{pack.title}</h3>
-                        {pack.badge ? (
-                          <span className="rounded-full border-[2px] border-[#142a45] bg-[#ffe184] px-2 py-0.5 text-xs font-black tracking-[0.12em] text-[#142a45]">
-                            {pack.badge}
-                          </span>
-                        ) : null}
+          <div className={panelEnterClass(panelStage >= 3)} style={panelEnterStyle(panelStage >= 3, 280)}>
+            <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
+              <h2 className="text-2xl font-black text-[#142a45] text-center">перейти к созданию комнаты</h2>
+              <div className="grid sm:grid-cols-2 gap-4">
+                {packCards.map((pack, index) => (
+                  <button
+                    key={pack.id}
+                    type="button"
+                    onClick={() => choosePackAndGoHost(normalizePackId(pack.id))}
+                    className={`text-left rounded-3xl border-[3px] border-[#142a45] bg-white/90 p-4 flex flex-col gap-3 transition transform hover:scale-105 ${isExiting ? 'scale-95 opacity-70' : cardsVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0 translate-y-3'}`}
+                    style={{ transitionDelay: `${index * 70}ms` }}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Пакет</p>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-xl font-black text-[#142a45]">{pack.title}</h3>
+                          {pack.badge ? (
+                            <span className="rounded-full border-[2px] border-[#142a45] bg-[#ffe184] px-2 py-0.5 text-xs font-black tracking-[0.12em] text-[#142a45]">
+                              {pack.badge}
+                            </span>
+                          ) : null}
+                        </div>
                       </div>
+                      <span className="text-3xl">{pack.id === 'classic' ? '🎉' : '🎄'}</span>
                     </div>
-                    <span className="text-3xl">{pack.id === 'classic' ? '🎉' : '🎄'}</span>
-                  </div>
-                  <p className="text-sm text-[#142a45]/80 flex-1">{pack.description}</p>
-                  <div className="text-xs font-semibold text-[#1f6ac6]">выбрать и перейти к созданию</div>
-                </button>
-              ))}
-            </div>
-          </section>
+                    <p className="text-sm text-[#142a45]/80 flex-1">{pack.description}</p>
+                    <div className="text-xs font-semibold text-[#1f6ac6]">выбрать и перейти к созданию</div>
+                  </button>
+                ))}
+              </div>
+            </section>
+          </div>
         </div>
       )}
     </div>
