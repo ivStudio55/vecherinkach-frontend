@@ -373,9 +373,6 @@ export default function HomePage() {
                       {emotionEmoji}
                     </div>
                   </div>
-                  <p className="text-sm font-semibold">
-                    Сегодня создано {roomsToday} {roomsToday === 1 ? 'комната' : roomsToday > 1 && roomsToday < 5 ? 'комнаты' : 'комнат'} — смайлик двигается вместе с тусовкой.
-                  </p>
                 </div>
 
                 <div className="rounded-3xl border-[3px] border-[#142a45] bg-[#fff2c8] p-4 space-y-3">
