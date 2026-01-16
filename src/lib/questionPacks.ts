@@ -6,7 +6,7 @@ export const DEFAULT_PACK_ID: PackId = 'classic';
 
 export const QUESTION_PACKS: ReadonlyArray<{ id: PackId; label: string }> = [
   { id: 'classic', label: 'Классический' },
-  { id: '03012026', label: 'Новогодний 2026' },
+  { id: '03012026', label: 'Пакет от 16.01.2026' },
 ] as const;
 
 export const normalizePackId = (value: unknown): PackId => {
@@ -31,12 +31,14 @@ export const withAudioPackPrefix = (packId: PackId, relativePath: string): strin
 };
 
 const PACK_SCOPED_AUDIO_PREFIXES: readonly string[] = [
+  'round1/',
   'round1/questions/',
   'round2/true/',
   'round2/false/',
   'round2/explanation/',
   'round2/fictionExplanation/',
   'round3/questions3/',
+  'round3/questions/',
   'round3/comments/',
   'round4/questions/',
   'round4/category/',

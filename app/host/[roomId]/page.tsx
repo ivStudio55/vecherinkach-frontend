@@ -174,6 +174,11 @@ const ROUND5_EXPLANATION_AUDIO_DIR = 'round5/explanation';
 const ROUND5_FINAL_NARRATOR_AUDIO_DIR = 'round5/final';
 const ROUND5_FINAL_NARRATOR_VARIANTS = 7;
 
+const PACK_03012026_ROUND2_AUDIO_START = 82;
+const PACK_03012026_ROUND3_AUDIO_START = 67;
+const PACK_03012026_ROUND4_CATEGORY_BASE = 64;
+const PACK_03012026_ROUND5_AUDIO_START = 68;
+
   const ROUND4_CATEGORY_AUDIO_MAP: Record<string, string> = {
     'новый год': 'new_year',
     'дисней': 'disney',
@@ -597,6 +602,18 @@ export default function HostRoomPage() {
   useEffect(() => {
     packIdRef.current = packId;
   }, [packId]);
+
+  const getRound1AudioPath = (questionId: number) =>
+    packIdRef.current === '03012026' ? `round1/${questionId}.mp3` : `round1/questions/${questionId}.mp3`;
+
+  const getRound2AudioOrdinal = (index: number) =>
+    packIdRef.current === '03012026' ? PACK_03012026_ROUND2_AUDIO_START + index : index + 1;
+
+  const getRound3AudioOrdinal = (index: number) =>
+    packIdRef.current === '03012026' ? PACK_03012026_ROUND3_AUDIO_START + index : index + 1;
+
+  const getRound5AudioOrdinal = (index: number) =>
+    packIdRef.current === '03012026' ? PACK_03012026_ROUND5_AUDIO_START + index : index + 1;
 
   useEffect(() => {
     let cancelled = false;
@@ -1468,10 +1485,23 @@ export default function HostRoomPage() {
   }, [playTournamentJingle, stopRoundEndAudio]);
 
   const playRound4CategoryAudio = useCallback(
-    (category: string) => {
+    (category: string, puzzleId?: number) => {
       if (!hasUserInteractedRef.current) {
         return;
       }
+
+      if (packIdRef.current === '03012026') {
+        const safeId = typeof puzzleId === 'number' ? puzzleId : PACK_03012026_ROUND4_CATEGORY_BASE + 1;
+        const variant = Math.max(1, safeId - PACK_03012026_ROUND4_CATEGORY_BASE);
+        const cue = new Audio(buildAudioUrl(`round4/category/${variant}.mp3`));
+        cue.volume = 0.95;
+        round4CategoryAudioRef.current = cue;
+        cue.play().catch((err) => {
+          console.error('Не удалось проиграть озвучку категории Раунда 4', err);
+        });
+        return;
+      }
+
       const normalized = normalizeRound4Answer(category);
       const key = ROUND4_CATEGORY_AUDIO_MAP[normalized];
       if (!key) {
@@ -1741,7 +1771,7 @@ export default function HostRoomPage() {
       timer.volume = isMusicMutedRef.current ? 0 : 0.6;
       round5TimerAudioRef.current = timer;
 
-      const voiceFile = `${ROUND5_QUESTION_AUDIO_DIR}/${bankIndex + 1}.mp3`;
+      const voiceFile = `${ROUND5_QUESTION_AUDIO_DIR}/${getRound5AudioOrdinal(bankIndex)}.mp3`;
       const voice = new Audio(buildAudioUrl(voiceFile));
       voice.loop = false;
       voice.volume = 0.95;
@@ -1774,7 +1804,7 @@ export default function HostRoomPage() {
       bg.volume = isMusicMutedRef.current ? 0 : 0.35;
       round5ExplanationBgAudioRef.current = bg;
 
-      const voiceFile = `${ROUND5_EXPLANATION_AUDIO_DIR}/${bankIndex + 1}.mp3`;
+      const voiceFile = `${ROUND5_EXPLANATION_AUDIO_DIR}/${getRound5AudioOrdinal(bankIndex)}.mp3`;
       const voice = new Audio(buildAudioUrl(voiceFile));
       voice.loop = false;
       voice.volume = 0.95;
@@ -2142,8 +2172,9 @@ export default function HostRoomPage() {
 
       const bgUrl = buildAudioUrl(ROUND3_BG_JINGLE_FILE);
       const currentQ = round3Questions[index];
-      const voiceFileNumber = (currentQ?.originalIndex ?? index) + 1;
-      const voiceUrl = buildAudioUrl(`${ROUND3_QUESTIONS_AUDIO_DIR}/${voiceFileNumber}.mp3`);
+      const voiceFileNumber = getRound3AudioOrdinal(currentQ?.originalIndex ?? index);
+      const round3Dir = packIdRef.current === '03012026' ? 'round3/questions' : ROUND3_QUESTIONS_AUDIO_DIR;
+      const voiceUrl = buildAudioUrl(`${round3Dir}/${voiceFileNumber}.mp3`);
       const timerUrl = buildAudioUrl(ROUND3_ANSWER_TIMER_JINGLE_FILE);
 
       void (async () => {
@@ -2739,7 +2770,7 @@ export default function HostRoomPage() {
       stopRound3ResultsAudio();
 
       const currentQ = round3Questions[index];
-      const voiceFileNumber = (currentQ?.originalIndex ?? index) + 1;
+      const voiceFileNumber = getRound3AudioOrdinal(currentQ?.originalIndex ?? index);
       const commentUrl = buildAudioUrl(`${ROUND3_COMMENTS_AUDIO_DIR}/${voiceFileNumber}.mp3`);
       const bgUrl = buildAudioUrl(ROUND3_RESULTS_BG_FILE);
 
@@ -3390,7 +3421,7 @@ export default function HostRoomPage() {
       stopRound2Audio();
 
       const folder = isFact ? 'round2/true' : 'round2/false';
-      const ordinal = index + 1;
+      const ordinal = getRound2AudioOrdinal(index);
       const prefix = isFact ? 'true' : 'false';
       const filePath = `${folder}/${prefix}${ordinal}.mp3`;
       const audio = new Audio(buildAudioUrl(filePath));
@@ -3470,7 +3501,7 @@ export default function HostRoomPage() {
       bg.loop = true;
       round2ExplanationBgAudioRef.current = bg;
 
-      const ordinal = index + 1;
+      const ordinal = getRound2AudioOrdinal(index);
       const voice = new Audio(buildAudioUrl(`round2/explanation/${ordinal}.mp3`));
       voice.volume = 0.95;
 
@@ -3513,7 +3544,7 @@ export default function HostRoomPage() {
       bg.loop = true;
       round2ExplanationBgAudioRef.current = bg;
 
-      const ordinal = index + 1;
+      const ordinal = getRound2AudioOrdinal(index);
       const voice = new Audio(buildAudioUrl(`round2/fictionExplanation/${ordinal}.mp3`));
       voice.volume = 0.95;
 
@@ -4669,7 +4700,7 @@ export default function HostRoomPage() {
       jingle.volume = 0.45;
       questionJingleAudioRef.current = jingle;
 
-      const voice = new Audio(buildAudioUrl(`round1/questions/${questionId}.mp3`));
+      const voice = new Audio(buildAudioUrl(getRound1AudioPath(questionId)));
       voice.loop = false;
       voice.volume = 0.95;
       questionVoiceAudioRef.current = voice;
@@ -6550,7 +6581,7 @@ export default function HostRoomPage() {
     updateRoomStatus('round4-running');
     syncTimerWithStart(startedAt, offset);
     setQuestionStartedAt(startedAt);
-    playRound4CategoryAudio(puzzle.category);
+    playRound4CategoryAudio(puzzle.category, puzzle.id);
     playRound4TimerAudio();
     round4StartLockRef.current = false;
   }, [getServerIsoTimestamp, loadUsedRound4PuzzleIds, roomId, round4Puzzles, updateRoomStatus, syncTimerWithStart, playRound4CategoryAudio, playRound4TimerAudio]);
