@@ -33,7 +33,7 @@ export default function HomePage() {
     {
       id: '03012026',
       title: 'Пакет от 16.01.2026',
-      description: 'Праздничный актуальный пакет вопросов',
+      description: 'Свежий пакет вопросов',
       badge: 'бесплатно',
     },
   ];
