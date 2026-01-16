@@ -196,6 +196,10 @@ const PACK_03012026_ROUND5_AUDIO_START = 68;
     'руссская литература': 'russian_literature',
   };
 
+  const ROUND4_CATEGORY_VARIANTS: Record<string, number> = {
+    soviet_cinema: 1,
+  };
+
 const buildAudioUrl = (relativePath: string) => `/api/audio?file=${encodeURIComponent(relativePath)}&t=${Date.now()}`;
 const buildJingleUrl = (fileName: string) => `/api/jingle/audio?file=${encodeURIComponent(fileName)}&t=${Date.now()}`;
 const pickRandomItem = <T,>(items: readonly T[]) => items[Math.floor(Math.random() * items.length)];
@@ -1498,7 +1502,8 @@ export default function HostRoomPage() {
       if (!key) {
         return;
       }
-      const variant = Math.floor(Math.random() * 3) + 1;
+      const maxVariants = ROUND4_CATEGORY_VARIANTS[key] ?? 3;
+      const variant = Math.floor(Math.random() * maxVariants) + 1;
       const cue = new Audio(buildAudioUrl(`round4/category/${key}/${variant}.mp3`));
       cue.volume = 0.95;
       round4CategoryAudioRef.current = cue;
