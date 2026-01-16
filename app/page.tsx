@@ -33,7 +33,7 @@ export default function HomePage() {
     {
       id: '03012026',
       title: 'Пакет от 16.01.2026',
-      description: 'праздничный актуальный пакет вопросов',
+      description: 'Праздничный актуальный пакет вопросов',
       badge: 'бесплатно',
     },
   ];
@@ -424,7 +424,7 @@ export default function HomePage() {
                           ) : null}
                         </div>
                       </div>
-                      <span className="text-3xl">{pack.id === 'classic' ? '🎉' : '🎄'}</span>
+                      <span className="text-3xl">{pack.id === 'classic' ? '📘' : '📦'}</span>
                     </div>
                     <p className="text-sm text-[#142a45]/80 flex-1">{pack.description}</p>
                     <div className="text-xs font-semibold text-[#1f6ac6]">выбрать и перейти к созданию</div>
