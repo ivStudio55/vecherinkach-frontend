@@ -21,12 +21,15 @@ export async function GET(request: Request) {
   }
 
   return Response.json({
-    items: (data ?? []).map((row) => ({
-      id: row.id,
-      code: row.code,
-      status: (row as any).status,
-      isActive: (row as any).is_active,
-      createdAt: (row as any).created_at,
-    })),
+    items: (data ?? []).map((row) => {
+      const meta = row as { status?: unknown; is_active?: unknown; created_at?: unknown };
+      return {
+        id: row.id,
+        code: row.code,
+        status: meta.status,
+        isActive: meta.is_active,
+        createdAt: meta.created_at,
+      };
+    }),
   });
 }

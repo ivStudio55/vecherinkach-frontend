@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
+import { Fragment, useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef, type CSSProperties } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { TrueFalseItem, ROUND2_POINTS } from '@/lib/round2';
@@ -35,6 +35,12 @@ const ROUND1_TOTAL_QUESTIONS = 6;
 const COUNTDOWN_STEPS = ['на старт', 'внимание', '3', '2', '1', 'старт'] as const;
 const AUTO_NEXT_DELAY_MS = 6000;
 const ROUND1_VARIANTS_OUTRO_MS = 950;
+
+type PillAnimationStyle = CSSProperties & {
+  ['--pill-left']?: string;
+  ['--pill-top']?: string;
+  ['--pill-duration']?: string;
+};
 const JOIN_SOUND_FILES = [
   'sound/The_duck_quacked_fun_#1.mp3',
   'sound/The_duck_quacked_fun_#2.mp3',
@@ -223,12 +229,13 @@ const TweenedInteger = ({
   const [value, setValue] = useState(safeFrom);
 
   useEffect(() => {
-    setValue(safeFrom);
+    const resetTimer = window.setTimeout(() => {
+      setValue(safeFrom);
+    }, 0);
 
     const resolvedDuration = Math.max(0, Math.floor(durationMs));
     const resolvedDelay = Math.max(0, Math.floor(delayMs));
     let rafId = 0;
-    let timeoutId: number | undefined;
     let startTs = 0;
 
     const tick = (ts: number) => {
@@ -244,14 +251,13 @@ const TweenedInteger = ({
       }
     };
 
-    timeoutId = window.setTimeout(() => {
+    const timeoutId = window.setTimeout(() => {
       rafId = window.requestAnimationFrame(tick);
     }, resolvedDelay);
 
     return () => {
-      if (timeoutId !== undefined) {
-        window.clearTimeout(timeoutId);
-      }
+      window.clearTimeout(resetTimer);
+      window.clearTimeout(timeoutId);
       if (rafId) {
         window.cancelAnimationFrame(rafId);
       }
@@ -7047,7 +7053,7 @@ export default function HostRoomPage() {
   return (
     <Fragment>
       <div
-        style={isDesktopLayoutForced ? ({ zoom: forcedLayoutScale } as any) : undefined}
+        style={isDesktopLayoutForced ? ({ zoom: forcedLayoutScale } as unknown as CSSProperties) : undefined}
         className={`${
           shouldLockViewport && !isDesktopLayoutForced ? 'h-[100dvh] overflow-hidden' : 'min-h-screen'
         } bg-[#fef4dc] text-[#142a45] ${isCompactForcedLayout ? 'px-2 py-3' : 'px-4 py-6'} transition-opacity duration-1000 opacity-100`}
@@ -8014,12 +8020,14 @@ export default function HostRoomPage() {
                                       <div
                                         key={item.row.id}
                                         className="animate-pill-from-center"
-                                        style={{
-                                          ['--pill-left' as any]: `${item.xPercent}%`,
-                                          ['--pill-top' as any]: `${laneOffset}px`,
-                                          ['--pill-duration' as any]: '1560ms',
-                                          animationDelay: `${index * 70}ms`,
-                                        }}
+                                        style={
+                                          {
+                                            '--pill-left': `${item.xPercent}%`,
+                                            '--pill-top': `${laneOffset}px`,
+                                            '--pill-duration': '1560ms',
+                                            animationDelay: `${index * 70}ms`,
+                                          } as PillAnimationStyle
+                                        }
                                       >
                                         <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-white px-3 py-2 text-center min-w-[84px]">
                                           <p className="text-[11px] font-semibold text-[#142a45]/70 truncate max-w-[120px]">
@@ -8044,12 +8052,14 @@ export default function HostRoomPage() {
                                       <div
                                         key={item.row.id}
                                         className="animate-pill-from-center"
-                                        style={{
-                                          ['--pill-left' as any]: `${item.left}%`,
-                                          ['--pill-top' as any]: `${item.top}px`,
-                                          ['--pill-duration' as any]: '1560ms',
-                                          animationDelay: `${delayBase + index * 80}ms`,
-                                        }}
+                                        style={
+                                          {
+                                            '--pill-left': `${item.left}%`,
+                                            '--pill-top': `${item.top}px`,
+                                            '--pill-duration': '1560ms',
+                                            animationDelay: `${delayBase + index * 80}ms`,
+                                          } as PillAnimationStyle
+                                        }
                                       >
                                         <div style={{ transform: `rotate(${item.rotate}deg)` }}>
                                           <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-white px-3 py-2 text-center min-w-[84px] max-w-[220px]">

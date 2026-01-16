@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, CSSProperties } from 'react';
+import { useState, CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import backTexture from '../img/back2.png';
@@ -11,12 +11,14 @@ export default function HostPage() {
   const router = useRouter();
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState('');
-  const [packId, setPackId] = useState<PackId>(DEFAULT_PACK_ID);
+  const [packId, setPackId] = useState<PackId>(() => {
+    if (typeof window === 'undefined') {
+      return DEFAULT_PACK_ID;
+    }
 
-  useEffect(() => {
     const stored = localStorage.getItem('hostPackId');
-    setPackId(normalizePackId(stored));
-  }, []);
+    return normalizePackId(stored);
+  });
 
   const generateRoomCode = (): string => Math.floor(1000 + Math.random() * 9000).toString();
 

@@ -24,7 +24,7 @@ export default function HomePage() {
   const [roomsToday, setRoomsToday] = useState(0);
   const [playersToday, setPlayersToday] = useState(0);
 
-  const packCards: Array<{ id: PackId; title: string; description: string; badge?: string }> = [
+  const packCards: Array<{ id: PackId; title: string; description: string; badge?: string; disabled?: boolean; note?: string }> = [
     {
       id: 'classic',
       title: 'Классический',
@@ -32,9 +32,11 @@ export default function HomePage() {
     },
     {
       id: '03012026',
-      title: 'Новогодний 2026',
+      title: 'Пакет от 16.01.2026',
       description: 'праздничный актуальный пакет вопросов',
       badge: 'бесплатно',
+      disabled: true,
+      note: 'сегодня будет открыт доступ',
     },
   ];
 
@@ -404,14 +406,23 @@ export default function HomePage() {
             <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
               <h2 className="text-2xl font-black text-[#142a45] text-center">перейти к созданию комнаты</h2>
               <div className="grid sm:grid-cols-2 gap-4">
-                {packCards.map((pack, index) => (
-                  <button
-                    key={pack.id}
-                    type="button"
-                    onClick={() => choosePackAndGoHost(normalizePackId(pack.id))}
-                    className={`text-left rounded-3xl border-[3px] border-[#142a45] bg-white/90 p-4 flex flex-col gap-3 transition transform hover:scale-105 ${isExiting ? 'scale-95 opacity-70' : cardsVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0 translate-y-3'}`}
-                    style={{ transitionDelay: `${index * 70}ms` }}
-                  >
+                {packCards.map((pack, index) => {
+                  const isDisabled = Boolean(pack.disabled);
+
+                  return (
+                    <button
+                      key={pack.id}
+                      type="button"
+                      disabled={isDisabled}
+                      onClick={isDisabled ? undefined : () => choosePackAndGoHost(normalizePackId(pack.id))}
+                      className={`text-left rounded-3xl border-[3px] border-[#142a45] bg-white/90 p-4 flex flex-col gap-3 transition transform ${
+                        isDisabled
+                          ? 'opacity-70 cursor-not-allowed'
+                          : 'hover:scale-105'
+                      } ${isExiting ? 'scale-95 opacity-70' : cardsVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0 translate-y-3'}`}
+                      style={{ transitionDelay: `${index * 70}ms` }}
+                      aria-disabled={isDisabled}
+                    >
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Пакет</p>
@@ -427,9 +438,14 @@ export default function HomePage() {
                       <span className="text-3xl">{pack.id === 'classic' ? '🎉' : '🎄'}</span>
                     </div>
                     <p className="text-sm text-[#142a45]/80 flex-1">{pack.description}</p>
-                    <div className="text-xs font-semibold text-[#1f6ac6]">выбрать и перейти к созданию</div>
+                    {pack.note ? (
+                      <div className="text-xs font-semibold text-[#b23324]">{pack.note}</div>
+                    ) : (
+                      <div className="text-xs font-semibold text-[#1f6ac6]">выбрать и перейти к созданию</div>
+                    )}
                   </button>
-                ))}
+                  );
+                })}
               </div>
             </section>
           </div>

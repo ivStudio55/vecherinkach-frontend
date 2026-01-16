@@ -1,6 +1,6 @@
 'use client';
 
-import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
+import { forwardRef, useImperativeHandle, useState } from 'react';
 
 interface PlayerPrinterProps {
   onPlayerJoin?: (name: string) => void;
@@ -20,6 +20,7 @@ export const PlayerPrinter = forwardRef<PlayerPrinterRef, PlayerPrinterProps>(({
 
   useImperativeHandle(ref, () => ({
     addPaper: (name: string) => {
+      onPlayerJoin?.(name);
       setPapers(prev => [...prev, { name, printed: false }]);
       new Audio('/audio/printer/printer.mp3').play().catch(() => {});
       setTimeout(() => {
@@ -120,3 +121,5 @@ export const PlayerPrinter = forwardRef<PlayerPrinterRef, PlayerPrinterProps>(({
     </div>
   );
 });
+
+PlayerPrinter.displayName = 'PlayerPrinter';

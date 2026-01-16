@@ -97,12 +97,12 @@ export default function AdminPage() {
       setRoomsActive(statsPayload?.rooms?.active ?? 0);
       setRoomsFinished(statsPayload?.rooms?.finished ?? 0);
 
-      setLeaderboardTotal((lbTotalPayload?.items ?? []).map((it: any) => ({
+      setLeaderboardTotal((lbTotalPayload?.items ?? []).map((it: Record<string, unknown>) => ({
         playerId: String(it.playerId),
         name: String(it.name ?? ''),
         points: Number(it.points ?? 0),
       })));
-      setLeaderboardRound2((lbRound2Payload?.items ?? []).map((it: any) => ({
+      setLeaderboardRound2((lbRound2Payload?.items ?? []).map((it: Record<string, unknown>) => ({
         playerId: String(it.playerId),
         name: String(it.name ?? ''),
         points: Number(it.points ?? 0),
@@ -111,14 +111,15 @@ export default function AdminPage() {
       const roomsRes = await fetch('/api/admin/rooms/active', { cache: 'no-store' });
       const roomsPayload = await roomsRes.json().catch(() => null);
       if (!roomsRes.ok) throw new Error(roomsPayload?.error ?? 'Не удалось загрузить активные комнаты');
-      setActiveRooms((roomsPayload?.items ?? []).map((it: any) => ({
+      setActiveRooms((roomsPayload?.items ?? []).map((it: Record<string, unknown>) => ({
         id: String(it.id),
         code: String(it.code),
         status: it.status ? String(it.status) : null,
         createdAt: it.createdAt ? String(it.createdAt) : null,
       })));
-    } catch (e: any) {
-      setError(e?.message ?? 'Не удалось загрузить статистику');
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Не удалось загрузить статистику';
+      setError(message);
     } finally {
       setLoading(false);
     }

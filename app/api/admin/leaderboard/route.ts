@@ -52,12 +52,15 @@ export async function GET(request: Request) {
     return Response.json({
       type,
       range,
-      items: (data ?? []).map((row) => ({
-        playerId: row.id,
-        name: row.name,
-        points: Number((row as any).total_points ?? 0),
-        joinedAt: (row as any).joined_at,
-      })),
+      items: (data ?? []).map((row) => {
+        const meta = row as { total_points?: unknown; joined_at?: unknown };
+        return {
+          playerId: row.id,
+          name: row.name,
+          points: Number(meta.total_points ?? 0),
+          joinedAt: meta.joined_at,
+        };
+      }),
     });
   }
 
@@ -95,7 +98,12 @@ export async function GET(request: Request) {
       if (playersError) {
         return Response.json({ error: playersError.message ?? 'Failed to load player names' }, { status: 500 });
       }
-      nameById = new Map((players ?? []).map((p) => [p.id as string, (p as any).name as string]));
+      nameById = new Map(
+        (players ?? []).map((p) => {
+          const meta = p as { id?: unknown; name?: unknown };
+          return [String(meta.id ?? ''), String(meta.name ?? '')];
+        })
+      );
     }
 
     return Response.json({

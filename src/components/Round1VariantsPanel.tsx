@@ -106,8 +106,11 @@ export const Round1VariantsPanel = forwardRef<Round1VariantsPanelHandle, Props>(
   }, [clearTimers, tileRefs]);
 
   useEffect(() => {
-    resetTilesForNewQuestion();
+    const resetTimer = window.setTimeout(() => {
+      resetTilesForNewQuestion();
+    }, 0);
     return () => {
+      window.clearTimeout(resetTimer);
       clearTimers();
     };
   }, [questionKey, resetTilesForNewQuestion, clearTimers]);
@@ -185,7 +188,13 @@ export const Round1VariantsPanel = forwardRef<Round1VariantsPanelHandle, Props>(
     }
 
     revealedForKeyRef.current = questionKey;
-    fallIncorrect();
+    const fallTimer = window.setTimeout(() => {
+      fallIncorrect();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(fallTimer);
+    };
   }, [revealCorrect, questionKey, fallIncorrect]);
 
   const hideCorrect = useCallback(async () => {
