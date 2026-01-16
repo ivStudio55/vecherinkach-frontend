@@ -2317,7 +2317,7 @@ export default function RoomPage() {
                 <input
                   value={round3AnswerText}
                   onChange={(e) => setRound3AnswerText(e.target.value)}
-                  placeholder="Напиши одно слово"
+                  placeholder="слова или фраза"
                   className="w-full rounded-2xl border-[3px] border-[#142a45] bg-white px-4 py-3 text-sm font-semibold outline-none"
                   autoComplete="off"
                   inputMode="text"

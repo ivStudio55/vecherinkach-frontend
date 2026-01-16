@@ -31,7 +31,6 @@ export const withAudioPackPrefix = (packId: PackId, relativePath: string): strin
 };
 
 const PACK_SCOPED_AUDIO_PREFIXES: readonly string[] = [
-  'round1/',
   'round1/questions/',
   'round2/true/',
   'round2/false/',
@@ -41,7 +40,6 @@ const PACK_SCOPED_AUDIO_PREFIXES: readonly string[] = [
   'round3/questions/',
   'round3/comments/',
   'round4/questions/',
-  'round4/category/',
   'round5/questions/',
   'round5/explanation/',
 ];

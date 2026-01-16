@@ -176,7 +176,6 @@ const ROUND5_FINAL_NARRATOR_VARIANTS = 7;
 
 const PACK_03012026_ROUND2_AUDIO_START = 82;
 const PACK_03012026_ROUND3_AUDIO_START = 67;
-const PACK_03012026_ROUND4_CATEGORY_BASE = 64;
 const PACK_03012026_ROUND5_AUDIO_START = 68;
 
   const ROUND4_CATEGORY_AUDIO_MAP: Record<string, string> = {
@@ -189,9 +188,11 @@ const PACK_03012026_ROUND5_AUDIO_START = 68;
     'русский рок': 'russian_rock',
     'советская эстрада': 'soviet_bandstand',
     'советский мультфильм': 'soviet_cartoon',
+    'советский кинематограф': 'soviet_cinema',
     'классика': 'classic',
     'сказка': 'fairy_tale',
     'современная отечественная эстрада': 'modern_russian_bandstand',
+    'русская литература': 'russian_literature',
     'руссская литература': 'russian_literature',
   };
 
@@ -604,7 +605,9 @@ export default function HostRoomPage() {
   }, [packId]);
 
   const getRound1AudioPath = (questionId: number) =>
-    packIdRef.current === '03012026' ? `round1/${questionId}.mp3` : `round1/questions/${questionId}.mp3`;
+    packIdRef.current === '03012026'
+      ? `packs/03012026/round1/${questionId}.mp3`
+      : `round1/questions/${questionId}.mp3`;
 
   const getRound2AudioOrdinal = (index: number) =>
     packIdRef.current === '03012026' ? PACK_03012026_ROUND2_AUDIO_START + index : index + 1;
@@ -1485,20 +1488,8 @@ export default function HostRoomPage() {
   }, [playTournamentJingle, stopRoundEndAudio]);
 
   const playRound4CategoryAudio = useCallback(
-    (category: string, puzzleId?: number) => {
+    (category: string) => {
       if (!hasUserInteractedRef.current) {
-        return;
-      }
-
-      if (packIdRef.current === '03012026') {
-        const safeId = typeof puzzleId === 'number' ? puzzleId : PACK_03012026_ROUND4_CATEGORY_BASE + 1;
-        const variant = Math.max(1, safeId - PACK_03012026_ROUND4_CATEGORY_BASE);
-        const cue = new Audio(buildAudioUrl(`round4/category/${variant}.mp3`));
-        cue.volume = 0.95;
-        round4CategoryAudioRef.current = cue;
-        cue.play().catch((err) => {
-          console.error('Не удалось проиграть озвучку категории Раунда 4', err);
-        });
         return;
       }
 
@@ -6581,7 +6572,7 @@ export default function HostRoomPage() {
     updateRoomStatus('round4-running');
     syncTimerWithStart(startedAt, offset);
     setQuestionStartedAt(startedAt);
-    playRound4CategoryAudio(puzzle.category, puzzle.id);
+    playRound4CategoryAudio(puzzle.category);
     playRound4TimerAudio();
     round4StartLockRef.current = false;
   }, [getServerIsoTimestamp, loadUsedRound4PuzzleIds, roomId, round4Puzzles, updateRoomStatus, syncTimerWithStart, playRound4CategoryAudio, playRound4TimerAudio]);
