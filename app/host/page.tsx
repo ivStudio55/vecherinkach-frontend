@@ -111,8 +111,8 @@ export default function HostPage() {
                     Экран ведущего обязательно открывайте на большом экране и в горизонтальной ориентации — на телефоне выглядит ужасно.
                   </p>
                 </div>
-                <div className="flex gap-6">
-                  <ol className="flex-1 space-y-3 text-sm font-semibold text-[#142a45]/80">
+                <div className="grid gap-6 lg:grid-cols-[1.2fr,0.8fr]">
+                  <ol className="space-y-3 text-sm font-semibold text-[#142a45]/80">
                     <li className="flex gap-3">
                       <span className="w-9 h-9 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">1</span>
                       Ведущий запускает игру на большом экране, выбирает пакет и создаёт комнату — появятся код и QR для входа.
@@ -130,7 +130,24 @@ export default function HostPage() {
                       Нужна помощь? Пишите в наш Telegram: t.me/vecherinkach и в VK: vk.com/vecherinkach — отвечаем быстро.
                     </li>
                   </ol>
-                  <PlayerPrinter />
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-white p-3 text-center">
+                      <p className="text-xs font-semibold text-[#142a45]/70">Telegram</p>
+                      <img
+                        src="/qr-code_telegram.png"
+                        alt="QR код Telegram"
+                        className="mx-auto mt-2 h-36 w-36 rounded-xl border-[2px] border-[#142a45]/20 bg-white"
+                      />
+                    </div>
+                    <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-white p-3 text-center">
+                      <p className="text-xs font-semibold text-[#142a45]/70">VK</p>
+                      <img
+                        src="/qr-code_VK.png"
+                        alt="QR код VK"
+                        className="mx-auto mt-2 h-36 w-36 rounded-xl border-[2px] border-[#142a45]/20 bg-white"
+                      />
+                    </div>
+                  </div>
                 </div>
                 <div className="relative rounded-2xl border-[3px] border-dashed border-[#142a45]/50 bg-[#fff6da] px-4 py-3 text-sm">
                   <p className="font-semibold">На связи</p>
