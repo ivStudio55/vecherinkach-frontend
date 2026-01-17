@@ -100,35 +100,50 @@ export default function HostPage() {
             </header>
 
             <section className="grid min-h-0 flex-1 gap-6 overflow-auto lg:grid-cols-[1.1fr,0.9fr]">
-              <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5 relative overflow-hidden">
+              <div
+                className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5 relative overflow-hidden animate-host-panel"
+                style={{ animationDelay: '60ms' }}
+              >
                 <div className="space-y-2">
-                  <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Шаги подключения</p>
-                  <h2 className="text-2xl font-black">Как проходит запуск</h2>
+                  <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Инструкция по подключению</p>
+                  <h2 className="text-2xl font-black">Подключайтесь за минуту</h2>
+                  <p className="text-sm text-[#142a45]/80">
+                    Экран ведущего обязательно открывайте на большом экране и в горизонтальной ориентации — на телефоне выглядит ужасно.
+                  </p>
                 </div>
                 <div className="flex gap-6">
                   <ol className="flex-1 space-y-3 text-sm font-semibold text-[#142a45]/80">
                     <li className="flex gap-3">
                       <span className="w-9 h-9 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">1</span>
-                      Вы получаете код комнаты и выводите его на экран.
+                      Ведущий запускает игру на большом экране, выбирает пакет и создаёт комнату — появятся код и QR для входа.
                     </li>
                     <li className="flex gap-3">
                       <span className="w-9 h-9 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">2</span>
-                      Игроки переходят на экран подключения.
+                      Игроки открывают vecherinkach.vercel.app/join на телефонах, вводят код комнаты и своё имя.
                     </li>
                     <li className="flex gap-3">
                       <span className="w-9 h-9 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">3</span>
-                      Панель ведущего показывает таймеры, вопросы и очередь ответов.
+                      Когда все подключились, ведущий нажимает «Начать игру».
+                    </li>
+                    <li className="flex gap-3">
+                      <span className="w-9 h-9 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">4</span>
+                      Нужна помощь? Пишите в наш Telegram: t.me/vecherinkach и в VK: vk.com/vecherinkach — отвечаем быстро.
                     </li>
                   </ol>
                   <PlayerPrinter />
                 </div>
                 <div className="relative rounded-2xl border-[3px] border-dashed border-[#142a45]/50 bg-[#fff6da] px-4 py-3 text-sm">
-                  <p className="font-semibold">Подсказка</p>
-                  <p className="text-[#142a45]/70">Комната активна, пока вы не завершите раунд на панели. Повторное использование кода невозможно.</p>
+                  <p className="font-semibold">На связи</p>
+                  <p className="text-[#142a45]/70">
+                    Подписывайтесь на канал в Telegram и сообщество ВК — там новости, обновления пакетов и быстрые ответы на вопросы.
+                  </p>
                 </div>
               </div>
 
-              <div className="rounded-3xl border-[4px] border-[#142a45] bg-[#ffe184] p-6 space-y-5">
+              <div
+                className="rounded-3xl border-[4px] border-[#142a45] bg-[#ffe184] p-6 space-y-5 animate-host-panel"
+                style={{ animationDelay: '180ms' }}
+              >
                 <div className="space-y-2">
                   <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Создание комнаты</p>
                   <h2 className="text-2xl font-black">Управление запуском</h2>
