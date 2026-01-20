@@ -21,8 +21,6 @@ import {
 } from '@/lib/questions';
 
 import { DEFAULT_PACK_ID, getQuestionsBaseUrl, normalizePackId, type PackId } from '@/lib/questionPacks';
-
-          await applyRoomUpdate(payload.new);
 type Round5Question = {
   question: string;
   answer: number;
