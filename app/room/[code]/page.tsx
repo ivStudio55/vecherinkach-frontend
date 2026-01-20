@@ -21,6 +21,9 @@ import {
 } from '@/lib/questions';
 
 import { DEFAULT_PACK_ID, getQuestionsBaseUrl, normalizePackId, type PackId } from '@/lib/questionPacks';
+
+const QUESTION_DURATION_SECONDS = 30;
+
 type Round5Question = {
   question: string;
   answer: number;
