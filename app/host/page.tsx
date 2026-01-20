@@ -40,7 +40,10 @@ export default function HostPage() {
           p_pack_id: packId,
         });
 
+        console.log('create_room attempt', { roomCode, packId, data, insertError });
+
         const created = Array.isArray(data) ? data[0] : data;
+        if (!insertError && created?.id) {
         if (!insertError && created?.id) {
           localStorage.setItem('hostRoomId', created.id as string);
           localStorage.setItem('hostRoomCode', roomCode);
@@ -61,6 +64,7 @@ export default function HostPage() {
       setError('Не удалось создать комнату. Попробуйте ещё раз.');
       setIsCreating(false);
     } catch (err) {
+      console.error('createRoom error:', err);
       const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
       setError(`Ошибка: ${message}`);
       setIsCreating(false);

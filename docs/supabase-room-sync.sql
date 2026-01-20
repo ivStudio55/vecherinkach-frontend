@@ -5,6 +5,59 @@ alter table rooms
 alter table rooms
   add column if not exists transitioning_to_next boolean default false;
 
+-- Add missing columns for room functionality
+alter table rooms
+  add column if not exists status text not null default 'waiting';
+
+alter table rooms
+  add column if not exists question_started_at timestamptz;
+
+alter table rooms
+  add column if not exists pack_id text not null default 'classic';
+
+-- Add status constraint
+do $$
+begin
+  if exists (
+    select 1 from pg_constraint
+    where conname = 'rooms_status_check'
+  ) then
+    alter table rooms
+    drop constraint rooms_status_check;
+  end if;
+  alter table rooms
+  add constraint rooms_status_check check (
+    status in (
+      'waiting',
+      'running',
+      'round2-running',
+      'round2-ready',
+      'finished'
+    )
+  );
+end $$;
+
+-- Add pack_id constraint
+alter table rooms
+  drop constraint if exists rooms_pack_id_check;
+
+alter table rooms
+  add constraint rooms_pack_id_check
+  check (pack_id in ('classic', '03012026'));
+
+create index if not exists rooms_pack_id_idx on rooms (pack_id);
+
+-- Add total_points to players if not exists
+alter table players
+  add column if not exists total_points int default 0;
+
+-- Add is_correct and points_earned to answers if not exists
+alter table answers
+  add column if not exists is_correct boolean default false;
+
+alter table answers
+  add column if not exists points_earned int default 0;
+
 create or replace function bump_room_state_version()
 returns trigger
 language plpgsql
