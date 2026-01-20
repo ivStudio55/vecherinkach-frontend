@@ -1,8 +1,8 @@
 // app/join/page.tsx
 'use client';
 
-import { useState, CSSProperties } from 'react';
-import { useRouter } from 'next/navigation';
+import { useMemo, useState, CSSProperties } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { logEvent } from '@/shared/logic/logger';
 import { generateRandomName } from '@/lib/nameGenerator';
@@ -10,7 +10,12 @@ import backTexture from '../img/back2.png';
 
 export default function JoinPage() {
   const router = useRouter();
-  const [roomCode, setRoomCode] = useState('');
+  const searchParams = useSearchParams();
+  const initialRoomCode = useMemo(() => {
+    const codeParam = searchParams?.get('code') ?? '';
+    return codeParam.replace(/\D/g, '').slice(0, 4);
+  }, [searchParams]);
+  const [roomCode, setRoomCode] = useState(initialRoomCode);
   const [playerName, setPlayerName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');

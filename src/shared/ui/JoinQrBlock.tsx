@@ -1,6 +1,7 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
+import { JoinQrCode } from '@/shared/ui/JoinQrCode';
 
 const DEFAULT_JOIN_URL = 'https://vecherinkach.vercel.app/join';
 
@@ -18,7 +19,6 @@ const sizeStyles = {
 type JoinQrBlockProps = {
   roomCode: string;
   joinUrl?: string;
-  qrImageSrc?: string;
   qrWindowUrl?: string;
   size?: keyof typeof sizeStyles;
   showInstructions?: boolean;
@@ -27,14 +27,22 @@ type JoinQrBlockProps = {
 
 export function JoinQrBlock({
   roomCode,
-  joinUrl = DEFAULT_JOIN_URL,
-  qrImageSrc = '/qr-code.png',
+  joinUrl,
   qrWindowUrl,
   size = 'md',
   showInstructions = true,
   className,
 }: JoinQrBlockProps) {
   const styles = sizeStyles[size];
+  const resolvedJoinBase = useMemo(() => {
+    if (joinUrl) return joinUrl;
+    if (typeof window !== 'undefined' && window.location?.origin) {
+      return `${window.location.origin}/join`;
+    }
+    return DEFAULT_JOIN_URL;
+  }, [joinUrl]);
+  const joinUrlWithCode = roomCode ? `${resolvedJoinBase}?code=${encodeURIComponent(roomCode)}` : resolvedJoinBase;
+  const qrSize = size === 'lg' ? 256 : 176;
   const handleOpenQr = () => {
     if (!qrWindowUrl) return;
     window.open(qrWindowUrl, '_blank', 'noopener,noreferrer');
@@ -45,11 +53,9 @@ export function JoinQrBlock({
       <div className={`flex flex-col items-center text-center gap-4 ${styles.container}`}>
         <p className="text-sm font-black tracking-[0.3em] text-[#142a45]/70">Подключайтесь к игре!</p>
         <div className="qr-glow-frame rounded-3xl border-[4px] border-[#142a45] bg-white p-4">
-          <img
-            src={qrImageSrc}
-            alt="QR код для подключения"
-            className={`mx-auto rounded-2xl border-[3px] border-[#142a45]/15 bg-white ${styles.image}`}
-          />
+          <div className={`mx-auto rounded-2xl border-[3px] border-[#142a45]/15 bg-white flex items-center justify-center ${styles.image}`}>
+            <JoinQrCode value={joinUrlWithCode} size={qrSize} />
+          </div>
         </div>
 
         {qrWindowUrl && (
@@ -81,7 +87,7 @@ export function JoinQrBlock({
             </ol>
             <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-[#fff6da] px-4 py-3 text-xs text-[#142a45]/80">
               Если QR не работает — откройте{' '}
-              <span className="font-semibold">{joinUrl}</span> и введите код комнаты: <span className="font-black">{roomCode}</span>
+              <span className="font-semibold">{resolvedJoinBase}</span> и введите код комнаты: <span className="font-black">{roomCode}</span>
             </div>
           </div>
         )}

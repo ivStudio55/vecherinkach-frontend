@@ -179,12 +179,20 @@ export default function HostPage() {
                       Нужна помощь? Пишите в наш Telegram: t.me/vecherinkach и в VK: vk.com/vecherinkach — отвечаем быстро.
                     </li>
                   </ol>
-                  <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="grid gap-4 sm:grid-cols-3">
                     <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-white p-3 text-center">
                       <p className="text-xs font-semibold text-[#142a45]/70">Telegram</p>
                       <img
                         src="/qr-code_telegram.png"
                         alt="QR код Telegram"
+                        className="mx-auto mt-2 h-36 w-36 rounded-xl border-[2px] border-[#142a45]/20 bg-white"
+                      />
+                    </div>
+                    <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-white p-3 text-center">
+                      <p className="text-xs font-semibold text-[#142a45]/70">Join</p>
+                      <img
+                        src="/qr-code.png"
+                        alt="QR код для подключения"
                         className="mx-auto mt-2 h-36 w-36 rounded-xl border-[2px] border-[#142a45]/20 bg-white"
                       />
                     </div>
