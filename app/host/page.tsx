@@ -52,7 +52,20 @@ export default function HostPage() {
           return;
         }
 
-        if (insertError?.message?.toLowerCase().includes('limit')) {
+        const errorMessage = insertError?.message?.toLowerCase() ?? '';
+        const isLimitError = errorMessage.includes('limit');
+        const isDuplicateError = errorMessage.includes('duplicate') || errorMessage.includes('unique');
+        const isFatalError =
+          !!insertError &&
+          !isDuplicateError &&
+          (errorMessage.includes('function') ||
+            errorMessage.includes('permission') ||
+            errorMessage.includes('rls') ||
+            errorMessage.includes('column') ||
+            errorMessage.includes('schema') ||
+            errorMessage.includes('check constraint'));
+
+        if (isLimitError) {
           logEvent('warn', 'rpc', 'create_room limit reached', {
             roomCode,
             packId,
@@ -72,7 +85,16 @@ export default function HostPage() {
           });
         }
 
-        attempts += 1;
+        if (isFatalError) {
+          setError('Серверная ошибка при создании комнаты. Проверьте настройки базы данных.');
+          return;
+        }
+
+        if (!insertError || isDuplicateError) {
+          attempts += 1;
+        } else {
+          attempts += 1;
+        }
       }
 
       setError('Не удалось создать комнату. Попробуйте ещё раз.');

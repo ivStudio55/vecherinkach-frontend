@@ -265,6 +265,7 @@ as $$
 declare
   resolved_limit integer;
   has_max_rooms boolean;
+  has_key boolean;
 begin
   select exists(
     select 1
@@ -273,6 +274,14 @@ begin
       and table_name = 'app_settings'
       and column_name = 'max_rooms'
   ) into has_max_rooms;
+
+  select exists(
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'app_settings'
+      and column_name = 'key'
+  ) into has_key;
 
   if has_max_rooms then
     select max_rooms
@@ -283,7 +292,7 @@ begin
     limit 1;
   end if;
 
-  if resolved_limit is null then
+  if resolved_limit is null and has_key then
     select value::integer
       into resolved_limit
     from public.app_settings
