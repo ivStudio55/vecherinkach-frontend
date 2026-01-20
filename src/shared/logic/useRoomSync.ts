@@ -26,6 +26,9 @@ export type UseRoomSyncOptions = {
 const DEFAULT_POLL_INTERVAL = 2000;
 const DEFAULT_THROTTLE_MS = 120;
 const STALE_EVENT_THRESHOLD_MS = 6500;
+const LATENCY_LOG_MIN_INTERVAL_MS = 30000;
+const LATENCY_WARN_THRESHOLD_MS = 800;
+const FALLBACK_LOG_MIN_INTERVAL_MS = 30000;
 
 export const useRoomSync = (roomId?: string | null, options?: UseRoomSyncOptions) => {
   const pollIntervalMs = options?.pollIntervalMs ?? DEFAULT_POLL_INTERVAL;
@@ -48,6 +51,9 @@ export const useRoomSync = (roomId?: string | null, options?: UseRoomSyncOptions
   const heartbeatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const clientIdRef = useRef<string>(`room-sync-${Math.random().toString(36).slice(2)}`);
+  const lastLatencyLogAtRef = useRef<number>(0);
+  const lastFallbackLogAtRef = useRef<number>(0);
+  const lastReconnectLogAtRef = useRef<number>(0);
 
   const stopPolling = useCallback(() => {
     if (pollingIntervalRef.current) {
@@ -150,6 +156,15 @@ export const useRoomSync = (roomId?: string | null, options?: UseRoomSyncOptions
         }
         const latencyMs = Math.max(0, Date.now() - sentAt);
         setConnectionStatus((prev) => ({ ...prev, latencyMs, lastPingAt: Date.now() }));
+        const now = Date.now();
+        if (latencyMs >= LATENCY_WARN_THRESHOLD_MS && now - lastLatencyLogAtRef.current > LATENCY_LOG_MIN_INTERVAL_MS) {
+          lastLatencyLogAtRef.current = now;
+          logEvent('warn', 'room-sync', 'Realtime latency elevated', {
+            eventName: 'realtime_latency',
+            roomId,
+            latencyMs,
+          });
+        }
       })
       .subscribe((status) => {
         if (!mounted) return;
@@ -160,6 +175,15 @@ export const useRoomSync = (roomId?: string | null, options?: UseRoomSyncOptions
         }
         if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR' || status === 'CLOSED') {
           logEvent('warn', 'room-sync', 'Realtime channel status changed', { status, roomId });
+          const now = Date.now();
+          if (now - lastReconnectLogAtRef.current > LATENCY_LOG_MIN_INTERVAL_MS) {
+            lastReconnectLogAtRef.current = now;
+            logEvent('warn', 'room-sync', 'Realtime reconnect needed', {
+              eventName: 'realtime_reconnect',
+              roomId,
+              status,
+            });
+          }
           setConnectionStatus((prev) => ({
             ...prev,
             mode: 'polling',
@@ -187,6 +211,14 @@ export const useRoomSync = (roomId?: string | null, options?: UseRoomSyncOptions
         }
         const isStale = Date.now() - prev.lastEventAt > STALE_EVENT_THRESHOLD_MS;
         if (isStale && prev.mode === 'realtime') {
+          const now = Date.now();
+          if (now - lastFallbackLogAtRef.current > FALLBACK_LOG_MIN_INTERVAL_MS) {
+            lastFallbackLogAtRef.current = now;
+            logEvent('warn', 'room-sync', 'Realtime stale, switching to fallback polling', {
+              eventName: 'realtime_fallback',
+              roomId,
+            });
+          }
           startPolling();
           return { ...prev, mode: 'reconnecting', isFallbackPolling: true };
         }
