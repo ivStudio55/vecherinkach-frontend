@@ -35,24 +35,23 @@ export default function HostPage() {
       while (attempts < 10) {
         roomCode = generateRoomCode();
 
-        const { data, error: insertError } = await supabase
-          .from('rooms')
-          .insert({
-            code: roomCode,
-            current_question_index: 0,
-            is_active: true,
-            status: 'waiting',
-            question_started_at: null,
-            pack_id: packId,
-          })
-          .select()
-          .single();
+        const { data, error: insertError } = await supabase.rpc('create_room', {
+          p_code: roomCode,
+          p_pack_id: packId,
+        });
 
-        if (!insertError && data) {
-          localStorage.setItem('hostRoomId', data.id);
+        const created = Array.isArray(data) ? data[0] : data;
+        if (!insertError && created?.id) {
+          localStorage.setItem('hostRoomId', created.id as string);
           localStorage.setItem('hostRoomCode', roomCode);
           localStorage.setItem('hostPackId', packId);
-          router.push(`/host/${data.id}`);
+          router.push(`/host/${created.id}`);
+          return;
+        }
+
+        if (insertError?.message?.toLowerCase().includes('limit')) {
+          setError('Достигнут лимит активных комнат. Попробуйте позже.');
+          setIsCreating(false);
           return;
         }
 

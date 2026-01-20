@@ -6,6 +6,8 @@ import { supabase } from '@/lib/supabase';
 import { TrueFalseItem, ROUND2_POINTS } from '@/lib/round2';
 import { AnimatedText } from '@/components/AnimatedText';
 import { submitRound1Answer } from '@/shared/logic/submitAnswer';
+import { logEvent } from '@/shared/logic/logger';
+import { isRealtimeEnabled } from '@/shared/logic/realtimeConfig';
 import { PhaseStatusBanner } from '@/shared/ui/PhaseStatusBanner';
 import { ScoreSummary } from '@/shared/ui/ScoreSummary';
 import {
@@ -20,86 +22,7 @@ import {
 
 import { DEFAULT_PACK_ID, getQuestionsBaseUrl, normalizePackId, type PackId } from '@/lib/questionPacks';
 
-const QUESTION_DURATION_SECONDS = 30;
-const APP_VERSION = '1.0.9'; // Инкрементируйте при важных изменениях
-
-const ROUND3_ANSWER_SECONDS = 30;
-const ROUND3_VOTE_COUNTDOWN_SECONDS = 3;
-const ROUND3_VOTE_SECONDS = 15;
-const ROUND3_TOTAL_QUESTIONS = 6;
-
-const ROUND3_QUESTIONS_AUDIO_DIR = 'round3/questions3';
-const ROUND3_BG_JINGLE_FILE = 'round2/jingle (5).mp3';
-
-const ROUND5_TOTAL_TOURS = 6;
-const ROUND5_MAX_POINTS = 400;
-const ROUND5_QUESTION_AUDIO_DIR = 'round5/questions';
-const ROUND5_EXPLANATION_AUDIO_DIR = 'round5/explanation';
-const ROUND5_EXPLANATION_BG_FILE = 'round2/explanation.mp3';
-
-const buildAudioUrl = (relativePath: string) => `/api/audio?file=${encodeURIComponent(relativePath)}&t=${Date.now()}`;
-
-const coerceToNumber = (value: unknown): number | null => {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === 'string') {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  return null;
-};
-
-// Fisher-Yates shuffle algorithm
-const shuffleArray = <T,>(array: T[]): T[] => {
-  const shuffled = [...array];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled;
-};
-
-const getRemainingSeconds = (startedAt: string | null, offsetMs = 0) => {
-  if (!startedAt) {
-    return QUESTION_DURATION_SECONDS;
-  }
-  const startTime = new Date(startedAt).getTime();
-  if (isNaN(startTime)) {
-    return QUESTION_DURATION_SECONDS;
-  }
-  const now = Date.now() - offsetMs;
-  const diffMs = now - startTime;
-  const elapsedSeconds = Math.floor(diffMs / 1000);
-  const remaining = QUESTION_DURATION_SECONDS - elapsedSeconds;
-  return Math.max(0, Math.min(QUESTION_DURATION_SECONDS, remaining));
-};
-
-const getRemainingSecondsWithDuration = (startedAt: string | null, durationSeconds: number, offsetMs = 0) => {
-  if (!startedAt) {
-    return durationSeconds;
-  }
-  const startTime = new Date(startedAt).getTime();
-  if (isNaN(startTime)) {
-    return durationSeconds;
-  }
-  const now = Date.now() - offsetMs;
-  const diffMs = now - startTime;
-  const elapsedSeconds = Math.floor(diffMs / 1000);
-  const remaining = durationSeconds - elapsedSeconds;
-  return Math.max(0, Math.min(durationSeconds, remaining));
-};
-
-const addSecondsToIso = (iso: string, seconds: number) => {
-  const ms = new Date(iso).getTime();
-  if (isNaN(ms)) {
-    return iso;
-  }
-  return new Date(ms + seconds * 1000).toISOString();
-};
-
-type Question = ActiveRoundQuestion;
-
+          await applyRoomUpdate(payload.new);
 type Round5Question = {
   question: string;
   answer: number;
@@ -209,8 +132,11 @@ export default function RoomPage() {
   const [round3AnswerText, setRound3AnswerText] = useState('');
   const [round3AnswerOptions, setRound3AnswerOptions] = useState<Round3AnswerRow[]>([]);
   const [round3HasVoted, setRound3HasVoted] = useState(false);
+  const realtimeEnabled = isRealtimeEnabled();
   const roomIdRef = useRef('');
   const playerIdRef = useRef('');
+  const roomStatusRef = useRef(roomStatus);
+  const exitLoggedRef = useRef(false);
   const packIdRef = useRef<PackId>(DEFAULT_PACK_ID);
   const round1BankRef = useRef<QuestionBank>(DEFAULT_QUESTION_BANK);
   const round3VoiceRef = useRef<HTMLAudioElement | null>(null);
@@ -222,6 +148,44 @@ export default function RoomPage() {
   useEffect(() => {
     round5QuestionsRef.current = round5Questions;
   }, [round5Questions]);
+
+  useEffect(() => {
+    roomStatusRef.current = roomStatus;
+  }, [roomStatus]);
+
+  useEffect(() => {
+    if (!roomId || !playerId) {
+      return;
+    }
+
+    const logExit = (reason: string) => {
+      if (exitLoggedRef.current) return;
+      exitLoggedRef.current = true;
+      logEvent('info', 'analytics', 'player exit', {
+        eventName: 'player_exit',
+        roomId,
+        playerId,
+        reason,
+        status: roomStatusRef.current,
+      });
+    };
+
+    const handleBeforeUnload = () => logExit('unload');
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        logExit('background');
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      logExit('unmount');
+    };
+  }, [playerId, roomId]);
 
   useEffect(() => {
     const loadRound2Data = async () => {
@@ -873,6 +837,321 @@ export default function RoomPage() {
     }
 
     let mounted = true;
+    const applyRoomUpdate = async (nextRoom: RoomUpdatePayload['new']) => {
+      await handleRoomUpdate({ new: nextRoom } as RoomUpdatePayload);
+    };
+
+    if (!realtimeEnabled) {
+      const poll = async () => {
+        const { data } = await supabase
+          .from('rooms')
+          .select(
+            'id, pack_id, current_question_index, is_active, status, question_started_at, all_players_answered, selected_question_ids, round2_item_index, round2_showing_fact, round2_phase, round3_question_index, round4_puzzle_id, round5_question_index'
+          )
+          .eq('id', roomId)
+          .single();
+        if (mounted && data) {
+          await applyRoomUpdate(data as RoomUpdatePayload['new']);
+        }
+      };
+      void poll();
+      const intervalId = setInterval(poll, 2000);
+      return () => {
+        mounted = false;
+        clearInterval(intervalId);
+      };
+    }
+
+    const handleRoomUpdate = async (payload: RoomUpdatePayload) => {
+      // Debug: log every Realtime event
+      const newStatus = (payload.new.status as RoomStatus) || (payload.new.is_active ? 'waiting' : 'finished');
+      const startedAt = payload.new.question_started_at as string | null;
+      const newQuestionIndex = coerceToNumber(payload.new.current_question_index);
+
+      // Если ведущий закрыл комнату полностью — возвращаем на экран подключения.
+      // Важно: не редиректим во время переходов между раундами, когда ведущий может временно сбросить таймер.
+      if (newStatus === 'finished' && startedAt === null && payload.new.is_active === false) {
+        router.push('/join');
+        return;
+      }
+
+      setRoomStatus(newStatus);
+      const everyoneAnsweredFlag =
+        newStatus === 'running' ||
+          newStatus === 'round2-running' ||
+          newStatus === 'round3-running' ||
+          newStatus === 'round4-running' ||
+          newStatus === 'round5-running'
+          ? !!payload.new.all_players_answered
+          : newStatus === 'round5-explanation'
+            ? true
+            : false;
+      setAllPlayersAnswered(everyoneAnsweredFlag);
+      const selection = (payload.new.selected_question_ids as number[] | null) || [];
+      setSelectedQuestionIds(selection);
+
+      const nextRound2ItemIndex = (payload.new.round2_item_index as number | null | undefined) ?? null;
+      const nextRound2ShowingFact =
+        typeof payload.new.round2_showing_fact === 'boolean' ? !!payload.new.round2_showing_fact : round2ShowingFact;
+      const nextRound2Phase = ((payload.new.round2_phase as Round2Phase) || 'idle') as Round2Phase;
+
+      if (newStatus === 'waiting') {
+        setShowResults(false);
+        setHasAnswered(false);
+        setQuestion(null);
+        setRound2ItemIndex(null);
+        setRound2Phase('idle');
+        setRound3QuestionIndex(null);
+        setRound4Puzzle(null);
+        setRound4PuzzleId(null);
+        setRound4AnswerText('');
+        setQuestionStartedAt(null);
+        setTimeLeft(QUESTION_DURATION_SECONDS);
+        return;
+      }
+
+      // Only treat as finished if status is 'finished', not just is_active=false
+      // (round4-running may have is_active=false during answer reveal)
+      if (newStatus === 'finished' || newStatus === 'final-results') {
+        setShowResults(true);
+        setQuestion(null);
+        setRound2ItemIndex(null);
+        setRound2Phase('idle');
+        setRound3QuestionIndex(null);
+        setRound4Puzzle(null);
+        setRound4PuzzleId(null);
+        setRound4AnswerText('');
+        setQuestionStartedAt(null);
+        setTimeLeft(QUESTION_DURATION_SECONDS);
+        return;
+      }
+
+      if (newStatus === 'round2-running') {
+        setShowResults(false);
+        setQuestion(null);
+        setRound2ItemIndex(nextRound2ItemIndex);
+        setRound2ShowingFact(nextRound2ShowingFact);
+        setRound2Phase(nextRound2Phase);
+        setRound3QuestionIndex(null);
+        setQuestionStartedAt(startedAt);
+
+        const offset = await syncServerTimeRef.current?.();
+        if (everyoneAnsweredFlag) {
+          setTimeLeft(0);
+        } else {
+          setTimeLeft(startedAt ? getRemainingSeconds(startedAt, offset || 0) : QUESTION_DURATION_SECONDS);
+        }
+
+        const currentPlayerId = playerIdRef.current;
+        const currentRoomId = roomIdRef.current;
+        if (currentPlayerId && currentRoomId && nextRound2ItemIndex !== null) {
+          const { data: newAnswer } = await supabase
+            .from('round2_answers')
+            .select('id')
+            .eq('player_id', currentPlayerId)
+            .eq('room_id', currentRoomId)
+            .eq('item_index', nextRound2ItemIndex)
+            .maybeSingle();
+          setHasAnswered(!!newAnswer);
+        } else {
+          setHasAnswered(false);
+        }
+        return;
+      }
+
+      if (newStatus === 'round3-running') {
+        setShowResults(false);
+        setQuestion(null);
+        setRound2ItemIndex(null);
+        setRound2Phase('idle');
+        setRound3QuestionIndex(newQuestionIndex);
+        setQuestionStartedAt(startedAt);
+
+        const offset = await syncServerTimeRef.current?.();
+        if (everyoneAnsweredFlag) {
+          setTimeLeft(0);
+        } else {
+          setTimeLeft(startedAt ? getRemainingSeconds(startedAt, offset || 0) : QUESTION_DURATION_SECONDS);
+        }
+
+        const currentPlayerId = playerIdRef.current;
+        const currentRoomId = roomIdRef.current;
+        if (currentPlayerId && currentRoomId && newQuestionIndex !== null) {
+          try {
+            const { data: existingRound3Answer, error: existingRound3Error } = await supabase
+              .from('round3_answers')
+              .select('text')
+              .eq('player_id', currentPlayerId)
+              .eq('room_id', currentRoomId)
+              .eq('question_index', newQuestionIndex)
+              .maybeSingle();
+
+            if (!existingRound3Error && existingRound3Answer) {
+              setHasAnswered(true);
+              setRound3AnswerText((existingRound3Answer.text ?? '').toString());
+            } else {
+              setHasAnswered(false);
+            }
+          } catch (e) {
+            console.warn('Round3 answer lookup failed (SQL might be missing)', e);
+            setHasAnswered(false);
+          }
+        } else {
+          setHasAnswered(false);
+        }
+        return;
+      }
+
+      if (newStatus === 'round4-running') {
+        setShowResults(false);
+        setQuestion(null);
+        setRound2ItemIndex(null);
+        setRound2Phase('idle');
+        setRound3QuestionIndex(null);
+
+        // Force fetch latest state if payload seems incomplete
+        let effectiveStartedAt = startedAt;
+        let effectivePuzzleId = newQuestionIndex;
+
+        if (!effectiveStartedAt || effectivePuzzleId === null) {
+          const { data: freshRoom } = await supabase
+            .from('rooms')
+            .select('question_started_at, current_question_index')
+            .eq('id', roomId)
+            .single();
+
+          if (freshRoom) {
+            effectiveStartedAt = freshRoom.question_started_at;
+            effectivePuzzleId = coerceToNumber(freshRoom.current_question_index);
+          }
+        }
+
+        setQuestionStartedAt(effectiveStartedAt);
+
+        const offset = await syncServerTimeRef.current?.();
+        if (everyoneAnsweredFlag) {
+          setTimeLeft(0);
+        } else {
+          setTimeLeft(effectiveStartedAt ? getRemainingSeconds(effectiveStartedAt, offset || 0) : QUESTION_DURATION_SECONDS);
+        }
+
+        setRound4PuzzleId(effectivePuzzleId);
+        setRound4Puzzle(effectivePuzzleId ? round4Puzzles.find((p) => p.id === effectivePuzzleId) ?? null : null);
+
+        setHasAnswered(false);
+        setRound4AnswerText('');
+        setError('');
+
+        const currentPlayerId = playerIdRef.current;
+        const currentRoomId = roomIdRef.current;
+        if (currentPlayerId && currentRoomId && effectivePuzzleId) {
+          const { data: newAnswer } = await supabase
+            .from('round4_answers')
+            .select('id')
+            .eq('player_id', currentPlayerId)
+            .eq('room_id', currentRoomId)
+            .eq('puzzle_id', effectivePuzzleId)
+            .maybeSingle();
+          setHasAnswered(!!newAnswer);
+        } else {
+          setHasAnswered(false);
+        }
+        return;
+      }
+
+      if (newStatus === 'round5-running' || newStatus === 'round5-explanation') {
+        setShowResults(false);
+        setQuestion(null);
+        setRound2ItemIndex(null);
+        setRound2Phase('idle');
+        setRound3QuestionIndex(null);
+        setRound4Puzzle(null);
+        setRound4PuzzleId(null);
+        setRound4AnswerText('');
+
+        const tourIndex = newQuestionIndex ?? 0;
+        const bankIndex = typeof selection[tourIndex] === 'number' ? selection[tourIndex] : null;
+        setRound5CurrentBankIndex(bankIndex);
+        const bank = round5QuestionsRef.current;
+        setRound5CurrentQuestion(bankIndex !== null ? bank[bankIndex] ?? null : null);
+        setRound5AnswerValue('');
+        setHasAnswered(false);
+        setError('');
+
+        setQuestionStartedAt(startedAt);
+        const offset = await syncServerTimeRef.current?.();
+        if (newStatus === 'round5-running') {
+          if (everyoneAnsweredFlag) {
+            setTimeLeft(0);
+          } else {
+            setTimeLeft(startedAt ? getRemainingSeconds(startedAt, offset || 0) : QUESTION_DURATION_SECONDS);
+          }
+        } else {
+          setTimeLeft(0);
+        }
+
+        const currentPlayerId = playerIdRef.current;
+        const currentRoomId = roomIdRef.current;
+        if (currentPlayerId && currentRoomId && bankIndex !== null) {
+          const { data: newAnswer } = await supabase
+            .from('round5_answers')
+            .select('answer_value')
+            .eq('player_id', currentPlayerId)
+            .eq('room_id', currentRoomId)
+            .eq('question_index', bankIndex)
+            .maybeSingle();
+          if (newAnswer) {
+            setHasAnswered(true);
+            const existingValue = coerceToNumber(
+              typeof newAnswer === 'object' && newAnswer !== null && 'answer_value' in newAnswer
+                ? (newAnswer as { answer_value?: unknown }).answer_value
+                : null
+            );
+            if (existingValue !== null) {
+              setRound5AnswerValue(String(existingValue));
+            }
+          } else {
+            setHasAnswered(false);
+          }
+        } else {
+          setHasAnswered(false);
+        }
+        return;
+      }
+
+      const offset = await syncServerTimeRef.current?.();
+      if (newQuestionIndex !== null) {
+        loadQuestionFromSelectionRef.current?.(newQuestionIndex, selection);
+      } else {
+        setQuestion(null);
+      }
+      setRound2ItemIndex(null);
+      setRound2Phase('idle');
+      setRound3QuestionIndex(null);
+      setQuestionStartedAt(startedAt);
+      if (everyoneAnsweredFlag) {
+        setTimeLeft(0);
+      } else {
+        setTimeLeft(startedAt ? getRemainingSeconds(startedAt, offset || 0) : QUESTION_DURATION_SECONDS);
+      }
+
+      const currentPlayerId = playerIdRef.current;
+      const currentRoomId = roomIdRef.current;
+
+      if (currentPlayerId && currentRoomId) {
+        const { data: newAnswer } = await supabase
+          .from('answers')
+          .select('id')
+          .eq('player_id', currentPlayerId)
+          .eq('room_id', currentRoomId)
+          .eq('question_index', newQuestionIndex)
+          .maybeSingle();
+        setHasAnswered(!!newAnswer);
+      } else {
+        setHasAnswered(false);
+      }
+    };
+
     const channelId = `${roomId}-${Date.now()}`;
 
     const roomChannel = supabase
@@ -889,297 +1168,7 @@ export default function RoomPage() {
           if (!mounted) {
             return;
           }
-
-          // Debug: log every Realtime event
-          const newStatus = (payload.new.status as RoomStatus) || (payload.new.is_active ? 'waiting' : 'finished');
-          const startedAt = payload.new.question_started_at as string | null;
-          const newQuestionIndex = coerceToNumber(payload.new.current_question_index);
-
-          // Если ведущий закрыл комнату полностью — возвращаем на экран подключения.
-          // Важно: не редиректим во время переходов между раундами, когда ведущий может временно сбросить таймер.
-          if (newStatus === 'finished' && startedAt === null && payload.new.is_active === false) {
-            router.push('/join');
-            return;
-          }
-
-          setRoomStatus(newStatus);
-          const everyoneAnsweredFlag =
-            newStatus === 'running' ||
-              newStatus === 'round2-running' ||
-              newStatus === 'round3-running' ||
-              newStatus === 'round4-running' ||
-              newStatus === 'round5-running'
-              ? !!payload.new.all_players_answered
-              : newStatus === 'round5-explanation'
-                ? true
-                : false;
-          setAllPlayersAnswered(everyoneAnsweredFlag);
-          const selection = (payload.new.selected_question_ids as number[] | null) || [];
-          setSelectedQuestionIds(selection);
-
-          const nextRound2ItemIndex = (payload.new.round2_item_index as number | null | undefined) ?? null;
-          const nextRound2ShowingFact =
-            typeof payload.new.round2_showing_fact === 'boolean' ? !!payload.new.round2_showing_fact : round2ShowingFact;
-          const nextRound2Phase = ((payload.new.round2_phase as Round2Phase) || 'idle') as Round2Phase;
-
-          if (newStatus === 'waiting') {
-            setShowResults(false);
-            setHasAnswered(false);
-            setQuestion(null);
-            setRound2ItemIndex(null);
-            setRound2Phase('idle');
-            setRound3QuestionIndex(null);
-            setRound4Puzzle(null);
-            setRound4PuzzleId(null);
-            setRound4AnswerText('');
-            setQuestionStartedAt(null);
-            setTimeLeft(QUESTION_DURATION_SECONDS);
-            return;
-          }
-
-          // Only treat as finished if status is 'finished', not just is_active=false
-          // (round4-running may have is_active=false during answer reveal)
-          if (newStatus === 'finished' || newStatus === 'final-results') {
-            setShowResults(true);
-            setQuestion(null);
-            setRound2ItemIndex(null);
-            setRound2Phase('idle');
-            setRound3QuestionIndex(null);
-            setRound4Puzzle(null);
-            setRound4PuzzleId(null);
-            setRound4AnswerText('');
-            setQuestionStartedAt(null);
-            setTimeLeft(QUESTION_DURATION_SECONDS);
-            return;
-          }
-
-          if (newStatus === 'round2-running') {
-            setShowResults(false);
-            setQuestion(null);
-            setRound2ItemIndex(nextRound2ItemIndex);
-            setRound2ShowingFact(nextRound2ShowingFact);
-            setRound2Phase(nextRound2Phase);
-            setRound3QuestionIndex(null);
-            setQuestionStartedAt(startedAt);
-
-            const offset = await syncServerTimeRef.current?.();
-            if (everyoneAnsweredFlag) {
-              setTimeLeft(0);
-            } else {
-              setTimeLeft(startedAt ? getRemainingSeconds(startedAt, offset || 0) : QUESTION_DURATION_SECONDS);
-            }
-
-            const currentPlayerId = playerIdRef.current;
-            const currentRoomId = roomIdRef.current;
-            if (currentPlayerId && currentRoomId && nextRound2ItemIndex !== null) {
-              const { data: newAnswer } = await supabase
-                .from('round2_answers')
-                .select('id')
-                .eq('player_id', currentPlayerId)
-                .eq('room_id', currentRoomId)
-                .eq('item_index', nextRound2ItemIndex)
-                .maybeSingle();
-              setHasAnswered(!!newAnswer);
-            } else {
-              setHasAnswered(false);
-            }
-            return;
-          }
-
-          if (newStatus === 'round3-running') {
-            setShowResults(false);
-            setQuestion(null);
-            setRound2ItemIndex(null);
-            setRound2Phase('idle');
-            setRound3QuestionIndex(newQuestionIndex);
-            setQuestionStartedAt(startedAt);
-
-            const offset = await syncServerTimeRef.current?.();
-            if (everyoneAnsweredFlag) {
-              setTimeLeft(0);
-            } else {
-              setTimeLeft(startedAt ? getRemainingSeconds(startedAt, offset || 0) : QUESTION_DURATION_SECONDS);
-            }
-
-            const currentPlayerId = playerIdRef.current;
-            const currentRoomId = roomIdRef.current;
-            if (currentPlayerId && currentRoomId && newQuestionIndex !== null) {
-              try {
-                const { data: existingRound3Answer, error: existingRound3Error } = await supabase
-                  .from('round3_answers')
-                  .select('text')
-                  .eq('player_id', currentPlayerId)
-                  .eq('room_id', currentRoomId)
-                  .eq('question_index', newQuestionIndex)
-                  .maybeSingle();
-
-                if (!existingRound3Error && existingRound3Answer) {
-                  setHasAnswered(true);
-                  setRound3AnswerText((existingRound3Answer.text ?? '').toString());
-                } else {
-                  setHasAnswered(false);
-                }
-              } catch (e) {
-                console.warn('Round3 answer lookup failed (SQL might be missing)', e);
-                setHasAnswered(false);
-              }
-            } else {
-              setHasAnswered(false);
-            }
-            return;
-          }
-
-          if (newStatus === 'round4-running') {
-            setShowResults(false);
-            setQuestion(null);
-            setRound2ItemIndex(null);
-            setRound2Phase('idle');
-            setRound3QuestionIndex(null);
-
-            // Force fetch latest state if payload seems incomplete
-            let effectiveStartedAt = startedAt;
-            let effectivePuzzleId = newQuestionIndex;
-
-            if (!effectiveStartedAt || effectivePuzzleId === null) {
-              const { data: freshRoom, error: freshError } = await supabase
-                .from('rooms')
-                .select('question_started_at, current_question_index')
-                .eq('id', roomId)
-                .single();
-              
-              if (freshRoom) {
-                effectiveStartedAt = freshRoom.question_started_at;
-                effectivePuzzleId = coerceToNumber(freshRoom.current_question_index);
-              } else {
-              }
-            }
-
-            setQuestionStartedAt(effectiveStartedAt);
-
-            const offset = await syncServerTimeRef.current?.();
-            if (everyoneAnsweredFlag) {
-              setTimeLeft(0);
-            } else {
-              setTimeLeft(effectiveStartedAt ? getRemainingSeconds(effectiveStartedAt, offset || 0) : QUESTION_DURATION_SECONDS);
-            }
-
-            setRound4PuzzleId(effectivePuzzleId);
-            // Use functional update or ref to avoid stale closure issues with round4Puzzles
-            setRound4Puzzle(effectivePuzzleId ? round4Puzzles.find((p) => p.id === effectivePuzzleId) ?? null : null);
-
-            // Immediately reset per-puzzle UI state; then restore from DB if needed.
-            setHasAnswered(false);
-            setRound4AnswerText('');
-            setError('');
-
-            const currentPlayerId = playerIdRef.current;
-            const currentRoomId = roomIdRef.current;
-            if (currentPlayerId && currentRoomId && effectivePuzzleId) {
-              const { data: newAnswer } = await supabase
-                .from('round4_answers')
-                .select('id')
-                .eq('player_id', currentPlayerId)
-                .eq('room_id', currentRoomId)
-                .eq('puzzle_id', effectivePuzzleId)
-                .maybeSingle();
-              setHasAnswered(!!newAnswer);
-            } else {
-              setHasAnswered(false);
-            }
-            return;
-          }
-
-          if (newStatus === 'round5-running' || newStatus === 'round5-explanation') {
-            setShowResults(false);
-            setQuestion(null);
-            setRound2ItemIndex(null);
-            setRound2Phase('idle');
-            setRound3QuestionIndex(null);
-            setRound4Puzzle(null);
-            setRound4PuzzleId(null);
-            setRound4AnswerText('');
-
-            const tourIndex = newQuestionIndex ?? 0;
-            const bankIndex = typeof selection[tourIndex] === 'number' ? selection[tourIndex] : null;
-            setRound5CurrentBankIndex(bankIndex);
-            const bank = round5QuestionsRef.current;
-            setRound5CurrentQuestion(bankIndex !== null ? bank[bankIndex] ?? null : null);
-            setRound5AnswerValue('');
-            setHasAnswered(false);
-            setError('');
-
-            setQuestionStartedAt(startedAt);
-            const offset = await syncServerTimeRef.current?.();
-            if (newStatus === 'round5-running') {
-              if (everyoneAnsweredFlag) {
-                setTimeLeft(0);
-              } else {
-                setTimeLeft(startedAt ? getRemainingSeconds(startedAt, offset || 0) : QUESTION_DURATION_SECONDS);
-              }
-            } else {
-              setTimeLeft(0);
-            }
-
-            const currentPlayerId = playerIdRef.current;
-            const currentRoomId = roomIdRef.current;
-            if (currentPlayerId && currentRoomId && bankIndex !== null) {
-              const { data: newAnswer } = await supabase
-                .from('round5_answers')
-                .select('answer_value')
-                .eq('player_id', currentPlayerId)
-                .eq('room_id', currentRoomId)
-                .eq('question_index', bankIndex)
-                .maybeSingle();
-              if (newAnswer) {
-                setHasAnswered(true);
-                const existingValue = coerceToNumber(
-                  typeof newAnswer === 'object' && newAnswer !== null && 'answer_value' in newAnswer
-                    ? (newAnswer as { answer_value?: unknown }).answer_value
-                    : null
-                );
-                if (existingValue !== null) {
-                  setRound5AnswerValue(String(existingValue));
-                }
-              } else {
-                setHasAnswered(false);
-              }
-            } else {
-              setHasAnswered(false);
-            }
-            return;
-          }
-
-          const offset = await syncServerTimeRef.current?.();
-          if (newQuestionIndex !== null) {
-            loadQuestionFromSelectionRef.current?.(newQuestionIndex, selection);
-          } else {
-            setQuestion(null);
-          }
-          setRound2ItemIndex(null);
-          setRound2Phase('idle');
-          setRound3QuestionIndex(null);
-          setQuestionStartedAt(startedAt);
-          if (everyoneAnsweredFlag) {
-            setTimeLeft(0);
-          } else {
-            setTimeLeft(startedAt ? getRemainingSeconds(startedAt, offset || 0) : QUESTION_DURATION_SECONDS);
-          }
-
-          const currentPlayerId = playerIdRef.current;
-          const currentRoomId = roomIdRef.current;
-
-          if (currentPlayerId && currentRoomId) {
-            const { data: newAnswer } = await supabase
-              .from('answers')
-              .select('id')
-              .eq('player_id', currentPlayerId)
-              .eq('room_id', currentRoomId)
-              .eq('question_index', newQuestionIndex)
-              .maybeSingle();
-            setHasAnswered(!!newAnswer);
-          } else {
-            setHasAnswered(false);
-          }
+          await handleRoomUpdate(payload);
         }
       )
       .subscribe();
@@ -1190,7 +1179,7 @@ export default function RoomPage() {
         supabase.removeChannel(roomChannel);
       });
     };
-  }, [roomId, round4Puzzles]);
+  }, [realtimeEnabled, roomId, round2ShowingFact, round4Puzzles, router, timeOffsetMs]);
 
   const effectiveTimeLeft = allPlayersAnswered ? 0 : timeLeft;
   // Round4 should keep timer ticking even when allPlayersAnswered (until explanation phase)

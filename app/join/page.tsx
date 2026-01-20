@@ -4,6 +4,7 @@
 import { useState, CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { logEvent } from '@/shared/logic/logger';
 import { generateRandomName } from '@/lib/nameGenerator';
 import backTexture from '../img/back2.png';
 
@@ -63,6 +64,12 @@ export default function JoinPage() {
         setIsLoading(false);
         return;
       }
+
+      logEvent('info', 'analytics', 'player join', {
+        eventName: 'player_join',
+        roomId: room.id,
+        playerId: player.id,
+      });
 
       try {
         localStorage.setItem('playerId', player.id);

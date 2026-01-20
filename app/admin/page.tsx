@@ -29,6 +29,11 @@ export default function AdminPage() {
   const [roomsActive, setRoomsActive] = useState<number | null>(null);
   const [roomsFinished, setRoomsFinished] = useState<number | null>(null);
 
+  const [analyticsPlayers, setAnalyticsPlayers] = useState<number | null>(null);
+  const [analyticsRounds, setAnalyticsRounds] = useState<number | null>(null);
+  const [analyticsExitsByStatus, setAnalyticsExitsByStatus] = useState<Record<string, number> | null>(null);
+  const [analyticsExitsByReason, setAnalyticsExitsByReason] = useState<Record<string, number> | null>(null);
+
   const [leaderboardTotal, setLeaderboardTotal] = useState<Array<{ playerId: string; name: string; points: number }> | null>(null);
   const [leaderboardRound2, setLeaderboardRound2] = useState<Array<{ playerId: string; name: string; points: number }> | null>(null);
 
@@ -76,19 +81,22 @@ export default function AdminPage() {
       }
 
       const qs = new URLSearchParams({ start: range.startIso, end: range.endIso });
-      const [statsRes, lbTotalRes, lbRound2Res] = await Promise.all([
+      const [statsRes, lbTotalRes, lbRound2Res, analyticsRes] = await Promise.all([
         fetch(`/api/admin/stats?${qs.toString()}`, { cache: 'no-store' }),
         fetch(`/api/admin/leaderboard?${new URLSearchParams({ ...Object.fromEntries(qs), type: 'total', limit: '10' }).toString()}`, { cache: 'no-store' }),
         fetch(`/api/admin/leaderboard?${new URLSearchParams({ ...Object.fromEntries(qs), type: 'round2', limit: '10' }).toString()}`, { cache: 'no-store' }),
+        fetch(`/api/admin/analytics?${qs.toString()}`, { cache: 'no-store' }),
       ]);
 
       const statsPayload = await statsRes.json().catch(() => null);
       const lbTotalPayload = await lbTotalRes.json().catch(() => null);
       const lbRound2Payload = await lbRound2Res.json().catch(() => null);
+      const analyticsPayload = await analyticsRes.json().catch(() => null);
 
       if (!statsRes.ok) throw new Error(statsPayload?.error ?? 'Не удалось загрузить статистику');
       if (!lbTotalRes.ok) throw new Error(lbTotalPayload?.error ?? 'Не удалось загрузить лидерборд');
       if (!lbRound2Res.ok) throw new Error(lbRound2Payload?.error ?? 'Не удалось загрузить лидерборд Раунда 2');
+      if (!analyticsRes.ok) throw new Error(analyticsPayload?.error ?? 'Не удалось загрузить аналитику');
 
       setRoomsTotal(statsPayload?.rooms?.total ?? 0);
       setPlayersTotal(statsPayload?.players?.total ?? 0);
@@ -107,6 +115,11 @@ export default function AdminPage() {
         name: String(it.name ?? ''),
         points: Number(it.points ?? 0),
       })));
+
+      setAnalyticsPlayers(analyticsPayload?.players?.unique ?? 0);
+      setAnalyticsRounds(analyticsPayload?.rounds?.started ?? 0);
+      setAnalyticsExitsByStatus(analyticsPayload?.exits?.byStatus ?? {});
+      setAnalyticsExitsByReason(analyticsPayload?.exits?.byReason ?? {});
 
       const roomsRes = await fetch('/api/admin/rooms/active', { cache: 'no-store' });
       const roomsPayload = await roomsRes.json().catch(() => null);
@@ -286,6 +299,38 @@ export default function AdminPage() {
             <StatCard label="Комнаты завершённые" value={roomsFinished ?? (loading ? '…' : 0)} hint="status=finished" />
             <StatCard label="Лидерборд (игроки, очки)" value={leaderboardTotal ? leaderboardTotal.length : loading ? '…' : 0} hint="по players.total_points в периоде" />
             <StatCard label="Лидерборд (Раунд 2, очки)" value={leaderboardRound2 ? leaderboardRound2.length : loading ? '…' : 0} hint="по round2_answers в периоде" />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard label="Уникальные игроки" value={analyticsPlayers ?? (loading ? '…' : 0)} hint="по событиям player_join" />
+            <StatCard label="Запуски раундов" value={analyticsRounds ?? (loading ? '…' : 0)} hint="по событиям round_start" />
+            <StatCard label="Выходы (статусы)" value={analyticsExitsByStatus ? Object.values(analyticsExitsByStatus).reduce((a, b) => a + b, 0) : loading ? '…' : 0} hint="по событиям player_exit" />
+            <StatCard label="Причины выхода" value={analyticsExitsByReason ? Object.values(analyticsExitsByReason).reduce((a, b) => a + b, 0) : loading ? '…' : 0} hint="tab close / background / unknown" />
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-3xl border-[3px] border-[#142a45] bg-white p-4 space-y-3">
+              <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Где выходят (статус комнаты)</p>
+              <div className="space-y-2">
+                {Object.entries(analyticsExitsByStatus ?? {}).map(([status, count]) => (
+                  <div key={status} className="flex items-center justify-between text-sm font-black">
+                    <span className="text-[#142a45]/80">{status}</span>
+                    <span className="text-[#142a45]">{count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-3xl border-[3px] border-[#142a45] bg-white p-4 space-y-3">
+              <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Причины выхода</p>
+              <div className="space-y-2">
+                {Object.entries(analyticsExitsByReason ?? {}).map(([reason, count]) => (
+                  <div key={reason} className="flex items-center justify-between text-sm font-black">
+                    <span className="text-[#142a45]/80">{reason}</span>
+                    <span className="text-[#142a45]">{count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">

@@ -44,6 +44,7 @@ as $$
 declare
   answer_exists boolean;
   updated_points integer;
+  new_answer_id uuid;
 begin
   select exists(
     select 1
@@ -65,7 +66,18 @@ begin
 
   insert into answers (room_id, player_id, question_index, text, is_correct, points_earned)
   values (p_room_id, p_player_id, p_question_index, p_answer, p_is_correct, p_points)
-  on conflict do nothing;
+  on conflict do nothing
+  returning id into new_answer_id;
+
+  if new_answer_id is null then
+    select total_points into updated_points
+    from players
+    where id = p_player_id;
+
+    return query
+    select p_player_id, updated_points, true;
+    return;
+  end if;
 
   if p_is_correct then
     update players
@@ -85,5 +97,97 @@ $$;
 
 grant execute on function submit_answer(uuid, uuid, integer, text, boolean, integer) to anon, authenticated;
 
--- Optional: ensure a unique constraint to avoid double answers
--- create unique index if not exists answers_unique on answers (room_id, player_id, question_index);
+-- Ensure a unique constraint to avoid double answers
+create unique index if not exists answers_unique on answers (room_id, player_id, question_index);
+
+-- Centralized logs table for client telemetry
+create table if not exists public.logs (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default timezone('utc', now()),
+  client_timestamp timestamptz,
+  level text not null,
+  channel text not null,
+  message text not null,
+  event_name text,
+  room_id uuid,
+  player_id uuid,
+  session_id text,
+  page text,
+  user_agent text,
+  context jsonb
+);
+
+alter table public.logs enable row level security;
+
+do $$
+begin
+  if exists (
+    select 1 from pg_policies where schemaname = 'public' and tablename = 'logs' and policyname = 'Allow insert logs'
+  ) then
+    drop policy "Allow insert logs" on public.logs;
+  end if;
+end $$;
+
+create policy "Allow insert logs"
+on public.logs for insert
+with check (true);
+
+create index if not exists logs_created_at_idx on public.logs (created_at desc);
+create index if not exists logs_event_name_idx on public.logs (event_name);
+create index if not exists logs_room_id_idx on public.logs (room_id);
+create index if not exists logs_player_id_idx on public.logs (player_id);
+
+-- Room limit settings + RPC to enforce limit on creation
+create table if not exists public.app_settings (
+  key text primary key,
+  value text not null
+);
+
+insert into public.app_settings (key, value)
+values ('max_active_rooms', '200')
+on conflict (key) do nothing;
+
+create or replace function public.get_max_active_rooms()
+returns integer
+language sql
+stable
+as $$
+  select coalesce((select value::integer from public.app_settings where key = 'max_active_rooms'), 200);
+$$;
+
+drop function if exists public.create_room(text, text);
+create or replace function public.create_room(
+  p_code text,
+  p_pack_id text default 'classic'
+)
+returns table (
+  id uuid,
+  code text,
+  is_active boolean,
+  status text
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  active_count integer;
+  max_rooms integer;
+begin
+  select count(*) into active_count from public.rooms where is_active = true;
+  select public.get_max_active_rooms() into max_rooms;
+
+  if active_count >= max_rooms then
+    raise exception 'Room limit reached';
+  end if;
+
+  insert into public.rooms (code, current_question_index, is_active, status, question_started_at, pack_id)
+  values (p_code, 0, true, 'waiting', null, p_pack_id)
+  returning public.rooms.id, public.rooms.code, public.rooms.is_active, public.rooms.status into id, code, is_active, status;
+
+  return query
+  select id, code, is_active, status;
+end;
+$$;
+
+grant execute on function public.create_room(text, text) to anon, authenticated;

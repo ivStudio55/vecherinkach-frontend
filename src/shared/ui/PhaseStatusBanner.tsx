@@ -16,7 +16,9 @@ const getConnectionLabel = (status?: ConnectionStatus | null) => {
   if (status.mode === 'reconnecting') {
     return 'Связь нестабильна — пытаемся восстановиться';
   }
-  return 'Связь: Realtime';
+  const latencyLabel = typeof status.latencyMs === 'number' ? ` · ${Math.round(status.latencyMs)}ms` : '';
+  const reconnectLabel = status.reconnectCount ? ` · reconnections: ${status.reconnectCount}` : '';
+  return `Связь: Realtime${latencyLabel}${reconnectLabel}`;
 };
 
 export const PhaseStatusBanner = ({ phaseLabel, connectionStatus, className }: PhaseStatusBannerProps) => {

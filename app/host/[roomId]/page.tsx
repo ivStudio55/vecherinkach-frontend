@@ -10,6 +10,7 @@ import { AnimatedText } from '@/components/AnimatedText';
 import { useRoomSync } from '@/lib/useRoomSync';
 import { mapRoundStateToUiPhase, roundStateReducer } from '@/lib/roundStateMachine';
 import { PhaseStatusBanner } from '@/shared/ui/PhaseStatusBanner';
+import { isRealtimeEnabled } from '@/shared/logic/realtimeConfig';
 import {
   ActiveRoundQuestion,
   OptionKey,
@@ -737,7 +738,8 @@ export default function HostRoomPage() {
   const [isTournamentVisible, setIsTournamentVisible] = useState(false);
   const [roundState, dispatchRoundEvent] = useReducer(roundStateReducer, 'idle');
 
-  const { room: syncedRoom, connectionStatus } = useRoomSync(roomId);
+  const realtimeEnabled = isRealtimeEnabled();
+  const { room: syncedRoom, connectionStatus } = useRoomSync(roomId, { enableRealtime: realtimeEnabled });
 
   const isMusicMutedRef = useRef(isMusicMuted);
   useEffect(() => {
@@ -3177,7 +3179,7 @@ export default function HostRoomPage() {
       console.error('Не удалось загрузить использованные вопросы Раунда 2', err);
       return [] as number[];
     }
-  }, [roomId]);
+  }, [realtimeEnabled, roomId]);
 
   const loadUsedRound4PuzzleIds = useCallback(async () => {
     try {
@@ -4909,6 +4911,18 @@ export default function HostRoomPage() {
 
     let mounted = true;
     const channelId = `${Date.now()}`;
+
+    if (!realtimeEnabled) {
+      const poll = () => {
+        loadRoomDataRef.current?.();
+      };
+      poll();
+      const intervalId = setInterval(poll, 2000);
+      return () => {
+        mounted = false;
+        clearInterval(intervalId);
+      };
+    }
 
     const playersChannel = supabase
       .channel(`host-players-${roomId}-${channelId}`)
