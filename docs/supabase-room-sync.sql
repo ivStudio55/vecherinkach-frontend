@@ -47,6 +47,22 @@ alter table rooms
 
 create index if not exists rooms_pack_id_idx on rooms (pack_id);
 
+-- Ensure RLS allows create_room insert
+alter table public.rooms enable row level security;
+
+do $$
+begin
+  if exists (
+    select 1 from pg_policies where schemaname = 'public' and tablename = 'rooms' and policyname = 'Allow insert rooms'
+  ) then
+    drop policy "Allow insert rooms" on public.rooms;
+  end if;
+end $$;
+
+create policy "Allow insert rooms"
+on public.rooms for insert
+with check (true);
+
 -- Add total_points to players if not exists
 alter table players
   add column if not exists total_points int default 0;
@@ -192,20 +208,72 @@ create index if not exists logs_player_id_idx on public.logs (player_id);
 
 -- Room limit settings + RPC to enforce limit on creation
 create table if not exists public.app_settings (
-  key text primary key,
-  value text not null
+  id bigserial primary key,
+  max_rooms integer default 100
 );
 
-insert into public.app_settings (key, value)
-values ('max_active_rooms', '200')
-on conflict (key) do nothing;
+do $$
+begin
+  if not exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'app_settings'
+      and column_name = 'max_rooms'
+  ) then
+    alter table public.app_settings add column max_rooms integer;
+  end if;
+end $$;
+
+insert into public.app_settings (max_rooms)
+select 100
+where exists (
+  select 1
+  from information_schema.columns
+  where table_schema = 'public'
+    and table_name = 'app_settings'
+    and column_name = 'max_rooms'
+)
+and not exists (
+  select 1 from public.app_settings where max_rooms is not null
+);
 
 create or replace function public.get_max_active_rooms()
 returns integer
-language sql
+language plpgsql
 stable
 as $$
-  select coalesce((select value::integer from public.app_settings where key = 'max_active_rooms'), 200);
+declare
+  resolved_limit integer;
+  has_max_rooms boolean;
+begin
+  select exists(
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'app_settings'
+      and column_name = 'max_rooms'
+  ) into has_max_rooms;
+
+  if has_max_rooms then
+    select max_rooms
+      into resolved_limit
+    from public.app_settings
+    where max_rooms is not null
+    order by id asc
+    limit 1;
+  end if;
+
+  if resolved_limit is null then
+    select value::integer
+      into resolved_limit
+    from public.app_settings
+    where key = 'max_active_rooms'
+    limit 1;
+  end if;
+
+  return coalesce(resolved_limit, 100);
+end;
 $$;
 
 drop function if exists public.create_room(text, text);
@@ -231,6 +299,14 @@ begin
   select public.get_max_active_rooms() into max_rooms;
 
   if active_count >= max_rooms then
+    insert into public.logs (level, channel, message, event_name, context)
+    values (
+      'warn',
+      'rpc',
+      'Room limit reached while creating room',
+      'create_room_limit',
+      jsonb_build_object('active_count', active_count, 'max_rooms', max_rooms, 'code', p_code)
+    );
     raise exception 'Room limit reached';
   end if;
 
@@ -240,6 +316,17 @@ begin
 
   return query
   select id, code, is_active, status;
+exception
+  when others then
+    insert into public.logs (level, channel, message, event_name, context)
+    values (
+      'error',
+      'rpc',
+      'create_room failed',
+      'create_room_error',
+      jsonb_build_object('code', p_code, 'pack_id', p_pack_id, 'error', SQLERRM)
+    );
+    raise;
 end;
 $$;
 

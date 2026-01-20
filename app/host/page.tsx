@@ -3,6 +3,7 @@
 import { useState, CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { logError, logEvent } from '@/shared/logic/logger';
 import backTexture from '../img/back2.png';
 import { PlayerPrinter } from '@/components/PlayerPrinter';
 import { DEFAULT_PACK_ID, normalizePackId, QUESTION_PACKS, type PackId } from '@/lib/questionPacks';
@@ -52,8 +53,23 @@ export default function HostPage() {
         }
 
         if (insertError?.message?.toLowerCase().includes('limit')) {
+          logEvent('warn', 'rpc', 'create_room limit reached', {
+            roomCode,
+            packId,
+            error: insertError,
+            eventName: 'create_room_limit',
+          });
           setError('Достигнут лимит активных комнат. Попробуйте позже.');
           return;
+        }
+
+        if (insertError) {
+          logEvent('error', 'rpc', 'create_room failed', {
+            roomCode,
+            packId,
+            error: insertError,
+            eventName: 'create_room_error',
+          });
         }
 
         attempts += 1;
@@ -62,6 +78,10 @@ export default function HostPage() {
       setError('Не удалось создать комнату. Попробуйте ещё раз.');
     } catch (err) {
       console.error('createRoom error:', err);
+      logError('rpc', 'create_room threw exception', err, {
+        packId,
+        eventName: 'create_room_exception',
+      });
       const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
       setError(`Ошибка: ${message}`);
     } finally {
