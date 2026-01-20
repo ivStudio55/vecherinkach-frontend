@@ -5,13 +5,14 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { logError, logEvent } from '@/shared/logic/logger';
 import backTexture from '../img/back2.png';
-import { PlayerPrinter } from '@/components/PlayerPrinter';
+import { HostRoleNoticeModal } from '@/shared/ui/HostRoleNoticeModal';
 import { DEFAULT_PACK_ID, normalizePackId, QUESTION_PACKS, type PackId } from '@/lib/questionPacks';
 
 export default function HostPage() {
   const router = useRouter();
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState('');
+  const [isRoleNoticeOpen, setIsRoleNoticeOpen] = useState(true);
   const [packId, setPackId] = useState<PackId>(() => {
     if (typeof window === 'undefined') {
       return DEFAULT_PACK_ID;
@@ -128,6 +129,11 @@ export default function HostPage() {
 
   return (
     <div className="min-h-screen bg-[#fef4dc] text-[#142a45] px-4 py-6 lg:py-8" style={backgroundStyle}>
+      <HostRoleNoticeModal
+        isOpen={isRoleNoticeOpen}
+        onContinue={() => setIsRoleNoticeOpen(false)}
+        onPlayer={() => router.push('/join')}
+      />
       <div className="mx-auto flex w-full max-w-[1600px] items-center justify-center">
         <div
           className="w-full rounded-[32px] border-[3px] border-[#142a45]/20 bg-[#fff6da]/80 px-4 py-4 shadow-[0_25px_80px_rgba(20,42,69,0.25)] backdrop-blur-sm sm:px-6 sm:py-6 lg:px-8"

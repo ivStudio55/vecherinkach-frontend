@@ -2101,6 +2101,12 @@ export default function RoomPage() {
   const playerAnswerKey = playerAnswer;
   const playerAnswerLabel = playerAnswerKey ? OPTION_LABELS[playerAnswerKey as keyof typeof OPTION_LABELS] : null;
   const playerAnswerText = playerAnswerKey && question ? question.options[getOptionIndexFromKey(playerAnswerKey)] : null;
+  const correctAnswerLabel = correctAnswerKey ? OPTION_LABELS[correctAnswerKey as keyof typeof OPTION_LABELS] : null;
+  const correctAnswerText =
+    correctAnswerKey && question ? question.options[getOptionIndexFromKey(correctAnswerKey)] : null;
+  const correctAnswerDisplay = correctAnswerLabel
+    ? `${correctAnswerLabel} · ${correctAnswerText ?? '—'}`
+    : correctAnswerText ?? '—';
   const isPlayerCorrect = playerAnswerKey ? playerAnswerKey === correctAnswerKey : null;
   const revealRound1Answer = shouldShowCorrectAnswer;
   const effectiveCorrectness = revealRound1Answer ? isPlayerCorrect : null;
@@ -2312,7 +2318,7 @@ export default function RoomPage() {
                 <div className="rounded-3xl border-[3px] border-[#2f7a3b] bg-[#e6f7ea] p-4 text-center space-y-2">
                   <p className="text-xs font-semibold tracking-[0.3em] text-[#2f7a3b]/70">ПРАВИЛЬНЫЙ ОТВЕТ</p>
                   <p className="text-xl font-black text-[#2f7a3b]">
-                    {(round4Puzzle?.answers ?? []).join(' / ') || '—'}
+                    {round4Puzzle?.answers?.[0] ?? '—'}
                   </p>
                 </div>
                 <PlayerAnswersList
@@ -2564,6 +2570,11 @@ export default function RoomPage() {
                 </div>
                 <h3 className="text-2xl font-black">{playerAnswerStatus}</h3>
                 <p className="text-sm text-[#142a45]/80">Ваш ответ: {playerAnswerDisplay}</p>
+                {shouldShowCorrectAnswer ? (
+                  <p className="text-sm font-semibold text-[#142a45]">
+                    Правильный ответ: <span className="font-black">{correctAnswerDisplay}</span>
+                  </p>
+                ) : null}
                 {shouldShowCorrectAnswer ? (
                   <QuestionLikeButton liked={hasLikedQuestion} likesCount={questionLikesCount} onLike={() => void likeQuestion()} />
                 ) : null}

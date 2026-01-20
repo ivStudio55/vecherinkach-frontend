@@ -5,7 +5,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { logError, logEvent } from '@/shared/logic/logger';
 import { TrueFalseItem, ROUND2_POINTS } from '@/lib/round2';
-import { PlayerPrinter } from '@/components/PlayerPrinter';
 import { Round1VariantsPanel, Round1VariantsPanelHandle } from '@/components/Round1VariantsPanel';
 import { AnimatedText } from '@/components/AnimatedText';
 import { useRoomSync } from '@/lib/useRoomSync';
@@ -13,6 +12,7 @@ import { mapRoundStateToUiPhase, roundStateReducer } from '@/lib/roundStateMachi
 import { PhaseStatusBanner } from '@/shared/ui/PhaseStatusBanner';
 import { WinnerBanner } from '@/shared/ui/WinnerBanner';
 import { BestQuestionCard } from '@/shared/ui/BestQuestionCard';
+import { JoinQrBlock } from '@/shared/ui/JoinQrBlock';
 import { isRealtimeEnabled } from '@/shared/logic/realtimeConfig';
 import { ROUND3_ANSWER_SECONDS, ROUND3_VOTE_COUNTDOWN_SECONDS, ROUND3_VOTE_SECONDS } from '@/shared/logic/roundConstants';
 import {
@@ -534,7 +534,6 @@ type Round2LeaderboardEntry = {
 export default function HostRoomPage() {
   const params = useParams();
   const router = useRouter();
-  const printerRef = useRef<{ addPaper: (name: string) => void } | null>(null);
   const roomId = params.roomId as string;
 
   const [isDesktopLayoutForced, setIsDesktopLayoutForced] = useState(false);
@@ -673,7 +672,6 @@ export default function HostRoomPage() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [question, setQuestionState] = useState<Question | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
-  const [previousPlayers, setPreviousPlayers] = useState<Player[]>([]);
   const [totalPlayerCount, setTotalPlayerCount] = useState(0);
   const [answerCount, setAnswerCount] = useState(0);
   const [correctAnswerCount, setCorrectAnswerCount] = useState(0);
@@ -3747,17 +3745,6 @@ export default function HostRoomPage() {
     setTotalPlayerCount(list.length);
     setIsPlayerLimitReached(list.length > 10);
   }, [roomId]);
-
-  // Track new players for printer
-  useEffect(() => {
-    const newPlayers = players.filter(p => !previousPlayers.some(pp => pp.id === p.id));
-    newPlayers.forEach(player => {
-      if (printerRef.current) {
-        printerRef.current.addPaper(player.name);
-      }
-    });
-    setPreviousPlayers(players);
-  }, [players, previousPlayers]);
 
   const loadAnswerCount = useCallback(
     async (questionIndex: number) => {
@@ -7671,23 +7658,11 @@ export default function HostRoomPage() {
                 </div>
                 {audioError && <p className="text-xs text-[#b23324] font-semibold">{audioError}</p>}
 
-                <div className="flex gap-6">
-                  <ol className="flex-1 space-y-3 text-sm font-semibold text-[#142a45]/80">
-                    <li className="flex gap-3">
-                      <span className="w-8 h-8 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">1</span>
-                      Игроки заходят на `/join` и вводят код комнаты.
-                    </li>
-                    <li className="flex gap-3">
-                      <span className="w-8 h-8 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">2</span>
-                      Игроки переходят на экран подключения.
-                    </li>
-                    <li className="flex gap-3">
-                      <span className="w-8 h-8 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">3</span>
-                      Когда готовы — стартуйте раунд. Таймер и вопросы синхронизируются автоматически.
-                    </li>
-                  </ol>
-                  <PlayerPrinter ref={printerRef} />
-                </div>
+                <JoinQrBlock
+                  roomCode={roomCode}
+                  qrWindowUrl={`/host/${roomId}/qr?code=${encodeURIComponent(roomCode)}`}
+                  className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da]"
+                />
 
                 <button
                   onClick={handlePrepareRound}
