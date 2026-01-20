@@ -16,6 +16,17 @@ alter table rooms
   add column if not exists pack_id text not null default 'classic';
 
 -- Add status constraint
+update rooms
+set status = 'waiting'
+where status is null
+  or status not in (
+    'waiting',
+    'running',
+    'round2-running',
+    'round2-ready',
+    'finished'
+  );
+
 do $$
 begin
   if exists (
@@ -225,18 +236,26 @@ begin
   end if;
 end $$;
 
-insert into public.app_settings (max_rooms)
-select 100
-where exists (
-  select 1
-  from information_schema.columns
-  where table_schema = 'public'
-    and table_name = 'app_settings'
-    and column_name = 'max_rooms'
-)
-and not exists (
-  select 1 from public.app_settings where max_rooms is not null
-);
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'app_settings'
+      and column_name = 'key'
+  ) then
+    insert into public.app_settings (key, value, max_rooms)
+    values ('max_active_rooms', '100', 100)
+    on conflict (key) do nothing;
+  else
+    insert into public.app_settings (max_rooms)
+    select 100
+    where not exists (
+      select 1 from public.app_settings where max_rooms is not null
+    );
+  end if;
+end $$;
 
 create or replace function public.get_max_active_rooms()
 returns integer
