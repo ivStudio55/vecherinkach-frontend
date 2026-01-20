@@ -224,6 +224,7 @@ export default function RoomPage() {
   const [hasLikedQuestion, setHasLikedQuestion] = useState(false);
   const [questionLikesCount, setQuestionLikesCount] = useState<number | null>(null);
   const [bestQuestion, setBestQuestion] = useState<{ id: number; likes: number; text: string } | null>(null);
+  const [lastActiveRound, setLastActiveRound] = useState<RoomStatus>('waiting');
   const roomIdRef = useRef('');
   const playerIdRef = useRef('');
   const roomStatusRef = useRef(roomStatus);
@@ -242,6 +243,13 @@ export default function RoomPage() {
 
   useEffect(() => {
     roomStatusRef.current = roomStatus;
+  }, [roomStatus]);
+
+  useEffect(() => {
+    if (roomStatus === 'waiting' || roomStatus === 'final-results' || roomStatus === 'finished') {
+      return;
+    }
+    setLastActiveRound(roomStatus);
   }, [roomStatus]);
 
   useEffect(() => {
@@ -2175,15 +2183,28 @@ export default function RoomPage() {
       ? round3VoteTimeLeft
       : roomStatus === 'round3-running' && round3Phase === 'vote-countdown'
         ? round3VoteCountdownTimeLeft
-        : effectiveTimeLeft;
+        : roomStatus === 'round3-running' && round3Phase === 'answer'
+          ? round3AnswerTimeLeft
+          : effectiveTimeLeft;
   const activeTimerDuration =
     roomStatus === 'round3-running' && round3Phase === 'vote'
       ? ROUND3_VOTE_SECONDS
       : roomStatus === 'round3-running' && round3Phase === 'vote-countdown'
         ? ROUND3_VOTE_COUNTDOWN_SECONDS
-        : QUESTION_DURATION_SECONDS;
+        : roomStatus === 'round3-running' && round3Phase === 'answer'
+          ? ROUND3_ANSWER_SECONDS
+          : QUESTION_DURATION_SECONDS;
   const progressPercent = Math.max(0, Math.min(100, (activeTimerSeconds / activeTimerDuration) * 100));
-  const timerLabel = allPlayersAnswered ? 'Все ответили' : `${activeTimerSeconds} c`;
+  const round3CountdownStep =
+    roomStatus === 'round3-running' && round3Phase === 'vote-countdown'
+      ? Math.min(ROUND3_VOTE_COUNTDOWN_SECONDS, Math.max(1, ROUND3_VOTE_COUNTDOWN_SECONDS - round3VoteCountdownTimeLeft + 1))
+      : null;
+  const timerLabel =
+    allPlayersAnswered
+      ? 'Все ответили'
+      : roomStatus === 'round3-running' && round3Phase === 'vote-countdown'
+        ? `${round3CountdownStep ?? 1}…`
+        : `${activeTimerSeconds} c`;
   const phaseBannerLabel =
     roomStatus === 'waiting'
       ? 'Ожидание игроков'
@@ -2213,9 +2234,31 @@ export default function RoomPage() {
       : effectiveCorrectness === false
         ? 'border-[#b23324] bg-[#ffd7d0] text-[#b23324]'
         : 'border-[#142a45]/20 bg-[#fff6da] text-[#142a45]';
+  const round2CurrentItem = round2ItemIndex !== null ? round2Items[round2ItemIndex] ?? null : null;
+  const round2QuestionText = round2CurrentItem
+    ? round2ShowingFact
+      ? round2CurrentItem.fact
+      : round2CurrentItem.fiction
+    : null;
   const round2CorrectAnswerLabel = round2ShowingFact ? 'Правда' : 'Вымысел';
   const round4CorrectSet = new Set((round4Puzzle?.answers ?? []).map(normalizeRound4Answer));
   const round5CorrectAnswer = round5CurrentQuestion?.answer ?? null;
+  const nextRoundLabel = (() => {
+    switch (lastActiveRound) {
+      case 'running':
+        return '2';
+      case 'round2-running':
+        return '3';
+      case 'round3-running':
+        return '4';
+      case 'round4-running':
+        return '5';
+      case 'round5-running':
+        return 'финала';
+      default:
+        return '';
+    }
+  })();
 
   if (showResults && (roomStatus === 'finished' || roomStatus === 'final-results')) {
     const isFinal = roomStatus === 'final-results';
@@ -2334,45 +2377,47 @@ export default function RoomPage() {
         <PhaseStatusBanner phaseLabel={phaseBannerLabel} className="mt-4" />
 
         <ScalePanel isVisible={roomStatus === 'waiting'}>
-          <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-8 text-center space-y-4">
-            {isIntermission ? (
-              <>
-                <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">ПЕРЕРЫВ МЕЖДУ РАУНДАМИ</p>
-                <h2 className="text-3xl font-black">🏁 Текущие результаты</h2>
+          <div className="space-y-4">
+            <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-8 text-center space-y-4">
+              {isIntermission ? (
+                <>
+                  <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">ПЕРЕРЫВ МЕЖДУ РАУНДАМИ</p>
+                  <h2 className="text-3xl font-black">Ожидаем раунда {nextRoundLabel || '…'}</h2>
+                  <p className="text-sm text-[#142a45]/80">
+                    Ждём следующий раунд от ведущего. Ничего нажимать не нужно.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="text-5xl">⏳</div>
+                  <h2 className="text-3xl font-black">Ждём старт от ведущего</h2>
+                  <p className="text-sm text-[#142a45]/80">
+                    Вы подключены. Ведущий начнёт раунд, когда все игроки войдут. Ничего нажимать не нужно — просто ждите звукового сигнала.
+                  </p>
+                  <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-[#fff6da] px-4 py-3 text-xs text-[#142a45]/70">
+                    Совет: держите громкость включённой и отвечайте как можно быстрее, чтобы попасть в топ.
+                  </div>
+                </>
+              )}
+            </section>
 
-                <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-5 space-y-3 animate-final-panel">
-                  <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/60">ВАШ ПРОГРЕСС</p>
-
-                  {standingError ? (
-                    <p className="text-sm font-semibold text-[#b23324]">{standingError}</p>
-                  ) : (
-                    <ScoreSummary
-                      points={playerTotalPoints}
-                      rank={playerRank}
-                      totalPlayers={playersCount}
-                      isLoading={isStandingLoading}
-                      className="animate-final-panel"
-                    />
-                  )}
-                </div>
-
-                <p className="text-sm text-[#142a45]/80">
-                  Ждём следующий раунд от ведущего. Ничего нажимать не нужно.
-                </p>
-              </>
-            ) : (
-              <>
-                <div className="text-5xl">⏳</div>
-                <h2 className="text-3xl font-black">Ждём старт от ведущего</h2>
-                <p className="text-sm text-[#142a45]/80">
-                  Вы подключены. Ведущий начнёт раунд, когда все игроки войдут. Ничего нажимать не нужно — просто ждите звукового сигнала.
-                </p>
-                <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-[#fff6da] px-4 py-3 text-xs text-[#142a45]/70">
-                  Совет: держите громкость включённой и отвечайте как можно быстрее, чтобы попасть в топ.
-                </div>
-              </>
+            {isIntermission && (
+              <div className="text-center space-y-2">
+                <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/60">ВАШ ПРОГРЕСС</p>
+                {standingError ? (
+                  <p className="text-sm font-semibold text-[#b23324]">{standingError}</p>
+                ) : (
+                  <ScoreSummary
+                    points={playerTotalPoints}
+                    rank={playerRank}
+                    totalPlayers={playersCount}
+                    isLoading={isStandingLoading}
+                    className="animate-final-panel"
+                  />
+                )}
+              </div>
             )}
-          </section>
+          </div>
         </ScalePanel>
 
         <ScalePanel isVisible={roomStatus === 'round4-running'}>
@@ -2683,6 +2728,17 @@ export default function RoomPage() {
               <p className="text-sm text-[#142a45]/70">Слушайте ведущего и выбирайте вариант.</p>
             </div>
 
+            <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] px-4 py-3 text-center space-y-2">
+              <p className="text-[10px] font-black tracking-[0.35em] text-[#142a45]/60">ВОПРОС</p>
+              <p className="text-base sm:text-lg font-black leading-tight">
+                {round2QuestionText ? (
+                  <AnimatedText key={`r2-${round2ItemIndex ?? 'x'}-${round2ShowingFact ? 't' : 'f'}`} text={round2QuestionText} />
+                ) : (
+                  'Вопрос загружается…'
+                )}
+              </p>
+            </div>
+
             <div>
               <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
                 <span>Осталось времени</span>
@@ -2820,7 +2876,7 @@ export default function RoomPage() {
               <div className="rounded-3xl border-[4px] border-[#142a45] bg-[#ffe184] px-6 py-6 text-center space-y-2">
                 <p className="text-xs tracking-[0.4em] text-[#142a45]/70 font-black">ГОЛОСОВАНИЕ</p>
                 <div className="text-6xl font-black leading-none text-[#142a45]">
-                  {Math.max(1, round3VoteCountdownTimeLeft)}
+                  {round3CountdownStep ?? 1}
                 </div>
                 <p className="text-sm font-semibold text-[#142a45]/80">Приготовься выбирать лучший ответ</p>
               </div>
@@ -2838,6 +2894,21 @@ export default function RoomPage() {
                   inputMode="text"
                   maxLength={60}
                 />
+                <button
+                  onClick={() => void submitRound3Answer(round3AnswerText)}
+                  disabled={
+                    isSubmitting ||
+                    hasAnswered ||
+                    round3AnswerTimeLeft <= 0 ||
+                    round3AnswerText.trim().length === 0
+                  }
+                  className="w-full py-3 rounded-2xl font-black text-lg tracking-[0.18em] bg-[#f1532f] text-white border-[3px] border-[#142a45] transition disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Отправить
+                </button>
+                {hasAnswered && (
+                  <p className="text-xs text-center text-[#1f6ac6] font-semibold">Ответ отправлен!</p>
+                )}
                 <p className="text-xs text-center text-[#142a45]/60">Поле доступно только пока идёт таймер.</p>
               </div>
             )}
