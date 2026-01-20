@@ -20,16 +20,19 @@ export function LivePulseBadge({ label = 'Прямой эфир', className }: L
       <style jsx>{`
         @keyframes livePulse {
           0% {
-            transform: scale(1);
-            opacity: 0.9;
+            opacity: 1;
           }
-          50% {
-            transform: scale(1.1);
-            opacity: 0.6;
+          20% {
+            opacity: 0.55;
+          }
+          40% {
+            opacity: 1;
+          }
+          60% {
+            opacity: 0.65;
           }
           100% {
-            transform: scale(1);
-            opacity: 0.9;
+            opacity: 1;
           }
         }
         .live-pulse {

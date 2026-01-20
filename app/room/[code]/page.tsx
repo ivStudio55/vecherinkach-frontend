@@ -77,6 +77,13 @@ const addSecondsToIso = (startedAt: string | null, seconds: number): string | nu
   return new Date(startTime + seconds * 1000).toISOString();
 };
 
+const normalizeRound4Answer = (value: string) =>
+  value
+    .toLowerCase()
+    .replace('ё', 'е')
+    .replace(/\s+/g, ' ')
+    .trim();
+
 type Round5Question = {
   question: string;
   answer: number;
@@ -139,6 +146,7 @@ type PlayerAnswerListItem = {
   name: string;
   text: string;
   likes: number;
+  isCorrect?: boolean;
 };
 
 type RoomUpdatePayload = {
@@ -2094,15 +2102,20 @@ export default function RoomPage() {
   const playerAnswerLabel = playerAnswerKey ? OPTION_LABELS[playerAnswerKey as keyof typeof OPTION_LABELS] : null;
   const playerAnswerText = playerAnswerKey && question ? question.options[getOptionIndexFromKey(playerAnswerKey)] : null;
   const isPlayerCorrect = playerAnswerKey ? playerAnswerKey === correctAnswerKey : null;
+  const revealRound1Answer = shouldShowCorrectAnswer;
+  const effectiveCorrectness = revealRound1Answer ? isPlayerCorrect : null;
   const playerAnswerDisplay = playerAnswerLabel ? `${playerAnswerLabel} · ${playerAnswerText ?? '—'}` : playerAnswerText ?? '—';
   const playerAnswerStatus =
-    isPlayerCorrect === true ? 'Правильно' : isPlayerCorrect === false ? 'Неправильно' : 'Ответ принят';
+    effectiveCorrectness === true ? 'Правильно' : effectiveCorrectness === false ? 'Неправильно' : 'Ответ принят';
   const playerAnswerTone =
-    isPlayerCorrect === true
+    effectiveCorrectness === true
       ? 'border-[#2f7a3b] bg-[#dff7e3] text-[#2f7a3b]'
-      : isPlayerCorrect === false
+      : effectiveCorrectness === false
         ? 'border-[#b23324] bg-[#ffd7d0] text-[#b23324]'
         : 'border-[#142a45]/20 bg-[#fff6da] text-[#142a45]';
+  const round2CorrectAnswerLabel = round2ShowingFact ? 'Правда' : 'Вымысел';
+  const round4CorrectSet = new Set((round4Puzzle?.answers ?? []).map(normalizeRound4Answer));
+  const round5CorrectAnswer = round5CurrentQuestion?.answer ?? null;
 
   if (showResults && (roomStatus === 'finished' || roomStatus === 'final-results')) {
     const isFinal = roomStatus === 'final-results';
@@ -2155,7 +2168,7 @@ export default function RoomPage() {
             >
               <div className="text-5xl">{isWinner ? '🏆' : '🎊'}</div>
               <p className={`text-2xl font-black ${isWinner ? 'text-[#1f6ac6]' : 'text-[#142a45]'}`}>
-                {isWinner ? 'Поздравляем! Ты победил!' : 'Спасибо за игру!'}
+                {isWinner ? 'Поздравляем! Ты победил!' : 'Ждём следующего раунда.'}
               </p>
               <p className="text-sm text-[#142a45]/70">
                 {isWinner
@@ -2295,7 +2308,23 @@ export default function RoomPage() {
             )}
 
             {allPlayersAnswered ? (
-              <PlayerAnswersList items={round4AnswerResults.map((item) => ({ id: item.id, name: item.name, text: item.text, likes: item.likes }))} />
+              <div className="space-y-4">
+                <div className="rounded-3xl border-[3px] border-[#2f7a3b] bg-[#e6f7ea] p-4 text-center space-y-2">
+                  <p className="text-xs font-semibold tracking-[0.3em] text-[#2f7a3b]/70">ПРАВИЛЬНЫЙ ОТВЕТ</p>
+                  <p className="text-xl font-black text-[#2f7a3b]">
+                    {(round4Puzzle?.answers ?? []).join(' / ') || '—'}
+                  </p>
+                </div>
+                <PlayerAnswersList
+                  items={round4AnswerResults.map((item) => ({
+                    id: item.id,
+                    name: item.name,
+                    text: item.text,
+                    likes: item.likes,
+                    isCorrect: round4CorrectSet.has(normalizeRound4Answer(item.text)),
+                  }))}
+                />
+              </div>
             ) : hasAnswered && round4Puzzle ? (
               <div className="rounded-3xl border-[3px] border-[#1f6ac6] bg-[#e9f0ff] p-6 text-center space-y-2">
                 <div className="text-5xl">✅</div>
@@ -2390,17 +2419,30 @@ export default function RoomPage() {
               )}
             </div>
 
-            {roomStatus !== 'round5-running' || hasAnswered || allPlayersAnswered ? (
+            {roomStatus === 'round5-explanation' ? (
+              <div className="space-y-4">
+                <div className="rounded-3xl border-[3px] border-[#2f7a3b] bg-[#e6f7ea] p-4 text-center space-y-2">
+                  <p className="text-xs font-semibold tracking-[0.3em] text-[#2f7a3b]/70">ПРАВИЛЬНЫЙ ОТВЕТ</p>
+                  <p className="text-2xl font-black text-[#2f7a3b]">{round5CorrectAnswer ?? '—'}</p>
+                </div>
+                <PlayerAnswersList
+                  items={round5AnswerResults.map((item) => ({
+                    id: item.id,
+                    name: item.name,
+                    text: item.text,
+                    likes: item.likes,
+                    isCorrect:
+                      typeof round5CorrectAnswer === 'number' && Number.isFinite(round5CorrectAnswer)
+                        ? Number(item.text) === round5CorrectAnswer
+                        : false,
+                  }))}
+                />
+              </div>
+            ) : roomStatus !== 'round5-running' || hasAnswered || allPlayersAnswered ? (
               <div className="rounded-3xl border-[3px] border-[#1f6ac6] bg-[#e9f0ff] p-6 text-center space-y-2">
                 <div className="text-5xl">✅</div>
-                <h3 className="text-2xl font-black text-[#1f6ac6]">
-                  {roomStatus === 'round5-explanation' ? 'Ответ открыт!' : 'Ответ отправлен!'}
-                </h3>
-                <p className="text-sm text-[#142a45]/70">
-                  {roomStatus === 'round5-explanation'
-                    ? 'Слушаем объяснение и ждём следующий тур.'
-                    : 'Ждём окончания таймера и подсчёта очков.'}
-                </p>
+                <h3 className="text-2xl font-black text-[#1f6ac6]">Ответ отправлен!</h3>
+                <p className="text-sm text-[#142a45]/70">Ждём окончания таймера и подсчёта очков.</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -2442,11 +2484,6 @@ export default function RoomPage() {
               </div>
             )}
 
-            {roomStatus === 'round5-explanation' && (
-              <PlayerAnswersList
-                items={round5AnswerResults.map((item) => ({ id: item.id, name: item.name, text: item.text, likes: item.likes }))}
-              />
-            )}
           </section>
         </ScalePanel>
 
@@ -2522,7 +2559,9 @@ export default function RoomPage() {
               </div>
             ) : hasAnswered ? (
               <div className={`rounded-3xl border-[3px] p-6 text-center space-y-2 ${playerAnswerTone}`}>
-                <div className="text-5xl">{isPlayerCorrect === false ? '❌' : '✅'}</div>
+                <div className="text-5xl">
+                  {effectiveCorrectness === true ? '✅' : effectiveCorrectness === false ? '❌' : '🕘'}
+                </div>
                 <h3 className="text-2xl font-black">{playerAnswerStatus}</h3>
                 <p className="text-sm text-[#142a45]/80">Ваш ответ: {playerAnswerDisplay}</p>
                 {shouldShowCorrectAnswer ? (
@@ -2560,18 +2599,11 @@ export default function RoomPage() {
               )}
             </div>
 
-            {round2PlayerAnswer !== null && hasAnswered && (
-              <div className="rounded-3xl border-[3px] border-[#1f6ac6] bg-[#e9f0ff] p-4 text-center space-y-2">
-                <p className="text-xs font-semibold tracking-[0.3em] text-[#142a45]/60">ВАШ ОТВЕТ</p>
-                <p className="text-2xl font-black text-[#1f6ac6]">{round2PlayerAnswer ? 'Правда' : 'Вымысел'}</p>
-              </div>
-            )}
-
             {round2Phase !== 'fact' ? (
-              <div className="rounded-3xl border-[3px] border-[#142a45]/20 bg-[#fff6da] p-6 text-center space-y-2">
-                <div className="text-5xl">🎙️</div>
-                <h3 className="text-2xl font-black">Ждём объяснение ведущего</h3>
-                <p className="text-sm text-[#142a45]/70">Голосование закрыто — скоро начнётся следующий факт.</p>
+              <div className="rounded-3xl border-[3px] border-[#1f6ac6] bg-[#e9f0ff] p-6 text-center space-y-2">
+                <p className="text-xs font-semibold tracking-[0.3em] text-[#142a45]/60">ПРАВИЛЬНЫЙ ОТВЕТ</p>
+                <p className="text-2xl font-black text-[#1f6ac6]">{round2CorrectAnswerLabel}</p>
+                <p className="text-sm text-[#142a45]/70">Ответ объявлен ведущим.</p>
               </div>
             ) : hasAnswered ? (
               <div className="rounded-3xl border-[3px] border-[#1f6ac6] bg-[#e9f0ff] p-6 text-center space-y-2">

@@ -5,6 +5,7 @@ type PlayerAnswerItem = {
   name: string;
   text: string;
   likes?: number | null;
+  isCorrect?: boolean;
 };
 
 type PlayerAnswersListProps = {
@@ -34,7 +35,9 @@ export function PlayerAnswersList({
           {items.map((item, index) => (
             <div
               key={item.id}
-              className="flex items-center justify-between gap-3 rounded-2xl border-[2px] border-[#142a45]/20 bg-white px-3 py-2"
+              className={`flex items-center justify-between gap-3 rounded-2xl border-[2px] px-3 py-2 ${
+                item.isCorrect ? 'border-[#2f7a3b] bg-[#e6f7ea]' : 'border-[#142a45]/20 bg-white'
+              }`}
               style={{ animationDelay: `${index * 25}ms` }}
             >
               <div className="min-w-0">
