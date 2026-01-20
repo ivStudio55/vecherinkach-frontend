@@ -37,6 +37,20 @@ const coerceToNumber = (value: unknown): number | null => {
   return null;
 };
 
+const getRemainingSeconds = (startedAt: string | null, offsetMs = 0, durationSeconds = QUESTION_DURATION_SECONDS) => {
+  if (!startedAt) {
+    return durationSeconds;
+  }
+  const startTime = new Date(startedAt).getTime();
+  if (Number.isNaN(startTime)) {
+    return durationSeconds;
+  }
+  const now = Date.now() - offsetMs;
+  const diffMs = now - startTime;
+  const elapsedSeconds = Math.floor(diffMs / 1000);
+  return Math.max(0, durationSeconds - elapsedSeconds);
+};
+
 type Round5Question = {
   question: string;
   answer: number;
