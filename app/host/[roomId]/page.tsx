@@ -702,6 +702,7 @@ export default function HostRoomPage() {
   const [round5AnswerRows, setRound5AnswerRows] = useState<Round5AnswerRow[]>([]);
   const [isSummaryLoading, setIsSummaryLoading] = useState(false);
   const [roomStatus, setRoomStatus] = useState<RoomStatus>('waiting');
+  const [lastActiveRound, setLastActiveRound] = useState<RoomStatus>('waiting');
   const [serverAllPlayersAnswered, setServerAllPlayersAnswered] = useState(false);
   const [timeOffsetMs, setTimeOffsetMs] = useState(0);
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<number[]>([]);
@@ -759,6 +760,43 @@ export default function HostRoomPage() {
   useEffect(() => {
     round5QuestionsRef.current = round5Questions;
   }, [round5Questions]);
+
+  useEffect(() => {
+    if (!roomId) {
+      return;
+    }
+    try {
+      const stored = localStorage.getItem(`hostLastActiveRound:${roomId}`);
+      if (
+        stored === 'running' ||
+        stored === 'round2-running' ||
+        stored === 'round3-running' ||
+        stored === 'round4-running' ||
+        stored === 'round5-running' ||
+        stored === 'round5-explanation'
+      ) {
+        setLastActiveRound(stored);
+      }
+    } catch {
+      // ignore
+    }
+  }, [roomId]);
+
+  useEffect(() => {
+    if (
+      roomStatus === 'waiting' ||
+      roomStatus === 'final-results' ||
+      roomStatus === 'finished'
+    ) {
+      return;
+    }
+    setLastActiveRound(roomStatus);
+    try {
+      localStorage.setItem(`hostLastActiveRound:${roomId}`, roomStatus);
+    } catch {
+      // ignore
+    }
+  }, [roomId, roomStatus]);
 
   useEffect(() => {
     if (serverAllPlayersAnswered) {
@@ -6356,9 +6394,13 @@ export default function HostRoomPage() {
         ? 'Финал'
         : 'Раунд 4'
     : roomStatus === 'finished' && showResults
-      ? round2Leaderboard.length > 0
+      ? lastActiveRound === 'round2-running'
         ? 'Раунд 3'
-        : 'Раунд 2'
+        : lastActiveRound === 'round3-running'
+          ? 'Раунд 4'
+          : lastActiveRound === 'round4-running'
+            ? 'Финал'
+            : 'Раунд 2'
       : 'Закрыть комнату';
   const round2QuestionNumber = round2QuestionCounter > 0 ? round2QuestionCounter : 1;
   const effectiveRound2Total = Math.min(ROUND2_TOTAL_QUESTIONS, round2Items.length || ROUND2_TOTAL_QUESTIONS);
@@ -6410,11 +6452,14 @@ export default function HostRoomPage() {
 
     if (roomStatus === 'finished' && showResults) {
       hasUserInteractedRef.current = true;
-      if (round2Leaderboard.length > 0) {
-        stopAllAudioImmediate();
+      stopAllAudioImmediate();
+      if (lastActiveRound === 'round2-running') {
         setIsRound3RulesVisible(true);
+      } else if (lastActiveRound === 'round3-running') {
+        setIsRound4RulesVisible(true);
+      } else if (lastActiveRound === 'round4-running') {
+        setIsRound5RulesVisible(true);
       } else {
-        stopAllAudioImmediate();
         setIsRound2RulesVisible(true);
       }
       return;
