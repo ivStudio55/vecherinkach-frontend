@@ -38,6 +38,8 @@ returns table (
   was_duplicate boolean
 )
 language plpgsql
+security definer
+set search_path = public
 as $$
 declare
   answer_exists boolean;
@@ -80,6 +82,8 @@ begin
   select p_player_id, updated_points, false;
 end;
 $$;
+
+grant execute on function submit_answer(uuid, uuid, integer, text, boolean, integer) to anon, authenticated;
 
 -- Optional: ensure a unique constraint to avoid double answers
 -- create unique index if not exists answers_unique on answers (room_id, player_id, question_index);
