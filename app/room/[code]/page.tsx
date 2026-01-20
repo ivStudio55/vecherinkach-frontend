@@ -2372,9 +2372,6 @@ export default function RoomPage() {
               <p className="retro-heading text-xs tracking-[0.5em] text-[#ffeccd]/80">Комната</p>
               <div className="flex flex-wrap items-center gap-3">
                 <h1 className="text-3xl font-black leading-tight">Код {roomCode}</h1>
-                <span className="inline-flex items-center gap-2 rounded-full border-[2px] border-[#ffeccd]/60 bg-white/10 px-3 py-1 text-xs font-black tracking-[0.2em] text-[#ffeccd]">
-                  ОЧКИ {playerTotalPoints ?? '—'}
-                </span>
               </div>
             </div>
             <div className="text-right">
@@ -2415,7 +2412,7 @@ export default function RoomPage() {
             </section>
 
             {isIntermission && (
-              <div className="text-center space-y-2">
+              <div className="flex justify-start">
                 {standingError ? (
                   <p className="text-sm font-semibold text-[#b23324]">{standingError}</p>
                 ) : (
@@ -2425,7 +2422,7 @@ export default function RoomPage() {
                     totalPlayers={playersCount}
                     isLoading={isStandingLoading}
                     title="ВАШ РЕЗУЛЬТАТ"
-                    className="animate-final-panel"
+                    className="animate-final-panel text-left"
                   />
                 )}
               </div>

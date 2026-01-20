@@ -175,14 +175,14 @@ export default function JoinClient() {
               onClick={() => router.push('/')}
               className="px-4 py-2 rounded-2xl border-[3px] border-[#142a45] font-semibold bg-[#ffe184] hover:bg-[#ffd463] transition"
             >
-              ← На главную
+              Главная
             </button>
             <button
               type="button"
               onClick={() => router.push('/host')}
               className="px-4 py-2 rounded-2xl border-[3px] border-[#142a45] font-semibold bg-white hover:bg-[#fef4dc] transition"
             >
-              Стать ведущим
+              Ведущий
             </button>
           </div>
         </section>
