@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BarChart, KpiCard, MetricRow, SectionCard, StatusBadge, type SeriesPoint } from '@/components/admin/AdminWidgets';
+import { describeLikeQuestionId } from '@/shared/logic/questionLikes';
 
 type LeaderboardRow = { playerId: string; name: string; points: number };
 
@@ -40,6 +41,7 @@ type LogsResponse = {
 };
 
 type ActiveRoomRow = { id: string; code: string; status: string | null; createdAt: string | null };
+type TopLikedQuestionRow = { question_id: number; likes: number };
 
 type RoomDetails = {
   room: Record<string, unknown>;
@@ -67,6 +69,7 @@ export default function AdminPage() {
   const [leaderboardTotal, setLeaderboardTotal] = useState<LeaderboardRow[]>([]);
   const [leaderboardRound2, setLeaderboardRound2] = useState<LeaderboardRow[]>([]);
   const [activeRooms, setActiveRooms] = useState<ActiveRoomRow[]>([]);
+  const [topLikedQuestions, setTopLikedQuestions] = useState<TopLikedQuestionRow[]>([]);
 
   const [logsData, setLogsData] = useState<LogsResponse | null>(null);
   const [logsPage, setLogsPage] = useState(1);
@@ -145,12 +148,13 @@ export default function AdminPage() {
         setError('Некорректный период');
         return;
       }
-      const [statsRes, lbTotalRes, lbRound2Res, analyticsRes, roomsRes] = await Promise.all([
+      const [statsRes, lbTotalRes, lbRound2Res, analyticsRes, roomsRes, likesRes] = await Promise.all([
         fetch(`/api/admin/stats?${qs.toString()}`, { cache: 'no-store' }),
         fetch(`/api/admin/leaderboard?${new URLSearchParams({ ...Object.fromEntries(qs), type: 'total', limit: '10' }).toString()}`, { cache: 'no-store' }),
         fetch(`/api/admin/leaderboard?${new URLSearchParams({ ...Object.fromEntries(qs), type: 'round2', limit: '10' }).toString()}`, { cache: 'no-store' }),
         fetch(`/api/admin/analytics?${qs.toString()}`, { cache: 'no-store' }),
         fetch('/api/admin/rooms/active', { cache: 'no-store' }),
+        fetch('/api/admin/likes?limit=10', { cache: 'no-store' }),
       ]);
 
       const statsPayload = await statsRes.json().catch(() => null);
@@ -158,12 +162,14 @@ export default function AdminPage() {
       const lbRound2Payload = await lbRound2Res.json().catch(() => null);
       const analyticsPayload = await analyticsRes.json().catch(() => null);
       const roomsPayload = await roomsRes.json().catch(() => null);
+      const likesPayload = await likesRes.json().catch(() => null);
 
       if (!statsRes.ok) throw new Error(statsPayload?.error ?? 'Не удалось загрузить статистику');
       if (!lbTotalRes.ok) throw new Error(lbTotalPayload?.error ?? 'Не удалось загрузить лидерборд');
       if (!lbRound2Res.ok) throw new Error(lbRound2Payload?.error ?? 'Не удалось загрузить лидерборд Раунда 2');
       if (!analyticsRes.ok) throw new Error(analyticsPayload?.error ?? 'Не удалось загрузить аналитику');
       if (!roomsRes.ok) throw new Error(roomsPayload?.error ?? 'Не удалось загрузить активные комнаты');
+      if (!likesRes.ok) throw new Error(likesPayload?.error ?? 'Не удалось загрузить лайки');
 
       setRoomsTotal(statsPayload?.rooms?.total ?? 0);
       setPlayersTotal(statsPayload?.players?.total ?? 0);
@@ -189,6 +195,10 @@ export default function AdminPage() {
         code: String(it.code),
         status: it.status ? String(it.status) : null,
         createdAt: it.createdAt ? String(it.createdAt) : null,
+      })));
+      setTopLikedQuestions((likesPayload?.items ?? []).map((it: Record<string, unknown>) => ({
+        question_id: Number(it.question_id ?? 0),
+        likes: Number(it.likes ?? 0),
       })));
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Не удалось загрузить данные';
@@ -728,7 +738,7 @@ export default function AdminPage() {
         </SectionCard>
 
         <SectionCard title="Лидерборды">
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-4 lg:grid-cols-3">
             <div className="rounded-2xl border-[2px] border-[#142a45]/20 p-4">
               <p className="text-xs font-black tracking-[0.3em] text-[#142a45]/60">ТОП TOTAL</p>
               <div className="space-y-2 mt-3">
@@ -750,6 +760,21 @@ export default function AdminPage() {
                   </div>
                 ))}
               </div>
+            </div>
+            <div className="rounded-2xl border-[2px] border-[#142a45]/20 p-4">
+              <p className="text-xs font-black tracking-[0.3em] text-[#142a45]/60">ТОП ЛАЙКОВ</p>
+              {topLikedQuestions.length === 0 ? (
+                <p className="text-xs text-[#142a45]/60 mt-3">Пока нет лайков</p>
+              ) : (
+                <div className="space-y-2 mt-3">
+                  {topLikedQuestions.map((row, idx) => (
+                    <div key={`${row.question_id}-${idx}`} className="flex items-center justify-between text-sm font-black">
+                      <span>{idx + 1}. {describeLikeQuestionId(row.question_id)}</span>
+                      <span>{row.likes}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </SectionCard>

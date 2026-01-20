@@ -478,7 +478,7 @@ $$;
 
 grant execute on function public.start_round3(uuid) to anon, authenticated;
 
--- Question likes (Round 1) + best question helper
+-- Question likes (all rounds) + best question helper
 create table if not exists public.question_likes (
   id uuid primary key default gen_random_uuid(),
   room_id uuid not null,
@@ -532,7 +532,27 @@ as $$
 declare
   inserted_id uuid;
   likes_count integer;
+  room_selected_ids integer[];
+  is_round1 boolean;
 begin
+  select selected_question_ids into room_selected_ids
+  from public.rooms
+  where id = p_room_id;
+
+  if room_selected_ids is null then
+    return query
+    select false, 0;
+  end if;
+
+  is_round1 := p_question_id < 200000;
+  if is_round1 and not (p_question_id = any(room_selected_ids)) then
+    select count(*) into likes_count
+    from public.question_likes
+    where room_id = p_room_id and question_id = p_question_id;
+    return query
+    select false, coalesce(likes_count, 0);
+  end if;
+
   insert into public.question_likes (room_id, question_id, player_id)
   values (p_room_id, p_question_id, p_player_id)
   on conflict do nothing
@@ -569,3 +589,23 @@ as $$
 $$;
 
 grant execute on function public.get_best_question(uuid) to anon, authenticated;
+
+drop function if exists public.get_top_liked_questions(integer);
+create or replace function public.get_top_liked_questions(
+  p_limit integer default 10
+)
+returns table (
+  question_id integer,
+  likes integer
+)
+language sql
+stable
+as $$
+  select question_id, count(*)::integer as likes
+  from public.question_likes
+  group by question_id
+  order by likes desc, question_id asc
+  limit greatest(p_limit, 1);
+$$;
+
+grant execute on function public.get_top_liked_questions(integer) to anon, authenticated;

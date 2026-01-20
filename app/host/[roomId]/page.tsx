@@ -16,6 +16,14 @@ import { JoinQrBlock } from '@/shared/ui/JoinQrBlock';
 import { isRealtimeEnabled } from '@/shared/logic/realtimeConfig';
 import { ROUND3_ANSWER_SECONDS, ROUND3_VOTE_COUNTDOWN_SECONDS, ROUND3_VOTE_SECONDS } from '@/shared/logic/roundConstants';
 import {
+  buildRound2LikeId,
+  buildRound3LikeId,
+  buildRound4LikeId,
+  buildRound5LikeId,
+  describeLikeQuestionId,
+  parseLikeQuestionId,
+} from '@/shared/logic/questionLikes';
+import {
   ActiveRoundQuestion,
   OptionKey,
   OPTION_LABELS,
@@ -911,6 +919,26 @@ export default function HostRoomPage() {
   const round3QuestionCount = Math.min(ROUND3_TOTAL_QUESTIONS, round3Questions.length);
   const currentRound3Question =
     roomStatus === 'round3-running' ? round3Questions[currentQuestionIndex] ?? null : null;
+
+  const currentLikeQuestionId = (() => {
+    if (roomStatus === 'running' && question?.id) {
+      return question.id;
+    }
+    if (roomStatus === 'round2-running' && round2CurrentIndex !== null) {
+      return buildRound2LikeId(round2CurrentIndex, round2ShowingFact);
+    }
+    if (roomStatus === 'round3-running' && (currentRound3Question || typeof currentQuestionIndex === 'number')) {
+      const index = currentRound3Question?.originalIndex ?? currentQuestionIndex;
+      return buildRound3LikeId(index);
+    }
+    if (roomStatus === 'round4-running' && round4CurrentPuzzle?.id) {
+      return buildRound4LikeId(round4CurrentPuzzle.id);
+    }
+    if ((roomStatus === 'round5-running' || roomStatus === 'round5-explanation') && round5CurrentBankIndex !== null) {
+      return buildRound5LikeId(round5CurrentBankIndex);
+    }
+    return null;
+  })();
 
   const getRound3ElapsedSeconds = useCallback(
     (startedAt: string | null) => {
@@ -4768,11 +4796,8 @@ export default function HostRoomPage() {
   }, [question, roomStatus, playQuestionAudio]);
 
   useEffect(() => {
-    if (!roomId || !question || typeof question.id !== 'number') {
+    if (!roomId || currentLikeQuestionId === null) {
       setCurrentQuestionLikes(null);
-      return;
-    }
-    if (roomStatus !== 'running') {
       return;
     }
     const fetchLikes = async () => {
@@ -4780,11 +4805,11 @@ export default function HostRoomPage() {
         .from('question_likes')
         .select('id', { count: 'exact', head: true })
         .eq('room_id', roomId)
-        .eq('question_id', question.id);
+        .eq('question_id', currentLikeQuestionId);
       setCurrentQuestionLikes(typeof count === 'number' ? count : 0);
     };
     void fetchLikes();
-  }, [question, roomId, roomStatus]);
+  }, [currentLikeQuestionId, roomId]);
 
   useEffect(() => {
     if (roomStatus !== 'round5-running') {
@@ -5347,6 +5372,36 @@ export default function HostRoomPage() {
     playFinalNarratorAudio();
   }, [playFinalNarratorAudio, playTournamentJingle, roomStatus, stopAllAudio, stopFinalNarratorAudio, stopTournamentJingle]);
 
+  const resolveLikedQuestionText = useCallback(
+    (questionId: number) => {
+      const meta = parseLikeQuestionId(questionId);
+      if (meta.round === 1) {
+        return getQuestionById(meta.index, round1BankRef.current)?.text ?? describeLikeQuestionId(questionId);
+      }
+      if (meta.round === 2) {
+        const item = round2Items[meta.index];
+        if (!item) {
+          return describeLikeQuestionId(questionId);
+        }
+        return meta.variant === 'fiction' ? item.fiction : item.fact;
+      }
+      if (meta.round === 3) {
+        const questionData = round3Questions.find((q) => q.originalIndex === meta.index) ?? round3Questions[meta.index];
+        return questionData?.question ?? describeLikeQuestionId(questionId);
+      }
+      if (meta.round === 4) {
+        const puzzle = round4Puzzles.find((p) => p.id === meta.index);
+        return puzzle?.category ?? describeLikeQuestionId(questionId);
+      }
+      if (meta.round === 5) {
+        const questionData = round5Questions[meta.index];
+        return questionData?.question ?? describeLikeQuestionId(questionId);
+      }
+      return describeLikeQuestionId(questionId);
+    },
+    [round2Items, round3Questions, round4Puzzles, round5Questions]
+  );
+
   useEffect(() => {
     if (roomStatus !== 'final-results' || !roomId) {
       return;
@@ -5362,12 +5417,12 @@ export default function HostRoomPage() {
         setBestQuestion(null);
         return;
       }
-      const bank = round1BankRef.current;
-      const questionText = getQuestionById(row.question_id, bank)?.text ?? '—';
-      setBestQuestion({ id: row.question_id, likes: Number(row.likes ?? 0), text: questionText });
+      const questionId = Number(row.question_id);
+      const questionText = Number.isFinite(questionId) ? resolveLikedQuestionText(questionId) : '—';
+      setBestQuestion({ id: questionId, likes: Number(row.likes ?? 0), text: questionText });
     };
     void loadBestQuestion();
-  }, [roomId, roomStatus]);
+  }, [resolveLikedQuestionText, roomId, roomStatus]);
 
   useEffect(() => {
     if (roomStatus !== 'running') {

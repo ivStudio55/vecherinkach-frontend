@@ -9,7 +9,15 @@ import { submitRound1Answer } from '@/shared/logic/submitAnswer';
 import { logEvent } from '@/shared/logic/logger';
 import { isRealtimeEnabled } from '@/shared/logic/realtimeConfig';
 import { ROUND3_ANSWER_SECONDS, ROUND3_VOTE_COUNTDOWN_SECONDS, ROUND3_VOTE_SECONDS } from '@/shared/logic/roundConstants';
-import { QuestionLikeButton } from '@/shared/ui/QuestionLikeButton';
+import { QuestionLikePanel } from '@/shared/ui/QuestionLikePanel';
+import {
+  buildRound2LikeId,
+  buildRound3LikeId,
+  buildRound4LikeId,
+  buildRound5LikeId,
+  describeLikeQuestionId,
+  parseLikeQuestionId,
+} from '@/shared/logic/questionLikes';
 import { PlayerResultCard } from '@/shared/ui/PlayerResultCard';
 import { BestQuestionCard } from '@/shared/ui/BestQuestionCard';
 import { LivePulseBadge } from '@/shared/ui/LivePulseBadge';
@@ -1303,6 +1311,36 @@ export default function RoomPage() {
     };
   }, [realtimeEnabled, roomId, round2ShowingFact, round4Puzzles, router, timeOffsetMs]);
 
+  const resolveLikedQuestionText = useCallback(
+    (questionId: number) => {
+      const meta = parseLikeQuestionId(questionId);
+      if (meta.round === 1) {
+        return getQuestionById(meta.index, round1BankRef.current)?.text ?? describeLikeQuestionId(questionId);
+      }
+      if (meta.round === 2) {
+        const item = round2Items[meta.index];
+        if (!item) {
+          return describeLikeQuestionId(questionId);
+        }
+        return meta.variant === 'fiction' ? item.fiction : item.fact;
+      }
+      if (meta.round === 3) {
+        const questionData = round3Questions.find((q) => q.originalIndex === meta.index) ?? round3Questions[meta.index];
+        return questionData?.question ?? describeLikeQuestionId(questionId);
+      }
+      if (meta.round === 4) {
+        const puzzle = round4Puzzles.find((p) => p.id === meta.index);
+        return puzzle?.category ?? describeLikeQuestionId(questionId);
+      }
+      if (meta.round === 5) {
+        const questionData = round5QuestionsRef.current[meta.index] ?? round5Questions[meta.index];
+        return questionData?.question ?? describeLikeQuestionId(questionId);
+      }
+      return describeLikeQuestionId(questionId);
+    },
+    [round2Items, round3Questions, round4Puzzles, round5Questions]
+  );
+
   const loadBestQuestion = useCallback(async () => {
     if (!roomId) {
       return;
@@ -1317,10 +1355,10 @@ export default function RoomPage() {
       setBestQuestion(null);
       return;
     }
-    const bank = round1BankRef.current;
-    const questionText = getQuestionById(row.question_id, bank)?.text ?? '—';
-    setBestQuestion({ id: row.question_id, likes: Number(row.likes ?? 0), text: questionText });
-  }, [roomId]);
+    const questionId = Number(row.question_id);
+    const questionText = Number.isFinite(questionId) ? resolveLikedQuestionText(questionId) : '—';
+    setBestQuestion({ id: questionId, likes: Number(row.likes ?? 0), text: questionText });
+  }, [roomId, resolveLikedQuestionText]);
 
   useEffect(() => {
     if (!showResults || roomStatus !== 'final-results') {
@@ -1330,12 +1368,9 @@ export default function RoomPage() {
   }, [loadBestQuestion, roomStatus, showResults]);
 
   useEffect(() => {
-    if (!roomId || !playerId || !question?.id) {
+    if (!roomId || !playerId || currentLikeQuestionId === null || showResults) {
       setHasLikedQuestion(false);
       setQuestionLikesCount(null);
-      return;
-    }
-    if (!(roomStatus === 'running' && allPlayersAnswered)) {
       return;
     }
     setHasLikedQuestion(false);
@@ -1344,7 +1379,7 @@ export default function RoomPage() {
         .from('question_likes')
         .select('id')
         .eq('room_id', roomId)
-        .eq('question_id', question.id)
+        .eq('question_id', currentLikeQuestionId)
         .eq('player_id', playerId)
         .maybeSingle();
       setHasLikedQuestion(!!existingLike);
@@ -1353,14 +1388,51 @@ export default function RoomPage() {
         .from('question_likes')
         .select('id', { count: 'exact', head: true })
         .eq('room_id', roomId)
-        .eq('question_id', question.id);
+        .eq('question_id', currentLikeQuestionId);
       setQuestionLikesCount(typeof count === 'number' ? count : 0);
     };
     void fetchLikes();
-  }, [allPlayersAnswered, playerId, question?.id, roomId, roomStatus]);
+  }, [currentLikeQuestionId, playerId, roomId, showResults]);
+
+  useEffect(() => {
+    if (!realtimeEnabled || !roomId || currentLikeQuestionId === null) {
+      return;
+    }
+    let mounted = true;
+    const channelId = `${Date.now()}`;
+    const likesChannel = supabase
+      .channel(`player-likes-${roomId}-${channelId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'question_likes',
+          filter: `room_id=eq.${roomId}`,
+        },
+        (payload: { new: { question_id: number; player_id: string } }) => {
+          if (!mounted) return;
+          if (payload.new.player_id === playerId) {
+            return;
+          }
+          if (payload.new.question_id !== currentLikeQuestionId) {
+            return;
+          }
+          setQuestionLikesCount((prev) => (prev ?? 0) + 1);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      mounted = false;
+      likesChannel.unsubscribe().then(() => {
+        supabase.removeChannel(likesChannel);
+      });
+    };
+  }, [currentLikeQuestionId, playerId, realtimeEnabled, roomId]);
 
   const likeQuestion = useCallback(async () => {
-    if (!roomId || !playerId || !question?.id) {
+    if (!roomId || !playerId || currentLikeQuestionId === null) {
       return;
     }
     if (hasLikedQuestion) {
@@ -1368,7 +1440,7 @@ export default function RoomPage() {
     }
     const { data, error } = await supabase.rpc('like_question', {
       p_room_id: roomId,
-      p_question_id: question.id,
+      p_question_id: currentLikeQuestionId,
       p_player_id: playerId,
     });
     if (error) {
@@ -1382,7 +1454,7 @@ export default function RoomPage() {
     } else {
       setQuestionLikesCount((prev) => (prev ?? 0) + 1);
     }
-  }, [hasLikedQuestion, playerId, question?.id, roomId]);
+  }, [currentLikeQuestionId, hasLikedQuestion, playerId, roomId]);
 
   const effectiveTimeLeft = allPlayersAnswered ? 0 : timeLeft;
   // Round4 should keep timer ticking even when allPlayersAnswered (until explanation phase)
@@ -2058,6 +2130,28 @@ export default function RoomPage() {
       ? round3Questions[round3QuestionIndex] ?? null
       : null;
 
+  const currentLikeQuestionId = (() => {
+    if (roomStatus === 'running' && question?.id) {
+      return question.id;
+    }
+    if (roomStatus === 'round2-running' && round2ItemIndex !== null) {
+      return buildRound2LikeId(round2ItemIndex, round2ShowingFact);
+    }
+    if (roomStatus === 'round3-running' && (currentRound3Question || round3QuestionIndex !== null)) {
+      const index = currentRound3Question?.originalIndex ?? round3QuestionIndex ?? 0;
+      return buildRound3LikeId(index);
+    }
+    if (roomStatus === 'round4-running' && round4Puzzle?.id) {
+      return buildRound4LikeId(round4Puzzle.id);
+    }
+    if ((roomStatus === 'round5-running' || roomStatus === 'round5-explanation') && round5CurrentBankIndex !== null) {
+      return buildRound5LikeId(round5CurrentBankIndex);
+    }
+    return null;
+  })();
+
+  const shouldShowLikePanel = !showResults && currentLikeQuestionId !== null;
+
   const round3VoteCountdownStartedAt =
     roomStatus === 'round3-running' && questionStartedAt ? addSecondsToIso(questionStartedAt, ROUND3_ANSWER_SECONDS) : null;
 
@@ -2575,9 +2669,6 @@ export default function RoomPage() {
                     Правильный ответ: <span className="font-black">{correctAnswerDisplay}</span>
                   </p>
                 ) : null}
-                {shouldShowCorrectAnswer ? (
-                  <QuestionLikeButton liked={hasLikedQuestion} likesCount={questionLikesCount} onLike={() => void likeQuestion()} />
-                ) : null}
               </div>
             ) : null}
           </section>
@@ -2806,6 +2897,13 @@ export default function RoomPage() {
             </p>
           </section>
         </ScalePanel>
+
+        <QuestionLikePanel
+          isVisible={shouldShowLikePanel}
+          liked={hasLikedQuestion}
+          likesCount={questionLikesCount}
+          onLike={() => void likeQuestion()}
+        />
 
         <p className="text-[11px] text-center text-[#142a45]/50">Если возникли проблемы — обновите страницу</p>
       </div>
