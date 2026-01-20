@@ -91,7 +91,7 @@ export default function RoomPage() {
   const router = useRouter();
   const roomCode = params.code as string;
 
-  const [question, setQuestion] = useState<Question | null>(null);
+  const [question, setQuestion] = useState<ActiveRoundQuestion | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasAnswered, setHasAnswered] = useState(false);
   const [error, setError] = useState('');
