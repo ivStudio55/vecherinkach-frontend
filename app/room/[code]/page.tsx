@@ -2378,7 +2378,7 @@ export default function RoomPage() {
         <ScalePanel isVisible={roomStatus === 'round4-running'}>
           <section
             key={`round4-player-${round4PuzzleId ?? 'none'}-${allPlayersAnswered ? 'answered' : 'run'}`}
-            className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6"
+            className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6 animate-round4-panel"
           >
             {!allPlayersAnswered && (
               <>
@@ -2481,7 +2481,7 @@ export default function RoomPage() {
         </ScalePanel>
 
         <ScalePanel isVisible={roomStatus === 'round5-running' || roomStatus === 'round5-explanation'}>
-          <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
+          <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6 animate-final-panel">
             {roomStatus === 'round5-running' && (
               <div className="flex flex-col gap-3 text-center">
                 <span className="mx-auto px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
@@ -2588,7 +2588,7 @@ export default function RoomPage() {
         </ScalePanel>
 
         <ScalePanel isVisible={Boolean(question) && roomStatus === 'running'}>
-          <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
+          <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6 animate-drop-in">
             {!hasAnswered && question ? (
               <div className="flex flex-col gap-3 text-center">
                 <span className="mx-auto px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
@@ -2675,7 +2675,7 @@ export default function RoomPage() {
         </ScalePanel>
 
         <ScalePanel isVisible={roomStatus === 'round2-running'}>
-          <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
+          <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6 animate-round2-onair">
             <div className="flex flex-col gap-3 text-center">
               <span className="mx-auto px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
                 Раунд 2 · Фейколов
@@ -2759,7 +2759,7 @@ export default function RoomPage() {
         </ScalePanel>
 
         <ScalePanel isVisible={roomStatus === 'round3-running'}>
-          <section className="rounded-3xl border-[4px] border-[#f1532f] bg-white shadow-xl p-6 space-y-6">
+          <section className="rounded-3xl border-[4px] border-[#f1532f] bg-white shadow-xl p-6 space-y-6 animate-round3-panel">
             <div className="flex flex-col gap-3 text-center">
               <span className="mx-auto px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
                 Раунд 3 · МозгоШтурм
@@ -2881,15 +2881,21 @@ export default function RoomPage() {
             )}
 
             {round3Phase === 'post' && (
-              <PlayerAnswersList
-                items={round3AnswerResults.map((item) => ({
-                  id: item.id,
-                  name: item.name,
-                  text: item.text,
-                  likes: item.likes,
-                }))}
-                emptyLabel="Ответы загружаются…"
-              />
+              <div className="space-y-4">
+                <div className="rounded-3xl border-[3px] border-[#2f7a3b] bg-[#e6f7ea] p-4 text-center space-y-2 animate-round3-panel">
+                  <p className="text-xs font-semibold tracking-[0.3em] text-[#2f7a3b]/70">ПРАВИЛЬНЫЙ ОТВЕТ</p>
+                  <p className="text-xl font-black text-[#2f7a3b]">{currentRound3Question?.answer ?? '—'}</p>
+                </div>
+                <PlayerAnswersList
+                  items={round3AnswerResults.map((item) => ({
+                    id: item.id,
+                    name: item.name,
+                    text: item.text,
+                    likes: item.likes,
+                  }))}
+                  emptyLabel="Ответы загружаются…"
+                />
+              </div>
             )}
 
             <p className="text-sm text-[#142a45]/70 text-center">
