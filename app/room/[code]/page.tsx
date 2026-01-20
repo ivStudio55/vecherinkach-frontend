@@ -1,12 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, useReducer } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { TrueFalseItem, ROUND2_POINTS } from '@/lib/round2';
 import { AnimatedText } from '@/components/AnimatedText';
-import { useRoomSync } from '@/lib/useRoomSync';
-import { mapRoundStateToUiPhase, roundStateReducer } from '@/lib/roundStateMachine';
 import {
   ActiveRoundQuestion,
   OPTION_LABELS,
@@ -45,311 +43,324 @@ const coerceToNumber = (value: unknown): number | null => {
   if (typeof value === 'string') {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : null;
-  const handleRoomUpdate = useCallback(
-    async (payload: RoomUpdatePayload) => {
-      // Debug: log every Realtime event
-      const newStatus = (payload.new.status as RoomStatus) || (payload.new.is_active ? 'waiting' : 'finished');
-      const startedAt = payload.new.question_started_at as string | null;
-      const newQuestionIndex = coerceToNumber(payload.new.current_question_index);
-      const transitioningToNext = Boolean((payload.new as { transitioning_to_next?: boolean | null }).transitioning_to_next);
+  }
+  return null;
+};
 
-      // Если ведущий закрыл комнату полностью — возвращаем на экран подключения.
-      // Важно: не редиректим во время переходов между раундами, когда ведущий может временно сбросить таймер.
-      if (newStatus === 'finished' && startedAt === null && payload.new.is_active === false) {
-        router.push('/join');
-        return;
-      }
+// Fisher-Yates shuffle algorithm
+const shuffleArray = <T,>(array: T[]): T[] => {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+};
 
-      setRoomStatus(newStatus);
-      const everyoneAnsweredFlag =
-        newStatus === 'running' ||
-          newStatus === 'round2-running' ||
-          newStatus === 'round3-running' ||
-          newStatus === 'round4-running' ||
-          newStatus === 'round5-running'
-          ? !!payload.new.all_players_answered
-          : newStatus === 'round5-explanation'
-            ? true
-            : false;
-      setAllPlayersAnswered(everyoneAnsweredFlag);
-      dispatchRoundEvent({
-        type: 'SERVER_UPDATE',
-        status: newStatus,
-        allAnswered: everyoneAnsweredFlag,
-        startedAt,
-        transitioningToNext,
-      });
-      const selection = (payload.new.selected_question_ids as number[] | null) || [];
-      setSelectedQuestionIds(selection);
+const getRemainingSeconds = (startedAt: string | null, offsetMs = 0) => {
+  if (!startedAt) {
+    return QUESTION_DURATION_SECONDS;
+  }
+  const startTime = new Date(startedAt).getTime();
+  if (isNaN(startTime)) {
+    return QUESTION_DURATION_SECONDS;
+  }
+  const now = Date.now() - offsetMs;
+  const diffMs = now - startTime;
+  const elapsedSeconds = Math.floor(diffMs / 1000);
+  const remaining = QUESTION_DURATION_SECONDS - elapsedSeconds;
+  return Math.max(0, Math.min(QUESTION_DURATION_SECONDS, remaining));
+};
 
-      const nextRound2ItemIndex = (payload.new.round2_item_index as number | null | undefined) ?? null;
-      const nextRound2ShowingFact =
-        typeof payload.new.round2_showing_fact === 'boolean' ? !!payload.new.round2_showing_fact : round2ShowingFact;
-      const nextRound2Phase = ((payload.new.round2_phase as Round2Phase) || 'idle') as Round2Phase;
+const getRemainingSecondsWithDuration = (startedAt: string | null, durationSeconds: number, offsetMs = 0) => {
+  if (!startedAt) {
+    return durationSeconds;
+  }
+  const startTime = new Date(startedAt).getTime();
+  if (isNaN(startTime)) {
+    return durationSeconds;
+  }
+  const now = Date.now() - offsetMs;
+  const diffMs = now - startTime;
+  const elapsedSeconds = Math.floor(diffMs / 1000);
+  const remaining = durationSeconds - elapsedSeconds;
+  return Math.max(0, Math.min(durationSeconds, remaining));
+};
 
-      if (newStatus === 'waiting') {
-        setShowResults(false);
-        setHasAnswered(false);
-        setQuestion(null);
-        setRound2ItemIndex(null);
-        setRound2Phase('idle');
-        setRound3QuestionIndex(null);
-        setRound4Puzzle(null);
-        setRound4PuzzleId(null);
-        setRound4AnswerText('');
-        setQuestionStartedAt(null);
-        setTimeLeft(QUESTION_DURATION_SECONDS);
-        return;
-      }
+const addSecondsToIso = (iso: string, seconds: number) => {
+  const ms = new Date(iso).getTime();
+  if (isNaN(ms)) {
+    return iso;
+  }
+  return new Date(ms + seconds * 1000).toISOString();
+};
 
-      // Only treat as finished if status is 'finished', not just is_active=false
-      // (round4-running may have is_active=false during answer reveal)
-      if (newStatus === 'finished' || newStatus === 'final-results') {
-        setShowResults(true);
-        setQuestion(null);
-        setRound2ItemIndex(null);
-        setRound2Phase('idle');
-        setRound3QuestionIndex(null);
-        setRound4Puzzle(null);
-        setRound4PuzzleId(null);
-        setRound4AnswerText('');
-        setQuestionStartedAt(null);
-        setTimeLeft(QUESTION_DURATION_SECONDS);
-        return;
-      }
+type Question = ActiveRoundQuestion;
 
-      if (newStatus === 'round2-running') {
-        setShowResults(false);
-        setQuestion(null);
-        setRound2ItemIndex(nextRound2ItemIndex);
-        setRound2ShowingFact(nextRound2ShowingFact);
-        setRound2Phase(nextRound2Phase);
-        setRound3QuestionIndex(null);
-        setQuestionStartedAt(startedAt);
+type Round5Question = {
+  question: string;
+  answer: number;
+  explanation: string;
+};
 
-        const offset = await syncServerTimeRef.current?.();
-        if (everyoneAnsweredFlag) {
-          setTimeLeft(0);
-        } else {
-          setTimeLeft(startedAt ? getRemainingSeconds(startedAt, offset || 0) : QUESTION_DURATION_SECONDS);
-        }
+type RoomStatus =
+  | 'waiting'
+  | 'running'
+  | 'round2-ready'
+  | 'round2-running'
+  | 'round3-running'
+  | 'round4-running'
+  | 'round5-running'
+  | 'round5-explanation'
+  | 'final-results'
+  | 'finished';
 
-        const currentPlayerId = playerIdRef.current;
-        const currentRoomId = roomIdRef.current;
-        if (currentPlayerId && currentRoomId && nextRound2ItemIndex !== null) {
-          const { data: newAnswer } = await supabase
-            .from('round2_answers')
-            .select('id')
-            .eq('player_id', currentPlayerId)
-            .eq('room_id', currentRoomId)
-            .eq('item_index', nextRound2ItemIndex)
-            .maybeSingle();
-          setHasAnswered(!!newAnswer);
-        } else {
-          setHasAnswered(false);
-        }
-        return;
-      }
+type Round2Phase = 'idle' | 'fact' | 'explanation';
 
-      if (newStatus === 'round3-running') {
-        setShowResults(false);
-        setQuestion(null);
-        setRound2ItemIndex(null);
-        setRound2Phase('idle');
-        setRound3QuestionIndex(newQuestionIndex);
-        setQuestionStartedAt(startedAt);
+type Round4Puzzle = {
+  id: number;
+  category: string;
+  emoji: string;
+  answers: string[];
+};
 
-        const offset = await syncServerTimeRef.current?.();
-        if (everyoneAnsweredFlag) {
-          setTimeLeft(0);
-        } else {
-          setTimeLeft(startedAt ? getRemainingSeconds(startedAt, offset || 0) : QUESTION_DURATION_SECONDS);
-        }
+type Round3Question = {
+  question: string;
+  answer?: string;
+  category?: string;
+  acceptable?: string[];
+  comment?: string;
+  originalIndex: number;
+};
 
-        const currentPlayerId = playerIdRef.current;
-        const currentRoomId = roomIdRef.current;
-        if (currentPlayerId && currentRoomId && newQuestionIndex !== null) {
-          try {
-            const { data: existingRound3Answer, error: existingRound3Error } = await supabase
-              .from('round3_answers')
-              .select('text')
-              .eq('player_id', currentPlayerId)
-              .eq('room_id', currentRoomId)
-              .eq('question_index', newQuestionIndex)
-              .maybeSingle();
+type Round3QuestionsPayload = {
+  name?: string;
+  description?: string;
+  questions?: Round3Question[];
+};
 
-            if (!existingRound3Error && existingRound3Answer) {
-              setHasAnswered(true);
-              setRound3AnswerText((existingRound3Answer.text ?? '').toString());
-            } else {
-              setHasAnswered(false);
-            }
-          } catch (e) {
-            console.warn('Round3 answer lookup failed (SQL might be missing)', e);
-            setHasAnswered(false);
-          }
-        } else {
-          setHasAnswered(false);
-        }
-        return;
-      }
+type Round3AnswerRow = {
+  id: string;
+  player_id: string;
+  room_id: string;
+  question_index: number;
+  text: string;
+  submitted_at: string;
+};
 
-      if (newStatus === 'round4-running') {
-        setShowResults(false);
-        setQuestion(null);
-        setRound2ItemIndex(null);
-        setRound2Phase('idle');
-        setRound3QuestionIndex(null);
+type RoomUpdatePayload = {
+  new: {
+    current_question_index: number | string | null;
+    question_started_at: string | null;
+    status: RoomStatus;
+    is_active: boolean;
+    all_players_answered: boolean;
+    selected_question_ids: number[] | null;
+    round2_item_index?: number | null;
+    round2_showing_fact?: boolean | null;
+    round2_phase?: Round2Phase | string | null;
+  };
+};
 
-        // Force fetch latest state if payload seems incomplete
-        let effectiveStartedAt = startedAt;
-        let effectivePuzzleId = newQuestionIndex;
+export default function RoomPage() {
+  const params = useParams();
+  const router = useRouter();
+  const roomCode = params.code as string;
 
-        if (!effectiveStartedAt || effectivePuzzleId === null) {
-          const { data: freshRoom } = await supabase
-            .from('rooms')
-            .select('question_started_at, current_question_index')
-            .eq('id', roomId)
-            .single();
-
-          if (freshRoom) {
-            effectiveStartedAt = freshRoom.question_started_at;
-            effectivePuzzleId = coerceToNumber(freshRoom.current_question_index);
-          }
-        }
-
-        setQuestionStartedAt(effectiveStartedAt);
-
-        const offset = await syncServerTimeRef.current?.();
-        if (everyoneAnsweredFlag) {
-          setTimeLeft(0);
-        } else {
-          setTimeLeft(effectiveStartedAt ? getRemainingSeconds(effectiveStartedAt, offset || 0) : QUESTION_DURATION_SECONDS);
-        }
-
-        setRound4PuzzleId(effectivePuzzleId);
-        setRound4Puzzle(effectivePuzzleId ? round4Puzzles.find((p) => p.id === effectivePuzzleId) ?? null : null);
-
-        // Immediately reset per-puzzle UI state; then restore from DB if needed.
-        setHasAnswered(false);
-        setRound4AnswerText('');
-        setError('');
-
-        const currentPlayerId = playerIdRef.current;
-        const currentRoomId = roomIdRef.current;
-        if (currentPlayerId && currentRoomId && effectivePuzzleId) {
-          const { data: newAnswer } = await supabase
-            .from('round4_answers')
-            .select('id')
-            .eq('player_id', currentPlayerId)
-            .eq('room_id', currentRoomId)
-            .eq('puzzle_id', effectivePuzzleId)
-            .maybeSingle();
-          setHasAnswered(!!newAnswer);
-        } else {
-          setHasAnswered(false);
-        }
-        return;
-      }
-
-      if (newStatus === 'round5-running' || newStatus === 'round5-explanation') {
-        setShowResults(false);
-        setQuestion(null);
-        setRound2ItemIndex(null);
-        setRound2Phase('idle');
-        setRound3QuestionIndex(null);
-        setRound4Puzzle(null);
-        setRound4PuzzleId(null);
-        setRound4AnswerText('');
-
-        const tourIndex = coerceToNumber(payload.new.current_question_index) ?? 0;
-        const bankIndex = typeof selection[tourIndex] === 'number' ? selection[tourIndex] : null;
-        setRound5CurrentBankIndex(bankIndex);
-        const bank = round5QuestionsRef.current;
-        setRound5CurrentQuestion(bankIndex !== null ? bank[bankIndex] ?? null : null);
-        setRound5AnswerValue('');
-        setHasAnswered(false);
-        setError('');
-
-        setQuestionStartedAt(payload.new.question_started_at);
-        if (newStatus === 'round5-running') {
-          const offset = await syncServerTimeRef.current?.();
-          const initialTime = getRemainingSeconds(payload.new.question_started_at, offset || 0);
-          setTimeLeft(payload.new.all_players_answered ? 0 : initialTime);
-        } else {
-          setTimeLeft(0);
-        }
-
-        const currentPlayerId = playerIdRef.current;
-        const currentRoomId = roomIdRef.current;
-        if (currentPlayerId && currentRoomId && bankIndex !== null) {
-          const { data: newAnswer } = await supabase
-            .from('round5_answers')
-            .select('answer_value')
-            .eq('player_id', currentPlayerId)
-            .eq('room_id', currentRoomId)
-            .eq('question_index', bankIndex)
-            .maybeSingle();
-          if (newAnswer) {
-            setHasAnswered(true);
-            const existingValue = coerceToNumber(
-              typeof newAnswer === 'object' && newAnswer !== null && 'answer_value' in newAnswer
-                ? (newAnswer as { answer_value?: unknown }).answer_value
-                : null
-            );
-            if (existingValue !== null) {
-              setRound5AnswerValue(String(existingValue));
-            }
-          } else {
-            setHasAnswered(false);
-          }
-        } else {
-          setHasAnswered(false);
-        }
-        return;
-      }
-
-      const offset = await syncServerTimeRef.current?.();
-      if (newQuestionIndex !== null) {
-        loadQuestionFromSelectionRef.current?.(newQuestionIndex, selection);
-      } else {
-        setQuestion(null);
-      }
-      setRound2ItemIndex(null);
-      setRound2Phase('idle');
-      setRound3QuestionIndex(null);
-      setQuestionStartedAt(startedAt);
-      if (everyoneAnsweredFlag) {
-        setTimeLeft(0);
-      } else {
-        setTimeLeft(startedAt ? getRemainingSeconds(startedAt, offset || 0) : QUESTION_DURATION_SECONDS);
-      }
-
-      const currentPlayerId = playerIdRef.current;
-      const currentRoomId = roomIdRef.current;
-
-      if (currentPlayerId && currentRoomId) {
-        const { data: newAnswer } = await supabase
-          .from('answers')
-          .select('id')
-          .eq('player_id', currentPlayerId)
-          .eq('room_id', currentRoomId)
-          .eq('question_index', newQuestionIndex)
-          .maybeSingle();
-        setHasAnswered(!!newAnswer);
-      } else {
-        setHasAnswered(false);
-      }
-    },
-    [dispatchRoundEvent, roomId, round2ShowingFact, round4Puzzles, router]
-  );
+  const [question, setQuestion] = useState<Question | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasAnswered, setHasAnswered] = useState(false);
+  const [error, setError] = useState('');
+  const [playerName, setPlayerName] = useState('');
+  const [playerId, setPlayerId] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [roomId, setRoomId] = useState('');
+  const [packId, setPackId] = useState<PackId>(DEFAULT_PACK_ID);
+  const [isPackReady, setIsPackReady] = useState(true);
+  const [questionStartedAt, setQuestionStartedAt] = useState<string | null>(null);
+  const [timeLeft, setTimeLeft] = useState(QUESTION_DURATION_SECONDS);
+  const [showResults, setShowResults] = useState(false);
+  const [playerTotalPoints, setPlayerTotalPoints] = useState<number | null>(null);
+  const [playerRank, setPlayerRank] = useState<number | null>(null);
+  const [playersCount, setPlayersCount] = useState<number | null>(null);
+  const [isStandingLoading, setIsStandingLoading] = useState(false);
+  const [standingError, setStandingError] = useState('');
+  const [roomStatus, setRoomStatus] = useState<RoomStatus>('waiting');
+  const [round4Puzzles, setRound4Puzzles] = useState<Round4Puzzle[]>([]);
+  const [round4Puzzle, setRound4Puzzle] = useState<Round4Puzzle | null>(null);
+  const [round4PuzzleId, setRound4PuzzleId] = useState<number | null>(null);
+  const [round4AnswerText, setRound4AnswerText] = useState('');
+  const [round5Questions, setRound5Questions] = useState<Round5Question[]>([]);
+  const [round5CurrentBankIndex, setRound5CurrentBankIndex] = useState<number | null>(null);
+  const [round5CurrentQuestion, setRound5CurrentQuestion] = useState<Round5Question | null>(null);
+  const [round5AnswerValue, setRound5AnswerValue] = useState('');
+  const [allPlayersAnswered, setAllPlayersAnswered] = useState(false);
+  const [timeOffsetMs, setTimeOffsetMs] = useState(0);
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState<number[]>([]);
+  const [round2Items, setRound2Items] = useState<TrueFalseItem[]>([]);
+  const [round2ItemIndex, setRound2ItemIndex] = useState<number | null>(null);
+  const [round2ShowingFact, setRound2ShowingFact] = useState(true);
+  const [round2Phase, setRound2Phase] = useState<Round2Phase>('idle');
+  const [round3Questions, setRound3Questions] = useState<Round3Question[]>([]);
+  const [round3QuestionIndex, setRound3QuestionIndex] = useState<number | null>(null);
+  const [round3AnswerText, setRound3AnswerText] = useState('');
+  const [round3AnswerOptions, setRound3AnswerOptions] = useState<Round3AnswerRow[]>([]);
+  const [round3HasVoted, setRound3HasVoted] = useState(false);
+  const roomIdRef = useRef('');
+  const playerIdRef = useRef('');
+  const packIdRef = useRef<PackId>(DEFAULT_PACK_ID);
+  const round1BankRef = useRef<QuestionBank>(DEFAULT_QUESTION_BANK);
+  const round3VoiceRef = useRef<HTMLAudioElement | null>(null);
+  const round3BgRef = useRef<HTMLAudioElement | null>(null);
+  const lastRound3PlaybackKeyRef = useRef<string | null>(null);
+  const round4LoadAttemptRef = useRef(0);
+  const round5QuestionsRef = useRef<Round5Question[]>([]);
 
   useEffect(() => {
-    if (!syncedRoom) {
+    round5QuestionsRef.current = round5Questions;
+  }, [round5Questions]);
+
+  useEffect(() => {
+    const loadRound2Data = async () => {
+      try {
+          const res = await fetch(`${getQuestionsBaseUrl(packId)}/true_false_explanation.json?t=${Date.now()}`, { cache: 'no-store' });
+        if (!res.ok) {
+          return;
+        }
+        const json = (await res.json()) as TrueFalseItem[];
+        setRound2Items(json);
+      } catch (e) {
+        console.error('Failed to load round2 data', e);
+      }
+    };
+    void loadRound2Data();
+  }, [packId]);
+
+  const loadRound4Data = useCallback(async () => {
+    try {
+      const res = await fetch(`${getQuestionsBaseUrl(packId)}/4round.json`, { cache: 'no-store' });
+      if (!res.ok) {
+        console.warn('Round4 puzzles fetch failed', res.status, res.statusText);
+        return;
+      }
+      const payload = await res.json();
+      const puzzles = Array.isArray(payload?.puzzles) ? (payload.puzzles as Round4Puzzle[]) : [];
+      setRound4Puzzles(puzzles);
+    } catch (e) {
+      console.error('Failed to load round4 data', e);
+    }
+  }, [packId]);
+
+  const loadRound5Data = useCallback(async () => {
+    try {
+      const res = await fetch(`${getQuestionsBaseUrl(packId)}/5round_question.json`, { cache: 'no-store' });
+      if (!res.ok) {
+        console.warn('Round5 questions fetch failed', res.status, res.statusText);
+        return;
+      }
+      const payload = await res.json();
+      const questions = Array.isArray(payload) ? (payload as Round5Question[]) : [];
+      setRound5Questions(questions);
+    } catch (e) {
+      console.error('Failed to load round5 data', e);
+    }
+  }, [packId]);
+
+  useEffect(() => {
+    void loadRound4Data();
+  }, [loadRound4Data]);
+
+  useEffect(() => {
+    void loadRound5Data();
+  }, [loadRound5Data]);
+
+  const loadPlayerStanding = useCallback(async () => {
+    if (!roomId || !playerId) {
       return;
     }
-    void handleRoomUpdate({ new: syncedRoom as RoomUpdatePayload['new'] });
-  }, [handleRoomUpdate, syncedRoom]);
+
+    setStandingError('');
+    setIsStandingLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('players')
+        .select('id, total_points')
+        .eq('room_id', roomId);
+
+      if (error || !Array.isArray(data)) {
+        setStandingError('Не удалось загрузить рейтинг.');
+        return;
+      }
+
+      const normalized = data
+        .map((row) => ({
+          id: String((row as { id?: unknown }).id ?? ''),
+          totalPoints: coerceToNumber((row as { total_points?: unknown }).total_points) ?? 0,
+        }))
+        .filter((row) => row.id);
+
+      const me = normalized.find((row) => row.id === playerId);
+      const myPoints = me?.totalPoints ?? 0;
+
+      // Competition ranking: rank = 1 + number of players strictly above you.
+      const aboveCount = normalized.reduce((acc, row) => (row.totalPoints > myPoints ? acc + 1 : acc), 0);
+      const rank = normalized.length ? aboveCount + 1 : null;
+
+      setPlayersCount(normalized.length);
+      setPlayerTotalPoints(myPoints);
+      setPlayerRank(rank);
+    } catch (e) {
+      console.error('Failed to load player standing', e);
+      setStandingError('Не удалось загрузить рейтинг.');
+    } finally {
+      setIsStandingLoading(false);
+    }
+  }, [playerId, roomId]);
+
+  useEffect(() => {
+    if (!showResults) {
+      return;
+    }
+    if (roomStatus !== 'finished' && roomStatus !== 'final-results') {
+      return;
+    }
+    void loadPlayerStanding();
+  }, [loadPlayerStanding, roomStatus, showResults]);
+
+  const isIntermission = roomStatus === 'waiting' && selectedQuestionIds.length > 0 && Boolean(roomId) && Boolean(playerId);
+
+  useEffect(() => {
+    if (!isIntermission) {
+      return;
+    }
+
+    void loadPlayerStanding();
+    const intervalId = window.setInterval(() => {
+      void loadPlayerStanding();
+    }, 2500);
+
+    return () => window.clearInterval(intervalId);
+  }, [isIntermission, loadPlayerStanding]);
+
+  useEffect(() => {
+    // If we are already in round4-running but puzzles didn't load (or loaded empty), retry a couple times.
+    if (roomStatus !== 'round4-running') {
+      round4LoadAttemptRef.current = 0;
+      return;
+    }
+    if (round4PuzzleId === null) {
+      return;
+    }
+    if (round4Puzzles.length) {
+      return;
+    }
+
+    if (round4LoadAttemptRef.current >= 3) {
+      return;
+    }
+
+    round4LoadAttemptRef.current += 1;
+    const timeoutId = window.setTimeout(() => {
       void loadRound4Data();
     }, 300);
 
@@ -460,7 +471,6 @@ const coerceToNumber = (value: unknown): number | null => {
         }
 
         setHasAnswered(true);
-        dispatchRoundEvent({ type: 'LOCAL_ANSWER' });
         setIsSubmitting(false);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
@@ -523,22 +533,6 @@ const coerceToNumber = (value: unknown): number | null => {
   );
   const loadQuestionFromSelectionRef = useRef(loadQuestionFromSelection);
   const syncServerTimeRef = useRef(syncServerTime);
-
-  const prefetchRound1Question = useCallback(
-    (nextIndex: number, selectionOverride?: number[]) => {
-      const selection = selectionOverride && selectionOverride.length ? selectionOverride : selectedQuestionIds;
-      if (!selection.length) {
-        return;
-      }
-      const nextQuestion = getQuestionForIndex(selection, nextIndex, round1BankRef.current);
-      if (!nextQuestion?.audio) {
-        return;
-      }
-      const audio = new Audio(buildAudioUrl(nextQuestion.audio));
-      audio.preload = 'auto';
-    },
-    [selectedQuestionIds]
-  );
 
   useEffect(() => {
     loadQuestionFromSelectionRef.current = loadQuestionFromSelection;
@@ -616,15 +610,7 @@ const coerceToNumber = (value: unknown): number | null => {
         } catch (e) {
           console.error('Failed to load round1 question bank', e);
           setError('Не удалось загрузить пакет вопросов. Попробуйте зайти ещё раз.');
-          setIsLoading(false);
-          setRoomStatus('waiting');
-          dispatchRoundEvent({
-            type: 'SERVER_UPDATE',
-            status: 'waiting',
-            allAnswered: false,
-            startedAt: null,
-            transitioningToNext: false,
-          });
+          router.push('/join');
           return;
         }
       }
@@ -635,7 +621,7 @@ const coerceToNumber = (value: unknown): number | null => {
       setSelectedQuestionIds(selection);
       const detectedStatus = (room.status as RoomStatus) || (room.is_active ? 'waiting' : 'finished');
       setRoomStatus(detectedStatus);
-      const everyoneAnsweredFlag =
+      setAllPlayersAnswered(
         detectedStatus === 'running' ||
           detectedStatus === 'round2-running' ||
           detectedStatus === 'round3-running' ||
@@ -644,15 +630,8 @@ const coerceToNumber = (value: unknown): number | null => {
           ? !!room.all_players_answered
           : detectedStatus === 'round5-explanation'
             ? true
-            : false;
-      setAllPlayersAnswered(everyoneAnsweredFlag);
-      dispatchRoundEvent({
-        type: 'SERVER_UPDATE',
-        status: detectedStatus,
-        allAnswered: everyoneAnsweredFlag,
-        startedAt: room.question_started_at,
-        transitioningToNext: false,
-      });
+            : false
+      );
 
       const dbRound2ItemIndex = (room.round2_item_index as number | null) ?? null;
       const dbRound2ShowingFact = typeof room.round2_showing_fact === 'boolean' ? (room.round2_showing_fact as boolean) : true;
@@ -1239,18 +1218,6 @@ const coerceToNumber = (value: unknown): number | null => {
     setRound3HasVoted(false);
   }, [roomStatus, round3QuestionIndex]);
 
-  useEffect(() => {
-    if (allPlayersAnswered) {
-      dispatchRoundEvent({ type: 'ALL_ANSWERED' });
-    }
-  }, [allPlayersAnswered]);
-
-  useEffect(() => {
-    if (questionStartedAt && timeLeft <= 0) {
-      dispatchRoundEvent({ type: 'TIMEOUT' });
-    }
-  }, [questionStartedAt, timeLeft]);
-
   const getRound3Phase = useCallback(() => {
     if (roomStatus !== 'round3-running') {
       return 'none' as const;
@@ -1645,34 +1612,57 @@ const coerceToNumber = (value: unknown): number | null => {
         return;
       }
 
+      const { data: room } = await supabase
+        .from('rooms')
+        .select('current_question_index')
+        .eq('id', roomId)
+        .single();
+
+      if (!room) {
+        setError('Комната не найдена');
+        setIsSubmitting(false);
+        return;
+      }
+
       // Проверяем правильность ответа
       const correctAnswerKey = getOptionKeyByIndex(question.correctIndex);
       const isCorrect = optionKey === correctAnswerKey;
       const pointsEarned = isCorrect ? question.points : 0;
-      const questionIndex = Math.max(0, (question.order || 1) - 1);
-      const submitWithRetry = async (attempt: number): Promise<void> => {
-        const { error: rpcError } = await supabase.rpc('submit_answer', {
-          p_room_id: roomId,
-          p_player_id: playerId,
-          p_question_index: questionIndex,
-          p_answer: optionKey,
-          p_is_correct: isCorrect,
-          p_points: pointsEarned,
+
+      // Сохраняем ответ
+      const { error: insertError } = await supabase
+        .from('answers')
+        .insert({
+          player_id: playerId,
+          room_id: roomId,
+          question_index: room.current_question_index,
+          text: optionKey,
+          is_correct: isCorrect,
+          points_earned: pointsEarned,
         });
 
-        if (rpcError) {
-          if (attempt < 1) {
-            await new Promise((resolve) => setTimeout(resolve, 300));
-            return submitWithRetry(attempt + 1);
-          }
-          throw rpcError;
+      if (insertError) {
+        setError('Ошибка при отправке ответа');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Обновляем общий счёт игрока
+      if (isCorrect) {
+        const { data: playerData } = await supabase
+          .from('players')
+          .select('total_points')
+          .eq('id', playerId)
+          .single();
+
+        if (playerData) {
+          await supabase
+            .from('players')
+            .update({ total_points: (playerData.total_points || 0) + pointsEarned })
+            .eq('id', playerId);
         }
-      };
+      }
 
-      await submitWithRetry(0);
-
-      prefetchRound1Question(questionIndex + 1, selectedQuestionIds);
-      dispatchRoundEvent({ type: 'LOCAL_ANSWER' });
       setHasAnswered(true);
       setIsSubmitting(false);
     } catch (err) {
@@ -1734,22 +1724,6 @@ const coerceToNumber = (value: unknown): number | null => {
         : QUESTION_DURATION_SECONDS;
   const progressPercent = Math.max(0, Math.min(100, (activeTimerSeconds / activeTimerDuration) * 100));
   const timerLabel = allPlayersAnswered ? 'Все ответили' : `${activeTimerSeconds} c`;
-  const uiPhase = mapRoundStateToUiPhase(roundState);
-  const localPhaseLabel =
-    uiPhase === 'transition'
-      ? 'Загружаем следующий вопрос'
-      : uiPhase === 'calculating'
-        ? 'Подсчёт результатов'
-        : uiPhase === 'waiting'
-          ? 'Ожидаем ведущего'
-          : '';
-  const connectionLabel =
-    connectionStatus.mode === 'polling'
-      ? connectionStatus.isFallbackPolling
-        ? 'Связь нестабильна — включён резервный опрос'
-        : 'Связь нестабильна — пытаемся восстановиться'
-      : 'Связь: Realtime';
-  const isPackError = error.toLowerCase().includes('пакет');
 
   if (showResults && (roomStatus === 'finished' || roomStatus === 'final-results')) {
     const isFinal = roomStatus === 'final-results';
@@ -1846,14 +1820,6 @@ const coerceToNumber = (value: unknown): number | null => {
           <p className="retro-heading text-xs tracking-[0.4em] text-[#b23324]/70">Ошибка</p>
           <h1 className="text-2xl font-black text-[#b23324]">❌ Что-то пошло не так</h1>
           <p className="text-sm text-[#142a45]/80">{error}</p>
-          {isPackError && (
-            <button
-              onClick={() => window.location.reload()}
-              className="w-full py-3 rounded-2xl border-[3px] border-[#142a45] bg-white font-black"
-            >
-              Попробовать перезапуск
-            </button>
-          )}
           <button
             onClick={() => router.push('/join')}
             className="w-full py-3 rounded-2xl border-[3px] border-[#142a45] bg-[#ffe184] font-black"
@@ -1883,13 +1849,6 @@ const coerceToNumber = (value: unknown): number | null => {
             Держите вкладку открытой: ответы и таймеры синхронизируются автоматически через Supabase.
           </p>
         </header>
-
-        {(localPhaseLabel || connectionStatus.mode !== 'realtime') && (
-          <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-white px-4 py-3 text-sm font-semibold text-[#142a45]">
-            {localPhaseLabel && <p>{localPhaseLabel}</p>}
-            <p className="text-xs text-[#142a45]/70">{connectionLabel}</p>
-          </div>
-        )}
 
         {roomStatus === 'waiting' && (
           <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-8 text-center space-y-4">

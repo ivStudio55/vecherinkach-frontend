@@ -4364,8 +4364,8 @@ export default function HostRoomPage() {
         return;
       }
 
-        const cappedCount = Math.max(1, Math.min(connectedPlayers, 10));
-        const variants = CONNECT_AUDIO_CLIPS[cappedCount];
+      const cappedCount = Math.max(1, Math.min(connectedPlayers, 10));
+      const variants = CONNECT_AUDIO_CLIPS[cappedCount];
       if (!variants || !variants.length) {
         return;
       }
@@ -4375,16 +4375,15 @@ export default function HostRoomPage() {
       const audio = new Audio(buildAudioUrl(file));
       audio.volume = 0.9;
       connectAudioRef.current = audio;
-    [
-      clearCountdownTimeout,
-      clearRound2Timer,
-      dispatchRoundEvent,
-      questionStartedAt,
-      serverAllPlayersAnswered,
-      stopRound2Audio,
-      stopRound2RulesAudio,
-      stopRound5Audio,
-    ]
+
+      try {
+        await audio.play();
+      } catch (error) {
+        console.error('Не удалось проиграть озвучку подключений', error);
+      }
+    },
+    [stopConnectAudio]
+  );
 
   const stopRulesAudio = useCallback(() => {
     const audio = rulesAudioRef.current;
