@@ -9,13 +9,14 @@ import { submitRound1Answer } from '@/shared/logic/submitAnswer';
 import { logEvent } from '@/shared/logic/logger';
 import { isRealtimeEnabled } from '@/shared/logic/realtimeConfig';
 import { ROUND3_ANSWER_SECONDS, ROUND3_VOTE_COUNTDOWN_SECONDS, ROUND3_VOTE_SECONDS } from '@/shared/logic/roundConstants';
-import { CorrectAnswerView } from '@/shared/ui/CorrectAnswerView';
 import { QuestionLikeButton } from '@/shared/ui/QuestionLikeButton';
 import { PlayerResultCard } from '@/shared/ui/PlayerResultCard';
 import { BestQuestionCard } from '@/shared/ui/BestQuestionCard';
-import { ConnectionStatusBadge } from '@/shared/ui/ConnectionStatusBadge';
+import { LivePulseBadge } from '@/shared/ui/LivePulseBadge';
 import { PhaseStatusBanner } from '@/shared/ui/PhaseStatusBanner';
 import { ScoreSummary } from '@/shared/ui/ScoreSummary';
+import { ScalePanel } from '@/shared/ui/ScalePanel';
+import { PlayerAnswersList } from '@/shared/ui/PlayerAnswersList';
 import {
   ActiveRoundQuestion,
   OPTION_LABELS,
@@ -127,6 +128,19 @@ type Round3AnswerRow = {
   submitted_at: string;
 };
 
+type Round3VoteRow = {
+  voter_player_id: string;
+  answer_id: string;
+};
+
+type PlayerAnswerListItem = {
+  id: string;
+  playerId: string;
+  name: string;
+  text: string;
+  likes: number;
+};
+
 type RoomUpdatePayload = {
   new: {
     current_question_index: number | string | null;
@@ -182,14 +196,15 @@ export default function RoomPage() {
   const [round2ItemIndex, setRound2ItemIndex] = useState<number | null>(null);
   const [round2ShowingFact, setRound2ShowingFact] = useState(true);
   const [round2Phase, setRound2Phase] = useState<Round2Phase>('idle');
+  const [round2PlayerAnswer, setRound2PlayerAnswer] = useState<boolean | null>(null);
   const [round3Questions, setRound3Questions] = useState<Round3Question[]>([]);
   const [round3QuestionIndex, setRound3QuestionIndex] = useState<number | null>(null);
   const [round3AnswerText, setRound3AnswerText] = useState('');
   const [round3AnswerOptions, setRound3AnswerOptions] = useState<Round3AnswerRow[]>([]);
   const [round3HasVoted, setRound3HasVoted] = useState(false);
-  const [connectionMode, setConnectionMode] = useState<'realtime' | 'polling' | 'reconnecting'>(
-    realtimeEnabled ? 'realtime' : 'polling'
-  );
+  const [round3AnswerResults, setRound3AnswerResults] = useState<PlayerAnswerListItem[]>([]);
+  const [round4AnswerResults, setRound4AnswerResults] = useState<PlayerAnswerListItem[]>([]);
+  const [round5AnswerResults, setRound5AnswerResults] = useState<PlayerAnswerListItem[]>([]);
   const [hasLikedQuestion, setHasLikedQuestion] = useState(false);
   const [questionLikesCount, setQuestionLikesCount] = useState<number | null>(null);
   const [bestQuestion, setBestQuestion] = useState<{ id: number; likes: number; text: string } | null>(null);
@@ -498,6 +513,7 @@ export default function RoomPage() {
         }
 
         setHasAnswered(true);
+        setRound2PlayerAnswer(answerIsFact);
         setIsSubmitting(false);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
@@ -670,6 +686,7 @@ export default function RoomPage() {
         setQuestion(null);
         setRound2ItemIndex(null);
         setRound2Phase('idle');
+        setRound2PlayerAnswer(null);
         setRound3QuestionIndex(null);
         setRound4Puzzle(null);
         setRound4PuzzleId(null);
@@ -682,6 +699,7 @@ export default function RoomPage() {
         setQuestion(null);
         setRound2ItemIndex(null);
         setRound2Phase('idle');
+        setRound2PlayerAnswer(null);
         setRound3QuestionIndex(null);
         setRound4Puzzle(null);
         setRound4PuzzleId(null);
@@ -694,6 +712,7 @@ export default function RoomPage() {
         setRound2ItemIndex(dbRound2ItemIndex);
         setRound2ShowingFact(dbRound2ShowingFact);
         setRound2Phase(dbRound2Phase);
+        setRound2PlayerAnswer(null);
         setRound3QuestionIndex(null);
 
         const startTime = room.question_started_at;
@@ -704,15 +723,19 @@ export default function RoomPage() {
         if (dbRound2ItemIndex !== null) {
           const { data: existingRound2Answer } = await supabase
             .from('round2_answers')
-            .select('id')
+            .select('answer_is_fact')
             .eq('player_id', storedPlayerId)
             .eq('room_id', room.id)
             .eq('item_index', dbRound2ItemIndex)
             .maybeSingle();
 
           setHasAnswered(!!existingRound2Answer);
+          if (existingRound2Answer && typeof existingRound2Answer === 'object' && existingRound2Answer !== null && 'answer_is_fact' in existingRound2Answer) {
+            setRound2PlayerAnswer(!!(existingRound2Answer as { answer_is_fact?: boolean }).answer_is_fact);
+          }
         } else {
           setHasAnswered(false);
+          setRound2PlayerAnswer(null);
         }
 
         if (!cancelled) {
@@ -723,6 +746,7 @@ export default function RoomPage() {
         setQuestion(null);
         setRound2ItemIndex(null);
         setRound2Phase('idle');
+        setRound2PlayerAnswer(null);
         setRound3QuestionIndex(room.current_question_index);
 
         const startTime = room.question_started_at;
@@ -762,6 +786,7 @@ export default function RoomPage() {
         setQuestion(null);
         setRound2ItemIndex(null);
         setRound2Phase('idle');
+        setRound2PlayerAnswer(null);
         setRound3QuestionIndex(null);
 
         const startTime = room.question_started_at;
@@ -800,6 +825,7 @@ export default function RoomPage() {
         setQuestion(null);
         setRound2ItemIndex(null);
         setRound2Phase('idle');
+        setRound2PlayerAnswer(null);
         setRound3QuestionIndex(null);
         setRound4Puzzle(null);
         setRound4PuzzleId(null);
@@ -906,7 +932,6 @@ export default function RoomPage() {
     };
 
     if (!realtimeEnabled) {
-      setConnectionMode('polling');
       const poll = async () => {
         const { data } = await supabase
           .from('rooms')
@@ -967,6 +992,7 @@ export default function RoomPage() {
         setQuestion(null);
         setRound2ItemIndex(null);
         setRound2Phase('idle');
+        setRound2PlayerAnswer(null);
         setRound3QuestionIndex(null);
         setRound4Puzzle(null);
         setRound4PuzzleId(null);
@@ -984,6 +1010,7 @@ export default function RoomPage() {
         setQuestion(null);
         setRound2ItemIndex(null);
         setRound2Phase('idle');
+        setRound2PlayerAnswer(null);
         setRound3QuestionIndex(null);
         setRound4Puzzle(null);
         setRound4PuzzleId(null);
@@ -1000,6 +1027,7 @@ export default function RoomPage() {
         setRound2ItemIndex(nextRound2ItemIndex);
         setRound2ShowingFact(nextRound2ShowingFact);
         setRound2Phase(nextRound2Phase);
+        setRound2PlayerAnswer(null);
         setRound3QuestionIndex(null);
         setQuestionStartedAt(startedAt);
 
@@ -1015,14 +1043,18 @@ export default function RoomPage() {
         if (currentPlayerId && currentRoomId && nextRound2ItemIndex !== null) {
           const { data: newAnswer } = await supabase
             .from('round2_answers')
-            .select('id')
+            .select('answer_is_fact')
             .eq('player_id', currentPlayerId)
             .eq('room_id', currentRoomId)
             .eq('item_index', nextRound2ItemIndex)
             .maybeSingle();
           setHasAnswered(!!newAnswer);
+          if (newAnswer && typeof newAnswer === 'object' && newAnswer !== null && 'answer_is_fact' in newAnswer) {
+            setRound2PlayerAnswer(!!(newAnswer as { answer_is_fact?: boolean }).answer_is_fact);
+          }
         } else {
           setHasAnswered(false);
+          setRound2PlayerAnswer(null);
         }
         return;
       }
@@ -1033,6 +1065,7 @@ export default function RoomPage() {
         setQuestion(null);
         setRound2ItemIndex(null);
         setRound2Phase('idle');
+        setRound2PlayerAnswer(null);
         setRound3QuestionIndex(newQuestionIndex);
         setQuestionStartedAt(startedAt);
 
@@ -1077,6 +1110,7 @@ export default function RoomPage() {
         setQuestion(null);
         setRound2ItemIndex(null);
         setRound2Phase('idle');
+        setRound2PlayerAnswer(null);
         setRound3QuestionIndex(null);
 
         // Force fetch latest state if payload seems incomplete
@@ -1135,6 +1169,7 @@ export default function RoomPage() {
         setQuestion(null);
         setRound2ItemIndex(null);
         setRound2Phase('idle');
+        setRound2PlayerAnswer(null);
         setRound3QuestionIndex(null);
         setRound4Puzzle(null);
         setRound4PuzzleId(null);
@@ -1250,18 +1285,10 @@ export default function RoomPage() {
           await handleRoomUpdate(payload);
         }
       )
-      .subscribe((status) => {
-        if (!mounted) return;
-        if (status === 'SUBSCRIBED') {
-          setConnectionMode('realtime');
-        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-          setConnectionMode('reconnecting');
-        }
-      });
+      .subscribe();
 
     return () => {
       mounted = false;
-      setConnectionMode(realtimeEnabled ? 'reconnecting' : 'polling');
       roomChannel.unsubscribe().then(() => {
         supabase.removeChannel(roomChannel);
       });
@@ -1698,6 +1725,202 @@ export default function RoomPage() {
     return () => clearInterval(intervalId);
   }, [loadRound3VoteOptions, loadRound3VoteState, roomStatus, round3Phase]);
 
+  const loadPlayerNameMap = useCallback(async () => {
+    if (!roomId) {
+      return new Map<string, string>();
+    }
+    try {
+      const { data, error } = await supabase.from('players').select('id, name').eq('room_id', roomId);
+      if (error || !Array.isArray(data)) {
+        return new Map<string, string>();
+      }
+      const map = new Map<string, string>();
+      data.forEach((row) => {
+        const id = String((row as { id?: unknown }).id ?? '');
+        const name = String((row as { name?: unknown }).name ?? '');
+        if (id) {
+          map.set(id, name || 'Игрок');
+        }
+      });
+      return map;
+    } catch (err) {
+      console.error('Failed to load player names', err);
+      return new Map<string, string>();
+    }
+  }, [roomId]);
+
+  const loadRound3AnswerResults = useCallback(async () => {
+    if (!roomId || roomStatus !== 'round3-running' || round3QuestionIndex === null) {
+      return;
+    }
+    try {
+      const [nameMap, answersResponse, votesResponse] = await Promise.all([
+        loadPlayerNameMap(),
+        supabase
+          .from('round3_answers')
+          .select('id, player_id, text, submitted_at')
+          .eq('room_id', roomId)
+          .eq('question_index', round3QuestionIndex)
+          .order('submitted_at', { ascending: true }),
+        supabase
+          .from('round3_votes')
+          .select('voter_player_id, answer_id')
+          .eq('room_id', roomId)
+          .eq('question_index', round3QuestionIndex),
+      ]);
+
+      if (answersResponse.error) {
+        console.error('Failed to load round3 answers for results', answersResponse.error);
+        setRound3AnswerResults([]);
+        return;
+      }
+
+      const votesByAnswer = new Map<string, number>();
+      (votesResponse.data || []).forEach((row) => {
+        const answerId = String((row as Round3VoteRow).answer_id ?? '');
+        if (!answerId) {
+          return;
+        }
+        votesByAnswer.set(answerId, (votesByAnswer.get(answerId) ?? 0) + 1);
+      });
+
+      const deduped = new Map<string, Round3AnswerRow>();
+      (answersResponse.data || []).forEach((row) => {
+        const normalized = row as Round3AnswerRow;
+        if (!deduped.has(normalized.player_id)) {
+          deduped.set(normalized.player_id, normalized);
+        }
+      });
+
+      const items = Array.from(deduped.values())
+        .map((row) => ({
+          id: row.id,
+          playerId: row.player_id,
+          name: nameMap.get(row.player_id) ?? 'Игрок',
+          text: row.text,
+          likes: votesByAnswer.get(row.id) ?? 0,
+        }))
+        .sort((a, b) => b.likes - a.likes || a.name.localeCompare(b.name));
+
+      setRound3AnswerResults(items);
+    } catch (err) {
+      console.error('Failed to load round3 results', err);
+      setRound3AnswerResults([]);
+    }
+  }, [loadPlayerNameMap, roomId, roomStatus, round3QuestionIndex]);
+
+  const loadRound4AnswerResults = useCallback(async () => {
+    if (!roomId || roomStatus !== 'round4-running' || round4PuzzleId === null) {
+      return;
+    }
+    try {
+      const [nameMap, answersResponse] = await Promise.all([
+        loadPlayerNameMap(),
+        supabase
+          .from('round4_answers')
+          .select('id, player_id, answer_text, submitted_at')
+          .eq('room_id', roomId)
+          .eq('puzzle_id', round4PuzzleId)
+          .order('submitted_at', { ascending: true }),
+      ]);
+
+      if (answersResponse.error) {
+        console.error('Failed to load round4 answers for results', answersResponse.error);
+        setRound4AnswerResults([]);
+        return;
+      }
+
+      const deduped = new Map<string, { id: string; player_id: string; answer_text: string }>();
+      (answersResponse.data || []).forEach((row) => {
+        const normalized = row as { id: string; player_id: string; answer_text: string };
+        if (!deduped.has(normalized.player_id)) {
+          deduped.set(normalized.player_id, normalized);
+        }
+      });
+
+      const items = Array.from(deduped.values()).map((row) => ({
+        id: row.id,
+        playerId: row.player_id,
+        name: nameMap.get(row.player_id) ?? 'Игрок',
+        text: row.answer_text,
+        likes: 0,
+      }));
+
+      setRound4AnswerResults(items);
+    } catch (err) {
+      console.error('Failed to load round4 results', err);
+      setRound4AnswerResults([]);
+    }
+  }, [loadPlayerNameMap, roomId, roomStatus, round4PuzzleId]);
+
+  const loadRound5AnswerResults = useCallback(async () => {
+    if (!roomId || round5CurrentBankIndex === null) {
+      return;
+    }
+    try {
+      const [nameMap, answersResponse] = await Promise.all([
+        loadPlayerNameMap(),
+        supabase
+          .from('round5_answers')
+          .select('id, player_id, answer_value, submitted_at')
+          .eq('room_id', roomId)
+          .eq('question_index', round5CurrentBankIndex)
+          .order('submitted_at', { ascending: true }),
+      ]);
+
+      if (answersResponse.error) {
+        console.error('Failed to load round5 answers for results', answersResponse.error);
+        setRound5AnswerResults([]);
+        return;
+      }
+
+      const deduped = new Map<string, { id: string; player_id: string; answer_value: number }>();
+      (answersResponse.data || []).forEach((row) => {
+        const normalized = row as { id: string; player_id: string; answer_value: number };
+        if (!deduped.has(normalized.player_id)) {
+          deduped.set(normalized.player_id, normalized);
+        }
+      });
+
+      const items = Array.from(deduped.values()).map((row) => ({
+        id: row.id,
+        playerId: row.player_id,
+        name: nameMap.get(row.player_id) ?? 'Игрок',
+        text: Number.isFinite(row.answer_value) ? String(row.answer_value) : String(row.answer_value ?? ''),
+        likes: 0,
+      }));
+
+      setRound5AnswerResults(items);
+    } catch (err) {
+      console.error('Failed to load round5 results', err);
+      setRound5AnswerResults([]);
+    }
+  }, [loadPlayerNameMap, roomId, round5CurrentBankIndex]);
+
+  useEffect(() => {
+    if (roomStatus !== 'round3-running' || round3Phase !== 'post' || round3QuestionIndex === null) {
+      setRound3AnswerResults([]);
+      return;
+    }
+    void loadRound3AnswerResults();
+  }, [loadRound3AnswerResults, roomStatus, round3Phase, round3QuestionIndex]);
+
+  useEffect(() => {
+    if (roomStatus !== 'round4-running' || !allPlayersAnswered || round4PuzzleId === null) {
+      setRound4AnswerResults([]);
+      return;
+    }
+    void loadRound4AnswerResults();
+  }, [allPlayersAnswered, loadRound4AnswerResults, roomStatus, round4PuzzleId]);
+
+  useEffect(() => {
+    if (roomStatus !== 'round5-explanation' || round5CurrentBankIndex === null) {
+      setRound5AnswerResults([]);
+      return;
+    }
+    void loadRound5AnswerResults();
+  }, [loadRound5AnswerResults, roomStatus, round5CurrentBankIndex]);
+
   const submitRound3Vote = useCallback(
     async (answerId: string) => {
       if (isSubmitting || round3HasVoted) {
@@ -1867,12 +2090,19 @@ export default function RoomPage() {
         : '';
   const shouldShowCorrectAnswer = roomStatus === 'running' && allPlayersAnswered && Boolean(question);
   const correctAnswerKey = question ? getOptionKeyByIndex(question.correctIndex) : null;
-  const correctAnswerText = question && typeof question.correctIndex === 'number' ? question.options[question.correctIndex] : '';
-  const correctAnswerLabel = correctAnswerKey ? OPTION_LABELS[correctAnswerKey] : '—';
   const playerAnswerKey = playerAnswer;
   const playerAnswerLabel = playerAnswerKey ? OPTION_LABELS[playerAnswerKey as keyof typeof OPTION_LABELS] : null;
   const playerAnswerText = playerAnswerKey && question ? question.options[getOptionIndexFromKey(playerAnswerKey)] : null;
   const isPlayerCorrect = playerAnswerKey ? playerAnswerKey === correctAnswerKey : null;
+  const playerAnswerDisplay = playerAnswerLabel ? `${playerAnswerLabel} · ${playerAnswerText ?? '—'}` : playerAnswerText ?? '—';
+  const playerAnswerStatus =
+    isPlayerCorrect === true ? 'Правильно' : isPlayerCorrect === false ? 'Неправильно' : 'Ответ принят';
+  const playerAnswerTone =
+    isPlayerCorrect === true
+      ? 'border-[#2f7a3b] bg-[#dff7e3] text-[#2f7a3b]'
+      : isPlayerCorrect === false
+        ? 'border-[#b23324] bg-[#ffd7d0] text-[#b23324]'
+        : 'border-[#142a45]/20 bg-[#fff6da] text-[#142a45]';
 
   if (showResults && (roomStatus === 'finished' || roomStatus === 'final-results')) {
     const isFinal = roomStatus === 'final-results';
@@ -1982,19 +2212,16 @@ export default function RoomPage() {
               <p className="retro-heading text-[10px] tracking-[0.5em] text-[#ffeccd]/60">Ваш ник</p>
               <p className="text-2xl font-black">{playerName}</p>
               <div className="mt-2 flex justify-end">
-                <ConnectionStatusBadge mode={connectionMode} />
+                <LivePulseBadge />
               </div>
             </div>
           </div>
-          <p className="text-xs text-[#ffeccd]/70 mt-2">
-            Держите вкладку открытой: ответы и таймеры синхронизируются автоматически через Supabase.
-          </p>
         </header>
 
         <PhaseStatusBanner phaseLabel={phaseBannerLabel} className="mt-4" />
 
-        {roomStatus === 'waiting' && (
-          <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-8 text-center space-y-4 phase-transition">
+        <ScalePanel isVisible={roomStatus === 'waiting'}>
+          <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-8 text-center space-y-4">
             {isIntermission ? (
               <>
                 <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">ПЕРЕРЫВ МЕЖДУ РАУНДАМИ</p>
@@ -2033,40 +2260,43 @@ export default function RoomPage() {
               </>
             )}
           </section>
-        )}
+        </ScalePanel>
 
-        {roomStatus === 'round4-running' && (
+        <ScalePanel isVisible={roomStatus === 'round4-running'}>
           <section
             key={`round4-player-${round4PuzzleId ?? 'none'}-${allPlayersAnswered ? 'answered' : 'run'}`}
-            className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6 animate-round4-panel"
+            className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6"
           >
-            <div className="flex flex-col gap-3 text-center">
-              <span className="mx-auto px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
-                Раунд 4 · Дэшифровщик
-              </span>
-              <div className="text-5xl sm:text-6xl leading-none">{round4Puzzle?.emoji ?? '⏳'}</div>
-              <p className="text-sm text-[#142a45]/70">
-                {round4Puzzle ? `Категория: ${round4Puzzle.category}` : 'Ждём загадку от ведущего'}
-              </p>
-            </div>
+            {!allPlayersAnswered && (
+              <>
+                <div className="flex flex-col gap-3 text-center">
+                  <span className="mx-auto px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
+                    Раунд 4 · Дэшифровщик
+                  </span>
+                  <div className="text-5xl sm:text-6xl leading-none">{round4Puzzle?.emoji ?? '⏳'}</div>
+                  <p className="text-sm text-[#142a45]/70">
+                    {round4Puzzle ? `Категория: ${round4Puzzle.category}` : 'Ждём загадку от ведущего'}
+                  </p>
+                </div>
 
-            <div>
-              <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
-                <span>Таймер · 30 сек</span>
-                <span className={`font-black ${allPlayersAnswered ? 'text-[#1f6ac6]' : 'text-[#142a45]'}`}>{timerLabel}</span>
-              </div>
-              <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
-                <div
-                  className={`h-full ${activeTimerSeconds > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
-                  style={{ width: `${progressPercent}%` }}
-                />
-              </div>
-              {allPlayersAnswered && (
-                <p className="text-xs text-[#1f6ac6] font-semibold mt-2">Время истекло — слушаем ответ ведущего.</p>
-              )}
-            </div>
+                <div>
+                  <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
+                    <span>Таймер · 30 сек</span>
+                    <span className={`font-black ${allPlayersAnswered ? 'text-[#1f6ac6]' : 'text-[#142a45]'}`}>{timerLabel}</span>
+                  </div>
+                  <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
+                    <div
+                      className={`h-full ${activeTimerSeconds > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
+                      style={{ width: `${progressPercent}%` }}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
 
-            {(hasAnswered || allPlayersAnswered) && round4Puzzle ? (
+            {allPlayersAnswered ? (
+              <PlayerAnswersList items={round4AnswerResults.map((item) => ({ id: item.id, name: item.name, text: item.text, likes: item.likes }))} />
+            ) : hasAnswered && round4Puzzle ? (
               <div className="rounded-3xl border-[3px] border-[#1f6ac6] bg-[#e9f0ff] p-6 text-center space-y-2">
                 <div className="text-5xl">✅</div>
                 <h3 className="text-2xl font-black text-[#1f6ac6]">Ответ отправлен!</h3>
@@ -2119,25 +2349,27 @@ export default function RoomPage() {
               </div>
             )}
           </section>
-        )}
+        </ScalePanel>
 
-        {(roomStatus === 'round5-running' || roomStatus === 'round5-explanation') && (
-          <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6 phase-transition">
-            <div className="flex flex-col gap-3 text-center">
-              <span className="mx-auto px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
-                Финал · Цифровая интуиция
-              </span>
-              <h2 className="text-3xl font-black leading-tight">
-                {round5CurrentQuestion?.question ? (
-                  <AnimatedText
-                    key={`r5-q-${round5CurrentBankIndex ?? 'x'}`}
-                    text={round5CurrentQuestion.question}
-                  />
-                ) : (
-                  '⏳'
-                )}
-              </h2>
-            </div>
+        <ScalePanel isVisible={roomStatus === 'round5-running' || roomStatus === 'round5-explanation'}>
+          <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
+            {roomStatus === 'round5-running' && (
+              <div className="flex flex-col gap-3 text-center">
+                <span className="mx-auto px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
+                  Финал · Цифровая интуиция
+                </span>
+                <h2 className="text-xl sm:text-2xl font-black leading-tight">
+                  {round5CurrentQuestion?.question ? (
+                    <AnimatedText
+                      key={`r5-q-${round5CurrentBankIndex ?? 'x'}`}
+                      text={round5CurrentQuestion.question}
+                    />
+                  ) : (
+                    '⏳'
+                  )}
+                </h2>
+              </div>
+            )}
 
             <div>
               <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
@@ -2209,39 +2441,49 @@ export default function RoomPage() {
                 )}
               </div>
             )}
+
+            {roomStatus === 'round5-explanation' && (
+              <PlayerAnswersList
+                items={round5AnswerResults.map((item) => ({ id: item.id, name: item.name, text: item.text, likes: item.likes }))}
+              />
+            )}
           </section>
-        )}
+        </ScalePanel>
 
-        {question && roomStatus === 'running' && (
-          <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6 phase-transition">
-            <div className="flex flex-col gap-3 text-center">
-              <span className="mx-auto px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
-                Вопрос #{question.order}
-              </span>
-              <h2 className="text-3xl font-black leading-tight">
-                <AnimatedText key={`r1-q-${typeof question.id === 'number' ? question.id : question.order}`} text={question.text} />
-              </h2>
-            </div>
-
-            <div>
-              <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
-                <span>Осталось времени</span>
-                <span className={`font-black ${allPlayersAnswered ? 'text-[#1f6ac6]' : 'text-[#142a45]'}`}>
-                  {timerLabel}
+        <ScalePanel isVisible={Boolean(question) && roomStatus === 'running'}>
+          <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
+            {!hasAnswered && question ? (
+              <div className="flex flex-col gap-3 text-center">
+                <span className="mx-auto px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
+                  Вопрос #{question.order}
                 </span>
+                <h2 className="text-xl sm:text-2xl font-black leading-tight">
+                  <AnimatedText key={`r1-q-${typeof question.id === 'number' ? question.id : question.order}`} text={question.text} />
+                </h2>
               </div>
-              <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
-                <div
-                  className={`h-full ${effectiveTimeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
-                  style={{ width: `${progressPercent}%` }}
-                />
-              </div>
-              {allPlayersAnswered && (
-                <p className="text-xs text-[#1f6ac6] font-semibold mt-2">Все уже ответили — ждём следующий вопрос.</p>
-              )}
-            </div>
+            ) : null}
 
-            {!hasAnswered ? (
+            {!hasAnswered && (
+              <div>
+                <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
+                  <span>Осталось времени</span>
+                  <span className={`font-black ${allPlayersAnswered ? 'text-[#1f6ac6]' : 'text-[#142a45]'}`}>
+                    {timerLabel}
+                  </span>
+                </div>
+                <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
+                  <div
+                    className={`h-full ${effectiveTimeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+                {allPlayersAnswered && (
+                  <p className="text-xs text-[#1f6ac6] font-semibold mt-2">Все уже ответили — ждём следующий вопрос.</p>
+                )}
+              </div>
+            )}
+
+            {!hasAnswered && question ? (
               <div className="space-y-4">
                 <p className="text-xs font-semibold tracking-[0.3em] text-[#142a45]/60">Выберите ответ</p>
                 <div className="space-y-3">
@@ -2278,51 +2520,26 @@ export default function RoomPage() {
                   <p className="text-xs text-center text-[#142a45]/60">⏱ Время истекло. Следующий вопрос появится автоматически.</p>
                 )}
               </div>
-            ) : (
-              <div className="rounded-3xl border-[3px] border-[#1f6ac6] bg-[#e9f0ff] p-6 text-center space-y-2">
-                <div className="text-5xl">✅</div>
-                <h3 className="text-2xl font-black text-[#1f6ac6]">Ответ отправлен!</h3>
-                <p className="text-sm text-[#142a45]/70">Ждём, пока ведущий запустит следующий вопрос.</p>
-              </div>
-            )}
-
-            {shouldShowCorrectAnswer && question ? (
-              <div className="space-y-4">
-                <CorrectAnswerView
-                  correctLabel={`${correctAnswerLabel} · правильный вариант`}
-                  correctText={correctAnswerText}
-                  playerLabel={playerAnswerLabel ?? undefined}
-                  playerText={playerAnswerText ?? undefined}
-                  isCorrect={isPlayerCorrect}
-                />
-                <QuestionLikeButton
-                  liked={hasLikedQuestion}
-                  likesCount={questionLikesCount}
-                  onLike={() => void likeQuestion()}
-                />
+            ) : hasAnswered ? (
+              <div className={`rounded-3xl border-[3px] p-6 text-center space-y-2 ${playerAnswerTone}`}>
+                <div className="text-5xl">{isPlayerCorrect === false ? '❌' : '✅'}</div>
+                <h3 className="text-2xl font-black">{playerAnswerStatus}</h3>
+                <p className="text-sm text-[#142a45]/80">Ваш ответ: {playerAnswerDisplay}</p>
+                {shouldShowCorrectAnswer ? (
+                  <QuestionLikeButton liked={hasLikedQuestion} likesCount={questionLikesCount} onLike={() => void likeQuestion()} />
+                ) : null}
               </div>
             ) : null}
           </section>
-        )}
+        </ScalePanel>
 
-        {roomStatus === 'round2-running' && (
-          <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6 phase-transition">
+        <ScalePanel isVisible={roomStatus === 'round2-running'}>
+          <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
             <div className="flex flex-col gap-3 text-center">
               <span className="mx-auto px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
                 Раунд 2 · Фейколов
               </span>
-              <h2 className="text-3xl font-black leading-tight">
-                <AnimatedText
-                  key={`r2-q-${round2ItemIndex ?? 'x'}-${round2ShowingFact ? 't' : 'f'}`}
-                  text={
-                    round2ItemIndex !== null && round2Items[round2ItemIndex]
-                      ? round2ShowingFact
-                        ? round2Items[round2ItemIndex].fact
-                        : round2Items[round2ItemIndex].fiction
-                      : 'Подождите, факт загружается…'
-                  }
-                />
-              </h2>
+              <p className="text-sm text-[#142a45]/70">Слушайте ведущего и выбирайте вариант.</p>
             </div>
 
             <div>
@@ -2342,6 +2559,13 @@ export default function RoomPage() {
                 <p className="text-xs text-[#1f6ac6] font-semibold mt-2">Все уже ответили — ждём следующий факт.</p>
               )}
             </div>
+
+            {round2PlayerAnswer !== null && hasAnswered && (
+              <div className="rounded-3xl border-[3px] border-[#1f6ac6] bg-[#e9f0ff] p-4 text-center space-y-2">
+                <p className="text-xs font-semibold tracking-[0.3em] text-[#142a45]/60">ВАШ ОТВЕТ</p>
+                <p className="text-2xl font-black text-[#1f6ac6]">{round2PlayerAnswer ? 'Правда' : 'Вымысел'}</p>
+              </div>
+            )}
 
             {round2Phase !== 'fact' ? (
               <div className="rounded-3xl border-[3px] border-[#142a45]/20 bg-[#fff6da] p-6 text-center space-y-2">
@@ -2398,9 +2622,9 @@ export default function RoomPage() {
               </div>
             )}
           </section>
-        )}
+        </ScalePanel>
 
-        {roomStatus === 'round3-running' && (
+        <ScalePanel isVisible={roomStatus === 'round3-running'}>
           <section className="rounded-3xl border-[4px] border-[#f1532f] bg-white shadow-xl p-6 space-y-6">
             <div className="flex flex-col gap-3 text-center">
               <span className="mx-auto px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
@@ -2425,7 +2649,7 @@ export default function RoomPage() {
 
             <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] px-4 py-3 text-center space-y-2">
               <p className="text-[10px] font-black tracking-[0.35em] text-[#142a45]/60">ВОПРОС</p>
-              <p className="text-xl sm:text-2xl font-black leading-tight">
+              <p className="text-base sm:text-lg font-black leading-tight">
                 {currentRound3Question?.question ? (
                   <AnimatedText key={`r3-q-${round3QuestionIndex ?? 'x'}`} text={currentRound3Question.question} />
                 ) : (
@@ -2522,11 +2746,25 @@ export default function RoomPage() {
               </div>
             )}
 
+            {round3Phase === 'post' && (
+              <PlayerAnswersList
+                items={round3AnswerResults.map((item) => ({
+                  id: item.id,
+                  name: item.name,
+                  text: item.text,
+                  likes: item.likes,
+                }))}
+                emptyLabel="Ответы загружаются…"
+              />
+            )}
+
             <p className="text-sm text-[#142a45]/70 text-center">
               Слушайте ведущего: озвучка факта и фоновая музыка звучат у него.
             </p>
           </section>
-        )}
+        </ScalePanel>
+
+        <p className="text-[11px] text-center text-[#142a45]/50">Если возникли проблемы — обновите страницу</p>
       </div>
     </div>
   );
