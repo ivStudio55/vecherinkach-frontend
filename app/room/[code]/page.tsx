@@ -253,6 +253,13 @@ export default function RoomPage() {
   }, [roomStatus]);
 
   useEffect(() => {
+    if (roomStatus === 'waiting' || roomStatus === 'final-results' || roomStatus === 'finished') {
+      return;
+    }
+    setLastActiveRound(roomStatus);
+  }, [roomStatus]);
+
+  useEffect(() => {
     if (!roomId || !playerId) {
       return;
     }
@@ -2285,6 +2292,7 @@ export default function RoomPage() {
               totalPlayers={playersCount}
               isLoading={isStandingLoading}
               isWinner={isFinal && playerRank === 1}
+              footerText={isFinal ? undefined : `Ждём раунд ${nextRoundLabel || '…'}`}
             />
           )}
 
@@ -2362,7 +2370,12 @@ export default function RoomPage() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="retro-heading text-xs tracking-[0.5em] text-[#ffeccd]/80">Комната</p>
-              <h1 className="text-3xl font-black leading-tight">Код {roomCode}</h1>
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="text-3xl font-black leading-tight">Код {roomCode}</h1>
+                <span className="inline-flex items-center gap-2 rounded-full border-[2px] border-[#ffeccd]/60 bg-white/10 px-3 py-1 text-xs font-black tracking-[0.2em] text-[#ffeccd]">
+                  ОЧКИ {playerTotalPoints ?? '—'}
+                </span>
+              </div>
             </div>
             <div className="text-right">
               <p className="retro-heading text-[10px] tracking-[0.5em] text-[#ffeccd]/60">Ваш ник</p>
@@ -2403,7 +2416,6 @@ export default function RoomPage() {
 
             {isIntermission && (
               <div className="text-center space-y-2">
-                <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/60">ВАШ ПРОГРЕСС</p>
                 {standingError ? (
                   <p className="text-sm font-semibold text-[#b23324]">{standingError}</p>
                 ) : (
@@ -2412,6 +2424,7 @@ export default function RoomPage() {
                     rank={playerRank}
                     totalPlayers={playersCount}
                     isLoading={isStandingLoading}
+                    title="ВАШ РЕЗУЛЬТАТ"
                     className="animate-final-panel"
                   />
                 )}
@@ -2776,9 +2789,11 @@ export default function RoomPage() {
                   <button
                     onClick={() => void submitRound2Answer(true)}
                     disabled={isSubmitting || effectiveTimeLeft <= 0 || roomStatus !== 'round2-running'}
-                    className="w-full flex items-center gap-3 rounded-2xl border-[3px] border-[#142a45] px-4 py-4 text-left font-semibold bg-white hover:bg-[#fff6da] transition disabled:opacity-40 disabled:cursor-not-allowed"
+                    className={`w-full flex items-center gap-3 rounded-2xl border-[3px] px-4 py-4 text-left font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed border-[#2f7a3b] bg-[#e6f7ea] text-[#2f7a3b] ${
+                      round2PlayerAnswer === true ? 'ring-2 ring-[#2f7a3b]' : 'hover:brightness-95'
+                    }`}
                   >
-                    <span className="w-10 h-10 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black bg-[#ffeccd]">
+                    <span className="w-10 h-10 rounded-full border-[3px] border-[#2f7a3b] flex items-center justify-center font-black bg-[#dff7e3] text-[#2f7a3b]">
                       ✅
                     </span>
                     <span className="flex-1 text-sm">Правда</span>
@@ -2786,9 +2801,11 @@ export default function RoomPage() {
                   <button
                     onClick={() => void submitRound2Answer(false)}
                     disabled={isSubmitting || effectiveTimeLeft <= 0 || roomStatus !== 'round2-running'}
-                    className="w-full flex items-center gap-3 rounded-2xl border-[3px] border-[#142a45] px-4 py-4 text-left font-semibold bg-white hover:bg-[#fff6da] transition disabled:opacity-40 disabled:cursor-not-allowed"
+                    className={`w-full flex items-center gap-3 rounded-2xl border-[3px] px-4 py-4 text-left font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed border-[#b23324] bg-[#ffd7d0] text-[#b23324] ${
+                      round2PlayerAnswer === false ? 'ring-2 ring-[#b23324]' : 'hover:brightness-95'
+                    }`}
                   >
-                    <span className="w-10 h-10 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black bg-[#ffeccd]">
+                    <span className="w-10 h-10 rounded-full border-[3px] border-[#b23324] flex items-center justify-center font-black bg-[#ffd7d0] text-[#b23324]">
                       ❌
                     </span>
                     <span className="flex-1 text-sm">Вымысел</span>
