@@ -1341,6 +1341,33 @@ export default function RoomPage() {
     [round2Items, round3Questions, round4Puzzles, round5Questions]
   );
 
+  const currentRound3Question =
+    roomStatus === 'round3-running' && round3QuestionIndex !== null
+      ? round3Questions[round3QuestionIndex] ?? null
+      : null;
+
+  const currentLikeQuestionId = (() => {
+    if (roomStatus === 'running' && question?.id) {
+      return question.id;
+    }
+    if (roomStatus === 'round2-running' && round2ItemIndex !== null) {
+      return buildRound2LikeId(round2ItemIndex, round2ShowingFact);
+    }
+    if (roomStatus === 'round3-running' && (currentRound3Question || round3QuestionIndex !== null)) {
+      const index = currentRound3Question?.originalIndex ?? round3QuestionIndex ?? 0;
+      return buildRound3LikeId(index);
+    }
+    if (roomStatus === 'round4-running' && round4Puzzle?.id) {
+      return buildRound4LikeId(round4Puzzle.id);
+    }
+    if ((roomStatus === 'round5-running' || roomStatus === 'round5-explanation') && round5CurrentBankIndex !== null) {
+      return buildRound5LikeId(round5CurrentBankIndex);
+    }
+    return null;
+  })();
+
+  const shouldShowLikePanel = !showResults && currentLikeQuestionId !== null;
+
   const loadBestQuestion = useCallback(async () => {
     if (!roomId) {
       return;
@@ -2124,33 +2151,6 @@ export default function RoomPage() {
     roomStatus === 'round3-running' && questionStartedAt
       ? addSecondsToIso(questionStartedAt, ROUND3_ANSWER_SECONDS + ROUND3_VOTE_COUNTDOWN_SECONDS)
       : null;
-
-  const currentRound3Question =
-    roomStatus === 'round3-running' && round3QuestionIndex !== null
-      ? round3Questions[round3QuestionIndex] ?? null
-      : null;
-
-  const currentLikeQuestionId = (() => {
-    if (roomStatus === 'running' && question?.id) {
-      return question.id;
-    }
-    if (roomStatus === 'round2-running' && round2ItemIndex !== null) {
-      return buildRound2LikeId(round2ItemIndex, round2ShowingFact);
-    }
-    if (roomStatus === 'round3-running' && (currentRound3Question || round3QuestionIndex !== null)) {
-      const index = currentRound3Question?.originalIndex ?? round3QuestionIndex ?? 0;
-      return buildRound3LikeId(index);
-    }
-    if (roomStatus === 'round4-running' && round4Puzzle?.id) {
-      return buildRound4LikeId(round4Puzzle.id);
-    }
-    if ((roomStatus === 'round5-running' || roomStatus === 'round5-explanation') && round5CurrentBankIndex !== null) {
-      return buildRound5LikeId(round5CurrentBankIndex);
-    }
-    return null;
-  })();
-
-  const shouldShowLikePanel = !showResults && currentLikeQuestionId !== null;
 
   const round3VoteCountdownStartedAt =
     roomStatus === 'round3-running' && questionStartedAt ? addSecondsToIso(questionStartedAt, ROUND3_ANSWER_SECONDS) : null;
