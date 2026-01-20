@@ -1,0 +1,3 @@
+export const ROUND3_ANSWER_SECONDS = 30;
+export const ROUND3_VOTE_COUNTDOWN_SECONDS = 3;
+export const ROUND3_VOTE_SECONDS = 15;

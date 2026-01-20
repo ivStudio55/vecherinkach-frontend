@@ -11,6 +11,7 @@ import { useRoomSync } from '@/lib/useRoomSync';
 import { mapRoundStateToUiPhase, roundStateReducer } from '@/lib/roundStateMachine';
 import { PhaseStatusBanner } from '@/shared/ui/PhaseStatusBanner';
 import { isRealtimeEnabled } from '@/shared/logic/realtimeConfig';
+import { ROUND3_ANSWER_SECONDS, ROUND3_VOTE_COUNTDOWN_SECONDS, ROUND3_VOTE_SECONDS } from '@/shared/logic/roundConstants';
 import {
   ActiveRoundQuestion,
   OptionKey,
@@ -115,9 +116,6 @@ const ROUND2_EXPLANATION_FALLBACK = 'Без объяснения';
 
 const ROUND3_TOTAL_QUESTIONS = 6;
 const ROUND3_POINTS = 200;
-const ROUND3_ANSWER_SECONDS = 30;
-const ROUND3_VOTE_COUNTDOWN_SECONDS = 3;
-const ROUND3_VOTE_SECONDS = 15;
 const ROUND3_QUESTIONS_AUDIO_DIR = 'round3/questions3';
 const ROUND3_BG_JINGLE_FILE = 'round2/jingle (5).mp3';
 const ROUND3_ANSWER_TIMER_JINGLE_FILE = 'round3/60_sec.mp3';

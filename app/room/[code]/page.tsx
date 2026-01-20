@@ -8,6 +8,7 @@ import { AnimatedText } from '@/components/AnimatedText';
 import { submitRound1Answer } from '@/shared/logic/submitAnswer';
 import { logEvent } from '@/shared/logic/logger';
 import { isRealtimeEnabled } from '@/shared/logic/realtimeConfig';
+import { ROUND3_ANSWER_SECONDS, ROUND3_VOTE_COUNTDOWN_SECONDS, ROUND3_VOTE_SECONDS } from '@/shared/logic/roundConstants';
 import { PhaseStatusBanner } from '@/shared/ui/PhaseStatusBanner';
 import { ScoreSummary } from '@/shared/ui/ScoreSummary';
 import {
@@ -49,6 +50,23 @@ const getRemainingSeconds = (startedAt: string | null, offsetMs = 0, durationSec
   const diffMs = now - startTime;
   const elapsedSeconds = Math.floor(diffMs / 1000);
   return Math.max(0, durationSeconds - elapsedSeconds);
+};
+
+const getRemainingSecondsWithDuration = (
+  startedAt: string | null,
+  durationSeconds: number,
+  offsetMs = 0
+): number => getRemainingSeconds(startedAt, offsetMs, durationSeconds);
+
+const addSecondsToIso = (startedAt: string | null, seconds: number): string | null => {
+  if (!startedAt) {
+    return null;
+  }
+  const startTime = new Date(startedAt).getTime();
+  if (Number.isNaN(startTime)) {
+    return null;
+  }
+  return new Date(startTime + seconds * 1000).toISOString();
 };
 
 type Round5Question = {
