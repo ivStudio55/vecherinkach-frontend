@@ -9,6 +9,7 @@ import { Round1VariantsPanel, Round1VariantsPanelHandle } from '@/components/Rou
 import { AnimatedText } from '@/components/AnimatedText';
 import { useRoomSync } from '@/lib/useRoomSync';
 import { mapRoundStateToUiPhase, roundStateReducer } from '@/lib/roundStateMachine';
+import { PhaseStatusBanner } from '@/shared/ui/PhaseStatusBanner';
 import {
   ActiveRoundQuestion,
   OptionKey,
@@ -7105,13 +7106,6 @@ export default function HostRoomPage() {
         : uiPhase === 'waiting'
           ? 'Ожидаем игроков'
           : '';
-  const connectionLabel =
-    connectionStatus.mode === 'polling'
-      ? connectionStatus.isFallbackPolling
-        ? 'Связь нестабильна — включён резервный опрос'
-        : 'Связь нестабильна — пытаемся восстановиться'
-      : 'Связь: Realtime';
-
   const shouldLockViewport =
     roomStatus === 'running' ||
     roomStatus === 'round2-running' ||
@@ -7174,12 +7168,7 @@ export default function HostRoomPage() {
             </div>
           </header>
 
-        {(localPhaseLabel || connectionStatus.mode !== 'realtime') && (
-          <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-white px-4 py-3 text-sm font-semibold text-[#142a45]">
-            {localPhaseLabel && <p>{localPhaseLabel}</p>}
-            <p className="text-xs text-[#142a45]/70">{connectionLabel}</p>
-          </div>
-        )}
+        <PhaseStatusBanner phaseLabel={localPhaseLabel} connectionStatus={connectionStatus} />
 
         {error && (
           <div className="rounded-3xl border-[3px] border-[#b23324] bg-[#ffd7d0] px-4 py-3 text-sm font-semibold text-[#7b1d16]">

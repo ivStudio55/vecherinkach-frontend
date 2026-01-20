@@ -5,6 +5,9 @@ import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { TrueFalseItem, ROUND2_POINTS } from '@/lib/round2';
 import { AnimatedText } from '@/components/AnimatedText';
+import { submitRound1Answer } from '@/shared/logic/submitAnswer';
+import { PhaseStatusBanner } from '@/shared/ui/PhaseStatusBanner';
+import { ScoreSummary } from '@/shared/ui/ScoreSummary';
 import {
   ActiveRoundQuestion,
   OPTION_LABELS,
@@ -1612,55 +1615,29 @@ export default function RoomPage() {
         return;
       }
 
-      const { data: room } = await supabase
-        .from('rooms')
-        .select('current_question_index')
-        .eq('id', roomId)
-        .single();
-
-      if (!room) {
-        setError('Комната не найдена');
-        setIsSubmitting(false);
-        return;
-      }
-
       // Проверяем правильность ответа
       const correctAnswerKey = getOptionKeyByIndex(question.correctIndex);
       const isCorrect = optionKey === correctAnswerKey;
       const pointsEarned = isCorrect ? question.points : 0;
 
-      // Сохраняем ответ
-      const { error: insertError } = await supabase
-        .from('answers')
-        .insert({
-          player_id: playerId,
-          room_id: roomId,
-          question_index: room.current_question_index,
-          text: optionKey,
-          is_correct: isCorrect,
-          points_earned: pointsEarned,
-        });
+      const questionIndex = Math.max(0, (question.order || 1) - 1);
+      const { data, error: submitError } = await submitRound1Answer({
+        roomId,
+        playerId,
+        questionIndex,
+        answer: optionKey,
+        isCorrect,
+        points: pointsEarned,
+      });
 
-      if (insertError) {
+      if (submitError) {
         setError('Ошибка при отправке ответа');
         setIsSubmitting(false);
         return;
       }
 
-      // Обновляем общий счёт игрока
-      if (isCorrect) {
-        const { data: playerData } = await supabase
-          .from('players')
-          .select('total_points')
-          .eq('id', playerId)
-          .single();
-
-        if (playerData) {
-          await supabase
-            .from('players')
-            .update({ total_points: (playerData.total_points || 0) + pointsEarned })
-            .eq('id', playerId);
-        }
+      if (data?.total_points !== null && data?.total_points !== undefined) {
+        setPlayerTotalPoints(data.total_points);
       }
 
       setHasAnswered(true);
@@ -1724,6 +1701,12 @@ export default function RoomPage() {
         : QUESTION_DURATION_SECONDS;
   const progressPercent = Math.max(0, Math.min(100, (activeTimerSeconds / activeTimerDuration) * 100));
   const timerLabel = allPlayersAnswered ? 'Все ответили' : `${activeTimerSeconds} c`;
+  const phaseBannerLabel =
+    roomStatus === 'waiting'
+      ? 'Ожидание игроков'
+      : allPlayersAnswered
+        ? 'Переходим к следующему вопросу'
+        : '';
 
   if (showResults && (roomStatus === 'finished' || roomStatus === 'final-results')) {
     const isFinal = roomStatus === 'final-results';
@@ -1752,19 +1735,13 @@ export default function RoomPage() {
             {standingError ? (
               <p className="text-sm font-semibold text-[#b23324]">{standingError}</p>
             ) : (
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-white p-4">
-                  <p className="text-[11px] font-semibold tracking-[0.25em] text-[#142a45]/60">ОЧКИ</p>
-                  <p className="text-3xl font-black tabular-nums">{playerTotalPoints ?? (isStandingLoading ? '…' : '—')}</p>
-                </div>
-                <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-white p-4">
-                  <p className="text-[11px] font-semibold tracking-[0.25em] text-[#142a45]/60">МЕСТО</p>
-                  <p className="text-3xl font-black tabular-nums">
-                    {playerRank !== null ? `${playerRank}` : isStandingLoading ? '…' : '—'}
-                    {playersCount ? <span className="text-base font-black text-[#142a45]/60">/{playersCount}</span> : null}
-                  </p>
-                </div>
-              </div>
+              <ScoreSummary
+                points={playerTotalPoints}
+                rank={playerRank}
+                totalPlayers={playersCount}
+                isLoading={isStandingLoading}
+                className="phase-transition"
+              />
             )}
 
             <button
@@ -1850,6 +1827,8 @@ export default function RoomPage() {
           </p>
         </header>
 
+        <PhaseStatusBanner phaseLabel={phaseBannerLabel} className="mt-4" />
+
         {roomStatus === 'waiting' && (
           <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-8 text-center space-y-4">
             {isIntermission ? (
@@ -1863,19 +1842,13 @@ export default function RoomPage() {
                   {standingError ? (
                     <p className="text-sm font-semibold text-[#b23324]">{standingError}</p>
                   ) : (
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-white p-4">
-                        <p className="text-[11px] font-semibold tracking-[0.25em] text-[#142a45]/60">ОЧКИ</p>
-                        <p className="text-3xl font-black tabular-nums">{playerTotalPoints ?? (isStandingLoading ? '…' : '—')}</p>
-                      </div>
-                      <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-white p-4">
-                        <p className="text-[11px] font-semibold tracking-[0.25em] text-[#142a45]/60">МЕСТО</p>
-                        <p className="text-3xl font-black tabular-nums">
-                          {playerRank !== null ? `${playerRank}` : isStandingLoading ? '…' : '—'}
-                          {playersCount ? <span className="text-base font-black text-[#142a45]/60">/{playersCount}</span> : null}
-                        </p>
-                      </div>
-                    </div>
+                    <ScoreSummary
+                      points={playerTotalPoints}
+                      rank={playerRank}
+                      totalPlayers={playersCount}
+                      isLoading={isStandingLoading}
+                      className="animate-final-panel"
+                    />
                   )}
                 </div>
 
