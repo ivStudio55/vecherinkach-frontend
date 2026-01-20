@@ -95,6 +95,7 @@ export const useRoomSync = (roomId?: string | null, options?: UseRoomSyncOptions
     }
     if (data) {
       throttledApply(data as RoomSyncRow);
+      setConnectionStatus((prev) => ({ ...prev, lastEventAt: Date.now() }));
     }
   }, [roomId, throttledApply]);
 
@@ -169,7 +170,7 @@ export const useRoomSync = (roomId?: string | null, options?: UseRoomSyncOptions
       .subscribe((status) => {
         if (!mounted) return;
         if (status === 'SUBSCRIBED') {
-          setConnectionStatus((prev) => ({ ...prev, mode: 'realtime' }));
+          setConnectionStatus((prev) => ({ ...prev, mode: 'realtime', lastEventAt: Date.now() }));
           stopPolling();
           return;
         }
@@ -209,18 +210,23 @@ export const useRoomSync = (roomId?: string | null, options?: UseRoomSyncOptions
         if (!prev.lastEventAt) {
           return prev;
         }
-        const isStale = Date.now() - prev.lastEventAt > STALE_EVENT_THRESHOLD_MS;
+        const now = Date.now();
+        const isStale = now - prev.lastEventAt > STALE_EVENT_THRESHOLD_MS;
+        const hasRecentPing = typeof prev.lastPingAt === 'number' && now - prev.lastPingAt < STALE_EVENT_THRESHOLD_MS * 2;
         if (isStale && prev.mode === 'realtime') {
-          const now = Date.now();
-          if (now - lastFallbackLogAtRef.current > FALLBACK_LOG_MIN_INTERVAL_MS) {
-            lastFallbackLogAtRef.current = now;
-            logEvent('warn', 'room-sync', 'Realtime stale, switching to fallback polling', {
-              eventName: 'realtime_fallback',
-              roomId,
-            });
+          if (!hasRecentPing) {
+            if (now - lastFallbackLogAtRef.current > FALLBACK_LOG_MIN_INTERVAL_MS) {
+              lastFallbackLogAtRef.current = now;
+              logEvent('warn', 'room-sync', 'Realtime stale, switching to fallback polling', {
+                eventName: 'realtime_fallback',
+                roomId,
+                lastEventAt: prev.lastEventAt,
+                lastPingAt: prev.lastPingAt ?? null,
+              });
+            }
+            startPolling();
+            return { ...prev, mode: 'reconnecting', isFallbackPolling: true };
           }
-          startPolling();
-          return { ...prev, mode: 'reconnecting', isFallbackPolling: true };
         }
         return prev;
       });

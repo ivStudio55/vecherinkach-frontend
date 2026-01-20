@@ -49,9 +49,18 @@ export async function GET(request: Request) {
     return Response.json({ error: logsError.message ?? 'Failed to load logs' }, { status: 500 });
   }
 
+  const { data: bestQuestion, error: bestQuestionError } = await supabase
+    .rpc('get_best_question', { p_room_id: room.id })
+    .maybeSingle();
+
+  if (bestQuestionError) {
+    return Response.json({ error: bestQuestionError.message ?? 'Failed to load likes' }, { status: 500 });
+  }
+
   return Response.json({
     room,
     players: players ?? [],
     logs: logs ?? [],
+    bestQuestion: bestQuestion ?? null,
   });
 }

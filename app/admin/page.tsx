@@ -44,7 +44,8 @@ type ActiveRoomRow = { id: string; code: string; status: string | null; createdA
 type RoomDetails = {
   room: Record<string, unknown>;
   players: Array<{ id: string; name: string; total_points: number; joined_at: string | null }>;
-  logs: Array<{ id: string; created_at: string; level: string; message: string; event_name: string | null }>
+  logs: Array<{ id: string; created_at: string; level: string; message: string; event_name: string | null }>;
+  bestQuestion?: { question_id: number; likes: number } | null;
 };
 
 const formatIso = (value?: string | null) => (value ? new Date(value).toLocaleString() : '—');
@@ -271,6 +272,22 @@ export default function AdminPage() {
       return;
     }
     setActionMessage('Комната перезапущена');
+    void loadRoomDetails(roomId);
+  }, [loadRoomDetails]);
+
+  const startRound3Rpc = useCallback(async (roomId: string) => {
+    if (!confirm('Запустить Round 3 через RPC?')) return;
+    const res = await fetch('/api/admin/room/start-round3', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ roomId }),
+    });
+    const payload = await res.json().catch(() => null);
+    if (!res.ok) {
+      setError(payload?.error ?? 'Не удалось запустить Round 3 через RPC');
+      return;
+    }
+    setActionMessage('Round 3 запущен через RPC');
     void loadRoomDetails(roomId);
   }, [loadRoomDetails]);
 
@@ -648,6 +665,13 @@ export default function AdminPage() {
                     >
                       Перезапуск
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => void startRound3Rpc(room.id)}
+                      className="px-4 py-2 rounded-2xl border-[2px] border-[#f1532f] text-xs font-black text-[#922415]"
+                    >
+                      Round 3 (RPC)
+                    </button>
                   </div>
                 </div>
               ))}
@@ -662,6 +686,17 @@ export default function AdminPage() {
                     <div>Активна: {String(roomDetails.room.is_active ?? '—')}</div>
                     <div>Вопрос: {String(roomDetails.room.current_question_index ?? '—')}</div>
                     <div>Старт: {formatIso((roomDetails.room.question_started_at as string | null) ?? null)}</div>
+                  </div>
+                  <div className="text-xs">
+                    <p className="text-[10px] font-black tracking-[0.3em] text-[#142a45]/60">ЛАЙКИ</p>
+                    {roomDetails.bestQuestion ? (
+                      <div className="mt-2 flex items-center justify-between rounded-2xl border-[2px] border-[#142a45]/15 bg-[#fff6da] px-3 py-2">
+                        <span>Вопрос #{roomDetails.bestQuestion.question_id}</span>
+                        <span className="font-black">{roomDetails.bestQuestion.likes}</span>
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-[#142a45]/60">Нет лайков</p>
+                    )}
                   </div>
                   <div>
                     <p className="text-xs font-black tracking-[0.3em] text-[#142a45]/60">Игроки</p>

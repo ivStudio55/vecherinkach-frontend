@@ -7,6 +7,12 @@ alter table rooms
 
 -- Add missing columns for room functionality
 alter table rooms
+  add column if not exists current_question_index int default 0;
+
+alter table rooms
+  add column if not exists is_active boolean default true;
+
+alter table rooms
   add column if not exists status text not null default 'waiting';
 
 alter table rooms
@@ -14,6 +20,21 @@ alter table rooms
 
 alter table rooms
   add column if not exists pack_id text not null default 'classic';
+
+alter table rooms
+  add column if not exists all_players_answered boolean default false;
+
+alter table rooms
+  add column if not exists selected_question_ids integer[];
+
+alter table rooms
+  add column if not exists round2_item_index int;
+
+alter table rooms
+  add column if not exists round2_showing_fact boolean default true;
+
+alter table rooms
+  add column if not exists round2_phase text default 'idle';
 
 -- Add status constraint
 update rooms
@@ -24,6 +45,11 @@ where status is null
     'running',
     'round2-running',
     'round2-ready',
+    'round3-running',
+    'round4-running',
+    'round5-running',
+    'round5-explanation',
+    'final-results',
     'finished'
   );
 
@@ -43,6 +69,11 @@ begin
       'running',
       'round2-running',
       'round2-ready',
+      'round3-running',
+      'round4-running',
+      'round5-running',
+      'round5-explanation',
+      'final-results',
       'finished'
     )
   );
@@ -68,10 +99,29 @@ begin
   ) then
     drop policy "Allow insert rooms" on public.rooms;
   end if;
+  if exists (
+    select 1 from pg_policies where schemaname = 'public' and tablename = 'rooms' and policyname = 'Allow select rooms'
+  ) then
+    drop policy "Allow select rooms" on public.rooms;
+  end if;
+  if exists (
+    select 1 from pg_policies where schemaname = 'public' and tablename = 'rooms' and policyname = 'Allow update rooms'
+  ) then
+    drop policy "Allow update rooms" on public.rooms;
+  end if;
 end $$;
 
 create policy "Allow insert rooms"
 on public.rooms for insert
+with check (true);
+
+create policy "Allow select rooms"
+on public.rooms for select
+using (true);
+
+create policy "Allow update rooms"
+on public.rooms for update
+using (true)
 with check (true);
 
 -- Add total_points to players if not exists
@@ -266,6 +316,7 @@ declare
   resolved_limit integer;
   has_max_rooms boolean;
   has_key boolean;
+  has_id boolean;
 begin
   select exists(
     select 1
@@ -283,13 +334,30 @@ begin
       and column_name = 'key'
   ) into has_key;
 
+  select exists(
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'app_settings'
+      and column_name = 'id'
+  ) into has_id;
+
   if has_max_rooms then
-    select max_rooms
-      into resolved_limit
-    from public.app_settings
-    where max_rooms is not null
-    order by id asc
-    limit 1;
+    if has_id then
+      select max_rooms
+        into resolved_limit
+      from public.app_settings
+      where max_rooms is not null
+      order by id asc
+      limit 1;
+    else
+      select max_rooms
+        into resolved_limit
+      from public.app_settings
+      where max_rooms is not null
+      order by max_rooms asc
+      limit 1;
+    end if;
   end if;
 
   if resolved_limit is null and has_key then
@@ -323,7 +391,7 @@ declare
   active_count integer;
   max_rooms integer;
 begin
-  select count(*) into active_count from public.rooms where is_active = true;
+  select count(*) into active_count from public.rooms where public.rooms.is_active = true;
   select public.get_max_active_rooms() into max_rooms;
 
   if active_count >= max_rooms then
@@ -359,6 +427,56 @@ end;
 $$;
 
 grant execute on function public.create_room(text, text) to anon, authenticated;
+
+drop function if exists public.start_round3(uuid);
+create or replace function public.start_round3(
+  p_room_id uuid
+)
+returns table (
+  id uuid,
+  status text,
+  current_question_index int,
+  question_started_at timestamptz,
+  state_version bigint
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  updated_row record;
+begin
+  update public.rooms as r
+  set is_active = true,
+      status = 'round3-running',
+      current_question_index = 0,
+      question_started_at = null,
+      all_players_answered = false,
+      round2_phase = 'idle'
+  where r.id = p_room_id
+  returning r.id, r.status, r.current_question_index, r.question_started_at, r.state_version into updated_row;
+
+  if updated_row.id is null then
+    raise exception 'Room not found';
+  end if;
+
+  return query
+  select updated_row.id, updated_row.status, updated_row.current_question_index, updated_row.question_started_at, updated_row.state_version;
+exception
+  when others then
+    insert into public.logs (level, channel, message, event_name, context)
+    values (
+      'error',
+      'rpc',
+      'start_round3 failed',
+      'start_round3_error',
+      jsonb_build_object('room_id', p_room_id, 'error', SQLERRM)
+    );
+    raise;
+end;
+$$;
+
+grant execute on function public.start_round3(uuid) to anon, authenticated;
 
 -- Question likes (Round 1) + best question helper
 create table if not exists public.question_likes (

@@ -3,6 +3,7 @@
 import { Fragment, useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef, useReducer, type CSSProperties } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { logError, logEvent } from '@/shared/logic/logger';
 import { TrueFalseItem, ROUND2_POINTS } from '@/lib/round2';
 import { PlayerPrinter } from '@/components/PlayerPrinter';
 import { Round1VariantsPanel, Round1VariantsPanelHandle } from '@/components/Round1VariantsPanel';
@@ -5934,20 +5935,25 @@ export default function HostRoomPage() {
           return;
         }
 
-        const { error: updateError } = await supabase
-          .from('rooms')
-          .update({
-            is_active: true,
-            status: 'round3-running',
-            current_question_index: 0,
-            // Таймер стартует после окончания озвучки.
-            question_started_at: null,
-            all_players_answered: false,
-            round2_phase: 'idle',
-          })
-          .eq('id', roomId);
+        const { data, error: startError } = await supabase.rpc('start_round3', {
+          p_room_id: roomId,
+        });
 
-        if (updateError) {
+        if (startError) {
+          logError('rpc', 'start_round3 failed', startError, {
+            roomId,
+            eventName: 'start_round3_error',
+          });
+          setError(`Не удалось запустить Раунд 3. ${startError.message ?? 'Проверьте настройки БД.'}`);
+          return;
+        }
+
+        const started = Array.isArray(data) ? data[0] : data;
+        if (!started?.id) {
+          logEvent('error', 'rpc', 'start_round3 returned empty payload', {
+            roomId,
+            eventName: 'start_round3_empty',
+          });
           setError('Не удалось запустить Раунд 3');
           return;
         }
@@ -5955,8 +5961,8 @@ export default function HostRoomPage() {
         updateRoomStatus('round3-running');
         setShowResults(false);
         setQuestion(null);
-        setCurrentQuestionIndex(0);
-        setQuestionStartedAt(null);
+        setCurrentQuestionIndex(started.current_question_index ?? 0);
+        setQuestionStartedAt(started.question_started_at ?? null);
         setTimeLeft(QUESTION_DURATION_SECONDS);
       } finally {
         round3StartLockRef.current = false;
