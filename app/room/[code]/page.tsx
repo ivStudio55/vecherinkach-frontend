@@ -24,6 +24,17 @@ import { DEFAULT_PACK_ID, getQuestionsBaseUrl, normalizePackId, type PackId } fr
 
 const QUESTION_DURATION_SECONDS = 30;
 
+const coerceToNumber = (value: unknown): number | null => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
+
 type Round5Question = {
   question: string;
   answer: number;
