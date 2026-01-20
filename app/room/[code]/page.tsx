@@ -23,6 +23,7 @@ import {
 import { DEFAULT_PACK_ID, getQuestionsBaseUrl, normalizePackId, type PackId } from '@/lib/questionPacks';
 
 const QUESTION_DURATION_SECONDS = 30;
+const ROUND3_TOTAL_QUESTIONS = 6;
 
 const coerceToNumber = (value: unknown): number | null => {
   if (typeof value === 'number' && Number.isFinite(value)) {
