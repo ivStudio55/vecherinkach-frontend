@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   title: "Вечеринкач - Игра для вечеринок",
   description: "Интерактивная игра-викторина для компании",
   icons: {
-    icon: '/icon.png',
+    icon: '/favicon.ico',
   },
   other: {
     'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',

@@ -1,12 +1,14 @@
 'use client';
 
-import { Fragment, useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef, type CSSProperties } from 'react';
+import { Fragment, useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef, useReducer, type CSSProperties } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { TrueFalseItem, ROUND2_POINTS } from '@/lib/round2';
 import { PlayerPrinter } from '@/components/PlayerPrinter';
 import { Round1VariantsPanel, Round1VariantsPanelHandle } from '@/components/Round1VariantsPanel';
 import { AnimatedText } from '@/components/AnimatedText';
+import { useRoomSync } from '@/lib/useRoomSync';
+import { mapRoundStateToUiPhase, roundStateReducer } from '@/lib/roundStateMachine';
 import {
   ActiveRoundQuestion,
   OptionKey,
@@ -41,6 +43,9 @@ type PillAnimationStyle = CSSProperties & {
   ['--pill-top']?: string;
   ['--pill-duration']?: string;
 };
+
+type LocalRoundPhase = 'loading' | 'waiting' | 'question' | 'transition' | 'calculating' | 'results';
+type ConnectionMode = 'realtime' | 'polling';
 const JOIN_SOUND_FILES = [
   'sound/The_duck_quacked_fun_#1.mp3',
   'sound/The_duck_quacked_fun_#2.mp3',
@@ -729,6 +734,9 @@ export default function HostRoomPage() {
   const [round3SkippedVoterIds, setRound3SkippedVoterIds] = useState<string[]>([]);
   const [round3VotersCount, setRound3VotersCount] = useState(0);
   const [isTournamentVisible, setIsTournamentVisible] = useState(false);
+  const [roundState, dispatchRoundEvent] = useReducer(roundStateReducer, 'idle');
+
+  const { room: syncedRoom, connectionStatus } = useRoomSync(roomId);
 
   const isMusicMutedRef = useRef(isMusicMuted);
   useEffect(() => {
@@ -738,6 +746,18 @@ export default function HostRoomPage() {
   useEffect(() => {
     round5QuestionsRef.current = round5Questions;
   }, [round5Questions]);
+
+  useEffect(() => {
+    if (serverAllPlayersAnswered) {
+      dispatchRoundEvent({ type: 'ALL_ANSWERED' });
+    }
+  }, [serverAllPlayersAnswered]);
+
+  useEffect(() => {
+    if (questionStartedAt && timeLeft <= 0) {
+      dispatchRoundEvent({ type: 'TIMEOUT' });
+    }
+  }, [questionStartedAt, timeLeft]);
 
   useEffect(() => {
     round5CurrentBankIndexRef.current = round5CurrentBankIndex;
@@ -3597,6 +3617,13 @@ export default function HostRoomPage() {
   const updateRoomStatus = useCallback(
     (nextStatus: RoomStatus) => {
       setRoomStatus(nextStatus);
+      dispatchRoundEvent({
+        type: 'SERVER_UPDATE',
+        status: nextStatus,
+        allAnswered: serverAllPlayersAnswered,
+        startedAt: questionStartedAt,
+        transitioningToNext: true,
+      });
       if (nextStatus !== 'waiting') {
         setIsPrestartVisible(false);
         setIsRulesVisible(false);
@@ -4005,7 +4032,15 @@ export default function HostRoomPage() {
           detectedStatus === 'round4-running' ||
           detectedStatus === 'round5-running' ||
           detectedStatus === 'round5-explanation';
-        setServerAllPlayersAnswered(isLiveRound ? !!room.all_players_answered : false);
+        const everyoneAnsweredFlag = isLiveRound ? !!room.all_players_answered : false;
+        setServerAllPlayersAnswered(everyoneAnsweredFlag);
+        dispatchRoundEvent({
+          type: 'SERVER_UPDATE',
+          status: detectedStatus,
+          allAnswered: everyoneAnsweredFlag,
+          startedAt: room.question_started_at,
+          transitioningToNext: Boolean((room as { transitioning_to_next?: boolean | null }).transitioning_to_next),
+        });
         const nextRound2Index = (room.round2_item_index as number | null) ?? room.current_question_index ?? null;
         if (nextRound2Index !== null) {
           setRound2CurrentIndex(nextRound2Index);
@@ -4153,6 +4188,7 @@ export default function HostRoomPage() {
       loadRound4AnswerStats,
       loadRound5AnswerStats,
       loadRound5AnswerRows,
+      dispatchRoundEvent,
     ]
   );
 
@@ -4339,15 +4375,16 @@ export default function HostRoomPage() {
       const audio = new Audio(buildAudioUrl(file));
       audio.volume = 0.9;
       connectAudioRef.current = audio;
-
-      try {
-        await audio.play();
-      } catch (error) {
-        console.error('Не удалось проиграть озвучку подключений', error);
-      }
-    },
-    [stopConnectAudio]
-  );
+    [
+      clearCountdownTimeout,
+      clearRound2Timer,
+      dispatchRoundEvent,
+      questionStartedAt,
+      serverAllPlayersAnswered,
+      stopRound2Audio,
+      stopRound2RulesAudio,
+      stopRound5Audio,
+    ]
 
   const stopRulesAudio = useCallback(() => {
     const audio = rulesAudioRef.current;
@@ -4852,29 +4889,26 @@ export default function HostRoomPage() {
   }, [roomId, router]);
 
   useEffect(() => {
+    if (!syncedRoom) {
+      return;
+    }
+    const status = (syncedRoom.status as RoomStatus) || 'waiting';
+    const allAnswered = Boolean(syncedRoom.all_players_answered);
+    dispatchRoundEvent({
+      type: 'SERVER_UPDATE',
+      status,
+      allAnswered,
+      startedAt: syncedRoom.question_started_at ?? null,
+      transitioningToNext: Boolean(syncedRoom.transitioning_to_next),
+    });
+    void loadRoomDataRef.current?.();
+  }, [dispatchRoundEvent, syncedRoom]);
+
+  useEffect(() => {
     if (!roomId) return undefined;
 
     let mounted = true;
     const channelId = `${Date.now()}`;
-
-    const invokeLoadRoomData = async () => {
-      if (!mounted) return;
-      await loadRoomDataRef.current?.();
-    };
-
-    const roomChannel = supabase
-      .channel(`host-room-${roomId}-${channelId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'rooms',
-          filter: `id=eq.${roomId}`,
-        },
-        invokeLoadRoomData
-      )
-      .subscribe();
 
     const playersChannel = supabase
       .channel(`host-players-${roomId}-${channelId}`)
@@ -5047,9 +5081,6 @@ export default function HostRoomPage() {
 
     return () => {
       mounted = false;
-      roomChannel.unsubscribe().then(() => {
-        supabase.removeChannel(roomChannel);
-      });
       playersChannel.unsubscribe().then(() => {
         supabase.removeChannel(playersChannel);
       });
@@ -7066,6 +7097,21 @@ export default function HostRoomPage() {
         : roomStatus === 'waiting'
           ? 'bg-[#ffe184] text-[#142a45]'
           : 'bg-[#1f6ac6] text-white';
+  const uiPhase = mapRoundStateToUiPhase(roundState);
+  const localPhaseLabel =
+    uiPhase === 'transition'
+      ? 'Загружаем следующий вопрос'
+      : uiPhase === 'calculating'
+        ? 'Подсчёт результатов'
+        : uiPhase === 'waiting'
+          ? 'Ожидаем игроков'
+          : '';
+  const connectionLabel =
+    connectionStatus.mode === 'polling'
+      ? connectionStatus.isFallbackPolling
+        ? 'Связь нестабильна — включён резервный опрос'
+        : 'Связь нестабильна — пытаемся восстановиться'
+      : 'Связь: Realtime';
 
   const shouldLockViewport =
     roomStatus === 'running' ||
@@ -7128,6 +7174,13 @@ export default function HostRoomPage() {
               </div>
             </div>
           </header>
+
+        {(localPhaseLabel || connectionStatus.mode !== 'realtime') && (
+          <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-white px-4 py-3 text-sm font-semibold text-[#142a45]">
+            {localPhaseLabel && <p>{localPhaseLabel}</p>}
+            <p className="text-xs text-[#142a45]/70">{connectionLabel}</p>
+          </div>
+        )}
 
         {error && (
           <div className="rounded-3xl border-[3px] border-[#b23324] bg-[#ffd7d0] px-4 py-3 text-sm font-semibold text-[#7b1d16]">
