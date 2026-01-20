@@ -44,7 +44,6 @@ export default function HostPage() {
 
         const created = Array.isArray(data) ? data[0] : data;
         if (!insertError && created?.id) {
-        if (!insertError && created?.id) {
           localStorage.setItem('hostRoomId', created.id as string);
           localStorage.setItem('hostRoomCode', roomCode);
           localStorage.setItem('hostPackId', packId);
@@ -54,7 +53,6 @@ export default function HostPage() {
 
         if (insertError?.message?.toLowerCase().includes('limit')) {
           setError('Достигнут лимит активных комнат. Попробуйте позже.');
-          setIsCreating(false);
           return;
         }
 
@@ -62,11 +60,11 @@ export default function HostPage() {
       }
 
       setError('Не удалось создать комнату. Попробуйте ещё раз.');
-      setIsCreating(false);
     } catch (err) {
       console.error('createRoom error:', err);
       const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
       setError(`Ошибка: ${message}`);
+    } finally {
       setIsCreating(false);
     }
   };
