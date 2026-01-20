@@ -9,12 +9,19 @@ import { submitRound1Answer } from '@/shared/logic/submitAnswer';
 import { logEvent } from '@/shared/logic/logger';
 import { isRealtimeEnabled } from '@/shared/logic/realtimeConfig';
 import { ROUND3_ANSWER_SECONDS, ROUND3_VOTE_COUNTDOWN_SECONDS, ROUND3_VOTE_SECONDS } from '@/shared/logic/roundConstants';
+import { CorrectAnswerView } from '@/shared/ui/CorrectAnswerView';
+import { QuestionLikeButton } from '@/shared/ui/QuestionLikeButton';
+import { PlayerResultCard } from '@/shared/ui/PlayerResultCard';
+import { BestQuestionCard } from '@/shared/ui/BestQuestionCard';
+import { ConnectionStatusBadge } from '@/shared/ui/ConnectionStatusBadge';
 import { PhaseStatusBanner } from '@/shared/ui/PhaseStatusBanner';
 import { ScoreSummary } from '@/shared/ui/ScoreSummary';
 import {
   ActiveRoundQuestion,
   OPTION_LABELS,
   getOptionKeyByIndex,
+  getOptionIndexFromKey,
+  getQuestionById,
   createQuestionBank,
   DEFAULT_QUESTION_BANK,
   getQuestionForIndex,
@@ -138,10 +145,12 @@ export default function RoomPage() {
   const params = useParams();
   const router = useRouter();
   const roomCode = params.code as string;
+  const realtimeEnabled = isRealtimeEnabled();
 
   const [question, setQuestion] = useState<ActiveRoundQuestion | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasAnswered, setHasAnswered] = useState(false);
+  const [playerAnswer, setPlayerAnswer] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [playerName, setPlayerName] = useState('');
   const [playerId, setPlayerId] = useState('');
@@ -178,7 +187,12 @@ export default function RoomPage() {
   const [round3AnswerText, setRound3AnswerText] = useState('');
   const [round3AnswerOptions, setRound3AnswerOptions] = useState<Round3AnswerRow[]>([]);
   const [round3HasVoted, setRound3HasVoted] = useState(false);
-  const realtimeEnabled = isRealtimeEnabled();
+  const [connectionMode, setConnectionMode] = useState<'realtime' | 'polling' | 'reconnecting'>(
+    realtimeEnabled ? 'realtime' : 'polling'
+  );
+  const [hasLikedQuestion, setHasLikedQuestion] = useState(false);
+  const [questionLikesCount, setQuestionLikesCount] = useState<number | null>(null);
+  const [bestQuestion, setBestQuestion] = useState<{ id: number; likes: number; text: string } | null>(null);
   const roomIdRef = useRef('');
   const playerIdRef = useRef('');
   const roomStatusRef = useRef(roomStatus);
@@ -855,7 +869,7 @@ export default function RoomPage() {
         // Проверяем, ответил ли игрок на текущий вопрос
         const { data: existingAnswer } = await supabase
           .from('answers')
-          .select('id')
+          .select('id, text')
           .eq('player_id', storedPlayerId)
           .eq('room_id', room.id)
           .eq('question_index', room.current_question_index)
@@ -863,6 +877,10 @@ export default function RoomPage() {
 
         if (existingAnswer) {
           setHasAnswered(true);
+          const text = typeof existingAnswer === 'object' && existingAnswer !== null && 'text' in existingAnswer
+            ? (existingAnswer as { text?: string | null }).text
+            : null;
+          setPlayerAnswer(text ?? null);
         }
 
         if (!cancelled) {
@@ -888,6 +906,7 @@ export default function RoomPage() {
     };
 
     if (!realtimeEnabled) {
+      setConnectionMode('polling');
       const poll = async () => {
         const { data } = await supabase
           .from('rooms')
@@ -944,6 +963,7 @@ export default function RoomPage() {
       if (newStatus === 'waiting') {
         setShowResults(false);
         setHasAnswered(false);
+        setPlayerAnswer(null);
         setQuestion(null);
         setRound2ItemIndex(null);
         setRound2Phase('idle');
@@ -960,6 +980,7 @@ export default function RoomPage() {
       // (round4-running may have is_active=false during answer reveal)
       if (newStatus === 'finished' || newStatus === 'final-results') {
         setShowResults(true);
+        setPlayerAnswer(null);
         setQuestion(null);
         setRound2ItemIndex(null);
         setRound2Phase('idle');
@@ -974,6 +995,7 @@ export default function RoomPage() {
 
       if (newStatus === 'round2-running') {
         setShowResults(false);
+        setPlayerAnswer(null);
         setQuestion(null);
         setRound2ItemIndex(nextRound2ItemIndex);
         setRound2ShowingFact(nextRound2ShowingFact);
@@ -1007,6 +1029,7 @@ export default function RoomPage() {
 
       if (newStatus === 'round3-running') {
         setShowResults(false);
+        setPlayerAnswer(null);
         setQuestion(null);
         setRound2ItemIndex(null);
         setRound2Phase('idle');
@@ -1050,6 +1073,7 @@ export default function RoomPage() {
 
       if (newStatus === 'round4-running') {
         setShowResults(false);
+        setPlayerAnswer(null);
         setQuestion(null);
         setRound2ItemIndex(null);
         setRound2Phase('idle');
@@ -1107,6 +1131,7 @@ export default function RoomPage() {
 
       if (newStatus === 'round5-running' || newStatus === 'round5-explanation') {
         setShowResults(false);
+        setPlayerAnswer(null);
         setQuestion(null);
         setRound2ItemIndex(null);
         setRound2Phase('idle');
@@ -1171,6 +1196,9 @@ export default function RoomPage() {
       } else {
         setQuestion(null);
       }
+      setPlayerAnswer(null);
+      setHasLikedQuestion(false);
+      setQuestionLikesCount(null);
       setRound2ItemIndex(null);
       setRound2Phase('idle');
       setRound3QuestionIndex(null);
@@ -1187,14 +1215,19 @@ export default function RoomPage() {
       if (currentPlayerId && currentRoomId) {
         const { data: newAnswer } = await supabase
           .from('answers')
-          .select('id')
+          .select('id, text')
           .eq('player_id', currentPlayerId)
           .eq('room_id', currentRoomId)
           .eq('question_index', newQuestionIndex)
           .maybeSingle();
         setHasAnswered(!!newAnswer);
+        const text = typeof newAnswer === 'object' && newAnswer !== null && 'text' in newAnswer
+          ? (newAnswer as { text?: string | null }).text
+          : null;
+        setPlayerAnswer(text ?? null);
       } else {
         setHasAnswered(false);
+        setPlayerAnswer(null);
       }
     };
 
@@ -1217,15 +1250,104 @@ export default function RoomPage() {
           await handleRoomUpdate(payload);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (!mounted) return;
+        if (status === 'SUBSCRIBED') {
+          setConnectionMode('realtime');
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          setConnectionMode('reconnecting');
+        }
+      });
 
     return () => {
       mounted = false;
+      setConnectionMode(realtimeEnabled ? 'reconnecting' : 'polling');
       roomChannel.unsubscribe().then(() => {
         supabase.removeChannel(roomChannel);
       });
     };
   }, [realtimeEnabled, roomId, round2ShowingFact, round4Puzzles, router, timeOffsetMs]);
+
+  const loadBestQuestion = useCallback(async () => {
+    if (!roomId) {
+      return;
+    }
+    const { data, error } = await supabase.rpc('get_best_question', { p_room_id: roomId });
+    if (error) {
+      console.warn('Failed to load best question', error);
+      return;
+    }
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row || typeof row.question_id !== 'number') {
+      setBestQuestion(null);
+      return;
+    }
+    const bank = round1BankRef.current;
+    const questionText = getQuestionById(row.question_id, bank)?.text ?? '—';
+    setBestQuestion({ id: row.question_id, likes: Number(row.likes ?? 0), text: questionText });
+  }, [roomId]);
+
+  useEffect(() => {
+    if (!showResults || roomStatus !== 'final-results') {
+      return;
+    }
+    void loadBestQuestion();
+  }, [loadBestQuestion, roomStatus, showResults]);
+
+  useEffect(() => {
+    if (!roomId || !playerId || !question?.id) {
+      setHasLikedQuestion(false);
+      setQuestionLikesCount(null);
+      return;
+    }
+    if (!(roomStatus === 'running' && allPlayersAnswered)) {
+      return;
+    }
+    setHasLikedQuestion(false);
+    const fetchLikes = async () => {
+      const { data: existingLike } = await supabase
+        .from('question_likes')
+        .select('id')
+        .eq('room_id', roomId)
+        .eq('question_id', question.id)
+        .eq('player_id', playerId)
+        .maybeSingle();
+      setHasLikedQuestion(!!existingLike);
+
+      const { count } = await supabase
+        .from('question_likes')
+        .select('id', { count: 'exact', head: true })
+        .eq('room_id', roomId)
+        .eq('question_id', question.id);
+      setQuestionLikesCount(typeof count === 'number' ? count : 0);
+    };
+    void fetchLikes();
+  }, [allPlayersAnswered, playerId, question?.id, roomId, roomStatus]);
+
+  const likeQuestion = useCallback(async () => {
+    if (!roomId || !playerId || !question?.id) {
+      return;
+    }
+    if (hasLikedQuestion) {
+      return;
+    }
+    const { data, error } = await supabase.rpc('like_question', {
+      p_room_id: roomId,
+      p_question_id: question.id,
+      p_player_id: playerId,
+    });
+    if (error) {
+      console.warn('Failed to like question', error);
+      return;
+    }
+    const row = Array.isArray(data) ? data[0] : data;
+    setHasLikedQuestion(true);
+    if (row && typeof row.total_likes === 'number') {
+      setQuestionLikesCount(row.total_likes);
+    } else {
+      setQuestionLikesCount((prev) => (prev ?? 0) + 1);
+    }
+  }, [hasLikedQuestion, playerId, question?.id, roomId]);
 
   const effectiveTimeLeft = allPlayersAnswered ? 0 : timeLeft;
   // Round4 should keep timer ticking even when allPlayersAnswered (until explanation phase)
@@ -1676,6 +1798,7 @@ export default function RoomPage() {
       }
 
       setHasAnswered(true);
+      setPlayerAnswer(optionKey);
       setIsSubmitting(false);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
@@ -1742,6 +1865,14 @@ export default function RoomPage() {
       : allPlayersAnswered
         ? 'Переходим к следующему вопросу'
         : '';
+  const shouldShowCorrectAnswer = roomStatus === 'running' && allPlayersAnswered && Boolean(question);
+  const correctAnswerKey = question ? getOptionKeyByIndex(question.correctIndex) : null;
+  const correctAnswerText = question && typeof question.correctIndex === 'number' ? question.options[question.correctIndex] : '';
+  const correctAnswerLabel = correctAnswerKey ? OPTION_LABELS[correctAnswerKey] : '—';
+  const playerAnswerKey = playerAnswer;
+  const playerAnswerLabel = playerAnswerKey ? OPTION_LABELS[playerAnswerKey as keyof typeof OPTION_LABELS] : null;
+  const playerAnswerText = playerAnswerKey && question ? question.options[getOptionIndexFromKey(playerAnswerKey)] : null;
+  const isPlayerCorrect = playerAnswerKey ? playerAnswerKey === correctAnswerKey : null;
 
   if (showResults && (roomStatus === 'finished' || roomStatus === 'final-results')) {
     const isFinal = roomStatus === 'final-results';
@@ -1759,36 +1890,31 @@ export default function RoomPage() {
           </p>
           <h2 className="text-3xl font-black">{isFinal ? 'Финальные результаты' : 'Текущие результаты'}</h2>
 
-          <div
-            className={`rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-5 space-y-3 ${
-              isFinal ? 'animate-final-panel' : ''
-            }`}
-            style={isFinal ? { animationDelay: '120ms' } : undefined}
+          {standingError ? (
+            <p className="text-sm font-semibold text-[#b23324]">{standingError}</p>
+          ) : (
+            <PlayerResultCard
+              rank={playerRank}
+              points={playerTotalPoints}
+              totalPlayers={playersCount}
+              isLoading={isStandingLoading}
+              isWinner={isFinal && playerRank === 1}
+            />
+          )}
+
+          {bestQuestion ? (
+            <BestQuestionCard questionText={bestQuestion.text} likes={bestQuestion.likes} className="animate-final-panel" />
+          ) : null}
+
+          <button
+            onClick={() => {
+              void loadPlayerStanding();
+            }}
+            className="w-full py-3 rounded-2xl border-[3px] border-[#142a45] bg-white font-black"
+            disabled={isStandingLoading}
           >
-            <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/60">ВАШ ПРОГРЕСС</p>
-
-            {standingError ? (
-              <p className="text-sm font-semibold text-[#b23324]">{standingError}</p>
-            ) : (
-              <ScoreSummary
-                points={playerTotalPoints}
-                rank={playerRank}
-                totalPlayers={playersCount}
-                isLoading={isStandingLoading}
-                className="phase-transition"
-              />
-            )}
-
-            <button
-              onClick={() => {
-                void loadPlayerStanding();
-              }}
-              className="w-full py-3 rounded-2xl border-[3px] border-[#142a45] bg-white font-black"
-              disabled={isStandingLoading}
-            >
-              {isStandingLoading ? 'Обновляем…' : 'Обновить данные'}
-            </button>
-          </div>
+            {isStandingLoading ? 'Обновляем…' : 'Обновить данные'}
+          </button>
 
           {isFinal && (
             <div
@@ -1855,6 +1981,9 @@ export default function RoomPage() {
             <div className="text-right">
               <p className="retro-heading text-[10px] tracking-[0.5em] text-[#ffeccd]/60">Ваш ник</p>
               <p className="text-2xl font-black">{playerName}</p>
+              <div className="mt-2 flex justify-end">
+                <ConnectionStatusBadge mode={connectionMode} />
+              </div>
             </div>
           </div>
           <p className="text-xs text-[#ffeccd]/70 mt-2">
@@ -1865,7 +1994,7 @@ export default function RoomPage() {
         <PhaseStatusBanner phaseLabel={phaseBannerLabel} className="mt-4" />
 
         {roomStatus === 'waiting' && (
-          <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-8 text-center space-y-4">
+          <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-8 text-center space-y-4 phase-transition">
             {isIntermission ? (
               <>
                 <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">ПЕРЕРЫВ МЕЖДУ РАУНДАМИ</p>
@@ -1898,6 +2027,9 @@ export default function RoomPage() {
                 <p className="text-sm text-[#142a45]/80">
                   Вы подключены. Ведущий начнёт раунд, когда все игроки войдут. Ничего нажимать не нужно — просто ждите звукового сигнала.
                 </p>
+                <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-[#fff6da] px-4 py-3 text-xs text-[#142a45]/70">
+                  Совет: держите громкость включённой и отвечайте как можно быстрее, чтобы попасть в топ.
+                </div>
               </>
             )}
           </section>
@@ -1990,7 +2122,7 @@ export default function RoomPage() {
         )}
 
         {(roomStatus === 'round5-running' || roomStatus === 'round5-explanation') && (
-          <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
+          <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6 phase-transition">
             <div className="flex flex-col gap-3 text-center">
               <span className="mx-auto px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
                 Финал · Цифровая интуиция
@@ -2081,7 +2213,7 @@ export default function RoomPage() {
         )}
 
         {question && roomStatus === 'running' && (
-          <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
+          <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6 phase-transition">
             <div className="flex flex-col gap-3 text-center">
               <span className="mx-auto px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
                 Вопрос #{question.order}
@@ -2153,11 +2285,28 @@ export default function RoomPage() {
                 <p className="text-sm text-[#142a45]/70">Ждём, пока ведущий запустит следующий вопрос.</p>
               </div>
             )}
+
+            {shouldShowCorrectAnswer && question ? (
+              <div className="space-y-4">
+                <CorrectAnswerView
+                  correctLabel={`${correctAnswerLabel} · правильный вариант`}
+                  correctText={correctAnswerText}
+                  playerLabel={playerAnswerLabel ?? undefined}
+                  playerText={playerAnswerText ?? undefined}
+                  isCorrect={isPlayerCorrect}
+                />
+                <QuestionLikeButton
+                  liked={hasLikedQuestion}
+                  likesCount={questionLikesCount}
+                  onLike={() => void likeQuestion()}
+                />
+              </div>
+            ) : null}
           </section>
         )}
 
         {roomStatus === 'round2-running' && (
-          <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
+          <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6 phase-transition">
             <div className="flex flex-col gap-3 text-center">
               <span className="mx-auto px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
                 Раунд 2 · Фейколов

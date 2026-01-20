@@ -10,6 +10,8 @@ import { AnimatedText } from '@/components/AnimatedText';
 import { useRoomSync } from '@/lib/useRoomSync';
 import { mapRoundStateToUiPhase, roundStateReducer } from '@/lib/roundStateMachine';
 import { PhaseStatusBanner } from '@/shared/ui/PhaseStatusBanner';
+import { WinnerBanner } from '@/shared/ui/WinnerBanner';
+import { BestQuestionCard } from '@/shared/ui/BestQuestionCard';
 import { isRealtimeEnabled } from '@/shared/logic/realtimeConfig';
 import { ROUND3_ANSWER_SECONDS, ROUND3_VOTE_COUNTDOWN_SECONDS, ROUND3_VOTE_SECONDS } from '@/shared/logic/roundConstants';
 import {
@@ -21,6 +23,7 @@ import {
   DEFAULT_QUESTION_BANK,
   type QuestionBank,
   buildQuestionsFromSelection,
+  getQuestionById,
   getOptionIndexFromKey,
   getOptionKeyByIndex,
   getQuestionForIndex,
@@ -678,6 +681,8 @@ export default function HostRoomPage() {
   const [timeLeft, setTimeLeft] = useState(QUESTION_DURATION_SECONDS);
   const [showResults, setShowResults] = useState(false);
   const [roundAnswers, setRoundAnswers] = useState<RoundAnswer[]>([]);
+  const [currentQuestionLikes, setCurrentQuestionLikes] = useState<number | null>(null);
+  const [bestQuestion, setBestQuestion] = useState<{ id: number; likes: number; text: string } | null>(null);
   const [round4Puzzles, setRound4Puzzles] = useState<Round4Puzzle[]>([]);
   const [round4CurrentPuzzle, setRound4CurrentPuzzle] = useState<Round4Puzzle | null>(null);
   const [round4AskedIds, setRound4AskedIds] = useState<number[]>([]);
@@ -4775,6 +4780,25 @@ export default function HostRoomPage() {
   }, [question, roomStatus, playQuestionAudio]);
 
   useEffect(() => {
+    if (!roomId || !question || typeof question.id !== 'number') {
+      setCurrentQuestionLikes(null);
+      return;
+    }
+    if (roomStatus !== 'running') {
+      return;
+    }
+    const fetchLikes = async () => {
+      const { count } = await supabase
+        .from('question_likes')
+        .select('id', { count: 'exact', head: true })
+        .eq('room_id', roomId)
+        .eq('question_id', question.id);
+      setCurrentQuestionLikes(typeof count === 'number' ? count : 0);
+    };
+    void fetchLikes();
+  }, [question, roomId, roomStatus]);
+
+  useEffect(() => {
     if (roomStatus !== 'round5-running') {
       lastRound5QuestionPlaybackKeyRef.current = null;
       return;
@@ -5334,6 +5358,28 @@ export default function HostRoomPage() {
     playTournamentJingle();
     playFinalNarratorAudio();
   }, [playFinalNarratorAudio, playTournamentJingle, roomStatus, stopAllAudio, stopFinalNarratorAudio, stopTournamentJingle]);
+
+  useEffect(() => {
+    if (roomStatus !== 'final-results' || !roomId) {
+      return;
+    }
+    const loadBestQuestion = async () => {
+      const { data, error } = await supabase.rpc('get_best_question', { p_room_id: roomId });
+      if (error) {
+        console.warn('Failed to load best question', error);
+        return;
+      }
+      const row = Array.isArray(data) ? data[0] : data;
+      if (!row || typeof row.question_id !== 'number') {
+        setBestQuestion(null);
+        return;
+      }
+      const bank = round1BankRef.current;
+      const questionText = getQuestionById(row.question_id, bank)?.text ?? '—';
+      setBestQuestion({ id: row.question_id, likes: Number(row.likes ?? 0), text: questionText });
+    };
+    void loadBestQuestion();
+  }, [roomId, roomStatus]);
 
   useEffect(() => {
     if (roomStatus !== 'running') {
@@ -7349,6 +7395,21 @@ export default function HostRoomPage() {
                     <h2 className="text-3xl font-black">🏁 Турнирная таблица</h2>
                   </div>
                 </div>
+
+                {roomStatus === 'final-results' && postRoundLeaderboard[0] ? (
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    <WinnerBanner
+                      winnerName={postRoundLeaderboard[0].name}
+                      points={postRoundLeaderboard[0].points}
+                      speedLabel="нет данных"
+                    />
+                    {bestQuestion ? (
+                      <BestQuestionCard questionText={bestQuestion.text} likes={bestQuestion.likes} className="animate-final-panel" />
+                    ) : (
+                      <BestQuestionCard questionText="Нет данных" likes={0} className="animate-final-panel" />
+                    )}
+                  </div>
+                ) : null}
 
                 {postRoundLeaderboard.length === 0 ? (
                   <p className="text-sm text-[#142a45]/70">Игроки не подключены, таблица пуста.</p>

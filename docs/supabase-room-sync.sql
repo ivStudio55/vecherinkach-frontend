@@ -191,3 +191,95 @@ end;
 $$;
 
 grant execute on function public.create_room(text, text) to anon, authenticated;
+
+-- Question likes (Round 1) + best question helper
+create table if not exists public.question_likes (
+  id uuid primary key default gen_random_uuid(),
+  room_id uuid not null,
+  question_id integer not null,
+  player_id uuid not null,
+  created_at timestamptz not null default timezone('utc', now())
+);
+
+create unique index if not exists question_likes_unique on public.question_likes (room_id, question_id, player_id);
+create index if not exists question_likes_room_idx on public.question_likes (room_id);
+create index if not exists question_likes_question_idx on public.question_likes (question_id);
+
+alter table public.question_likes enable row level security;
+
+do $$
+begin
+  if exists (
+    select 1 from pg_policies where schemaname = 'public' and tablename = 'question_likes' and policyname = 'Allow read question likes'
+  ) then
+    drop policy "Allow read question likes" on public.question_likes;
+  end if;
+  if exists (
+    select 1 from pg_policies where schemaname = 'public' and tablename = 'question_likes' and policyname = 'Allow insert question likes'
+  ) then
+    drop policy "Allow insert question likes" on public.question_likes;
+  end if;
+end $$;
+
+create policy "Allow read question likes"
+on public.question_likes for select
+using (true);
+
+create policy "Allow insert question likes"
+on public.question_likes for insert
+with check (true);
+
+drop function if exists public.like_question(uuid, integer, uuid);
+create or replace function public.like_question(
+  p_room_id uuid,
+  p_question_id integer,
+  p_player_id uuid
+)
+returns table (
+  was_inserted boolean,
+  total_likes integer
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  inserted_id uuid;
+  likes_count integer;
+begin
+  insert into public.question_likes (room_id, question_id, player_id)
+  values (p_room_id, p_question_id, p_player_id)
+  on conflict do nothing
+  returning id into inserted_id;
+
+  select count(*) into likes_count
+  from public.question_likes
+  where room_id = p_room_id and question_id = p_question_id;
+
+  return query
+  select (inserted_id is not null), likes_count;
+end;
+$$;
+
+grant execute on function public.like_question(uuid, integer, uuid) to anon, authenticated;
+
+drop function if exists public.get_best_question(uuid);
+create or replace function public.get_best_question(
+  p_room_id uuid
+)
+returns table (
+  question_id integer,
+  likes integer
+)
+language sql
+stable
+as $$
+  select question_id, count(*)::integer as likes
+  from public.question_likes
+  where room_id = p_room_id
+  group by question_id
+  order by likes desc, question_id asc
+  limit 1;
+$$;
+
+grant execute on function public.get_best_question(uuid) to anon, authenticated;
