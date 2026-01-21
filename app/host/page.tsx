@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { logError, logEvent } from '@/shared/logic/logger';
@@ -10,6 +10,7 @@ import { DEFAULT_PACK_ID, normalizePackId, QUESTION_PACKS, type PackId } from '@
 
 export default function HostPage() {
   const router = useRouter();
+  const [layoutMode, setLayoutMode] = useState<'default' | 'compact' | 'mobile'>('default');
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState('');
   const [isRoleNoticeOpen, setIsRoleNoticeOpen] = useState(true);
@@ -23,6 +24,29 @@ export default function HostPage() {
   });
 
   const generateRoomCode = (): string => Math.floor(1000 + Math.random() * 9000).toString();
+
+  useEffect(() => {
+    try {
+      const storedMode = localStorage.getItem('hostLayoutMode') as 'default' | 'compact' | 'mobile' | null;
+      if (storedMode === 'default' || storedMode === 'compact' || storedMode === 'mobile') {
+        setLayoutMode(storedMode);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const cycleLayoutMode = () => {
+    setLayoutMode((prev) => {
+      const next = prev === 'default' ? 'compact' : prev === 'compact' ? 'mobile' : 'default';
+      try {
+        localStorage.setItem('hostLayoutMode', next);
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
 
   const createRoom = async () => {
     setError('');
@@ -127,8 +151,17 @@ export default function HostPage() {
 
 
 
+  const isMobileLayout = layoutMode === 'mobile';
+  const isCompactLayout = layoutMode === 'compact';
+  const layoutLabel = layoutMode === 'default' ? 'Desktop' : layoutMode === 'compact' ? 'Compact' : 'Mobile';
+
   return (
-    <div className="min-h-screen bg-[#fef4dc] text-[#142a45] px-4 py-6 lg:py-8" style={backgroundStyle}>
+    <div
+      className={`min-h-screen bg-[#fef4dc] text-[#142a45] ${isCompactLayout ? 'px-3 py-4' : 'px-4 py-6 lg:py-8'} ${
+        isMobileLayout ? 'text-[calc(1rem*0.85)]' : ''
+      }`}
+      style={backgroundStyle}
+    >
       <HostRoleNoticeModal
         isOpen={isRoleNoticeOpen}
         onContinue={() => setIsRoleNoticeOpen(false)}
@@ -139,29 +172,48 @@ export default function HostPage() {
           className="w-full rounded-[32px] border-[3px] border-[#142a45]/20 bg-[#fff6da]/80 px-4 py-4 shadow-[0_25px_80px_rgba(20,42,69,0.25)] backdrop-blur-sm sm:px-6 sm:py-6 lg:px-8"
           style={frameStyle}
         >
-          <div className="flex h-full flex-col gap-6 overflow-hidden">
-            <header className="retro-panel bg-[#142a45] text-[#ffeccd] px-6 py-5 shrink-0">
-              <p className="retro-heading text-xs tracking-[0.5em] text-[#ffeccd]/70">Ведущая станция</p>
-              <h1 className="text-3xl sm:text-4xl font-black leading-tight">Создайте комнату и берите управление в свои руки</h1>
-              <p className="text-sm text-[#ffeccd]/70 mt-2">
-                После создания комнаты вы получите код из четырёх цифр. Им можно делиться на экране или голосом.
-              </p>
+          <div className={`flex h-full flex-col ${isCompactLayout ? 'gap-4' : 'gap-6'} overflow-hidden`}>
+            <header className={`retro-panel bg-[#142a45] text-[#ffeccd] ${isCompactLayout ? 'px-4 py-4' : 'px-6 py-5'} shrink-0`}>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="retro-heading text-xs tracking-[0.5em] text-[#ffeccd]/70">Ведущая станция</p>
+                  <h1 className={`${isCompactLayout ? 'text-2xl' : 'text-3xl sm:text-4xl'} font-black leading-tight`}>
+                    Создайте комнату и берите управление в свои руки
+                  </h1>
+                  <p className={`${isCompactLayout ? 'text-xs' : 'text-sm'} text-[#ffeccd]/70 mt-2`}>
+                    После создания комнаты вы получите код из четырёх цифр. Им можно делиться на экране или голосом.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={cycleLayoutMode}
+                  className={`${isCompactLayout ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'} rounded-xl border-2 border-[#ffeccd] text-[#ffeccd] font-bold hover:bg-[#ffeccd]/10 transition`}
+                >
+                  Вид: {layoutLabel}
+                </button>
+              </div>
             </header>
 
-            <section className="grid min-h-0 flex-1 gap-6 overflow-auto lg:grid-cols-[1.1fr,0.9fr]">
+            <section
+              className={`min-h-0 flex-1 overflow-auto ${
+                isMobileLayout ? 'flex flex-col gap-4' : 'grid gap-6 lg:grid-cols-[1.1fr,0.9fr]'
+              }`}
+            >
               <div
-                className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5 relative overflow-hidden animate-host-panel"
+                className={`rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl ${
+                  isCompactLayout ? 'p-4 space-y-4' : 'p-6 space-y-5'
+                } relative overflow-hidden animate-host-panel`}
                 style={{ animationDelay: '60ms' }}
               >
                 <div className="space-y-2">
                   <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Инструкция по подключению</p>
-                  <h2 className="text-2xl font-black">Подключайтесь за минуту</h2>
-                  <p className="text-sm text-[#142a45]/80">
+                  <h2 className={`${isCompactLayout ? 'text-xl' : 'text-2xl'} font-black`}>Подключайтесь за минуту</h2>
+                  <p className={`${isCompactLayout ? 'text-xs' : 'text-sm'} text-[#142a45]/80`}>
                     Экран ведущего обязательно открывайте на большом экране и в горизонтальной ориентации — на телефоне выглядит ужасно.
                   </p>
                 </div>
-                <div className="grid gap-6 lg:grid-cols-[1.2fr,0.8fr]">
-                  <ol className="space-y-3 text-sm font-semibold text-[#142a45]/80">
+                <div className={`grid ${isMobileLayout ? 'gap-4' : 'gap-6 lg:grid-cols-[1.2fr,0.8fr]'}`}>
+                  <ol className={`${isCompactLayout ? 'text-xs' : 'text-sm'} space-y-3 font-semibold text-[#142a45]/80`}>
                     <li className="flex gap-3">
                       <span className="w-9 h-9 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">1</span>
                       Ведущий запускает игру на большом экране, выбирает пакет и создаёт комнату — появятся код и QR для входа.
@@ -179,13 +231,13 @@ export default function HostPage() {
                       Нужна помощь? Пишите в наш Telegram: t.me/vecherinkach и в VK: vk.com/vecherinkach — отвечаем быстро.
                     </li>
                   </ol>
-                  <div className="grid gap-4 sm:grid-cols-3">
+                  <div className={`grid gap-4 ${isMobileLayout ? 'grid-cols-1' : 'sm:grid-cols-3'}`}>
                     <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-white p-3 text-center">
                       <p className="text-xs font-semibold text-[#142a45]/70">Telegram</p>
                       <img
                         src="/qr-code_telegram.png"
                         alt="QR код Telegram"
-                        className="mx-auto mt-2 h-36 w-36 rounded-xl border-[2px] border-[#142a45]/20 bg-white"
+                        className={`mx-auto mt-2 ${isMobileLayout ? 'h-28 w-28' : 'h-36 w-36'} rounded-xl border-[2px] border-[#142a45]/20 bg-white`}
                       />
                     </div>
                     <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-white p-3 text-center">
@@ -193,7 +245,7 @@ export default function HostPage() {
                       <img
                         src="/qr-code.png"
                         alt="QR код для подключения"
-                        className="mx-auto mt-2 h-36 w-36 rounded-xl border-[2px] border-[#142a45]/20 bg-white"
+                        className={`mx-auto mt-2 ${isMobileLayout ? 'h-28 w-28' : 'h-36 w-36'} rounded-xl border-[2px] border-[#142a45]/20 bg-white`}
                       />
                     </div>
                     <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-white p-3 text-center">
@@ -201,12 +253,14 @@ export default function HostPage() {
                       <img
                         src="/qr-code_VK.png"
                         alt="QR код VK"
-                        className="mx-auto mt-2 h-36 w-36 rounded-xl border-[2px] border-[#142a45]/20 bg-white"
+                        className={`mx-auto mt-2 ${isMobileLayout ? 'h-28 w-28' : 'h-36 w-36'} rounded-xl border-[2px] border-[#142a45]/20 bg-white`}
                       />
                     </div>
                   </div>
                 </div>
-                <div className="relative rounded-2xl border-[3px] border-dashed border-[#142a45]/50 bg-[#fff6da] px-4 py-3 text-sm">
+                <div className={`relative rounded-2xl border-[3px] border-dashed border-[#142a45]/50 bg-[#fff6da] ${
+                  isCompactLayout ? 'px-3 py-2 text-xs' : 'px-4 py-3 text-sm'
+                }`}>
                   <p className="font-semibold">На связи</p>
                   <p className="text-[#142a45]/70">
                     Подписывайтесь на канал в Telegram и сообщество ВК — там новости, обновления пакетов и быстрые ответы на вопросы.
@@ -215,13 +269,15 @@ export default function HostPage() {
               </div>
 
               <div
-                className="rounded-3xl border-[4px] border-[#142a45] bg-[#ffe184] p-6 space-y-5 animate-host-panel"
+                className={`rounded-3xl border-[4px] border-[#142a45] bg-[#ffe184] ${
+                  isCompactLayout ? 'p-4 space-y-4' : 'p-6 space-y-5'
+                } animate-host-panel`}
                 style={{ animationDelay: '180ms' }}
               >
                 <div className="space-y-2">
                   <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Создание комнаты</p>
-                  <h2 className="text-2xl font-black">Управление запуском</h2>
-                  <p className="text-sm text-[#142a45]/80">Одним нажатием вы запускаете новый сеанс игры и бронируете код за собой.</p>
+                  <h2 className={`${isCompactLayout ? 'text-xl' : 'text-2xl'} font-black`}>Управление запуском</h2>
+                  <p className={`${isCompactLayout ? 'text-xs' : 'text-sm'} text-[#142a45]/80`}>Одним нажатием вы запускаете новый сеанс игры и бронируете код за собой.</p>
                 </div>
 
                 {error && (
@@ -239,7 +295,9 @@ export default function HostPage() {
                       setPackId(next);
                       localStorage.setItem('hostPackId', next);
                     }}
-                    className="w-full rounded-2xl border-[3px] border-[#142a45] bg-white px-4 py-3 text-base font-semibold"
+                    className={`w-full rounded-2xl border-[3px] border-[#142a45] bg-white ${
+                      isCompactLayout ? 'px-3 py-2 text-sm' : 'px-4 py-3 text-base'
+                    } font-semibold`}
                   >
                     {QUESTION_PACKS.map((pack) => (
                       <option key={pack.id} value={pack.id}>
@@ -252,7 +310,9 @@ export default function HostPage() {
                 <button
                   onClick={createRoom}
                   disabled={isCreating}
-                  className="hover:scale-105 hover:shadow-lg transition-all duration-200 w-full py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] disabled:opacity-40 disabled:cursor-not-allowed"
+                  className={`hover:scale-105 hover:shadow-lg transition-all duration-200 w-full ${
+                    isCompactLayout ? 'py-3 text-base' : 'py-4 text-xl'
+                  } rounded-2xl font-black tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] disabled:opacity-40 disabled:cursor-not-allowed`}
                 >
                   {isCreating ? 'Создаём комнату…' : '🎮 Создать комнату'}
                 </button>
@@ -260,7 +320,9 @@ export default function HostPage() {
                 <button
                   type="button"
                   onClick={() => router.push('/')}
-                  className="hover:scale-105 hover:shadow-lg transition-all duration-200 w-full py-3 rounded-2xl border-[3px] border-[#142a45] font-semibold bg-white hover:bg-[#fef4dc]"
+                  className={`hover:scale-105 hover:shadow-lg transition-all duration-200 w-full ${
+                    isCompactLayout ? 'py-2 text-sm' : 'py-3'
+                  } rounded-2xl border-[3px] border-[#142a45] font-semibold bg-white hover:bg-[#fef4dc]`}
                 >
                   ← На главную
                 </button>
