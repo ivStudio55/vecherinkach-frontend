@@ -632,12 +632,14 @@ const HostMobileLayout = ({
   questionView,
   answersView,
   likesView,
+  extraView,
   playersView,
   controlsView,
 }: {
   questionView: ReactNode;
   answersView: ReactNode;
   likesView: ReactNode;
+  extraView?: ReactNode;
   playersView: ReactNode;
   controlsView: ReactNode;
 }) => (
@@ -645,6 +647,7 @@ const HostMobileLayout = ({
     {questionView}
     {answersView}
     {likesView}
+    {extraView}
     {playersView}
     <div className="rounded-3xl border-[3px] border-[#142a45] bg-[#142a45] text-[#ffeccd] p-3">
       {controlsView}
@@ -7563,6 +7566,37 @@ export default function HostRoomPage() {
                   <div className="text-xs text-[#142a45]/70">Лучший вопрос пока не определён</div>
                 )}
               </LikesView>
+            }
+            extraView={
+              isWaiting ? (
+                <section className="rounded-3xl border-[3px] border-[#142a45] bg-white shadow-sm p-4 space-y-3">
+                  <button
+                    type="button"
+                    onClick={handlePrepareRound}
+                    disabled={players.length === 0}
+                    className="w-full py-3 rounded-2xl font-black text-sm tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Начать игру
+                  </button>
+                  {players.length === 0 ? (
+                    <p className="text-xs text-[#142a45]/60 text-center">Нужно как минимум 1 игрок.</p>
+                  ) : null}
+
+                  <details className="rounded-2xl border-[2px] border-[#142a45]/20 bg-[#fff6da]">
+                    <summary className="cursor-pointer list-none px-4 py-3 flex items-center justify-between text-xs font-black tracking-[0.25em] text-[#142a45]/60">
+                      QR
+                      <span className="text-[#142a45]">Развернуть</span>
+                    </summary>
+                    <div className="px-3 pb-4">
+                      <JoinQrBlock
+                        roomCode={roomCode}
+                        qrWindowUrl={`/host/${roomId}/qr?code=${encodeURIComponent(roomCode)}`}
+                        className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da]"
+                      />
+                    </div>
+                  </details>
+                </section>
+              ) : null
             }
             playersView={
               <PlayersAccordion title="Игроки" count={players.length}>
