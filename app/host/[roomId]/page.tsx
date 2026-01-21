@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef, useReducer, type CSSProperties } from 'react';
+import { Fragment, useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef, useReducer, type CSSProperties, type ReactNode } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { logError, logEvent } from '@/shared/logic/logger';
@@ -539,17 +539,139 @@ type Round2LeaderboardEntry = {
   attempts: number;
 };
 
+type HostLayoutMode = 'default' | 'compact' | 'mobile';
+
+const HostControls = ({
+  primaryLabel,
+  onPrimaryAction,
+  onToggleLayout,
+  layoutLabel,
+  compact,
+  showDonate = true,
+}: {
+  primaryLabel: string;
+  onPrimaryAction: () => void;
+  onToggleLayout: () => void;
+  layoutLabel: string;
+  compact?: boolean;
+  showDonate?: boolean;
+}) => (
+  <div className="flex flex-wrap gap-3">
+    <button
+      type="button"
+      onClick={onPrimaryAction}
+      className={`${
+        compact
+          ? 'px-3 py-2 rounded-xl border-2 text-xs tracking-[0.14em]'
+          : 'px-5 py-3 rounded-2xl border-[3px] text-base tracking-[0.2em]'
+      } border-[#ffeccd] text-[#ffeccd] font-black hover:bg-[#ffeccd]/10 transition`}
+    >
+      {primaryLabel}
+    </button>
+    <button
+      type="button"
+      onClick={onToggleLayout}
+      className={`${compact ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'} rounded-xl border-2 border-[#ffeccd] text-[#ffeccd] font-bold hover:bg-[#ffeccd]/10 transition`}
+    >
+      Вид: {layoutLabel}
+    </button>
+    {showDonate ? (
+      <a
+        href="https://donatty.com/aleksandri"
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`${
+          compact ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'
+        } rounded-xl bg-gradient-to-r from-[#f1532f] to-[#ff6b35] text-[#ffeccd] font-bold border-2 border-[#ffeccd] hover:scale-105 transition-all duration-200 text-center`}
+      >
+        Поддержать
+      </a>
+    ) : null}
+  </div>
+);
+
+const PlayersAccordion = ({
+  title,
+  count,
+  children,
+}: {
+  title: string;
+  count: number;
+  children: ReactNode;
+}) => (
+  <details className="rounded-3xl border-[3px] border-[#142a45] bg-white shadow-sm">
+    <summary className="cursor-pointer list-none px-4 py-3 flex items-center justify-between">
+      <span className="retro-heading text-xs tracking-[0.35em] text-[#142a45]/60">{title}</span>
+      <span className="text-sm font-black">{count}</span>
+    </summary>
+    <div className="px-4 pb-4 pt-1">{children}</div>
+  </details>
+);
+
+const QuestionView = ({ children }: { children: ReactNode }) => (
+  <section className="rounded-3xl border-[3px] border-[#142a45] bg-white shadow-xl p-4 space-y-3">
+    {children}
+  </section>
+);
+
+const AnswersView = ({ children }: { children: ReactNode }) => (
+  <section className="rounded-3xl border-[3px] border-[#142a45]/20 bg-white p-4 space-y-2">
+    <p className="retro-heading text-[10px] tracking-[0.35em] text-[#142a45]/60">ОТВЕТЫ</p>
+    {children}
+  </section>
+);
+
+const LikesView = ({ children }: { children: ReactNode }) => (
+  <section className="rounded-3xl border-[3px] border-[#142a45]/20 bg-[#fff6da] p-4 space-y-2">
+    <p className="retro-heading text-[10px] tracking-[0.35em] text-[#142a45]/60">ЛАЙКИ</p>
+    {children}
+  </section>
+);
+
+const HostMobileLayout = ({
+  questionView,
+  answersView,
+  likesView,
+  playersView,
+  controlsView,
+}: {
+  questionView: ReactNode;
+  answersView: ReactNode;
+  likesView: ReactNode;
+  playersView: ReactNode;
+  controlsView: ReactNode;
+}) => (
+  <div className="flex flex-col gap-3">
+    {questionView}
+    {answersView}
+    {likesView}
+    {playersView}
+    <div className="rounded-3xl border-[3px] border-[#142a45] bg-[#142a45] text-[#ffeccd] p-3">
+      {controlsView}
+    </div>
+  </div>
+);
+
 export default function HostRoomPage() {
   const params = useParams();
   const router = useRouter();
   const roomId = params.roomId as string;
 
-  const [isDesktopLayoutForced, setIsDesktopLayoutForced] = useState(false);
+  const [layoutMode, setLayoutMode] = useState<HostLayoutMode>('default');
   const [forcedLayoutScale, setForcedLayoutScale] = useState(1);
+  const [showMobilePrompt, setShowMobilePrompt] = useState(false);
 
   useEffect(() => {
     try {
-      setIsDesktopLayoutForced(localStorage.getItem('forceDesktopLayout') === '1');
+      const storedMode = localStorage.getItem('hostLayoutMode') as HostLayoutMode | null;
+      if (storedMode === 'default' || storedMode === 'compact' || storedMode === 'mobile') {
+        setLayoutMode(storedMode);
+        return;
+      }
+      const legacyCompact = localStorage.getItem('forceDesktopLayout') === '1';
+      if (legacyCompact) {
+        setLayoutMode('compact');
+      }
     } catch {
       // ignore
     }
@@ -557,7 +679,7 @@ export default function HostRoomPage() {
 
   useEffect(() => {
     const computeScale = () => {
-      if (!isDesktopLayoutForced) {
+      if (layoutMode !== 'compact') {
         setForcedLayoutScale(1);
         return;
       }
@@ -596,18 +718,59 @@ export default function HostRoomPage() {
     }
 
     return;
-  }, [isDesktopLayoutForced]);
+  }, [layoutMode]);
 
-  const toggleDesktopLayout = () => {
-    setIsDesktopLayoutForced((prev) => {
-      const next = !prev;
+  useEffect(() => {
+    if (layoutMode === 'mobile') {
+      return;
+    }
+    if (typeof window === 'undefined') {
+      return;
+    }
+    if (window.innerWidth >= 768) {
+      return;
+    }
+    try {
+      if (localStorage.getItem('hostMobilePrompted') === '1') {
+        return;
+      }
+    } catch {
+      // ignore
+    }
+    setShowMobilePrompt(true);
+  }, [layoutMode]);
+
+  const setNextLayoutMode = () => {
+    setLayoutMode((prev) => {
+      const next: HostLayoutMode = prev === 'default' ? 'compact' : prev === 'compact' ? 'mobile' : 'default';
       try {
-        localStorage.setItem('forceDesktopLayout', next ? '1' : '0');
+        localStorage.setItem('hostLayoutMode', next);
+        localStorage.setItem('forceDesktopLayout', next === 'compact' ? '1' : '0');
       } catch {
         // ignore
       }
       return next;
     });
+  };
+
+  const switchToMobileLayout = () => {
+    setLayoutMode('mobile');
+    setShowMobilePrompt(false);
+    try {
+      localStorage.setItem('hostLayoutMode', 'mobile');
+      localStorage.setItem('hostMobilePrompted', '1');
+    } catch {
+      // ignore
+    }
+  };
+
+  const dismissMobilePrompt = () => {
+    setShowMobilePrompt(false);
+    try {
+      localStorage.setItem('hostMobilePrompted', '1');
+    } catch {
+      // ignore
+    }
   };
 
   const [packId, setPackId] = useState<PackId>(DEFAULT_PACK_ID);
@@ -7265,17 +7428,52 @@ export default function HostRoomPage() {
     roomStatus === 'round5-running' ||
     roomStatus === 'round5-explanation';
 
-  const isCompactForcedLayout = isDesktopLayoutForced;
+  const isMobileLayout = layoutMode === 'mobile';
+  const isCompactLayout = layoutMode === 'compact';
+  const isCompactForcedLayout = layoutMode !== 'default';
+  const layoutModeLabel = layoutMode === 'default' ? 'Desktop' : layoutMode === 'compact' ? 'Compact' : 'Mobile';
+  const mobileQuestionText =
+    roomStatus === 'round2-running'
+      ? round2Phase === 'fact'
+        ? round2Statement
+        : round2ExplanationText
+      : roomStatus === 'round3-running'
+        ? currentRound3Question?.question ?? 'Подождите, факты загружаются…'
+        : roomStatus === 'round4-running'
+          ? round4CurrentPuzzle?.emoji ?? '⏳'
+          : roomStatus === 'round5-running' || roomStatus === 'round5-explanation'
+            ? round5CurrentQuestion?.question ?? 'Подождите, вопрос загружается…'
+            : question
+              ? question.text
+              : showResults
+                ? 'Итоги раунда'
+                : 'Подождите, раунд загружается…';
+  const mobileTimerLabel =
+    roomStatus === 'round3-running'
+      ? `${round3TimerTimeLeft} c`
+      : roomStatus === 'round4-running'
+        ? `${timeLeft} c`
+        : roomStatus === 'round5-running' || roomStatus === 'round5-explanation'
+          ? `${timeLeft} c`
+          : `${effectiveTimeLeft} c`;
 
   return (
     <Fragment>
       <div
-        style={isDesktopLayoutForced ? ({ zoom: forcedLayoutScale } as unknown as CSSProperties) : undefined}
+        style={
+          isMobileLayout
+            ? ({ '--host-font-scale': 0.8 } as CSSProperties)
+            : isCompactLayout
+              ? ({ zoom: forcedLayoutScale } as unknown as CSSProperties)
+              : undefined
+        }
         className={`${
-          shouldLockViewport && !isDesktopLayoutForced ? 'h-[100dvh] overflow-hidden' : 'min-h-screen'
-        } bg-[#fef4dc] text-[#142a45] ${isCompactForcedLayout ? 'px-2 py-3' : 'px-4 py-6'} transition-opacity duration-1000 opacity-100`}
+          shouldLockViewport && !isCompactLayout && !isMobileLayout ? 'h-[100dvh] overflow-hidden' : 'min-h-screen'
+        } bg-[#fef4dc] text-[#142a45] ${isCompactForcedLayout ? 'px-2 py-3' : 'px-4 py-6'} transition-opacity duration-1000 opacity-100 ${
+          isMobileLayout ? 'text-[calc(1rem*var(--host-font-scale))]' : ''
+        }`}
       >
-        <div className={`max-w-[95vw] mx-auto ${isCompactForcedLayout ? 'space-y-3' : 'space-y-6'}`}>
+        <div className={`${isMobileLayout ? 'max-w-full' : 'max-w-[95vw] mx-auto'} ${isCompactForcedLayout ? 'space-y-3' : 'space-y-6'}`}>
           <header className="retro-panel bg-[#142a45] text-[#ffeccd] px-6 py-5">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -7284,40 +7482,39 @@ export default function HostRoomPage() {
                   Комната {roomCode || '----'}
                 </h1>
               </div>
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={handlePrimaryHeaderAction}
-                  className={`${
-                    isCompactForcedLayout
-                      ? 'px-3 py-2 rounded-xl border-2 text-xs tracking-[0.14em]'
-                      : 'px-5 py-3 rounded-2xl border-[3px] text-base tracking-[0.2em]'
-                  } border-[#ffeccd] text-[#ffeccd] font-black hover:bg-[#ffeccd]/10 transition`}
-                >
-                  {headerActionLabel}
-                </button>
-                <button
-                  type="button"
-                  onClick={toggleDesktopLayout}
-                  className={`${
-                    isCompactForcedLayout ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'
-                  } rounded-xl border-2 border-[#ffeccd] text-[#ffeccd] font-bold hover:bg-[#ffeccd]/10 transition`}
-                >
-                  Вид
-                </button>
-                <a
-                  href="https://donatty.com/aleksandri"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`${
-                    isCompactForcedLayout ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'
-                  } rounded-xl bg-gradient-to-r from-[#f1532f] to-[#ff6b35] text-[#ffeccd] font-bold border-2 border-[#ffeccd] hover:scale-105 transition-all duration-200 text-center`}
-                >
-                  Поддержать
-                </a>
-              </div>
+              {!isMobileLayout ? (
+                <HostControls
+                  primaryLabel={headerActionLabel}
+                  onPrimaryAction={handlePrimaryHeaderAction}
+                  onToggleLayout={setNextLayoutMode}
+                  layoutLabel={layoutModeLabel}
+                  compact={isCompactForcedLayout}
+                />
+              ) : null}
             </div>
           </header>
+
+        {showMobilePrompt ? (
+          <div className="rounded-3xl border-[3px] border-[#142a45]/30 bg-white px-4 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm font-semibold text-[#142a45]">Похоже, у вас мобильный экран. Переключиться на Mobile view?</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={switchToMobileLayout}
+                className="px-4 py-2 rounded-2xl border-[3px] border-[#142a45] bg-[#142a45] text-[#ffeccd] font-black text-xs tracking-[0.2em]"
+              >
+                Переключить
+              </button>
+              <button
+                type="button"
+                onClick={dismissMobilePrompt}
+                className="px-4 py-2 rounded-2xl border-[3px] border-[#142a45]/30 bg-white font-semibold text-xs"
+              >
+                Позже
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         <PhaseStatusBanner phaseLabel={localPhaseLabel} connectionStatus={connectionStatus} />
 
@@ -7327,12 +7524,89 @@ export default function HostRoomPage() {
           </div>
         )}
 
-        <div
-          className={`grid ${isCompactForcedLayout ? 'gap-3' : 'gap-6'} ${
-            isDesktopLayoutForced ? 'grid-cols-12' : 'lg:grid-cols-12'
-          }`}
-        >
-          <section className={isDesktopLayoutForced ? 'col-span-4' : 'lg:col-span-3'}>
+        {isMobileLayout ? (
+          <HostMobileLayout
+            questionView={
+              <QuestionView>
+                <p className="retro-heading text-[10px] tracking-[0.35em] text-[#142a45]/60">СЕЙЧАС</p>
+                <h2 className="text-lg font-black text-[#142a45]">{statusLabel}</h2>
+                <p className="text-base font-semibold text-[#142a45] break-words">{mobileQuestionText}</p>
+                <div className="flex items-center justify-between text-xs text-[#142a45]/70">
+                  <span>Таймер</span>
+                  <span className="font-black">{mobileTimerLabel}</span>
+                </div>
+              </QuestionView>
+            }
+            answersView={
+              <AnswersView>
+                <div className="flex items-center justify-between text-sm font-semibold">
+                  <span>Ответы</span>
+                  <span className="font-black text-[#1f6ac6]">
+                    {answeredCount}/{totalPlayers}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm font-semibold">
+                  <span>Правильные</span>
+                  <span className="font-black text-[#1f6ac6]">{correctAnswerCount}</span>
+                </div>
+              </AnswersView>
+            }
+            likesView={
+              <LikesView>
+                <div className="flex items-center justify-between text-sm font-semibold">
+                  <span>Текущий вопрос</span>
+                  <span className="font-black text-[#f1532f]">{currentQuestionLikes ?? 0}</span>
+                </div>
+                {bestQuestion ? (
+                  <div className="text-xs text-[#142a45]/70">Лучший: {bestQuestion.text} ({bestQuestion.likes})</div>
+                ) : (
+                  <div className="text-xs text-[#142a45]/70">Лучший вопрос пока не определён</div>
+                )}
+              </LikesView>
+            }
+            playersView={
+              <PlayersAccordion title="Игроки" count={players.length}>
+                {players.length === 0 ? (
+                  <p className="text-sm text-[#142a45]/70 text-center py-2">Пока никто не присоединился</p>
+                ) : (
+                  <div className="space-y-2 max-h-[45vh] overflow-y-auto pr-1 no-scrollbar">
+                    {players.map((player, index) => (
+                      <div
+                        key={player.id}
+                        className="rounded-2xl border-[2px] border-[#142a45]/15 bg-white px-3 py-2 flex items-center justify-between"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className="w-7 h-7 rounded-full border-[2px] border-[#142a45]/30 flex items-center justify-center font-black text-xs">
+                            {index + 1}
+                          </span>
+                          <p className="font-semibold text-sm leading-snug whitespace-normal break-words overflow-hidden max-h-[2.8em]">
+                            {player.name}
+                          </p>
+                        </div>
+                        <p className="font-black text-[#f1532f] text-sm">{player.total_points} 💎</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </PlayersAccordion>
+            }
+            controlsView={
+              <HostControls
+                primaryLabel={headerActionLabel}
+                onPrimaryAction={handlePrimaryHeaderAction}
+                onToggleLayout={setNextLayoutMode}
+                layoutLabel={layoutModeLabel}
+                compact
+              />
+            }
+          />
+        ) : (
+          <div
+            className={`grid ${isCompactForcedLayout ? 'gap-3' : 'gap-6'} ${
+              isCompactLayout ? 'grid-cols-12' : 'lg:grid-cols-12'
+            }`}
+          >
+          <section className={isCompactLayout ? 'col-span-4' : 'lg:col-span-3'}>
             <div className={`rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl ${isCompactForcedLayout ? 'p-4' : 'p-5'} space-y-4`}>
               {isCompactForcedLayout ? (
                 <>
@@ -7468,7 +7742,7 @@ export default function HostRoomPage() {
           </section>
 
               <div
-                className={`${isDesktopLayoutForced ? 'col-span-8' : 'lg:col-span-9'} ${isCompactForcedLayout ? 'space-y-3' : 'space-y-6'}`}
+                className={`${isCompactLayout ? 'col-span-8' : 'lg:col-span-9'} ${isCompactForcedLayout ? 'space-y-3' : 'space-y-6'}`}
               >
             {isTournamentVisible ? (
               <div
@@ -8399,6 +8673,7 @@ export default function HostRoomPage() {
 
           </div>
         </div>
+        )}
       </div>
     </div>
 
