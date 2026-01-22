@@ -247,8 +247,6 @@ export default function RoomPage() {
   const [questionLikesCount, setQuestionLikesCount] = useState<number | null>(null);
   const [bestQuestion, setBestQuestion] = useState<{ id: number; likes: number; text: string } | null>(null);
   const [lastActiveRound, setLastActiveRound] = useState<RoomStatus>('waiting');
-  const roomIdRef = useRef('');
-  const playerIdRef = useRef('');
   const roomStatusRef = useRef(roomStatus);
   const exitLoggedRef = useRef(false);
   const packIdRef = useRef<PackId>(DEFAULT_PACK_ID);
@@ -265,13 +263,6 @@ export default function RoomPage() {
 
   useEffect(() => {
     roomStatusRef.current = roomStatus;
-  }, [roomStatus]);
-
-  useEffect(() => {
-    if (roomStatus === 'waiting' || roomStatus === 'final-results' || roomStatus === 'finished') {
-      return;
-    }
-    setLastActiveRound(roomStatus);
   }, [roomStatus]);
 
   useEffect(() => {
