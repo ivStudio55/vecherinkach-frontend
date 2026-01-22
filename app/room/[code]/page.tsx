@@ -323,12 +323,36 @@ export default function RoomPage() {
   }, [packId]);
 
   useEffect(() => {
+    const loadRound4Data = async () => {
+      try {
+        const res = await fetch(`${getQuestionsBaseUrl(packId)}/4round.json?t=${Date.now()}`, { cache: 'no-store' });
+        if (!res.ok) return;
+        const payload = await res.json();
+        const puzzles = Array.isArray(payload?.puzzles) ? (payload.puzzles as Round4Puzzle[]) : [];
+        setRound4Puzzles(puzzles);
+      } catch (e) {
+        console.error('Failed to load round4 data', e);
+      }
+    };
     void loadRound4Data();
-  }, [loadRound4Data]);
+  }, [packId]);
 
   useEffect(() => {
+    const loadRound5Data = async () => {
+      try {
+        const res = await fetch(`${getQuestionsBaseUrl(packId)}/5round_question.json?t=${Date.now()}`, { cache: 'no-store' });
+        if (!res.ok) {
+          return;
+        }
+        const payload = (await res.json()) as unknown;
+        const questions = Array.isArray(payload) ? (payload as Round5Question[]) : [];
+        setRound5Questions(questions);
+      } catch (e) {
+        console.error('Failed to load round5 questions', e);
+      }
+    };
     void loadRound5Data();
-  }, [loadRound5Data]);
+  }, [packId]);
 
   const loadPlayerStanding = useCallback(async () => {
     if (!roomId || !playerId) {
@@ -416,12 +440,20 @@ export default function RoomPage() {
     }
 
     round4LoadAttemptRef.current += 1;
-    const timeoutId = window.setTimeout(() => {
-      void loadRound4Data();
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        const res = await fetch(`${getQuestionsBaseUrl(packId)}/4round.json?t=${Date.now()}`, { cache: 'no-store' });
+        if (!res.ok) return;
+        const payload = await res.json();
+        const puzzles = Array.isArray(payload?.puzzles) ? (payload.puzzles as Round4Puzzle[]) : [];
+        setRound4Puzzles(puzzles);
+      } catch (e) {
+        console.error('Failed to load round4 data', e);
+      }
     }, 300);
 
     return () => window.clearTimeout(timeoutId);
-  }, [loadRound4Data, roomStatus, round4PuzzleId, round4Puzzles.length]);
+  }, [packId, roomStatus, round4PuzzleId, round4Puzzles.length]);
 
   useEffect(() => {
     if (round4PuzzleId === null || !round4Puzzles.length) {
@@ -1367,7 +1399,7 @@ export default function RoomPage() {
       clearInterval(intervalId);
       if (roomChannel) {
         roomChannel.unsubscribe().then(() => {
-          supabase.removeChannel(roomChannel);
+          if (roomChannel) supabase.removeChannel(roomChannel);
         });
       }
     };
@@ -1535,7 +1567,7 @@ export default function RoomPage() {
       mounted = false;
       if (likesChannel) {
         likesChannel.unsubscribe().then(() => {
-          supabase.removeChannel(likesChannel);
+          if (likesChannel) supabase.removeChannel(likesChannel);
         });
       }
     };

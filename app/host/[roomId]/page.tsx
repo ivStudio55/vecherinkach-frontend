@@ -209,6 +209,8 @@ const ROUND4_CATEGORY_VARIANTS: Record<string, number> = {
 
 const buildAudioUrl = (relativePath: string) => `/api/audio?file=${encodeURIComponent(relativePath)}&t=${Date.now()}`;
 
+const buildJingleUrl = buildAudioUrl;
+
 const getRemainingSeconds = (startedAt: string | null, durationSeconds: number, offsetMs = 0): number => {
   if (!startedAt) {
     return durationSeconds;
@@ -227,6 +229,19 @@ const pickRandomItem = <T,>(items: readonly T[]): T => {
   return items[Math.floor(Math.random() * items.length)];
 };
 
+const shuffleArray = <T,>(arr: T[]): T[] => {
+  const result = [...arr];
+  for (let i = result.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+};
+
+const renderRound3CorrectAnswerExcerpt = (_question: string, answer: string): string => answer;
+
+const renderRound3WrongAnswerExcerpt = (_question: string, wrongAnswer: string): string => wrongAnswer;
+
 const normalizeRound3FreeText = (value: string) =>
   value
     .toLowerCase()
@@ -235,6 +250,72 @@ const normalizeRound3FreeText = (value: string) =>
     .trim();
 
 const normalizeRound4Answer = (value: string) => normalizeRound3FreeText(value);
+
+type AnswerInsertPayload = {
+  new: {
+    player_id: string;
+    room_id: string;
+    question_index: number;
+    answer_key: string | null;
+    is_correct: boolean | null;
+    points_earned: number | null;
+    submitted_at: string;
+  };
+};
+
+type Round2AnswerInsertPayload = {
+  new: {
+    player_id: string;
+    room_id: string;
+    item_index: number;
+    answer_is_fact: boolean;
+    is_correct: boolean;
+    points_earned: number;
+    submitted_at: string;
+  };
+};
+
+type Round4AnswerInsertPayload = {
+  new: {
+    player_id: string;
+    room_id: string;
+    puzzle_id: number;
+    answer_text: string;
+    is_correct: boolean;
+    points_earned: number;
+    submitted_at: string;
+  };
+};
+
+type TweenedIntegerProps = {
+  from: number;
+  to: number;
+  durationMs: number;
+  delayMs?: number;
+};
+
+const TweenedInteger = ({ from, to, durationMs, delayMs = 0 }: TweenedIntegerProps) => {
+  const [value, setValue] = useState(from);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      const startTime = Date.now();
+      const animate = () => {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / durationMs, 1);
+        const current = Math.round(from + (to - from) * progress);
+        setValue(current);
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        }
+      };
+      requestAnimationFrame(animate);
+    }, delayMs);
+    return () => clearTimeout(timeout);
+  }, [from, to, durationMs, delayMs]);
+
+  return <>{value}</>;
+};
 
 type RoundPointsLeaderboardEntry = {
   playerId: string;
@@ -312,6 +393,12 @@ type Round3Question = {
   originalIndex: number;
 };
 
+type Round3QuestionsPayload = {
+  name?: string;
+  description?: string;
+  questions?: Round3Question[];
+};
+
 type Round3AnswerRow = {
   id: string;
   player_id: string;
@@ -321,10 +408,14 @@ type Round3AnswerRow = {
   submitted_at: string;
 };
 
+type Round3AnswerRowWithIndex = Round3AnswerRow & { question_index: number };
+
 type Round3VoteRow = {
   voter_player_id: string;
   answer_id: string;
 };
+
+type Round3VoteRowWithIndex = Round3VoteRow & { question_index: number };
 
 type Round2Phase = 'idle' | 'fact' | 'explanation';
 
@@ -5212,27 +5303,27 @@ export default function HostRoomPage() {
       }
       if (playersChannel) {
         playersChannel.unsubscribe().then(() => {
-          supabase.removeChannel(playersChannel);
+          if (playersChannel) supabase.removeChannel(playersChannel);
         });
       }
       if (answersChannel) {
         answersChannel.unsubscribe().then(() => {
-          supabase.removeChannel(answersChannel);
+          if (answersChannel) supabase.removeChannel(answersChannel);
         });
       }
       if (round2AnswersChannel) {
         round2AnswersChannel.unsubscribe().then(() => {
-          supabase.removeChannel(round2AnswersChannel);
+          if (round2AnswersChannel) supabase.removeChannel(round2AnswersChannel);
         });
       }
       if (round4AnswersChannel) {
         round4AnswersChannel.unsubscribe().then(() => {
-          supabase.removeChannel(round4AnswersChannel);
+          if (round4AnswersChannel) supabase.removeChannel(round4AnswersChannel);
         });
       }
       if (round5AnswersChannel) {
         round5AnswersChannel.unsubscribe().then(() => {
-          supabase.removeChannel(round5AnswersChannel);
+          if (round5AnswersChannel) supabase.removeChannel(round5AnswersChannel);
         });
       }
     };
