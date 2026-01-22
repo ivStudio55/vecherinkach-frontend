@@ -209,6 +209,13 @@ const ROUND4_CATEGORY_VARIANTS: Record<string, number> = {
 
 const buildAudioUrl = (relativePath: string) => `/api/audio?file=${encodeURIComponent(relativePath)}&t=${Date.now()}`;
 
+const normalizeRound3FreeText = (value: string) =>
+  value
+    .toLowerCase()
+    .replace('ё', 'е')
+    .replace(/\s+/g, ' ')
+    .trim();
+
 const normalizeRound4Answer = (value: string) => normalizeRound3FreeText(value);
 
 type RoundPointsLeaderboardEntry = {
