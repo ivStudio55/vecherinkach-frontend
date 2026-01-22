@@ -209,6 +209,20 @@ const ROUND4_CATEGORY_VARIANTS: Record<string, number> = {
 
 const buildAudioUrl = (relativePath: string) => `/api/audio?file=${encodeURIComponent(relativePath)}&t=${Date.now()}`;
 
+const getRemainingSeconds = (startedAt: string | null, durationSeconds: number, offsetMs = 0): number => {
+  if (!startedAt) {
+    return durationSeconds;
+  }
+  const startTime = new Date(startedAt).getTime();
+  if (Number.isNaN(startTime)) {
+    return durationSeconds;
+  }
+  const now = Date.now() - offsetMs;
+  const diffMs = now - startTime;
+  const elapsedSeconds = Math.floor(diffMs / 1000);
+  return Math.max(0, durationSeconds - elapsedSeconds);
+};
+
 const pickRandomItem = <T,>(items: readonly T[]): T => {
   return items[Math.floor(Math.random() * items.length)];
 };
