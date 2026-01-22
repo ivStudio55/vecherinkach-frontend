@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-
-export const runtime = 'nodejs';
 import jwt from 'jsonwebtoken';
 import { getSupabaseAdminClient } from '@/lib/supabaseAdmin.server';
+
+export const runtime = 'nodejs';
 
 const JWT_SECRET = process.env.SUPABASE_JWT_SECRET;
 
