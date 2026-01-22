@@ -268,6 +268,32 @@ type Player = {
   total_points: number;
 };
 
+type Round4Puzzle = {
+  id: number;
+  category: string;
+  emoji: string;
+  answers: string[];
+};
+
+type Round4AnswerRow = {
+  id: string;
+  player_id: string;
+  puzzle_id: number;
+  answer_text: string;
+  is_correct: boolean;
+  points_earned: number;
+  submitted_at: string;
+};
+
+type Round3Question = {
+  question: string;
+  answer?: string;
+  category?: string;
+  acceptable?: string[];
+  comment?: string;
+  originalIndex: number;
+};
+
 interface RoundAnswer {
   player_id: string;
   text: string;
