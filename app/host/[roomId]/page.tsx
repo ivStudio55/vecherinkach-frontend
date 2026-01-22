@@ -24,460 +24,192 @@ import {
   parseLikeQuestionId,
 } from '@/shared/logic/questionLikes';
 import {
-    let playersChannel: ReturnType<typeof supabase.channel> | null = null;
-    let answersChannel: ReturnType<typeof supabase.channel> | null = null;
-    let round2AnswersChannel: ReturnType<typeof supabase.channel> | null = null;
-    let round4AnswersChannel: ReturnType<typeof supabase.channel> | null = null;
-    let round5AnswersChannel: ReturnType<typeof supabase.channel> | null = null;
-    let playersPollId: ReturnType<typeof setInterval> | null = null;
+  ActiveRoundQuestion,
+  OptionKey,
+  OPTION_LABELS,
+  ROUND_QUESTION_COUNT,
+  createQuestionBank,
+  DEFAULT_QUESTION_BANK,
+  type QuestionBank,
+  buildQuestionsFromSelection,
+  getQuestionById,
+  getOptionIndexFromKey,
+  getOptionKeyByIndex,
+  getQuestionForIndex,
+  hasEnoughQuestions,
+  pickRandomQuestionIds,
+} from '@/lib/questions';
+import {
+  DEFAULT_PACK_ID,
+  getQuestionsBaseUrl,
+  normalizePackId,
+  type PackId,
+  withAudioPackPrefixIfNeeded,
+} from '@/lib/questionPacks';
 
-    const startRealtime = async () => {
-      const authOk = await ensureRealtimeAuth(roomId);
-      if (!mounted || !authOk) {
-        return;
-      }
+const QUESTION_DURATION_SECONDS = 30;
+const ROUND1_TOTAL_QUESTIONS = 6;
+const COUNTDOWN_STEPS = ['На старт', 'Внимание', '3', '2', '1', 'Старт'] as const;
+const AUTO_NEXT_DELAY_MS = 6000;
+const ROUND1_VARIANTS_OUTRO_MS = 950;
 
-      playersChannel = supabase
-        .channel(`host-players-${roomId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'players',
-            filter: `room_id=eq.${roomId}`,
-          },
-          () => {
-            if (mounted) {
-              loadPlayersRef.current?.();
-            }
-          }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'players',
-            filter: `room_id=eq.${roomId}`,
-          },
-          () => {
-            if (mounted) {
-              loadPlayersRef.current?.();
-            }
-          }
-        )
-        .subscribe();
+type PillAnimationStyle = CSSProperties & {
+  ['--pill-left']?: string;
+  ['--pill-top']?: string;
+  ['--pill-duration']?: string;
+};
 
-      answersChannel = supabase
-        .channel(`host-answers-${roomId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'answers',
-            filter: `room_id=eq.${roomId}`,
-          },
-          async (payload: AnswerInsertPayload) => {
-            if (!mounted) return;
-            const { data: room } = await supabase
-              .from('rooms')
-              .select('current_question_index')
-              .eq('id', roomId)
-              .single();
+type LocalRoundPhase = 'loading' | 'waiting' | 'question' | 'transition' | 'calculating' | 'results';
+type ConnectionMode = 'realtime' | 'polling';
+const JOIN_SOUND_FILES = [
+  'sound/The_duck_quacked_fun_#1.mp3',
+  'sound/The_duck_quacked_fun_#2.mp3',
+  'sound/The_duck_quacked_fun_#3.mp3',
+  'sound/The_duck_quacked_fun_#4.mp3',
+  'sound/The_duk_quacked_funn_#1.mp3',
+  'sound/The_duk_quacked_funn_#2.mp3',
+  'sound/The_duk_quacked_funn_#3.mp3',
+  'sound/The_duk_quacked_funn_#4.mp3',
+] as const;
 
-            if (mounted && room && payload.new.question_index === room.current_question_index) {
-              await loadAnswerCountRef.current?.(room.current_question_index);
-            }
-          }
-        )
-        .subscribe();
-
-      round2AnswersChannel = supabase
-        .channel(`host-round2-answers-${roomId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'round2_answers',
-            filter: `room_id=eq.${roomId}`,
-          },
-          async (payload: Round2AnswerInsertPayload) => {
-            if (!mounted) return;
-            const currentIndex = round2CurrentIndexRef.current;
-            if (currentIndex === null) {
-              return;
-            }
-            if (payload.new.item_index === currentIndex) {
-              await loadRound2AnswerStatsRef.current?.(currentIndex);
-            }
-          }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'round2_answers',
-            filter: `room_id=eq.${roomId}`,
-          },
-          async (payload: Round2AnswerInsertPayload) => {
-            if (!mounted) return;
-            const currentIndex = round2CurrentIndexRef.current;
-            if (currentIndex === null) {
-              return;
-            }
-            if (payload.new.item_index === currentIndex) {
-              await loadRound2AnswerStatsRef.current?.(currentIndex);
-            }
-          }
-        )
-        .subscribe();
-
-      round4AnswersChannel = supabase
-        .channel(`host-round4-answers-${roomId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'round4_answers',
-            filter: `room_id=eq.${roomId}`,
-          },
-          async (payload: Round4AnswerInsertPayload) => {
-            if (!mounted) return;
-            if (roomStatusRef.current !== 'round4-running') {
-              return;
-            }
-            const currentPuzzleId = round4CurrentPuzzleIdRef.current;
-            if (currentPuzzleId === null) {
-              return;
-            }
-            if (payload.new.puzzle_id === currentPuzzleId) {
-              await loadRound4AnswerStatsRef.current?.(currentPuzzleId);
-            }
-          }
-        )
-        .subscribe();
-
-      round5AnswersChannel = supabase
-        .channel(`host-round5-answers-${roomId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'round5_answers',
-            filter: `room_id=eq.${roomId}`,
-          },
-          async (payload: { new: { question_index: number } }) => {
-            if (!mounted) return;
-            const currentBankIndex = round5CurrentBankIndexRef.current;
-            if (currentBankIndex === null) {
-              return;
-            }
-            if (payload.new.question_index === currentBankIndex) {
-              await loadRound5AnswerStatsRef.current?.(currentBankIndex);
-              await loadRound5AnswerRowsRef.current?.(currentBankIndex);
-            }
-          }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'round5_answers',
-            filter: `room_id=eq.${roomId}`,
-          },
-          async (payload: { new: { question_index: number } }) => {
-            if (!mounted) return;
-            const currentBankIndex = round5CurrentBankIndexRef.current;
-            if (currentBankIndex === null) {
-              return;
-            }
-            if (payload.new.question_index === currentBankIndex) {
-              await loadRound5AnswerStatsRef.current?.(currentBankIndex);
-              await loadRound5AnswerRowsRef.current?.(currentBankIndex);
-            }
-          }
-        )
-        .subscribe();
-
-      playersPollId = setInterval(() => {
-        if (mounted) {
-          loadPlayersRef.current?.();
-        }
-      }, 3000);
-    };
-
-    void startRealtime();
-    'американский кинематограф': 'american_cinema',
-    'американские мультфильмы': 'american_cartoons',
-    'сериалы': 'series',
-    'зарубежная эстрада': 'foreign_bandstand',
-    'русский рок': 'russian_rock',
-    'советская эстрада': 'soviet_bandstand',
-    'советский мультфильм': 'soviet_cartoon',
-    'советский кинематограф': 'soviet_cinema',
-    'классика': 'classic',
-    'сказка': 'fairy_tale',
-    'современная отечественная эстрада': 'modern_russian_bandstand',
-    'русская литература': 'russian_literature',
-    'руссская литература': 'russian_literature',
+const ANSWER_DUCK_AUDIO_FILES: readonly string[] = Array.from({ length: 7 }, (_, i) => `duck/${i + 1}.mp3`);
+const QUESTION_JINGLE_FILE = 'sound/30_sec.mp3';
+const MEET_AUDIO_FILES = [
+  'meet/meetText1.mp3',
+  'meet/meetText2.mp3',
+  'meet/meetText3.mp3',
+  'meet/meetText4.mp3',
+  'meet/meetText5.mp3',
+  'meet/meetText6.mp3',
+  'meet/meetText7.mp3',
+  'meet/meetText8.mp3',
+] as const;
+const CONNECT_AUDIO_CLIPS: Record<number, readonly string[]> = (() => {
+  const base: Record<number, readonly string[]> = {
+    1: ['connect/1/one_connected.mp3', 'connect/1/one_connected2.mp3', 'connect/1/one_connected3.mp3'],
   };
 
-  const ROUND4_CATEGORY_VARIANTS: Record<string, number> = {
-    soviet_cinema: 1,
-  };
+  for (let count = 2; count <= 10; count += 1) {
+    base[count] = Array.from({ length: 3 }, (_, variant) => `connect/${count}/${count}_connected${variant + 1}.mp3`);
+  }
+
+  return base;
+})();
+const RULES_ROUND1_FILES = ['round1/rules/ruelsround(1)2.mp3', 'round1/rules/ruelsround(1)3.mp3'] as const;
+const SKIP_AUDIO_FILES = [
+  'skip/skip.mp3',
+  'skip/skip2.mp3',
+  'skip/skip4.mp3',
+  'skip/skip5.mp3',
+  'skip/skip6.mp3',
+  'skip/skip7.mp3',
+  'skip/skip8.mp3',
+] as const;
+const ROUND1_END_AUDIO_FILES: readonly string[] = Array.from({ length: 9 }, (_, i) => `round1end/${i + 1}.mp3`);
+const ROUND1_END_JINGLE_FILE = 'round1_end/jingle_(after_round1).mp3';
+const ROUND2_RULES_JINGLE_FILE = 'round2/explanation.mp3';
+const ROUND2_RULES_VOICE_FILES = ['round2/ruels/1.mp3', 'round2/ruels/2.mp3'] as const;
+const ROUND2_BETWEEN_AUDIO_VARIANTS = {
+  full: ['round1/between/100%/1.mp3', 'round1/between/100%/2.mp3', 'round1/between/100%/3.mp3', 'round1/between/100%/4.mp3'],
+  mid: ['round1/between/50-99%/1.mp3', 'round1/between/50-99%/2.mp3', 'round1/between/50-99%/3.mp3', 'round1/between/50-99%/4.mp3'],
+  low: ['round1/between/1-49%/1.mp3', 'round1/between/1-49%/2.mp3', 'round1/between/1-49%/3.mp3', 'round1/between/1-49%/4.mp3'],
+  none: ['round1/between/0%/1.mp3', 'round1/between/0%/2.mp3', 'round1/between/0%/3.mp3'],
+  zero: ['round1/between/0%/1.mp3', 'round1/between/0%/2.mp3', 'round1/between/0%/3.mp3'],
+} as const;
+const BETWEEN_AUDIO_VARIANTS = ROUND2_BETWEEN_AUDIO_VARIANTS;
+const ROUND2_EXPLANATION_BG_FILE = 'round2/explanation.mp3';
+const ROUND2_ANSWER_POLL_INTERVAL_MS = 1000;
+const ROUND2_TOTAL_QUESTIONS = ROUND_QUESTION_COUNT;
+const ROUND2_EXPLANATION_FALLBACK = 'Без объяснения';
+
+const ROUND3_TOTAL_QUESTIONS = 6;
+const ROUND3_POINTS = 200;
+const ROUND3_QUESTIONS_AUDIO_DIR = 'round3/questions3';
+const ROUND3_BG_JINGLE_FILE = 'round2/jingle (5).mp3';
+const ROUND3_ANSWER_TIMER_JINGLE_FILE = 'round3/60_sec.mp3';
+const ROUND3_VOTE_TIMER_JINGLE_FILE = 'sound/30_sec.mp3';
+const ROUND3_TIMER_JINGLE_FILE = ROUND3_ANSWER_TIMER_JINGLE_FILE;
+const ROUND3_VOTE_AUDIO_DIR = 'round3/vote';
+const ROUND3_COMMENTS_AUDIO_DIR = 'round3/comments';
+const ROUND3_RESULTS_BG_FILE = 'round2/explanation.mp3';
+const ROUND3_BG_VOLUME = 0.25;
+const ROUND3_TIMER_VOLUME = 0.6;
+const ROUND3_VOTE_LIKE_POINTS = 50;
+const ROUND3_VOTE_SKIP_PENALTY = 50;
+const ROUND3_END_AFTER_AUDIO_DIR = 'round3end/after';
+const ROUND3_RULES_VOICE_FILES = ['round3/ruels3/ruels1.mp3', 'round3/ruels3/ruels2.mp3', 'round3/ruels3/ruels3.mp3'] as const;
+const ROUND5_RULES_VOICE_FILES: readonly string[] = Array.from({ length: 5 }, (_, i) => `round5/ruels/${i + 1}.mp3`);
+const ROUND3_RULES_TEXT =
+  'Раунд «МозгоШтурм»\n\n' +
+  'Перед вами появятся 6 интересных фактов с одним пропущенным словом.\n\n' +
+  'Ваша задача:\n\n' +
+  'Ввести в поле на телефоне то слово, которое идеально подходит (одно слово, без дефисов, пробелов и знаков).\n' +
+  'После каждого тура на экране появятся ответы всех игроков.\n' +
+  'Каждый выбирает понравившийся ответ (кроме своего).\n\n' +
+  'Подсчёт очков:\n\n' +
+  'Угадал точное слово — 200 очков.\n' +
+  'За каждый голос за ваш ответ — +50 очков.\n' +
+  'Не проголосовал — −50 очков.\n\n' +
+  `Время на ввод ответа — ${ROUND3_ANSWER_SECONDS} секунд.\n` +
+  `Время на голосование — ${ROUND3_VOTE_SECONDS} секунд.\n` +
+  'Синонимы могут засчитаться (на усмотрение ведущего).\n\n' +
+  'Готовы угадывать и голосовать? Давайте устроим настоящий мозговой штурм!';
+const ROUND4_RULES_VOICE_FILES = ['round4/rules/1.mp3', 'round4/rules/2.mp3', 'round4/rules/3.mp3'] as const;
+const ROUND4_RULES_TEXT =
+  'Раунд «Дэшифровщик»\n\n' +
+  'На экране появляется комбинация из эмодзи, в которых зашифровано название известного фильма, мультфильма, сериала, песни или чего-то очень знаменитого.\n' +
+  'Задача игроков: как можно быстрее вписать правильное название в поле ввода.\n\n' +
+  'Начисление баллов:\n' +
+  '• Первый ответивший правильно получает 100 баллов.\n' +
+  '• Последующие правильные ответы получают 50 баллов.\n' +
+  '• Таймер — 30 секунд.';
+
+const ROUND5_RULES_TEXT =
+  'Вам будут даны 6 фактов с числовыми значениями (например, "Высота Эйфелевой башни — [число] метров").\n\n' +
+  'Ваша задача — ввести точное число в поле на телефоне.\n\n' +
+  'Точное совпадение: 400 очков.\n' +
+  'Неточное: баллы = 400 * (100 - отклонение%) / 100, где отклонение% = |правильное - ваш ответ| / правильное * 100% (округление до целого).\n\n' +
+  'Если отклонение >= 100% (ответ <= 0 или >= 2*правильное) — 0 очков.\n\n' +
+  'Время на вопрос: 30 секунд.\n\n' +
+  'Готовы к цифровой интуиции?';
+
+const ROUND4_TOTAL_TOURS = 6;
+
+const ROUND5_TOTAL_TOURS = 6;
+const ROUND5_MAX_POINTS = 400;
+const ROUND5_QUESTION_AUDIO_DIR = 'round5/questions';
+const ROUND5_EXPLANATION_AUDIO_DIR = 'round5/explanation';
+const ROUND5_FINAL_NARRATOR_AUDIO_DIR = 'round5/final';
+const ROUND5_FINAL_NARRATOR_VARIANTS = 7;
+
+const PACK_03012026_ROUND2_AUDIO_START = 82;
+const PACK_03012026_ROUND3_AUDIO_START = 67;
+const PACK_03012026_ROUND5_AUDIO_START = 68;
+
+const ROUND4_CATEGORY_AUDIO_MAP: Record<string, string> = {
+  'новый год': 'new_year',
+  дисней: 'disney',
+  'американский кинематограф': 'american_cinema',
+  'американские мультфильмы': 'american_cartoons',
+  сериалы: 'series',
+  'зарубежная эстрада': 'foreign_bandstand',
+  'русский рок': 'russian_rock',
+  'советская эстрада': 'soviet_bandstand',
+  'советский мультфильм': 'soviet_cartoon',
+  'советский кинематограф': 'soviet_cinema',
+  классика: 'classic',
+  сказка: 'fairy_tale',
+  'современная отечественная эстрада': 'modern_russian_bandstand',
+  'русская литература': 'russian_literature',
+};
+
+const ROUND4_CATEGORY_VARIANTS: Record<string, number> = {
+  soviet_cinema: 1,
+};
 
 const buildAudioUrl = (relativePath: string) => `/api/audio?file=${encodeURIComponent(relativePath)}&t=${Date.now()}`;
-const buildJingleUrl = (fileName: string) => `/api/jingle/audio?file=${encodeURIComponent(fileName)}&t=${Date.now()}`;
-const pickRandomItem = <T,>(items: readonly T[]) => items[Math.floor(Math.random() * items.length)];
-
-// Fisher-Yates shuffle algorithm
-const shuffleArray = <T,>(array: T[]): T[] => {
-  const shuffled = [...array];
-  for (let i = shuffled.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled;
-};
-
-const normalizeRound3FreeText = (value: string) => {
-  const trimmed = (value ?? '').trim().toLowerCase();
-  const noYo = trimmed.replaceAll('ё', 'е');
-  const collapsed = noYo.replace(/\s+/g, ' ');
-  return collapsed.replace(/^[\s\p{P}\p{S}]+|[\s\p{P}\p{S}]+$/gu, '');
-};
 
 const normalizeRound4Answer = (value: string) => normalizeRound3FreeText(value);
-
-const TweenedInteger = ({
-  from,
-  to,
-  durationMs,
-  delayMs = 0,
-}: {
-  from: number;
-  to: number;
-  durationMs: number;
-  delayMs?: number;
-}) => {
-  const safeFrom = Number.isFinite(from) ? from : 0;
-  const safeTo = Number.isFinite(to) ? to : safeFrom;
-  const [value, setValue] = useState(safeFrom);
-
-  useEffect(() => {
-    const resetTimer = window.setTimeout(() => {
-      setValue(safeFrom);
-    }, 0);
-
-    const resolvedDuration = Math.max(0, Math.floor(durationMs));
-    const resolvedDelay = Math.max(0, Math.floor(delayMs));
-    let rafId = 0;
-    let startTs = 0;
-
-    const tick = (ts: number) => {
-      if (!startTs) {
-        startTs = ts;
-      }
-      const elapsed = ts - startTs;
-      const t = resolvedDuration > 0 ? Math.min(1, elapsed / resolvedDuration) : 1;
-      const next = safeFrom + (safeTo - safeFrom) * t;
-      setValue(next);
-      if (t < 1) {
-        rafId = window.requestAnimationFrame(tick);
-      }
-    };
-
-    const timeoutId = window.setTimeout(() => {
-      rafId = window.requestAnimationFrame(tick);
-    }, resolvedDelay);
-
-    return () => {
-      window.clearTimeout(resetTimer);
-      window.clearTimeout(timeoutId);
-      if (rafId) {
-        window.cancelAnimationFrame(rafId);
-      }
-    };
-  }, [safeFrom, safeTo, durationMs, delayMs]);
-
-  return <>{Number.isFinite(value) ? Math.round(value) : '—'}</>;
-};
-
-const renderRound3QuestionWithAnswer = (questionText: string, answerText: string) => {
-  const parts = (questionText ?? '').split(/(\*{3,})/g);
-  const answerNode = (
-    <span className="inline-block align-baseline px-3 py-1 rounded-2xl border-[3px] border-[#1f6ac6]/30 bg-white font-black text-3xl sm:text-4xl text-[#1f6ac6]">
-      {answerText}
-    </span>
-  );
-  let replacedAny = false;
-  const nodes = parts.map((part, idx) => {
-    if (/^\*{3,}$/.test(part)) {
-      replacedAny = true;
-      return <Fragment key={`ans-${idx}`}>{answerNode}</Fragment>;
-    }
-    return <Fragment key={`txt-${idx}`}>{part}</Fragment>;
-  });
-
-  if (!replacedAny) {
-    return (
-      <>
-        {questionText} <span className="font-black text-2xl text-[#1f6ac6]">({answerText})</span>
-      </>
-    );
-  }
-
-  return <>{nodes}</>;
-};
-
-const renderRound3AnswerExcerpt = (
-  questionText: string,
-  answerText: string,
-  renderAnswer: (text: string) => React.ReactNode
-) => {
-  const normalized = (questionText ?? '').replace(/\s+/g, ' ').trim();
-  if (!normalized) {
-    return renderAnswer(answerText);
-  }
-
-  const split = normalized.split(/\*{3,}/);
-  if (split.length < 2) {
-    return renderRound3QuestionWithAnswer(normalized, answerText);
-  }
-
-  const before = (split[0] ?? '').trim();
-  const after = split.slice(1).join(' ').trim();
-
-  const beforeWords = before ? before.split(/\s+/).filter(Boolean) : [];
-  const afterWords = after ? after.split(/\s+/).filter(Boolean) : [];
-
-  const beforeSnippet = beforeWords.slice(-5).join(' ');
-  const afterSnippet = afterWords.slice(0, 5).join(' ');
-
-  return (
-    <>
-      …{beforeSnippet ? ` ${beforeSnippet} ` : ' '}
-      {renderAnswer(answerText)}
-      {afterSnippet ? ` ${afterSnippet}` : ''} …
-    </>
-  );
-};
-
-const renderRound3CorrectAnswerExcerpt = (questionText: string, answerText: string) =>
-  renderRound3AnswerExcerpt(questionText, answerText, (text) => (
-    <span className="inline-block align-baseline px-3 py-1 rounded-2xl border-[3px] border-[#1f6ac6]/30 bg-white font-black text-3xl sm:text-4xl text-[#1f6ac6]">
-      {text}
-    </span>
-  ));
-
-const renderRound3WrongAnswerExcerpt = (questionText: string, answerText: string) =>
-  renderRound3AnswerExcerpt(questionText, answerText, (text) => (
-    <span className="font-black text-2xl sm:text-3xl text-[#b4007f]">{text}</span>
-  ));
-
-const getRemainingSeconds = (startedAt: string | null, durationSeconds: number, offsetMs = 0) => {
-  if (!startedAt) {
-    return durationSeconds;
-  }
-  const startTime = new Date(startedAt).getTime();
-  if (Number.isNaN(startTime)) {
-    return durationSeconds;
-  }
-  const now = Date.now() - offsetMs;
-  const diffMs = now - startTime;
-  const elapsedSeconds = Math.floor(diffMs / 1000);
-  return Math.max(0, durationSeconds - elapsedSeconds);
-};
-
-type Question = ActiveRoundQuestion;
-type Round2Phase = 'idle' | 'fact' | 'explanation';
-
-type Round2AnswerInsertPayload = {
-  new: {
-    item_index: number;
-  };
-};
-
-type Round4AnswerInsertPayload = {
-  new: {
-    puzzle_id: number;
-  };
-};
-
-type AnswerInsertPayload = {
-  new: {
-    question_index: number;
-  };
-};
-
-interface Player {
-  id: string;
-  name: string;
-  total_points: number;
-}
-
-type Round4Puzzle = {
-  id: number;
-  category: string;
-  emoji: string;
-  answers: string[];
-};
-
-type Round4AnswerRow = {
-  id: string;
-  room_id: string;
-  player_id: string;
-  puzzle_id: number;
-  answer_text: string;
-  is_correct: boolean;
-  correct_rank: number | null;
-  points_earned: number;
-  submitted_at: string;
-};
-
-type Round3Question = {
-  question: string;
-  answer?: string;
-  category?: string;
-  acceptable?: string[];
-  comment?: string;
-  originalIndex: number;
-};
-
-type Round3QuestionsPayload = {
-  name?: string;
-  description?: string;
-  questions?: Round3Question[];
-};
-
-type Round3AnswerRow = {
-  id: string;
-  player_id: string;
-  text: string;
-  submitted_at: string;
-};
-
-type Round3VoteRow = {
-  voter_player_id: string;
-  answer_id: string;
-};
-
-type Round3AnswerRowWithIndex = Round3AnswerRow & {
-  question_index: number;
-};
-
-type Round3VoteRowWithIndex = Round3VoteRow & {
-  question_index: number;
-};
-
-type RoundPointsLeaderboardEntry = {
   playerId: string;
   name: string;
   points: number;
@@ -5205,181 +4937,196 @@ export default function HostRoomPage() {
         clearInterval(intervalId);
       };
     }
+    let playersChannel: ReturnType<typeof supabase.channel> | null = null;
+    let answersChannel: ReturnType<typeof supabase.channel> | null = null;
+    let round2AnswersChannel: ReturnType<typeof supabase.channel> | null = null;
+    let round4AnswersChannel: ReturnType<typeof supabase.channel> | null = null;
+    let round5AnswersChannel: ReturnType<typeof supabase.channel> | null = null;
+    let playersPollId: ReturnType<typeof setInterval> | null = null;
 
-    const playersChannel = supabase
-      .channel(`host-players-${roomId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'players',
-          filter: `room_id=eq.${roomId}`,
-        },
-        () => {
-          if (mounted) {
-            loadPlayersRef.current?.();
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'players',
-          filter: `room_id=eq.${roomId}`,
-        },
-        () => {
-          if (mounted) {
-            loadPlayersRef.current?.();
-          }
-        }
-      )
-      .subscribe();
-
-    const playersPollId = setInterval(() => {
-      if (mounted) {
-        loadPlayersRef.current?.();
+    const startRealtime = async () => {
+      const authOk = await ensureRealtimeAuth(roomId);
+      if (!mounted || !authOk) {
+        return;
       }
-    }, 3000);
 
-    const answersChannel = supabase
-      .channel(`host-answers-${roomId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'answers',
-          filter: `room_id=eq.${roomId}`,
-        },
-        async (payload: AnswerInsertPayload) => {
-          if (!mounted) return;
-          const { data: room } = await supabase
-            .from('rooms')
-            .select('current_question_index')
-            .eq('id', roomId)
-            .single();
+      playersChannel = supabase
+        .channel(`host-players-${roomId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'players',
+            filter: `room_id=eq.${roomId}`,
+          },
+          () => {
+            if (mounted) {
+              loadPlayersRef.current?.();
+            }
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'players',
+            filter: `room_id=eq.${roomId}`,
+          },
+          () => {
+            if (mounted) {
+              loadPlayersRef.current?.();
+            }
+          }
+        )
+        .subscribe();
 
-          if (mounted && room && payload.new.question_index === room.current_question_index) {
-            await loadAnswerCountRef.current?.(room.current_question_index);
-          }
+      playersPollId = setInterval(() => {
+        if (mounted) {
+          loadPlayersRef.current?.();
         }
-      )
-      .subscribe();
+      }, 3000);
 
-    const round2AnswersChannel = supabase
-      .channel(`host-round2-answers-${roomId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'round2_answers',
-          filter: `room_id=eq.${roomId}`,
-        },
-        async (payload: Round2AnswerInsertPayload) => {
-          if (!mounted) return;
-          const currentIndex = round2CurrentIndexRef.current;
-          if (currentIndex === null) {
-            return;
-          }
-          if (payload.new.item_index === currentIndex) {
-            await loadRound2AnswerStatsRef.current?.(currentIndex);
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'round2_answers',
-          filter: `room_id=eq.${roomId}`,
-        },
-        async (payload: Round2AnswerInsertPayload) => {
-          if (!mounted) return;
-          const currentIndex = round2CurrentIndexRef.current;
-          if (currentIndex === null) {
-            return;
-          }
-          if (payload.new.item_index === currentIndex) {
-            await loadRound2AnswerStatsRef.current?.(currentIndex);
-          }
-        }
-      )
-      .subscribe();
+      answersChannel = supabase
+        .channel(`host-answers-${roomId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'answers',
+            filter: `room_id=eq.${roomId}`,
+          },
+          async (payload: AnswerInsertPayload) => {
+            if (!mounted) return;
+            const { data: room } = await supabase
+              .from('rooms')
+              .select('current_question_index')
+              .eq('id', roomId)
+              .single();
 
-    const round4AnswersChannel = supabase
-      .channel(`host-round4-answers-${roomId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'round4_answers',
-          filter: `room_id=eq.${roomId}`,
-        },
-        async (payload: Round4AnswerInsertPayload) => {
-          if (!mounted) return;
-          if (roomStatusRef.current !== 'round4-running') {
-            return;
+            if (mounted && room && payload.new.question_index === room.current_question_index) {
+              await loadAnswerCountRef.current?.(room.current_question_index);
+            }
           }
-          const currentPuzzleId = round4CurrentPuzzleIdRef.current;
-          if (currentPuzzleId === null) {
-            return;
-          }
-          if (payload.new.puzzle_id === currentPuzzleId) {
-            await loadRound4AnswerStatsRef.current?.(currentPuzzleId);
-          }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe();
 
-    const round5AnswersChannel = supabase
-      .channel(`host-round5-answers-${roomId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'round5_answers',
-          filter: `room_id=eq.${roomId}`,
-        },
-        async (payload: { new: { question_index: number } }) => {
-          if (!mounted) return;
-          const currentBankIndex = round5CurrentBankIndexRef.current;
-          if (currentBankIndex === null) {
-            return;
+      round2AnswersChannel = supabase
+        .channel(`host-round2-answers-${roomId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'round2_answers',
+            filter: `room_id=eq.${roomId}`,
+          },
+          async (payload: Round2AnswerInsertPayload) => {
+            if (!mounted) return;
+            const currentIndex = round2CurrentIndexRef.current;
+            if (currentIndex === null) {
+              return;
+            }
+            if (payload.new.item_index === currentIndex) {
+              await loadRound2AnswerStatsRef.current?.(currentIndex);
+            }
           }
-          if (payload.new.question_index === currentBankIndex) {
-            await loadRound5AnswerStatsRef.current?.(currentBankIndex);
-            await loadRound5AnswerRowsRef.current?.(currentBankIndex);
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'round2_answers',
+            filter: `room_id=eq.${roomId}`,
+          },
+          async (payload: Round2AnswerInsertPayload) => {
+            if (!mounted) return;
+            const currentIndex = round2CurrentIndexRef.current;
+            if (currentIndex === null) {
+              return;
+            }
+            if (payload.new.item_index === currentIndex) {
+              await loadRound2AnswerStatsRef.current?.(currentIndex);
+            }
           }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'round5_answers',
-          filter: `room_id=eq.${roomId}`,
-        },
-        async (payload: { new: { question_index: number } }) => {
-          if (!mounted) return;
-          const currentBankIndex = round5CurrentBankIndexRef.current;
-          if (currentBankIndex === null) {
-            return;
+        )
+        .subscribe();
+
+      round4AnswersChannel = supabase
+        .channel(`host-round4-answers-${roomId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'round4_answers',
+            filter: `room_id=eq.${roomId}`,
+          },
+          async (payload: Round4AnswerInsertPayload) => {
+            if (!mounted) return;
+            if (roomStatusRef.current !== 'round4-running') {
+              return;
+            }
+            const currentPuzzleId = round4CurrentPuzzleIdRef.current;
+            if (currentPuzzleId === null) {
+              return;
+            }
+            if (payload.new.puzzle_id === currentPuzzleId) {
+              await loadRound4AnswerStatsRef.current?.(currentPuzzleId);
+            }
           }
-          if (payload.new.question_index === currentBankIndex) {
-            await loadRound5AnswerStatsRef.current?.(currentBankIndex);
-            await loadRound5AnswerRowsRef.current?.(currentBankIndex);
+        )
+        .subscribe();
+
+      round5AnswersChannel = supabase
+        .channel(`host-round5-answers-${roomId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'round5_answers',
+            filter: `room_id=eq.${roomId}`,
+          },
+          async (payload: { new: { question_index: number } }) => {
+            if (!mounted) return;
+            const currentBankIndex = round5CurrentBankIndexRef.current;
+            if (currentBankIndex === null) {
+              return;
+            }
+            if (payload.new.question_index === currentBankIndex) {
+              await loadRound5AnswerStatsRef.current?.(currentBankIndex);
+              await loadRound5AnswerRowsRef.current?.(currentBankIndex);
+            }
           }
-        }
-      )
-      .subscribe();
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'round5_answers',
+            filter: `room_id=eq.${roomId}`,
+          },
+          async (payload: { new: { question_index: number } }) => {
+            if (!mounted) return;
+            const currentBankIndex = round5CurrentBankIndexRef.current;
+            if (currentBankIndex === null) {
+              return;
+            }
+            if (payload.new.question_index === currentBankIndex) {
+              await loadRound5AnswerStatsRef.current?.(currentBankIndex);
+              await loadRound5AnswerRowsRef.current?.(currentBankIndex);
+            }
+          }
+        )
+        .subscribe();
+    };
+
+    void startRealtime();
 
     return () => {
       mounted = false;

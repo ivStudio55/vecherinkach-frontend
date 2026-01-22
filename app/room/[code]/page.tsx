@@ -172,65 +172,30 @@ type RoomUpdatePayload = {
 };
 
 export default function RoomPage() {
-    const poll = async () => {
+  const params = useParams();
   const router = useRouter();
   const roomCode = params.code as string;
   const realtimeEnabled = isRealtimeEnabled();
 
-  const ensureRealtimeAuth = useCallback(async (currentRoomId: string, currentRoomCode: string, currentPlayerId?: string) => {
-    if (!currentRoomId) {
-      return false;
-    }
-    const existing = localStorage.getItem('roomAccessToken');
-    if (existing) {
-      supabase.realtime.setAuth(existing);
-
-    let roomChannel: ReturnType<typeof supabase.channel> | null = null;
-    void poll();
-    const intervalId = setInterval(poll, realtimeEnabled ? 4000 : 2000);
-
-    const startRealtime = async () => {
-      if (!realtimeEnabled) {
-        return;
-      }
-
-      const authOk = await ensureRealtimeAuth(roomId, roomCode, playerIdRef.current || undefined);
-      if (!mounted || !authOk) {
-        return;
-      }
-
-      roomChannel = supabase
-        .channel(`player-room-${roomId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'rooms',
-            filter: `id=eq.${roomId}`,
-          },
-          async (payload: RoomUpdatePayload) => {
-            if (!mounted) {
-              return;
-            }
-            await handleRoomUpdate(payload);
-          }
-        )
-        .subscribe();
-    };
-
-    void startRealtime();
-
-    return () => {
-      mounted = false;
-      clearInterval(intervalId);
-      if (roomChannel) {
-        roomChannel.unsubscribe().then(() => {
-          supabase.removeChannel(roomChannel);
-        });
-      }
-    };
-  }, [ensureRealtimeAuth, realtimeEnabled, roomCode, roomId, router]);
+  const [question, setQuestion] = useState<ActiveRoundQuestion | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasAnswered, setHasAnswered] = useState(false);
+  const [playerAnswer, setPlayerAnswer] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  const [playerName, setPlayerName] = useState('');
+  const [playerId, setPlayerId] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [roomId, setRoomId] = useState('');
+  const [packId, setPackId] = useState<PackId>(DEFAULT_PACK_ID);
+  const [isPackReady, setIsPackReady] = useState(true);
+  const [questionStartedAt, setQuestionStartedAt] = useState<string | null>(null);
+  const [timeLeft, setTimeLeft] = useState(QUESTION_DURATION_SECONDS);
+  const [showResults, setShowResults] = useState(false);
+  const [playerTotalPoints, setPlayerTotalPoints] = useState<number | null>(null);
+  const [playerRank, setPlayerRank] = useState<number | null>(null);
+  const [playersCount, setPlayersCount] = useState<number | null>(null);
+  const [isStandingLoading, setIsStandingLoading] = useState(false);
+  const [standingError, setStandingError] = useState('');
   const [roomStatus, setRoomStatus] = useState<RoomStatus>('waiting');
   const [round4Puzzles, setRound4Puzzles] = useState<Round4Puzzle[]>([]);
   const [round4Puzzle, setRound4Puzzle] = useState<Round4Puzzle | null>(null);
@@ -322,7 +287,7 @@ export default function RoomPage() {
         reason,
         status: roomStatusRef.current,
       });
-    };
+    }
 
     const handleBeforeUnload = () => logExit('unload');
     const handleVisibility = () => {
@@ -346,45 +311,58 @@ export default function RoomPage() {
       try {
           const res = await fetch(`${getQuestionsBaseUrl(packId)}/true_false_explanation.json?t=${Date.now()}`, { cache: 'no-store' });
         if (!res.ok) {
-          return;
+          if (!realtimeEnabled || !roomId) {
         }
         const json = (await res.json()) as TrueFalseItem[];
-        setRound2Items(json);
-      } catch (e) {
-        console.error('Failed to load round2 data', e);
-      }
-    };
-    void loadRound2Data();
-  }, [packId]);
+          let mounted = true;
+          let likesChannel: ReturnType<typeof supabase.channel> | null = null;
 
-  const loadRound4Data = useCallback(async () => {
-    try {
-      const res = await fetch(`${getQuestionsBaseUrl(packId)}/4round.json`, { cache: 'no-store' });
-      if (!res.ok) {
-        console.warn('Round4 puzzles fetch failed', res.status, res.statusText);
-        return;
-      }
-      const payload = await res.json();
-      const puzzles = Array.isArray(payload?.puzzles) ? (payload.puzzles as Round4Puzzle[]) : [];
-      setRound4Puzzles(puzzles);
-    } catch (e) {
-      console.error('Failed to load round4 data', e);
-    }
-  }, [packId]);
+          const startRealtime = async () => {
+            const authOk = await ensureRealtimeAuth(roomId, roomCode, playerIdRef.current || undefined);
+            if (!mounted || !authOk) {
+              return;
+            }
 
-  const loadRound5Data = useCallback(async () => {
-    try {
-      const res = await fetch(`${getQuestionsBaseUrl(packId)}/5round_question.json`, { cache: 'no-store' });
-      if (!res.ok) {
-        console.warn('Round5 questions fetch failed', res.status, res.statusText);
-        return;
-      }
-      const payload = await res.json();
-      const questions = Array.isArray(payload) ? (payload as Round5Question[]) : [];
-      setRound5Questions(questions);
-    } catch (e) {
-      console.error('Failed to load round5 data', e);
-    }
+            likesChannel = supabase
+              .channel(`player-likes-${roomId}`)
+              .on(
+                'postgres_changes',
+                {
+                  event: 'INSERT',
+                  schema: 'public',
+                  table: 'question_likes',
+                  filter: `room_id=eq.${roomId}`,
+                },
+                (payload: { new: { question_id: number; player_id: string } }) => {
+                  if (!mounted) return;
+                  const currentQuestionId = currentLikeQuestionIdRef.current;
+                  const currentPlayerId = playerIdRef.current;
+                  if (currentQuestionId === null) {
+                    return;
+                  }
+                  if (payload.new.player_id === currentPlayerId) {
+                    return;
+                  }
+                  if (payload.new.question_id !== currentQuestionId) {
+                    return;
+                  }
+                  setQuestionLikesCount((prev) => (prev ?? 0) + 1);
+                }
+              )
+              .subscribe();
+          };
+
+          void startRealtime();
+
+          return () => {
+            mounted = false;
+            if (likesChannel) {
+              likesChannel.unsubscribe().then(() => {
+                supabase.removeChannel(likesChannel);
+              });
+            }
+          };
+        }, [ensureRealtimeAuth, realtimeEnabled, roomCode, roomId]);
   }, [packId]);
 
   useEffect(() => {
@@ -1006,6 +984,49 @@ export default function RoomPage() {
     };
   }, [roomCode, router]);
 
+  const ensureRealtimeAuth = useCallback(
+    async (currentRoomId: string, currentRoomCode: string, currentPlayerId?: string) => {
+      if (!currentRoomId) {
+        return false;
+      }
+
+      const existing = localStorage.getItem('roomAccessToken');
+      if (existing) {
+        supabase.realtime.setAuth(existing);
+        return true;
+      }
+
+      try {
+        const res = await fetch('/api/room-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            roomId: currentRoomId,
+            roomCode: currentRoomCode,
+            playerId: currentPlayerId ?? null,
+          }),
+        });
+
+        if (!res.ok) {
+          return false;
+        }
+
+        const payload = (await res.json()) as { token?: string };
+        if (!payload?.token) {
+          return false;
+        }
+
+        localStorage.setItem('roomAccessToken', payload.token);
+        supabase.realtime.setAuth(payload.token);
+        return true;
+      } catch (err) {
+        console.warn('Failed to get room token', err);
+        return false;
+      }
+    },
+    []
+  );
+
   useEffect(() => {
     if (!roomId) {
       return;
@@ -1032,14 +1053,9 @@ export default function RoomPage() {
     void poll();
     const intervalId = setInterval(poll, realtimeEnabled ? 4000 : 2000);
 
-    if (!realtimeEnabled) {
-      return () => {
-        mounted = false;
-        clearInterval(intervalId);
-      };
-    }
+    let roomChannel: ReturnType<typeof supabase.channel> | null = null;
 
-    const handleRoomUpdate = async (payload: RoomUpdatePayload) => {
+    async function handleRoomUpdate(payload: RoomUpdatePayload) {
       // Debug: log every Realtime event
       const newStatus = (payload.new.status as RoomStatus) || (payload.new.is_active ? 'waiting' : 'finished');
       const startedAt = payload.new.question_started_at as string | null;
@@ -1357,33 +1373,48 @@ export default function RoomPage() {
       }
     };
 
-    const roomChannel = supabase
-      .channel(`player-room-${roomId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'rooms',
-          filter: `id=eq.${roomId}`,
-        },
-        async (payload: RoomUpdatePayload) => {
-          if (!mounted) {
-            return;
+    const startRealtime = async () => {
+      if (!realtimeEnabled) {
+        return;
+      }
+
+      const authOk = await ensureRealtimeAuth(roomId, roomCode, playerIdRef.current || undefined);
+      if (!mounted || !authOk) {
+        return;
+      }
+
+      roomChannel = supabase
+        .channel(`player-room-${roomId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'rooms',
+            filter: `id=eq.${roomId}`,
+          },
+          async (payload: RoomUpdatePayload) => {
+            if (!mounted) {
+              return;
+            }
+            await handleRoomUpdate(payload);
           }
-          await handleRoomUpdate(payload);
-        }
-      )
-      .subscribe();
+        )
+        .subscribe();
+    };
+
+    void startRealtime();
 
     return () => {
       mounted = false;
       clearInterval(intervalId);
-      roomChannel.unsubscribe().then(() => {
-        supabase.removeChannel(roomChannel);
-      });
+      if (roomChannel) {
+        roomChannel.unsubscribe().then(() => {
+          supabase.removeChannel(roomChannel);
+        });
+      }
     };
-  }, [realtimeEnabled, roomId, router]);
+  }, [ensureRealtimeAuth, realtimeEnabled, roomCode, roomId, router]);
 
   const resolveLikedQuestionText = useCallback(
     (questionId: number) => {
