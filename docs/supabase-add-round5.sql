@@ -23,6 +23,7 @@ BEGIN
         'round4-running',
         'round5-running',
         'round5-explanation',
+        'final-results',
         'finished'
     );
 
@@ -37,6 +38,7 @@ BEGIN
             'round4-running',
             'round5-running',
             'round5-explanation',
+            'final-results',
             'finished'
         )
     );
@@ -71,8 +73,16 @@ BEGIN
     WITH CHECK (true);
 END$$;
 
--- 4) Подключаем round5_answers к Realtime
-ALTER PUBLICATION supabase_realtime ADD TABLE round5_answers;
+-- 4) Подключаем round5_answers к Realtime (идемпотентно)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables
+        WHERE pubname = 'supabase_realtime' AND tablename = 'round5_answers'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE round5_answers;
+    END IF;
+END $$;
 
 -- 5) Быстрая проверка
 -- SELECT room_id, player_id, question_index, answer_value, points_earned, submitted_at

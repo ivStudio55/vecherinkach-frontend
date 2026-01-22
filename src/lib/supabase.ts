@@ -24,9 +24,17 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       }
 
       const headers = new Headers(options.headers || {});
-      const roomId = localStorage.getItem('roomId') || localStorage.getItem('hostRoomId');
-      const roomCode = localStorage.getItem('roomCode') || localStorage.getItem('hostRoomCode');
-      const playerId = localStorage.getItem('playerId');
+      let roomId: string | null = null;
+      let roomCode: string | null = null;
+      let playerId: string | null = null;
+
+      try {
+        roomId = localStorage.getItem('roomId') || localStorage.getItem('hostRoomId');
+        roomCode = localStorage.getItem('roomCode') || localStorage.getItem('hostRoomCode');
+        playerId = localStorage.getItem('playerId');
+      } catch {
+        // localStorage can be blocked in some browser modes (Edge/Privacy). Keep request intact.
+      }
 
       if (roomId) headers.set('x-room-id', roomId);
       if (roomCode) headers.set('x-room-code', roomCode);

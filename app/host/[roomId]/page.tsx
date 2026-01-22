@@ -7796,12 +7796,11 @@ export default function HostRoomPage() {
                   </div>
                 </div>
 
-                {roomStatus === 'final-results' && postRoundLeaderboard[0] ? (
+                {roomStatus === 'final-results' && tournamentLeaderboard[0] ? (
                   <div className="grid gap-4 lg:grid-cols-2">
                     <WinnerBanner
-                      winnerName={postRoundLeaderboard[0].name}
-                      points={postRoundLeaderboard[0].points}
-                      speedLabel="нет данных"
+                      winnerName={tournamentLeaderboard[0].name}
+                      points={tournamentLeaderboard[0].total_points ?? 0}
                     />
                     {bestQuestion ? (
                       <BestQuestionCard questionText={bestQuestion.text} likes={bestQuestion.likes} className="animate-final-panel" />

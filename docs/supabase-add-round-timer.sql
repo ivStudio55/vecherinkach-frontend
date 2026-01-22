@@ -27,6 +27,11 @@
             'running',
             'round2-running',
             'round2-ready',
+            'round3-running',
+            'round4-running',
+            'round5-running',
+            'round5-explanation',
+            'final-results',
             'finished'
         )
     );
@@ -42,6 +47,11 @@
         'running',
         'round2-running',
         'round2-ready',
+        'round3-running',
+        'round4-running',
+        'round5-running',
+        'round5-explanation',
+        'final-results',
         'finished'
     );
 

@@ -3,10 +3,9 @@
 type WinnerBannerProps = {
   winnerName: string;
   points: number;
-  speedLabel?: string;
 };
 
-export function WinnerBanner({ winnerName, points, speedLabel }: WinnerBannerProps) {
+export function WinnerBanner({ winnerName, points }: WinnerBannerProps) {
   return (
     <div className="rounded-3xl border-[4px] border-[#1f6ac6] bg-[#e9f0ff] p-6 space-y-3 animate-final-panel">
       <div className="flex items-center justify-between">
@@ -15,7 +14,6 @@ export function WinnerBanner({ winnerName, points, speedLabel }: WinnerBannerPro
       </div>
       <p className="text-2xl font-black text-[#1f6ac6]">{winnerName}</p>
       <p className="text-sm font-semibold text-[#142a45]/80">Очки: {points}</p>
-      {speedLabel ? <p className="text-xs text-[#142a45]/60">Скорость: {speedLabel}</p> : null}
     </div>
   );
 }

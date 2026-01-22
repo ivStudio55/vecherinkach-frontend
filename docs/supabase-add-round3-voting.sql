@@ -118,3 +118,21 @@ BEGIN
     WITH CHECK (true);
   END IF;
 END$$;
+
+-- 5) Realtime публикация (идемпотентно)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND tablename = 'round3_answers'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE round3_answers;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND tablename = 'round3_votes'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE round3_votes;
+  END IF;
+END $$;

@@ -13,13 +13,17 @@ const getSessionId = () => {
   if (typeof window === 'undefined') {
     return 'server';
   }
-  const existing = window.localStorage.getItem('clientSessionId');
-  if (existing) {
-    return existing;
+  try {
+    const existing = window.localStorage.getItem('clientSessionId');
+    if (existing) {
+      return existing;
+    }
+    const next = `sess_${Math.random().toString(36).slice(2)}_${Date.now()}`;
+    window.localStorage.setItem('clientSessionId', next);
+    return next;
+  } catch {
+    return `sess_${Math.random().toString(36).slice(2)}_${Date.now()}`;
   }
-  const next = `sess_${Math.random().toString(36).slice(2)}_${Date.now()}`;
-  window.localStorage.setItem('clientSessionId', next);
-  return next;
 };
 
 const extractMeta = (event: LogEvent) => {
@@ -65,7 +69,11 @@ export const initSupabaseLogging = () => {
       return;
     }
     const batch = queue.splice(0, queue.length);
-    await supabase.from('logs').insert(batch.map(mapLogRow));
+    try {
+      await supabase.from('logs').insert(batch.map(mapLogRow));
+    } catch {
+      // Ignore logging failures to avoid cascading errors in Edge/anon contexts.
+    }
   };
 
   const sink = (event: LogEvent) => {
