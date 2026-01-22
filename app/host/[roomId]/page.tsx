@@ -294,6 +294,8 @@ type Round3Question = {
   originalIndex: number;
 };
 
+type Round2Phase = 'idle' | 'fact' | 'explanation';
+
 interface RoundAnswer {
   player_id: string;
   text: string;
