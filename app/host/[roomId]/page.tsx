@@ -209,6 +209,10 @@ const ROUND4_CATEGORY_VARIANTS: Record<string, number> = {
 
 const buildAudioUrl = (relativePath: string) => `/api/audio?file=${encodeURIComponent(relativePath)}&t=${Date.now()}`;
 
+const pickRandomItem = <T,>(items: readonly T[]): T => {
+  return items[Math.floor(Math.random() * items.length)];
+};
+
 const normalizeRound3FreeText = (value: string) =>
   value
     .toLowerCase()
