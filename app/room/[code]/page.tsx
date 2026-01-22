@@ -59,60 +59,12 @@ const getRemainingSeconds = (startedAt: string | null, offsetMs = 0, durationSec
     return durationSeconds;
   }
   const startTime = new Date(startedAt).getTime();
-  if (Number.isNaN(startTime)) {
-    return durationSeconds;
-  }
-  const now = Date.now() - offsetMs;
-  const diffMs = now - startTime;
-  const elapsedSeconds = Math.floor(diffMs / 1000);
-  return Math.max(0, durationSeconds - elapsedSeconds);
-};
-
-const getRemainingSecondsWithDuration = (
-  startedAt: string | null,
-  durationSeconds: number,
-  offsetMs = 0
-): number => getRemainingSeconds(startedAt, offsetMs, durationSeconds);
-
-const addSecondsToIso = (startedAt: string | null, seconds: number): string | null => {
-  if (!startedAt) {
-    return null;
-  }
-  const startTime = new Date(startedAt).getTime();
-  if (Number.isNaN(startTime)) {
-    return null;
-  }
-  return new Date(startTime + seconds * 1000).toISOString();
-};
-
-const normalizeRound4Answer = (value: string) =>
-  value
-    .toLowerCase()
-    .replace('ё', 'е')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-type Round5Question = {
-  question: string;
-  answer: number;
-  explanation: string;
-};
-
-type RoomStatus =
-  | 'waiting'
-  | 'running'
-  | 'round2-ready'
-  | 'round2-running'
-  | 'round3-running'
-  | 'round4-running'
-  | 'round5-running'
-  | 'round5-explanation'
-  | 'final-results'
-  | 'finished';
-
-type Round2Phase = 'idle' | 'fact' | 'explanation';
-
-type Round4Puzzle = {
+          const res = await fetch(`${getQuestionsBaseUrl(packId)}/true_false_explanation.json?t=${Date.now()}`, { cache: 'no-store' });
+          if (!res.ok) {
+            return;
+          }
+          const json = (await res.json()) as TrueFalseItem[];
+          setRound2Items(json);
   id: number;
   category: string;
   emoji: string;

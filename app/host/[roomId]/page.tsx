@@ -210,6 +210,8 @@ const ROUND4_CATEGORY_VARIANTS: Record<string, number> = {
 const buildAudioUrl = (relativePath: string) => `/api/audio?file=${encodeURIComponent(relativePath)}&t=${Date.now()}`;
 
 const normalizeRound4Answer = (value: string) => normalizeRound3FreeText(value);
+
+type RoundPointsLeaderboardEntry = {
   playerId: string;
   name: string;
   points: number;
