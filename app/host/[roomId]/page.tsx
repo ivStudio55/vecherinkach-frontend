@@ -294,6 +294,15 @@ type Round3Question = {
   originalIndex: number;
 };
 
+type Round3AnswerRow = {
+  id: string;
+  player_id: string;
+  room_id: string;
+  question_index: number;
+  text: string;
+  submitted_at: string;
+};
+
 type Round2Phase = 'idle' | 'fact' | 'explanation';
 
 interface RoundAnswer {
