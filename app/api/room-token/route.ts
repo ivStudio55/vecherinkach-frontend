@@ -58,7 +58,7 @@ export async function POST(request: Request) {
       exp: now + 60 * 60 * 24,
       iat: now,
       iss: 'supabase',
-      role: 'anon',
+      role: 'authenticated',
       room_id: room.id,
       room_code: room.code,
       player_id: playerId ?? null,

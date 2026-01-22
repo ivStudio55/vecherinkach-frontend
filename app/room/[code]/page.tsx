@@ -979,12 +979,7 @@ export default function RoomPage() {
         return false;
       }
 
-      const existing = localStorage.getItem('roomAccessToken');
-      if (existing) {
-        supabase.realtime.setAuth(existing);
-        return true;
-      }
-
+      // Always fetch a fresh token to ensure correct role claim
       try {
         const res = await fetch('/api/room-token', {
           method: 'POST',
@@ -997,11 +992,13 @@ export default function RoomPage() {
         });
 
         if (!res.ok) {
+          console.warn('Failed to get room token, status:', res.status);
           return false;
         }
 
         const payload = (await res.json()) as { token?: string };
         if (!payload?.token) {
+          console.warn('No token in response');
           return false;
         }
 

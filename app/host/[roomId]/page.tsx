@@ -838,28 +838,31 @@ export default function HostRoomPage() {
     if (!currentRoomId) {
       return false;
     }
-    const storageKey = `hostRoomAccessToken:${currentRoomId}`;
-    const existing = localStorage.getItem(storageKey);
-    if (existing) {
-      supabase.realtime.setAuth(existing);
-      return true;
-    }
+    // Always fetch a fresh token to ensure correct role claim
     const roomCode = localStorage.getItem('hostRoomCode') ?? undefined;
-    const response = await fetch('/api/room-token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ roomId: currentRoomId, roomCode }),
-    });
-    if (!response.ok) {
+    try {
+      const response = await fetch('/api/room-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomId: currentRoomId, roomCode }),
+      });
+      if (!response.ok) {
+        console.warn('Failed to get host room token, status:', response.status);
+        return false;
+      }
+      const payload = (await response.json()) as { token?: string };
+      if (!payload.token) {
+        console.warn('No token in host response');
+        return false;
+      }
+      const storageKey = `hostRoomAccessToken:${currentRoomId}`;
+      localStorage.setItem(storageKey, payload.token);
+      supabase.realtime.setAuth(payload.token);
+      return true;
+    } catch (err) {
+      console.warn('Failed to get host room token', err);
       return false;
     }
-    const payload = (await response.json()) as { token?: string };
-    if (!payload.token) {
-      return false;
-    }
-    localStorage.setItem(storageKey, payload.token);
-    supabase.realtime.setAuth(payload.token);
-    return true;
   }, []);
 
   const isMusicMutedRef = useRef(isMusicMuted);
