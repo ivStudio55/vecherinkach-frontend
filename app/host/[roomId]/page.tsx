@@ -321,6 +321,11 @@ type Round3AnswerRow = {
   submitted_at: string;
 };
 
+type Round3VoteRow = {
+  voter_player_id: string;
+  answer_id: string;
+};
+
 type Round2Phase = 'idle' | 'fact' | 'explanation';
 
 interface RoundAnswer {
