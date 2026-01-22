@@ -981,21 +981,23 @@ export default function RoomPage() {
       await handleRoomUpdate({ new: nextRoom } as RoomUpdatePayload);
     };
 
+    const poll = async () => {
+      const { data } = await supabase
+        .from('rooms')
+        .select(
+          'id, pack_id, current_question_index, is_active, status, question_started_at, all_players_answered, selected_question_ids, round2_item_index, round2_showing_fact, round2_phase, round3_question_index, round4_puzzle_id, round5_question_index'
+        )
+        .eq('id', roomId)
+        .single();
+      if (mounted && data) {
+        await applyRoomUpdate(data as RoomUpdatePayload['new']);
+      }
+    };
+
+    void poll();
+    const intervalId = setInterval(poll, realtimeEnabled ? 4000 : 2000);
+
     if (!realtimeEnabled) {
-      const poll = async () => {
-        const { data } = await supabase
-          .from('rooms')
-          .select(
-            'id, pack_id, current_question_index, is_active, status, question_started_at, all_players_answered, selected_question_ids, round2_item_index, round2_showing_fact, round2_phase, round3_question_index, round4_puzzle_id, round5_question_index'
-          )
-          .eq('id', roomId)
-          .single();
-        if (mounted && data) {
-          await applyRoomUpdate(data as RoomUpdatePayload['new']);
-        }
-      };
-      void poll();
-      const intervalId = setInterval(poll, 2000);
       return () => {
         mounted = false;
         clearInterval(intervalId);
@@ -1341,6 +1343,7 @@ export default function RoomPage() {
 
     return () => {
       mounted = false;
+      clearInterval(intervalId);
       roomChannel.unsubscribe().then(() => {
         supabase.removeChannel(roomChannel);
       });
