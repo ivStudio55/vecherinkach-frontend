@@ -260,6 +260,14 @@ type RoomStatus =
   | 'final-results'
   | 'finished';
 
+type Question = ActiveRoundQuestion;
+
+type Player = {
+  id: string;
+  name: string;
+  total_points: number;
+};
+
 interface RoundAnswer {
   player_id: string;
   text: string;
