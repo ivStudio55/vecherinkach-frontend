@@ -261,60 +261,17 @@ export default function RoomPage() {
   useEffect(() => {
     const loadRound2Data = async () => {
       try {
-          const res = await fetch(`${getQuestionsBaseUrl(packId)}/true_false_explanation.json?t=${Date.now()}`, { cache: 'no-store' });
+        const res = await fetch(`${getQuestionsBaseUrl(packId)}/true_false_explanation.json?t=${Date.now()}`, { cache: 'no-store' });
         if (!res.ok) {
-          if (!realtimeEnabled || !roomId) {
+          return;
         }
         const json = (await res.json()) as TrueFalseItem[];
-          let mounted = true;
-          let likesChannel: ReturnType<typeof supabase.channel> | null = null;
-
-          const startRealtime = async () => {
-            const authOk = await ensureRealtimeAuth(roomId, roomCode, playerIdRef.current || undefined);
-            if (!mounted || !authOk) {
-              return;
-            }
-
-            likesChannel = supabase
-              .channel(`player-likes-${roomId}`)
-              .on(
-                'postgres_changes',
-                {
-                  event: 'INSERT',
-                  schema: 'public',
-                  table: 'question_likes',
-                  filter: `room_id=eq.${roomId}`,
-                },
-                (payload: { new: { question_id: number; player_id: string } }) => {
-                  if (!mounted) return;
-                  const currentQuestionId = currentLikeQuestionIdRef.current;
-                  const currentPlayerId = playerIdRef.current;
-                  if (currentQuestionId === null) {
-                    return;
-                  }
-                  if (payload.new.player_id === currentPlayerId) {
-                    return;
-                  }
-                  if (payload.new.question_id !== currentQuestionId) {
-                    return;
-                  }
-                  setQuestionLikesCount((prev) => (prev ?? 0) + 1);
-                }
-              )
-              .subscribe();
-          };
-
-          void startRealtime();
-
-          return () => {
-            mounted = false;
-            if (likesChannel) {
-              likesChannel.unsubscribe().then(() => {
-                supabase.removeChannel(likesChannel);
-              });
-            }
-          };
-        }, [ensureRealtimeAuth, realtimeEnabled, roomCode, roomId]);
+        setRound2Items(json);
+      } catch (e) {
+        console.error('Failed to load round2 data', e);
+      }
+    };
+    void loadRound2Data();
   }, [packId]);
 
   useEffect(() => {
