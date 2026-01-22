@@ -172,30 +172,65 @@ type RoomUpdatePayload = {
 };
 
 export default function RoomPage() {
-  const params = useParams();
+    const poll = async () => {
   const router = useRouter();
   const roomCode = params.code as string;
   const realtimeEnabled = isRealtimeEnabled();
 
-  const [question, setQuestion] = useState<ActiveRoundQuestion | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [hasAnswered, setHasAnswered] = useState(false);
-  const [playerAnswer, setPlayerAnswer] = useState<string | null>(null);
-  const [error, setError] = useState('');
-  const [playerName, setPlayerName] = useState('');
-  const [playerId, setPlayerId] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [roomId, setRoomId] = useState('');
-  const [packId, setPackId] = useState<PackId>(DEFAULT_PACK_ID);
-  const [isPackReady, setIsPackReady] = useState(true);
-  const [questionStartedAt, setQuestionStartedAt] = useState<string | null>(null);
-  const [timeLeft, setTimeLeft] = useState(QUESTION_DURATION_SECONDS);
-  const [showResults, setShowResults] = useState(false);
-  const [playerTotalPoints, setPlayerTotalPoints] = useState<number | null>(null);
-  const [playerRank, setPlayerRank] = useState<number | null>(null);
-  const [playersCount, setPlayersCount] = useState<number | null>(null);
-  const [isStandingLoading, setIsStandingLoading] = useState(false);
-  const [standingError, setStandingError] = useState('');
+  const ensureRealtimeAuth = useCallback(async (currentRoomId: string, currentRoomCode: string, currentPlayerId?: string) => {
+    if (!currentRoomId) {
+      return false;
+    }
+    const existing = localStorage.getItem('roomAccessToken');
+    if (existing) {
+      supabase.realtime.setAuth(existing);
+
+    let roomChannel: ReturnType<typeof supabase.channel> | null = null;
+    void poll();
+    const intervalId = setInterval(poll, realtimeEnabled ? 4000 : 2000);
+
+    const startRealtime = async () => {
+      if (!realtimeEnabled) {
+        return;
+      }
+
+      const authOk = await ensureRealtimeAuth(roomId, roomCode, playerIdRef.current || undefined);
+      if (!mounted || !authOk) {
+        return;
+      }
+
+      roomChannel = supabase
+        .channel(`player-room-${roomId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'rooms',
+            filter: `id=eq.${roomId}`,
+          },
+          async (payload: RoomUpdatePayload) => {
+            if (!mounted) {
+              return;
+            }
+            await handleRoomUpdate(payload);
+          }
+        )
+        .subscribe();
+    };
+
+    void startRealtime();
+
+    return () => {
+      mounted = false;
+      clearInterval(intervalId);
+      if (roomChannel) {
+        roomChannel.unsubscribe().then(() => {
+          supabase.removeChannel(roomChannel);
+        });
+      }
+    };
+  }, [ensureRealtimeAuth, realtimeEnabled, roomCode, roomId, router]);
   const [roomStatus, setRoomStatus] = useState<RoomStatus>('waiting');
   const [round4Puzzles, setRound4Puzzles] = useState<Round4Puzzle[]>([]);
   const [round4Puzzle, setRound4Puzzle] = useState<Round4Puzzle | null>(null);
@@ -1469,41 +1504,54 @@ export default function RoomPage() {
       return;
     }
     let mounted = true;
-    const likesChannel = supabase
-      .channel(`player-likes-${roomId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'question_likes',
-          filter: `room_id=eq.${roomId}`,
-        },
-        (payload: { new: { question_id: number; player_id: string } }) => {
-          if (!mounted) return;
-          const currentQuestionId = currentLikeQuestionIdRef.current;
-          const currentPlayerId = playerIdRef.current;
-          if (currentQuestionId === null) {
-            return;
+    let likesChannel: ReturnType<typeof supabase.channel> | null = null;
+
+    const startRealtime = async () => {
+      const authOk = await ensureRealtimeAuth(roomId, roomCode, playerIdRef.current || undefined);
+      if (!mounted || !authOk) {
+        return;
+      }
+
+      likesChannel = supabase
+        .channel(`player-likes-${roomId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'question_likes',
+            filter: `room_id=eq.${roomId}`,
+          },
+          (payload: { new: { question_id: number; player_id: string } }) => {
+            if (!mounted) return;
+            const currentQuestionId = currentLikeQuestionIdRef.current;
+            const currentPlayerId = playerIdRef.current;
+            if (currentQuestionId === null) {
+              return;
+            }
+            if (payload.new.player_id === currentPlayerId) {
+              return;
+            }
+            if (payload.new.question_id !== currentQuestionId) {
+              return;
+            }
+            setQuestionLikesCount((prev) => (prev ?? 0) + 1);
           }
-          if (payload.new.player_id === currentPlayerId) {
-            return;
-          }
-          if (payload.new.question_id !== currentQuestionId) {
-            return;
-          }
-          setQuestionLikesCount((prev) => (prev ?? 0) + 1);
-        }
-      )
-      .subscribe();
+        )
+        .subscribe();
+    };
+
+    void startRealtime();
 
     return () => {
       mounted = false;
-      likesChannel.unsubscribe().then(() => {
-        supabase.removeChannel(likesChannel);
-      });
+      if (likesChannel) {
+        likesChannel.unsubscribe().then(() => {
+          supabase.removeChannel(likesChannel);
+        });
+      }
     };
-  }, [realtimeEnabled, roomId]);
+  }, [ensureRealtimeAuth, realtimeEnabled, roomCode, roomId]);
 
   const likeQuestion = useCallback(async () => {
     if (!roomId || !playerId || currentLikeQuestionId === null) {

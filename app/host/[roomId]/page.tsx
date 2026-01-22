@@ -24,180 +24,196 @@ import {
   parseLikeQuestionId,
 } from '@/shared/logic/questionLikes';
 import {
-  ActiveRoundQuestion,
-  OptionKey,
-  OPTION_LABELS,
-  ROUND_QUESTION_COUNT,
-  createQuestionBank,
-  DEFAULT_QUESTION_BANK,
-  type QuestionBank,
-  buildQuestionsFromSelection,
-  getQuestionById,
-  getOptionIndexFromKey,
-  getOptionKeyByIndex,
-  getQuestionForIndex,
-  hasEnoughQuestions,
-  pickRandomQuestionIds,
-} from '@/lib/questions';
-import {
-  DEFAULT_PACK_ID,
-  getQuestionsBaseUrl,
-  normalizePackId,
-  type PackId,
-  withAudioPackPrefixIfNeeded,
-} from '@/lib/questionPacks';
+    let playersChannel: ReturnType<typeof supabase.channel> | null = null;
+    let answersChannel: ReturnType<typeof supabase.channel> | null = null;
+    let round2AnswersChannel: ReturnType<typeof supabase.channel> | null = null;
+    let round4AnswersChannel: ReturnType<typeof supabase.channel> | null = null;
+    let round5AnswersChannel: ReturnType<typeof supabase.channel> | null = null;
+    let playersPollId: ReturnType<typeof setInterval> | null = null;
 
-const QUESTION_DURATION_SECONDS = 30;
-const ROUND1_TOTAL_QUESTIONS = 6;
-const COUNTDOWN_STEPS = ['на старт', 'внимание', '3', '2', '1', 'старт'] as const;
-const AUTO_NEXT_DELAY_MS = 6000;
-const ROUND1_VARIANTS_OUTRO_MS = 950;
+    const startRealtime = async () => {
+      const authOk = await ensureRealtimeAuth(roomId);
+      if (!mounted || !authOk) {
+        return;
+      }
 
-type PillAnimationStyle = CSSProperties & {
-  ['--pill-left']?: string;
-  ['--pill-top']?: string;
-  ['--pill-duration']?: string;
-};
+      playersChannel = supabase
+        .channel(`host-players-${roomId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'players',
+            filter: `room_id=eq.${roomId}`,
+          },
+          () => {
+            if (mounted) {
+              loadPlayersRef.current?.();
+            }
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'players',
+            filter: `room_id=eq.${roomId}`,
+          },
+          () => {
+            if (mounted) {
+              loadPlayersRef.current?.();
+            }
+          }
+        )
+        .subscribe();
 
-type LocalRoundPhase = 'loading' | 'waiting' | 'question' | 'transition' | 'calculating' | 'results';
-type ConnectionMode = 'realtime' | 'polling';
-const JOIN_SOUND_FILES = [
-  'sound/The_duck_quacked_fun_#1.mp3',
-  'sound/The_duck_quacked_fun_#2.mp3',
-  'sound/The_duck_quacked_fun_#3.mp3',
-  'sound/The_duck_quacked_fun_#4.mp3',
-  'sound/The_duk_quacked_funn_#1.mp3',
-  'sound/The_duk_quacked_funn_#2.mp3',
-  'sound/The_duk_quacked_funn_#3.mp3',
-  'sound/The_duk_quacked_funn_#4.mp3',
-] as const;
+      answersChannel = supabase
+        .channel(`host-answers-${roomId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'answers',
+            filter: `room_id=eq.${roomId}`,
+          },
+          async (payload: AnswerInsertPayload) => {
+            if (!mounted) return;
+            const { data: room } = await supabase
+              .from('rooms')
+              .select('current_question_index')
+              .eq('id', roomId)
+              .single();
 
-const ANSWER_DUCK_AUDIO_FILES: readonly string[] = Array.from({ length: 7 }, (_, i) => `duck/${i + 1}.mp3`);
+            if (mounted && room && payload.new.question_index === room.current_question_index) {
+              await loadAnswerCountRef.current?.(room.current_question_index);
+            }
+          }
+        )
+        .subscribe();
 
-const QUESTION_JINGLE_FILE = 'sound/30_sec.mp3';
-const MEET_AUDIO_FILES = [
-  'meet/meetText1.mp3',
-  'meet/meetText2.mp3',
-  'meet/meetText3.mp3',
-  'meet/meetText4.mp3',
-  'meet/meetText5.mp3',
-  'meet/meetText6.mp3',
-  'meet/meetText7.mp3',
-  'meet/meetText8.mp3',
-] as const;
-const CONNECT_AUDIO_CLIPS: Record<number, readonly string[]> = (() => {
-  const base: Record<number, readonly string[]> = {
-    1: ['connect/1/one_connected.mp3', 'connect/1/one_connected2.mp3', 'connect/1/one_connected3.mp3'],
-  };
+      round2AnswersChannel = supabase
+        .channel(`host-round2-answers-${roomId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'round2_answers',
+            filter: `room_id=eq.${roomId}`,
+          },
+          async (payload: Round2AnswerInsertPayload) => {
+            if (!mounted) return;
+            const currentIndex = round2CurrentIndexRef.current;
+            if (currentIndex === null) {
+              return;
+            }
+            if (payload.new.item_index === currentIndex) {
+              await loadRound2AnswerStatsRef.current?.(currentIndex);
+            }
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'round2_answers',
+            filter: `room_id=eq.${roomId}`,
+          },
+          async (payload: Round2AnswerInsertPayload) => {
+            if (!mounted) return;
+            const currentIndex = round2CurrentIndexRef.current;
+            if (currentIndex === null) {
+              return;
+            }
+            if (payload.new.item_index === currentIndex) {
+              await loadRound2AnswerStatsRef.current?.(currentIndex);
+            }
+          }
+        )
+        .subscribe();
 
-  for (let count = 2; count <= 10; count += 1) {
-    base[count] = Array.from({ length: 3 }, (_, variant) => `connect/${count}/${count}_connected${variant + 1}.mp3`);
-  }
+      round4AnswersChannel = supabase
+        .channel(`host-round4-answers-${roomId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'round4_answers',
+            filter: `room_id=eq.${roomId}`,
+          },
+          async (payload: Round4AnswerInsertPayload) => {
+            if (!mounted) return;
+            if (roomStatusRef.current !== 'round4-running') {
+              return;
+            }
+            const currentPuzzleId = round4CurrentPuzzleIdRef.current;
+            if (currentPuzzleId === null) {
+              return;
+            }
+            if (payload.new.puzzle_id === currentPuzzleId) {
+              await loadRound4AnswerStatsRef.current?.(currentPuzzleId);
+            }
+          }
+        )
+        .subscribe();
 
-  return base;
-})();
-const RULES_ROUND1_FILES = [
-  'round1/rules/ruelsround(1)2.mp3',
-  'round1/rules/ruelsround(1)3.mp3',
-] as const;
-const SKIP_AUDIO_FILES = [
-  'skip/skip.mp3',
-  'skip/skip2.mp3',
-  'skip/skip4.mp3',
-  'skip/skip5.mp3',
-  'skip/skip6.mp3',
-  'skip/skip7.mp3',
-  'skip/skip8.mp3',
-] as const;
-const ROUND1_END_AUDIO_FILES: readonly string[] = Array.from({ length: 9 }, (_, i) => `round1end/${i + 1}.mp3`);
-const ROUND1_END_JINGLE_FILE = 'round1_end/jingle_(after_round1).mp3';
-const ROUND2_RULES_JINGLE_FILE = 'round2/explanation.mp3';
-const ROUND2_RULES_VOICE_FILES = ['round2/ruels/1.mp3', 'round2/ruels/2.mp3'] as const;
-const ROUND2_BETWEEN_AUDIO_VARIANTS = {
-  full: ['round1/between/100%/1.mp3', 'round1/between/100%/2.mp3', 'round1/between/100%/3.mp3', 'round1/between/100%/4.mp3'],
-  mid: ['round1/between/50-99%/1.mp3', 'round1/between/50-99%/2.mp3', 'round1/between/50-99%/3.mp3', 'round1/between/50-99%/4.mp3'],
-  low: ['round1/between/1-49%/1.mp3', 'round1/between/1-49%/2.mp3', 'round1/between/1-49%/3.mp3', 'round1/between/1-49%/4.mp3'],
-  none: ['round1/between/0%/1.mp3', 'round1/between/0%/2.mp3', 'round1/between/0%/3.mp3'],
-  zero: ['round1/between/0%/1.mp3', 'round1/between/0%/2.mp3', 'round1/between/0%/3.mp3'],
-} as const;
-const BETWEEN_AUDIO_VARIANTS = ROUND2_BETWEEN_AUDIO_VARIANTS;
-const ROUND2_EXPLANATION_BG_FILE = 'round2/explanation.mp3';
-const ROUND2_ANSWER_POLL_INTERVAL_MS = 1000;
-const ROUND2_TOTAL_QUESTIONS = ROUND_QUESTION_COUNT;
-const ROUND2_EXPLANATION_FALLBACK = 'Без объяснения';
+      round5AnswersChannel = supabase
+        .channel(`host-round5-answers-${roomId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'round5_answers',
+            filter: `room_id=eq.${roomId}`,
+          },
+          async (payload: { new: { question_index: number } }) => {
+            if (!mounted) return;
+            const currentBankIndex = round5CurrentBankIndexRef.current;
+            if (currentBankIndex === null) {
+              return;
+            }
+            if (payload.new.question_index === currentBankIndex) {
+              await loadRound5AnswerStatsRef.current?.(currentBankIndex);
+              await loadRound5AnswerRowsRef.current?.(currentBankIndex);
+            }
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'round5_answers',
+            filter: `room_id=eq.${roomId}`,
+          },
+          async (payload: { new: { question_index: number } }) => {
+            if (!mounted) return;
+            const currentBankIndex = round5CurrentBankIndexRef.current;
+            if (currentBankIndex === null) {
+              return;
+            }
+            if (payload.new.question_index === currentBankIndex) {
+              await loadRound5AnswerStatsRef.current?.(currentBankIndex);
+              await loadRound5AnswerRowsRef.current?.(currentBankIndex);
+            }
+          }
+        )
+        .subscribe();
 
-const ROUND3_TOTAL_QUESTIONS = 6;
-const ROUND3_POINTS = 200;
-const ROUND3_QUESTIONS_AUDIO_DIR = 'round3/questions3';
-const ROUND3_BG_JINGLE_FILE = 'round2/jingle (5).mp3';
-const ROUND3_ANSWER_TIMER_JINGLE_FILE = 'round3/60_sec.mp3';
-const ROUND3_VOTE_TIMER_JINGLE_FILE = 'sound/30_sec.mp3';
-const ROUND3_TIMER_JINGLE_FILE = ROUND3_ANSWER_TIMER_JINGLE_FILE;
-const ROUND3_VOTE_AUDIO_DIR = 'round3/vote';
-const ROUND3_COMMENTS_AUDIO_DIR = 'round3/comments';
-const ROUND3_RESULTS_BG_FILE = 'round2/explanation.mp3';
-const ROUND3_BG_VOLUME = 0.25;
-const ROUND3_TIMER_VOLUME = 0.6;
-const ROUND3_VOTE_LIKE_POINTS = 50;
-const ROUND3_VOTE_SKIP_PENALTY = 50;
-const ROUND3_END_AFTER_AUDIO_DIR = 'round3end/after';
-const ROUND3_RULES_VOICE_FILES = [
-  'round3/ruels3/ruels1.mp3',
-  'round3/ruels3/ruels2.mp3',
-  'round3/ruels3/ruels3.mp3',
-] as const;
-const ROUND5_RULES_VOICE_FILES: readonly string[] = Array.from({ length: 5 }, (_, i) => `round5/ruels/${i + 1}.mp3`);
-const ROUND3_RULES_TEXT =
-  'Раунд «МозгоШтурм»\n\n' +
-  'Перед вами появятся 6 интересных фактов с одним пропущенным словом.\n\n' +
-  'Ваша задача:\n\n' +
-  'Ввести в поле на телефоне то слово, которое идеально подходит (одно слово, без дефисов, пробелов и знаков).\n' +
-  'После каждого тура на экране появятся ответы всех игроков.\n' +
-  'Каждый выбирает понравившийся ответ (кроме своего).\n\n' +
-  'Подсчёт очков:\n\n' +
-  'Угадал точное слово — 200 очков.\n' +
-  'За каждый голос за ваш ответ — +50 очков.\n' +
-  'Не проголосовал — –50 очков.\n\n' +
-  `Время на ввод ответа — ${ROUND3_ANSWER_SECONDS} секунд.\n` +
-  `Время на голосование — ${ROUND3_VOTE_SECONDS} секунд.\n` +
-  'Синонимы могут засчитаться (на усмотрение ведущего).\n\n' +
-  'Готовы угадывать и голосовать? Давайте устроим настоящий мозговой штурм!';
+      playersPollId = setInterval(() => {
+        if (mounted) {
+          loadPlayersRef.current?.();
+        }
+      }, 3000);
+    };
 
-const ROUND4_RULES_VOICE_FILES = ['round4/rules/1.mp3', 'round4/rules/2.mp3', 'round4/rules/3.mp3'] as const;
-const ROUND4_RULES_TEXT =
-  'Раунд «Дэшифровщик»\n\n' +
-  'На экране появляется комбинация из эмодзи, в которых зашифровано название известного фильма, мультфильма, сериала, песни или чего-то очень знаменитого.\n' +
-  'Задача игроков: как можно быстрее вписать правильное название в поле ввода.\n\n' +
-  'Начисление баллов:\n' +
-  '• Первый ответивший правильно получает 100 баллов.\n' +
-  '• Последующие правильно ответившие получают 50 баллов.\n' +
-  '• Таймер — 30 секунд.';
-
-const ROUND5_RULES_TEXT =
-  'Вам будут даны 6 фактов с числовыми значениями (например, "Высота Эйфелевой башни — [число] метров").\n\n' +
-  'Ваша задача — ввести точное число в поле на телефоне.\n\n' +
-  'Точное совпадение: 400 очков.\n' +
-  'Неточное: баллы = 400 * (100 - отклонение%) / 100, где отклонение% = |правильное - ваш ответ| / правильное * 100% (округление до целого).\n\n' +
-  'Если отклонение >= 100% (ответ <= 0 или >= 2*правильное) — 0 очков.\n\n' +
-  'Время на вопрос: 30 секунд.\n\n' +
-  'Готовы к цифровой интуиции?';
-
-const ROUND4_TOTAL_TOURS = 6;
-
-const ROUND5_TOTAL_TOURS = 6;
-const ROUND5_MAX_POINTS = 400;
-const ROUND5_QUESTION_AUDIO_DIR = 'round5/questions';
-const ROUND5_EXPLANATION_AUDIO_DIR = 'round5/explanation';
-const ROUND5_FINAL_NARRATOR_AUDIO_DIR = 'round5/final';
-const ROUND5_FINAL_NARRATOR_VARIANTS = 7;
-
-const PACK_03012026_ROUND2_AUDIO_START = 82;
-const PACK_03012026_ROUND3_AUDIO_START = 67;
-const PACK_03012026_ROUND5_AUDIO_START = 68;
-
-  const ROUND4_CATEGORY_AUDIO_MAP: Record<string, string> = {
-    'новый год': 'new_year',
-    'дисней': 'disney',
+    void startRealtime();
     'американский кинематограф': 'american_cinema',
     'американские мультфильмы': 'american_cartoons',
     'сериалы': 'series',
@@ -917,6 +933,34 @@ export default function HostRoomPage() {
 
   const realtimeEnabled = isRealtimeEnabled();
   const { room: syncedRoom, connectionStatus } = useRoomSync(roomId, { enableRealtime: realtimeEnabled });
+
+  const ensureRealtimeAuth = useCallback(async (currentRoomId: string) => {
+    if (!currentRoomId) {
+      return false;
+    }
+    const storageKey = `hostRoomAccessToken:${currentRoomId}`;
+    const existing = localStorage.getItem(storageKey);
+    if (existing) {
+      supabase.realtime.setAuth(existing);
+      return true;
+    }
+    const roomCode = localStorage.getItem('hostRoomCode') ?? undefined;
+    const response = await fetch('/api/room-token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ roomId: currentRoomId, roomCode }),
+    });
+    if (!response.ok) {
+      return false;
+    }
+    const payload = (await response.json()) as { token?: string };
+    if (!payload.token) {
+      return false;
+    }
+    localStorage.setItem(storageKey, payload.token);
+    supabase.realtime.setAuth(payload.token);
+    return true;
+  }, []);
 
   const isMusicMutedRef = useRef(isMusicMuted);
   useEffect(() => {
@@ -5339,24 +5383,36 @@ export default function HostRoomPage() {
 
     return () => {
       mounted = false;
-      clearInterval(playersPollId);
-      playersChannel.unsubscribe().then(() => {
-        supabase.removeChannel(playersChannel);
-      });
-      answersChannel.unsubscribe().then(() => {
-        supabase.removeChannel(answersChannel);
-      });
-      round2AnswersChannel.unsubscribe().then(() => {
-        supabase.removeChannel(round2AnswersChannel);
-      });
-      round4AnswersChannel.unsubscribe().then(() => {
-        supabase.removeChannel(round4AnswersChannel);
-      });
-      round5AnswersChannel.unsubscribe().then(() => {
-        supabase.removeChannel(round5AnswersChannel);
-      });
+      if (playersPollId) {
+        clearInterval(playersPollId);
+      }
+      if (playersChannel) {
+        playersChannel.unsubscribe().then(() => {
+          supabase.removeChannel(playersChannel);
+        });
+      }
+      if (answersChannel) {
+        answersChannel.unsubscribe().then(() => {
+          supabase.removeChannel(answersChannel);
+        });
+      }
+      if (round2AnswersChannel) {
+        round2AnswersChannel.unsubscribe().then(() => {
+          supabase.removeChannel(round2AnswersChannel);
+        });
+      }
+      if (round4AnswersChannel) {
+        round4AnswersChannel.unsubscribe().then(() => {
+          supabase.removeChannel(round4AnswersChannel);
+        });
+      }
+      if (round5AnswersChannel) {
+        round5AnswersChannel.unsubscribe().then(() => {
+          supabase.removeChannel(round5AnswersChannel);
+        });
+      }
     };
-  }, [realtimeEnabled, roomId]);
+  }, [ensureRealtimeAuth, realtimeEnabled, roomId]);
 
   const everyoneAnswered = players.length > 0 && answerCount >= players.length;
   const shouldForceZero = serverAllPlayersAnswered || everyoneAnswered;

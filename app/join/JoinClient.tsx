@@ -73,6 +73,23 @@ export default function JoinClient() {
         return;
       }
 
+      try {
+        const tokenResponse = await fetch('/api/room-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ roomId: room.id, roomCode, playerId: player.id }),
+        });
+        if (tokenResponse.ok) {
+          const tokenPayload = (await tokenResponse.json()) as { token?: string };
+          if (tokenPayload.token) {
+            localStorage.setItem('roomAccessToken', tokenPayload.token);
+            supabase.realtime.setAuth(tokenPayload.token);
+          }
+        }
+      } catch (tokenError) {
+        console.warn('Не удалось получить room token', tokenError);
+      }
+
       logEvent('info', 'analytics', 'player join', {
         eventName: 'player_join',
         roomId: room.id,
