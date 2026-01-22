@@ -218,6 +218,28 @@ export default function RoomPage() {
   const [round3AnswerText, setRound3AnswerText] = useState('');
   const [round3AnswerOptions, setRound3AnswerOptions] = useState<Round3AnswerRow[]>([]);
   const [round3HasVoted, setRound3HasVoted] = useState(false);
+  const roomIdRef = useRef('');
+  const playerIdRef = useRef('');
+  const round2ShowingFactRef = useRef(round2ShowingFact);
+  const round4PuzzlesRef = useRef<Round4Puzzle[]>([]);
+  const currentLikeQuestionIdRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    roomIdRef.current = roomId;
+  }, [roomId]);
+
+  useEffect(() => {
+    playerIdRef.current = playerId;
+  }, [playerId]);
+
+  useEffect(() => {
+    round2ShowingFactRef.current = round2ShowingFact;
+  }, [round2ShowingFact]);
+
+  useEffect(() => {
+    round4PuzzlesRef.current = round4Puzzles;
+  }, [round4Puzzles]);
+
   const [round3AnswerResults, setRound3AnswerResults] = useState<PlayerAnswerListItem[]>([]);
   const [round4AnswerResults, setRound4AnswerResults] = useState<PlayerAnswerListItem[]>([]);
   const [round5AnswerResults, setRound5AnswerResults] = useState<PlayerAnswerListItem[]>([]);
@@ -1013,7 +1035,9 @@ export default function RoomPage() {
 
       const nextRound2ItemIndex = (payload.new.round2_item_index as number | null | undefined) ?? null;
       const nextRound2ShowingFact =
-        typeof payload.new.round2_showing_fact === 'boolean' ? !!payload.new.round2_showing_fact : round2ShowingFact;
+        typeof payload.new.round2_showing_fact === 'boolean'
+          ? !!payload.new.round2_showing_fact
+          : round2ShowingFactRef.current;
       const nextRound2Phase = ((payload.new.round2_phase as Round2Phase) || 'idle') as Round2Phase;
 
       if (newStatus === 'waiting') {
@@ -1171,7 +1195,9 @@ export default function RoomPage() {
         }
 
         setRound4PuzzleId(effectivePuzzleId);
-        setRound4Puzzle(effectivePuzzleId ? round4Puzzles.find((p) => p.id === effectivePuzzleId) ?? null : null);
+        setRound4Puzzle(
+          effectivePuzzleId ? round4PuzzlesRef.current.find((p) => p.id === effectivePuzzleId) ?? null : null
+        );
 
         setHasAnswered(false);
         setRound4AnswerText('');
@@ -1297,10 +1323,8 @@ export default function RoomPage() {
       }
     };
 
-    const channelId = `${roomId}-${Date.now()}`;
-
     const roomChannel = supabase
-      .channel(`player-room-${roomId}-${channelId}`)
+      .channel(`player-room-${roomId}`)
       .on(
         'postgres_changes',
         {
@@ -1324,7 +1348,7 @@ export default function RoomPage() {
         supabase.removeChannel(roomChannel);
       });
     };
-  }, [realtimeEnabled, roomId, round2ShowingFact, round4Puzzles, router, timeOffsetMs]);
+  }, [realtimeEnabled, roomId, router]);
 
   const resolveLikedQuestionText = useCallback(
     (questionId: number) => {
@@ -1383,6 +1407,10 @@ export default function RoomPage() {
 
   const shouldShowLikePanel = !showResults && currentLikeQuestionId !== null;
 
+  useEffect(() => {
+    currentLikeQuestionIdRef.current = currentLikeQuestionId;
+  }, [currentLikeQuestionId]);
+
   const loadBestQuestion = useCallback(async () => {
     if (!roomId) {
       return;
@@ -1437,13 +1465,12 @@ export default function RoomPage() {
   }, [currentLikeQuestionId, playerId, roomId, showResults]);
 
   useEffect(() => {
-    if (!realtimeEnabled || !roomId || currentLikeQuestionId === null) {
+    if (!realtimeEnabled || !roomId) {
       return;
     }
     let mounted = true;
-    const channelId = `${Date.now()}`;
     const likesChannel = supabase
-      .channel(`player-likes-${roomId}-${channelId}`)
+      .channel(`player-likes-${roomId}`)
       .on(
         'postgres_changes',
         {
@@ -1454,10 +1481,15 @@ export default function RoomPage() {
         },
         (payload: { new: { question_id: number; player_id: string } }) => {
           if (!mounted) return;
-          if (payload.new.player_id === playerId) {
+          const currentQuestionId = currentLikeQuestionIdRef.current;
+          const currentPlayerId = playerIdRef.current;
+          if (currentQuestionId === null) {
             return;
           }
-          if (payload.new.question_id !== currentLikeQuestionId) {
+          if (payload.new.player_id === currentPlayerId) {
+            return;
+          }
+          if (payload.new.question_id !== currentQuestionId) {
             return;
           }
           setQuestionLikesCount((prev) => (prev ?? 0) + 1);
@@ -1471,7 +1503,7 @@ export default function RoomPage() {
         supabase.removeChannel(likesChannel);
       });
     };
-  }, [currentLikeQuestionId, playerId, realtimeEnabled, roomId]);
+  }, [realtimeEnabled, roomId]);
 
   const likeQuestion = useCallback(async () => {
     if (!roomId || !playerId || currentLikeQuestionId === null) {

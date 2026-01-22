@@ -5149,7 +5149,6 @@ export default function HostRoomPage() {
     if (!roomId) return undefined;
 
     let mounted = true;
-    const channelId = `${Date.now()}`;
 
     if (!realtimeEnabled) {
       const poll = () => {
@@ -5164,7 +5163,7 @@ export default function HostRoomPage() {
     }
 
     const playersChannel = supabase
-      .channel(`host-players-${roomId}-${channelId}`)
+      .channel(`host-players-${roomId}`)
       .on(
         'postgres_changes',
         {
@@ -5196,7 +5195,7 @@ export default function HostRoomPage() {
       .subscribe();
 
     const answersChannel = supabase
-      .channel(`host-answers-${roomId}-${channelId}`)
+      .channel(`host-answers-${roomId}`)
       .on(
         'postgres_changes',
         {
@@ -5221,7 +5220,7 @@ export default function HostRoomPage() {
       .subscribe();
 
     const round2AnswersChannel = supabase
-      .channel(`host-round2-answers-${roomId}-${channelId}`)
+      .channel(`host-round2-answers-${roomId}`)
       .on(
         'postgres_changes',
         {
@@ -5263,7 +5262,7 @@ export default function HostRoomPage() {
       .subscribe();
 
     const round4AnswersChannel = supabase
-      .channel(`host-round4-answers-${roomId}-${channelId}`)
+      .channel(`host-round4-answers-${roomId}`)
       .on(
         'postgres_changes',
         {
@@ -5289,7 +5288,7 @@ export default function HostRoomPage() {
       .subscribe();
 
     const round5AnswersChannel = supabase
-      .channel(`host-round5-answers-${roomId}-${channelId}`)
+      .channel(`host-round5-answers-${roomId}`)
       .on(
         'postgres_changes',
         {
@@ -5350,7 +5349,7 @@ export default function HostRoomPage() {
         supabase.removeChannel(round5AnswersChannel);
       });
     };
-  }, [roomId]);
+  }, [realtimeEnabled, roomId]);
 
   const everyoneAnswered = players.length > 0 && answerCount >= players.length;
   const shouldForceZero = serverAllPlayersAnswered || everyoneAnswered;
