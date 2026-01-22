@@ -1609,7 +1609,7 @@ export default function HostRoomPage() {
     if (!hasUserInteractedRef.current) {
       return;
     }
-    const timer = new Audio(buildJingleUrl(QUESTION_JINGLE_FILE));
+    const timer = new Audio(buildAudioUrl(QUESTION_JINGLE_FILE));
     timer.volume = 0.55;
     round4TimerAudioRef.current = timer;
     timer.play().catch((err) => {
@@ -1853,7 +1853,7 @@ export default function HostRoomPage() {
 
       stopRound5Audio();
 
-      const timer = new Audio(buildJingleUrl(QUESTION_JINGLE_FILE));
+      const timer = new Audio(buildAudioUrl(QUESTION_JINGLE_FILE));
       timer.loop = false;
       timer.volume = isMusicMutedRef.current ? 0 : 0.6;
       round5TimerAudioRef.current = timer;
@@ -3515,7 +3515,7 @@ export default function HostRoomPage() {
       audio.volume = 0.95;
       round2FactAudioRef.current = audio;
 
-      const jingle = new Audio(buildJingleUrl(QUESTION_JINGLE_FILE));
+      const jingle = new Audio(buildAudioUrl(QUESTION_JINGLE_FILE));
       jingle.volume = 0.45;
       round2TimerJingleAudioRef.current = jingle;
 
@@ -4787,7 +4787,7 @@ export default function HostRoomPage() {
 
       stopQuestionAudio();
 
-      const jingle = new Audio(buildJingleUrl(QUESTION_JINGLE_FILE));
+      const jingle = new Audio(buildAudioUrl(QUESTION_JINGLE_FILE));
       jingle.loop = false;
       jingle.volume = 0.45;
       questionJingleAudioRef.current = jingle;
