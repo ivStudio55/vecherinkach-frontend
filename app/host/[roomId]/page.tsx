@@ -5194,6 +5194,12 @@ export default function HostRoomPage() {
       )
       .subscribe();
 
+    const playersPollId = setInterval(() => {
+      if (mounted) {
+        loadPlayersRef.current?.();
+      }
+    }, 3000);
+
     const answersChannel = supabase
       .channel(`host-answers-${roomId}`)
       .on(
@@ -5333,6 +5339,7 @@ export default function HostRoomPage() {
 
     return () => {
       mounted = false;
+      clearInterval(playersPollId);
       playersChannel.unsubscribe().then(() => {
         supabase.removeChannel(playersChannel);
       });
