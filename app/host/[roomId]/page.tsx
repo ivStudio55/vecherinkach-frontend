@@ -7332,6 +7332,24 @@ export default function HostRoomPage() {
     );
   }
 
+  if (error && !roomCode) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#fef4dc] text-[#142a45] px-4">
+        <div className="rounded-3xl border-[4px] border-[#b23324] bg-white shadow-xl max-w-md w-full p-8 text-center space-y-4">
+          <p className="retro-heading text-xs tracking-[0.4em] text-[#b23324]/70">Ошибка</p>
+          <h2 className="text-2xl font-black text-[#b23324]">Комната не найдена</h2>
+          <p className="text-sm text-[#142a45]">{error}</p>
+          <button
+            onClick={() => router.push('/host')}
+            className="w-full py-3 rounded-2xl font-black text-base tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] hover:scale-105 hover:shadow-lg transition-all duration-200"
+          >
+            ← Вернуться на главную
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (!isRoomOpened) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#fef4dc] text-[#142a45]">
