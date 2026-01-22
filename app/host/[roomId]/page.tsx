@@ -5058,8 +5058,9 @@ export default function HostRoomPage() {
     const init = async () => {
       const hostRoomId = localStorage.getItem('hostRoomId');
       if (hostRoomId !== roomId) {
-        router.push('/host');
-        return;
+        console.warn('Room ID mismatch:', { hostRoomId, roomId });
+        // Don't redirect immediately, try to load the room first
+        // This allows the host to access the room even if localStorage is stale
       }
 
       const offset = await syncServerTimeRef.current?.();
@@ -7332,7 +7333,7 @@ export default function HostRoomPage() {
     );
   }
 
-  if (error && !roomCode) {
+  if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#fef4dc] text-[#142a45] px-4">
         <div className="rounded-3xl border-[4px] border-[#b23324] bg-white shadow-xl max-w-md w-full p-8 text-center space-y-4">
