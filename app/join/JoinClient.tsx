@@ -31,6 +31,12 @@ export default function JoinClient() {
         return;
       }
 
+      try {
+        localStorage.setItem('roomCode', roomCode);
+      } catch (storageError) {
+        console.warn('Не удалось сохранить roomCode в localStorage', storageError);
+      }
+
       const { data: room, error: roomError } = await supabase
         .from('rooms')
         .select('id, is_active, status')
@@ -74,6 +80,8 @@ export default function JoinClient() {
       });
 
       try {
+        localStorage.setItem('roomId', room.id);
+        localStorage.setItem('roomCode', roomCode);
         localStorage.setItem('playerId', player.id);
         localStorage.setItem('playerName', finalName);
       } catch (storageError) {

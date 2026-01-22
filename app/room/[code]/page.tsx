@@ -702,8 +702,14 @@ export default function RoomPage() {
         }
       }
 
-  setRoomId(room.id);
-  roomIdRef.current = room.id;
+      setRoomId(room.id);
+      roomIdRef.current = room.id;
+      try {
+        localStorage.setItem('roomId', room.id);
+        localStorage.setItem('roomCode', roomCode);
+      } catch (storageError) {
+        console.warn('Не удалось сохранить данные комнаты в localStorage', storageError);
+      }
       const selection = (room.selected_question_ids as number[] | null) || [];
       setSelectedQuestionIds(selection);
       const detectedStatus = (room.status as RoomStatus) || (room.is_active ? 'waiting' : 'finished');

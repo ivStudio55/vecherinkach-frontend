@@ -16,4 +16,22 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: false,
   },
+  global: {
+    fetch: (url, options = {}) => {
+      if (typeof window === 'undefined') {
+        return fetch(url, options);
+      }
+
+      const headers = new Headers(options.headers || {});
+      const roomId = localStorage.getItem('roomId') || localStorage.getItem('hostRoomId');
+      const roomCode = localStorage.getItem('roomCode') || localStorage.getItem('hostRoomCode');
+      const playerId = localStorage.getItem('playerId');
+
+      if (roomId) headers.set('x-room-id', roomId);
+      if (roomCode) headers.set('x-room-code', roomCode);
+      if (playerId) headers.set('x-player-id', playerId);
+
+      return fetch(url, { ...options, headers });
+    },
+  },
 });
