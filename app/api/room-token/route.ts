@@ -6,16 +6,11 @@ export const runtime = 'nodejs';
 
 const JWT_SECRET = process.env.SUPABASE_JWT_SECRET;
 
-export async function POST(request: Request) {
+type RoomTokenPayload = { roomId?: string; roomCode?: string; playerId?: string };
+
+const createRoomTokenResponse = async (payload: RoomTokenPayload) => {
   if (!JWT_SECRET) {
     return NextResponse.json({ error: 'SUPABASE_JWT_SECRET is not set' }, { status: 500 });
-  }
-
-  let payload: { roomId?: string; roomCode?: string; playerId?: string };
-  try {
-    payload = (await request.json()) as { roomId?: string; roomCode?: string; playerId?: string };
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
   const roomId = payload.roomId?.trim();
@@ -68,4 +63,26 @@ export async function POST(request: Request) {
   );
 
   return NextResponse.json({ token });
+};
+
+export async function POST(request: Request) {
+  let payload: RoomTokenPayload;
+  try {
+    payload = (await request.json()) as RoomTokenPayload;
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
+
+  return createRoomTokenResponse(payload);
+}
+
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const payload: RoomTokenPayload = {
+    roomId: url.searchParams.get('roomId') ?? undefined,
+    roomCode: url.searchParams.get('roomCode') ?? undefined,
+    playerId: url.searchParams.get('playerId') ?? undefined,
+  };
+
+  return createRoomTokenResponse(payload);
 }
