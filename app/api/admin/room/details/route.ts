@@ -39,7 +39,7 @@ export async function GET(request: Request) {
 
   const { data: logs, error: logsError } = await supabase
     .from('logs')
-    .select('id, created_at, level, channel, message, event_name, player_id, context')
+    .select('id, created_at, level, channel, message, event_name, player_id, player_name, context')
     .eq('room_id', room.id)
     .order('created_at', { ascending: false })
     .limit(200);

@@ -21,7 +21,7 @@ export async function GET(request: Request) {
   const supabase = getSupabaseAdminClient();
   const { data: logs, error } = await supabase
     .from('logs')
-    .select('id, created_at, level, channel, message, event_name, player_id, context')
+    .select('id, created_at, level, channel, message, event_name, player_id, player_name, context')
     .eq('room_id', roomId)
     .order('created_at', { ascending: false })
     .limit(200);

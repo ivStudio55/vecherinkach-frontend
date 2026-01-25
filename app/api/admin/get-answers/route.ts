@@ -83,7 +83,7 @@ export async function GET(request: Request) {
       (async () => {
         const res = await supabase
           .from('logs')
-          .select('id, created_at, level, channel, event_name, message')
+          .select('id, created_at, level, channel, event_name, message, player_id, player_name, context')
           .eq('room_id', roomId)
           .in('level', ['error', 'warn'])
           .order('created_at', { ascending: false })

@@ -8,9 +8,21 @@ import { describeLikeQuestionId } from '@/shared/logic/questionLikes';
 type RoomDetails = {
   room: Record<string, unknown>;
   players: Array<{ id: string; name: string; total_points: number; joined_at: string | null }>;
-  logs: Array<{ id: string; created_at: string; level: string; message: string; event_name: string | null }>;
+  logs: Array<{
+    id: string;
+    created_at: string;
+    level: string;
+    channel: string;
+    message: string;
+    event_name: string | null;
+    player_id?: string | null;
+    player_name?: string | null;
+    context?: Record<string, unknown> | null;
+  }>;
   bestQuestion?: { question_id: number; likes: number } | null;
 };
+
+type LogEntry = RoomDetails['logs'][number];
 
 type SummaryResponse = {
   room: Record<string, unknown>;
@@ -33,25 +45,8 @@ type SummaryResponse = {
     round4: Array<{ id: number; total: number; correct: number }>;
     round5: Array<{ id: number; total: number; correct: number }>;
   };
-  errorLogs: Array<{ id: string; created_at: string; level: string; channel: string; event_name: string | null; message: string }>;
+  errorLogs: LogEntry[];
 };
-
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-const formatIso = (value?: string | null) => (value ? new Date(value).toLocaleString() : '—');
-
-function statusBadge(status?: string | null) {
-  if (!status) return <StatusBadge label="—" status="neutral" />;
-  if (status === 'running') return <StatusBadge label={status} status="success" />;
-  if (status.includes('round')) return <StatusBadge label={status} status="warning" />;
-  if (status === 'final-results') return <StatusBadge label={status} status="info" />;
-  if (status === 'finished') return <StatusBadge label={status} status="neutral" />;
-  return <StatusBadge label={status} status="neutral" />;
-}
-
-function toSeries(rows: Array<{ id: number; total: number }>, prefix: string): SeriesPoint[] {
-  return rows.slice(0, 24).map((row) => ({ label: `${prefix}${row.id}`, value: row.total }));
-}
 
 type ErrorExplanation = {
   title: string;
@@ -64,107 +59,251 @@ type LogLike = {
   channel?: string | null;
   level?: string | null;
   message?: string | null;
+  created_at?: string | null;
+  player_id?: string | null;
+  player_name?: string | null;
+  context?: Record<string, unknown> | null;
 };
 
-const EVENT_EXPLANATIONS: Record<string, ErrorExplanation> = {
-  'round1:missing-question-data': {
+type ExplanationContext = {
+  playersMap?: Map<string, string>;
+};
+
+type ExplanationBuilder = (log: LogLike, ctx?: ExplanationContext) => ErrorExplanation;
+
+const asBuilder = (payload: ErrorExplanation): ExplanationBuilder => () => payload;
+
+const getPlayerLabel = (log: LogLike, ctx?: ExplanationContext) => {
+  if (typeof log.player_name === 'string' && log.player_name.trim()) {
+    return log.player_name.trim();
+  }
+  const id = typeof log.player_id === 'string' && log.player_id ? log.player_id : null;
+  if (id) {
+    const resolved = ctx?.playersMap?.get(id);
+    if (resolved && resolved.trim()) {
+      return resolved.trim();
+    }
+    return `Игрок ${id.slice(0, 6)}`;
+  }
+  return 'Неизвестный игрок';
+};
+
+const getCtxValue = (log: LogLike, key: string) => {
+  if (!log.context || typeof log.context !== 'object') return undefined;
+  return (log.context as Record<string, unknown>)[key];
+};
+
+const getCtxString = (log: LogLike, key: string) => {
+  const value = getCtxValue(log, key);
+  if (typeof value === 'string' && value.trim()) {
+    return value.trim();
+  }
+  return null;
+};
+
+const getCtxNumber = (log: LogLike, key: string) => {
+  const value = getCtxValue(log, key);
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+};
+
+const PLAYER_EXIT_REASONS: Record<string, string> = {
+  unload: 'закрыл вкладку/браузер',
+  background: 'свернул приложение или переключил вкладку',
+  unmount: 'ушёл на другой экран',
+};
+
+const EVENT_EXPLANATIONS: Record<string, ExplanationBuilder> = {
+  'round1:missing-question-data': asBuilder({
     title: 'Нет данных для вопроса раунда 1',
     short: 'Система не смогла получить текст вопроса. Обычно это происходит, если пак обновился во время игры.',
     details:
       'Попросите ведущего перезапустить игру или выбрать вопрос заново. Проверьте, что пак вопросов синхронизирован и игроки не находятся в состоянии паузы.',
-  },
-  'round2:fact-desync': {
+  }),
+  'round2:fact-desync': asBuilder({
     title: 'Несовпадение факта в раунде 2',
     short: 'Игроки отвечали уже после того, как ведущий переключил карточку.',
     details:
       'Причина чаще всего в нестабильном соединении. Рекомендуется обновить страницу ведущего и при необходимости перезапустить раунд 2 кнопкой Restart.',
-  },
-  'round3:sync-timeout': {
+  }),
+  'round3:sync-timeout': asBuilder({
     title: 'Тайм-аут синхронизации раунда 3',
     short: 'Не все клиенты подтвердили загрузку вопроса в отведённое время.',
     details:
       'Проверьте, что ведущий открыл комнату в режиме host и все игроки находятся онлайн. Можно воспользоваться кнопкой «Force end round», чтобы перевести игру к следующему состоянию.',
-  },
-  'round4:puzzle-cancelled': {
+  }),
+  'round4:puzzle-cancelled': asBuilder({
     title: 'Головоломка была пропущена',
     short: 'Ведущий вручную пропустил puzzle, поэтому ответы не были сохранены.',
     details:
       'Это штатное поведение. Если пропуск был случайным, выберите ту же загадку повторно или начните раунд заново через Restart.',
-  },
-  'round5:final-answer-error': {
+  }),
+  'round5:final-answer-error': asBuilder({
     title: 'Ошибка финального ответа',
     short: 'Supabase вернул ошибку при записи итогового ответа команды.',
     details:
       'Проверьте соединение и попробуйте сохранить ответ ещё раз. Если проблема повторяется, выполните Export room и обратитесь к разработчикам с файлом логов.',
+  }),
+  player_join: (log, ctx) => ({
+    title: 'Игрок подключился',
+    short: `${getPlayerLabel(log, ctx)} вошёл в комнату`,
+    details: log.player_id ? `ID игрока: ${log.player_id}` : undefined,
+  }),
+  player_exit: (log, ctx) => {
+    const reasonKey = getCtxString(log, 'reason') ?? '';
+    const reason = PLAYER_EXIT_REASONS[reasonKey] ?? 'неизвестная причина';
+    const status = getCtxString(log, 'status');
+    const leftAtLabel =
+      typeof log.created_at === 'string' && log.created_at
+        ? new Date(log.created_at).toLocaleTimeString('ru-RU', { hour12: false })
+        : null;
+    return {
+      title: 'Игрок отключился',
+      short: `${getPlayerLabel(log, ctx)} покинул комнату`,
+      details: `Причина: ${reason}${status ? `, статус игры: ${status}` : ''}${leftAtLabel ? `, время выхода: ${leftAtLabel}` : ''}.`,
+    };
   },
+  room_status_change: (log) => {
+    const from = getCtxString(log, 'from');
+    const to = getCtxString(log, 'to');
+    return {
+      title: 'Статус комнаты изменён',
+      short: from && to ? `${from} → ${to}` : 'Комната перешла в новое состояние',
+      details: from && to ? `Предыдущее состояние: ${from}. Новое состояние: ${to}.` : undefined,
+    };
+  },
+  round_start: (log) => ({
+    title: 'Запуск раунда',
+    short: `Стартовал ${getCtxString(log, 'round') ?? 'новый раунд'}`,
+    details: 'Инициировано автоматически после смены статуса комнаты.',
+  }),
+  realtime_latency: (log) => {
+    const latency = getCtxNumber(log, 'latencyMs');
+    return {
+      title: 'Высокая задержка',
+      short: 'Realtime-соединение отвечает медленно',
+      details: latency ? `Текущая задержка: ${Math.round(latency)} мс.` : undefined,
+    };
+  },
+  realtime_reconnect: (log) => ({
+    title: 'Переподключение Realtime',
+    short: 'Канал переходит в режим повторного соединения',
+    details: getCtxString(log, 'status') ? `Состояние канала: ${getCtxString(log, 'status')}.` : undefined,
+  }),
+  realtime_fallback: (log) => {
+    const lastEvent = getCtxNumber(log, 'lastEventAt');
+    return {
+      title: 'Включён fallback polling',
+      short: 'Не поступают события из Realtime, включён опрос',
+      details: lastEvent ? `Последнее событие: ${new Date(lastEvent).toLocaleTimeString()}.` : undefined,
+    };
+  },
+  start_round3_error: asBuilder({
+    title: 'Round 3 не запущен',
+    short: 'RPC start_round3 вернул ошибку.',
+    details: 'Проверьте состояние комнаты и повторите действие.',
+  }),
+  start_round3_empty: asBuilder({
+    title: 'Round 3 вернул пустой ответ',
+    short: 'Сервер не прислал payload после start_round3.',
+    details: 'Повторите запуск или откройте раунд вручную.',
+  }),
+  create_room_limit: asBuilder({
+    title: 'Лимит комнат',
+    short: 'Достигнут предел активных комнат для аккаунта.',
+    details: 'Завершите одну из текущих игр и попробуйте снова.',
+  }),
+  create_room_error: asBuilder({
+    title: 'Не удалось создать комнату',
+    short: 'Supabase вернул ошибку при создании комнаты.',
+    details: 'Проверьте лог и повторите запрос. Если ошибка повторяется, обратитесь к разработчикам.',
+  }),
+  create_room_exception: asBuilder({
+    title: 'Клиентская ошибка при создании комнаты',
+    short: 'Браузер не смог завершить операцию.',
+    details: 'Проверьте соединение и состояние Supabase.',
+  }),
 };
 
-const CHANNEL_EXPLANATIONS: Record<string, ErrorExplanation> = {
-  round1: {
+const CHANNEL_EXPLANATIONS: Record<string, ExplanationBuilder> = {
+  round1: asBuilder({
     title: 'Раунд 1',
     short: 'Проблемы с отображением вопросов или подсчётом очков.',
     details:
       'Убедитесь, что все игроки подключены к комнате и пак вопросов содержит корректные данные. При необходимости выполните Restart комнаты.',
-  },
-  round2: {
+  }),
+  round2: asBuilder({
     title: 'Раунд 2',
     short: 'Система заметила рассинхронизацию фактов.',
     details:
       'Чаще всего помогает перезагрузка страницы ведущего. Если игроки жалуются на задержки, проверьте их подключение.',
-  },
-  round3: {
+  }),
+  round3: asBuilder({
     title: 'Раунд 3',
     short: 'Замечены задержки подтверждения вопросов или голосования.',
     details:
       'Запустите Round 3 ещё раз через кнопку «Start round 3 RPC» или завершите его принудительно, если игроки не могут продолжить.',
-  },
-  round4: {
+  }),
+  round4: asBuilder({
     title: 'Раунд 4',
     short: 'Ответы на загадки не были сохранены.',
     details:
       'Проверьте соединение ведущего и состояние комнаты. Воспользуйтесь кнопкой Force End, чтобы перейти к следующему этапу.',
-  },
-  round5: {
+  }),
+  round5: asBuilder({
     title: 'Раунд 5',
     short: 'Финальные ответы не подтвердились.',
     details:
       'Убедитесь, что у ведущего открыт экран host. В крайнем случае сделайте Export room и сообщите команде поддержки.',
-  },
-  system: {
+  }),
+  system: asBuilder({
     title: 'Системный канал',
     short: 'Общая техническая ошибка.',
     details:
       'Обычно связано с соединением с Supabase. Переподключите интернет или повторите действие спустя минуту. Если ошибка сохраняется, создайте issue.',
-  },
+  }),
+  'room-sync': asBuilder({
+    title: 'Состояние соединения',
+    short: 'Система переключилась между Realtime и Polling.',
+    details: 'Проверьте стабильность сети. Если опрос включается часто, перезапустите комнату.',
+  }),
+  analytics: asBuilder({
+    title: 'Аналитика',
+    short: 'Фиксируются действия игроков и ведущего.',
+    details: 'Используйте эти записи для воспроизведения хода игры.',
+  }),
 };
 
-const DEFAULT_EXPLANATIONS: Record<'error' | 'warning', ErrorExplanation> = {
-  error: {
+const DEFAULT_EXPLANATIONS: Record<'error' | 'warning' | 'info', ExplanationBuilder> = {
+  error: (log) => ({
     title: 'Необработанная ошибка',
     short: 'Система зафиксировала критическую ошибку.',
-    details: 'Сообщение сервера: {message}. Попробуйте повторить действие и при необходимости перезапустите комнату.',
-  },
-  warning: {
+    details: log.message ? `Сообщение сервера: ${log.message}` : undefined,
+  }),
+  warning: (log) => ({
     title: 'Предупреждение',
-    short: 'Система заметила нестандартное поведение, но игра продолжилась.',
-    details: 'Детали: {message}. Проверьте логи и при необходимости синхронизируйте комнату.',
-  },
+    short: log.message ?? 'Система заметила нестандартное поведение, но игра продолжилась.',
+    details: log.message ? undefined : undefined,
+  }),
+  info: (log) => ({
+    title: 'Информационное событие',
+    short: log.message ?? 'Записано действие в комнате.',
+  }),
 };
 
-const resolveErrorExplanation = (log?: LogLike): ErrorExplanation | null => {
+const resolveLogExplanation = (log?: LogLike, ctx?: ExplanationContext): ErrorExplanation | null => {
   if (!log) return null;
   const byEvent = log.event_name ? EVENT_EXPLANATIONS[log.event_name] : undefined;
-  if (byEvent) return byEvent;
+  if (byEvent) return byEvent(log, ctx);
   const byChannel = log.channel ? CHANNEL_EXPLANATIONS[log.channel] : undefined;
-  if (byChannel) return byChannel;
-  const levelKey = log.level === 'error' ? 'error' : 'warning';
-  const template = DEFAULT_EXPLANATIONS[levelKey];
-  return {
-    ...template,
-    details: template.details?.replace('{message}', log.message ?? '—') ?? undefined,
-  };
+  if (byChannel) return byChannel(log, ctx);
+  const levelKey: 'error' | 'warning' | 'info' = log.level === 'error' ? 'error' : log.level === 'warn' ? 'warning' : 'info';
+  return DEFAULT_EXPLANATIONS[levelKey](log, ctx);
 };
-
 export default function AdminRoomDetailsClient({ roomId }: { roomId: string }) {
   const hasValidRoomId = useMemo(() => {
     return typeof roomId === 'string' && roomId.length > 0 && UUID_REGEX.test(roomId);
@@ -363,6 +502,14 @@ export default function AdminRoomDetailsClient({ roomId }: { roomId: string }) {
 
   const roomSnapshot = summary?.room;
   const questionStartedAt = typeof roomSnapshot?.question_started_at === 'string' ? roomSnapshot.question_started_at : null;
+  const playersMap = useMemo(() => {
+    if (!details?.players?.length) return undefined;
+    return new Map(details.players.map((player) => [player.id, player.name]));
+  }, [details?.players]);
+  const explanationContext = useMemo<ExplanationContext | undefined>(() => {
+    if (!playersMap) return undefined;
+    return { playersMap };
+  }, [playersMap]);
 
   // Показываем ошибку, если roomId невалиден
   if (!hasValidRoomId) {
@@ -556,41 +703,41 @@ export default function AdminRoomDetailsClient({ roomId }: { roomId: string }) {
       <SectionCard title="Ошибки (warn/error)">
         <div className="space-y-2">
           {(summary?.errorLogs ?? []).slice(0, 20).map((row) => {
-              const explanation = resolveErrorExplanation(row);
-              const longDetails = (explanation?.details ?? '').length > 220;
-              return (
-                <div key={row.id} className="rounded-2xl border-[3px] border-[#142a45] bg-white p-4 space-y-3">
-                  <div className="flex flex-wrap gap-2 items-center justify-between">
-                    <div className="flex gap-2 items-center">
-                      <StatusBadge label={row.level} status={row.level === 'error' ? 'error' : 'warning'} />
-                      <span className="text-xs font-black tracking-[0.25em] text-[#142a45]/60">{row.channel}</span>
-                      {row.event_name ? <StatusBadge label={row.event_name} status="neutral" /> : null}
-                    </div>
-                    <span className="text-xs font-semibold text-[#142a45]/60">{formatIso(row.created_at)}</span>
+            const explanation = resolveLogExplanation(row, explanationContext);
+            const longDetails = (explanation?.details ?? '').length > 220;
+            return (
+              <div key={row.id} className="rounded-2xl border-[3px] border-[#142a45] bg-white p-4 space-y-3">
+                <div className="flex flex-wrap gap-2 items-center justify-between">
+                  <div className="flex gap-2 items-center">
+                    <StatusBadge label={row.level} status={row.level === 'error' ? 'error' : 'warning'} />
+                    <span className="text-xs font-black tracking-[0.25em] text-[#142a45]/60">{row.channel}</span>
+                    {row.event_name ? <StatusBadge label={row.event_name} status="neutral" /> : null}
                   </div>
-                  <p className="text-sm font-semibold text-[#142a45]">{row.message}</p>
-                  {explanation ? (
-                    <div className="rounded-2xl border-[2px] border-[#b68c1d]/40 bg-[#fff9e7] p-3 space-y-2">
-                      <p className="text-xs font-black tracking-[0.2em] text-[#7a5a0f]">{explanation.title}</p>
-                      <p className="text-sm font-semibold text-[#4e3708]">{explanation.short}</p>
-                      {explanation.details ? (
-                        longDetails ? (
-                          <button
-                            type="button"
-                            onClick={() => setActiveExplanation({ title: explanation.title, details: explanation.details ?? '' })}
-                            className="px-4 py-2 rounded-xl border-[2px] border-[#b68c1d] text-xs font-black text-[#7a5a0f] hover:bg-[#fff2c8]"
-                          >
-                            Читать пояснение
-                          </button>
-                        ) : (
-                          <p className="text-xs text-[#4e3708] whitespace-pre-wrap">{explanation.details}</p>
-                        )
-                      ) : null}
-                    </div>
-                  ) : null}
+                  <span className="text-xs font-semibold text-[#142a45]/60">{formatIso(row.created_at)}</span>
                 </div>
-              );
-            })}
+                <p className="text-sm font-semibold text-[#142a45]">{row.message}</p>
+                {explanation ? (
+                  <div className="rounded-2xl border-[2px] border-[#b68c1d]/40 bg-[#fff9e7] p-3 space-y-2">
+                    <p className="text-xs font-black tracking-[0.2em] text-[#7a5a0f]">{explanation.title}</p>
+                    <p className="text-sm font-semibold text-[#4e3708]">{explanation.short}</p>
+                    {explanation.details ? (
+                      longDetails ? (
+                        <button
+                          type="button"
+                          onClick={() => setActiveExplanation({ title: explanation.title, details: explanation.details ?? '' })}
+                          className="px-4 py-2 rounded-xl border-[2px] border-[#b68c1d] text-xs font-black text-[#7a5a0f] hover:bg-[#fff2c8]"
+                        >
+                          Читать пояснение
+                        </button>
+                      ) : (
+                        <p className="text-xs text-[#4e3708] whitespace-pre-wrap">{explanation.details}</p>
+                      )
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
           {!loading && (summary?.errorLogs?.length ?? 0) === 0 ? (
             <p className="font-black text-[#142a45]/60">Ошибок нет</p>
           ) : null}
@@ -610,7 +757,7 @@ export default function AdminRoomDetailsClient({ roomId }: { roomId: string }) {
                 </div>
                 <p className="mt-2 font-semibold">{log.message}</p>
                 {(() => {
-                  const explanation = resolveErrorExplanation(log);
+                  const explanation = resolveLogExplanation(log, explanationContext);
                   if (!explanation) return null;
                   return (
                     <div className="mt-3 rounded-2xl border-[2px] border-[#1f6ac6]/30 bg-[#e9f0ff] p-3 space-y-1">
