@@ -264,6 +264,7 @@ export default function AdminRoomDetailsPage() {
   }, [summary?.topLikes]);
 
   const roomSnapshot = summary?.room;
+  const questionStartedAt = typeof roomSnapshot?.question_started_at === 'string' ? roomSnapshot.question_started_at : null;
 
   return (
     <div className="space-y-6">
@@ -319,7 +320,7 @@ export default function AdminRoomDetailsPage() {
             <MetricRow label="createdAt" value={formatIso(String(roomSnapshot?.created_at ?? ''))} />
             <MetricRow label="stateVersion" value={String(roomSnapshot?.state_version ?? '—')} />
             <MetricRow label="currentQuestionIndex" value={String(roomSnapshot?.current_question_index ?? '—')} />
-            <MetricRow label="questionStartedAt" value={formatIso(roomSnapshot?.question_started_at ?? null)} />
+            <MetricRow label="questionStartedAt" value={formatIso(questionStartedAt)} />
             <MetricRow label="allPlayersAnswered" value={String(Boolean(roomSnapshot?.all_players_answered))} />
             <MetricRow label="round2Phase" value={String(roomSnapshot?.round2_phase ?? '—')} />
             <MetricRow label="round2ItemIndex" value={String(roomSnapshot?.round2_item_index ?? '—')} />
