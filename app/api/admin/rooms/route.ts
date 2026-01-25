@@ -36,9 +36,9 @@ export async function GET(request: Request) {
   // Note: players(count) works only if a FK relationship rooms -> players exists in PostgREST.
   // We attempt it first, and fallback to a simpler query if PostgREST doesn't expose the relationship.
   const selectWithPlayers =
-    'id, code, status, is_active, created_at, pack_id, state_version, transitioning_to_next, current_question_index, question_started_at, players(count)';
+    'id, code, status, is_active, created_at, updated_at, pack_id, state_version, transitioning_to_next, current_question_index, question_started_at, all_players_answered, round2_item_index, round2_showing_fact, round2_phase, round3_question_index, round4_puzzle_id, round5_question_index, players(count)';
   const selectWithoutPlayers =
-    'id, code, status, is_active, created_at, pack_id, state_version, transitioning_to_next, current_question_index, question_started_at';
+    'id, code, status, is_active, created_at, updated_at, pack_id, state_version, transitioning_to_next, current_question_index, question_started_at, all_players_answered, round2_item_index, round2_showing_fact, round2_phase, round3_question_index, round4_puzzle_id, round5_question_index';
 
   let query = supabase
     .from('rooms')
@@ -89,31 +89,45 @@ export async function GET(request: Request) {
         status?: unknown;
         is_active?: unknown;
         created_at?: unknown;
+        updated_at?: unknown;
         pack_id?: unknown;
         state_version?: unknown;
         transitioning_to_next?: unknown;
         current_question_index?: unknown;
         question_started_at?: unknown;
+        all_players_answered?: unknown;
+        round2_item_index?: unknown;
+        round2_showing_fact?: unknown;
+        round2_phase?: unknown;
+        round3_question_index?: unknown;
+        round4_puzzle_id?: unknown;
+        round5_question_index?: unknown;
         players?: Array<{ count?: number }>;
       };
 
       const playersCount = Array.isArray(meta.players) ? Number(meta.players[0]?.count ?? 0) : null;
 
-      const base = row as { id?: string; code?: string };
-      const id = base.id ?? null;
-      if (!id) console.error('Missing ID for room row:', row);
+      const base = row as { id: string; code: string };
 
       return {
-        id: id ?? 'missing-id',
-        code: base.code ?? 'NO_CODE',
+        id: base.id,
+        code: base.code,
         status: meta.status ?? null,
         isActive: meta.is_active ?? null,
         createdAt: meta.created_at ?? null,
+        updatedAt: meta.updated_at ?? null,
         packId: meta.pack_id ?? null,
         stateVersion: meta.state_version ?? null,
         transitioningToNext: meta.transitioning_to_next ?? null,
         currentQuestionIndex: meta.current_question_index ?? null,
         questionStartedAt: meta.question_started_at ?? null,
+        allPlayersAnswered: meta.all_players_answered ?? null,
+        round2ItemIndex: meta.round2_item_index ?? null,
+        round2ShowingFact: meta.round2_showing_fact ?? null,
+        round2Phase: meta.round2_phase ?? null,
+        round3QuestionIndex: meta.round3_question_index ?? null,
+        round4PuzzleId: meta.round4_puzzle_id ?? null,
+        round5QuestionIndex: meta.round5_question_index ?? null,
         playersCount,
       };
     }),

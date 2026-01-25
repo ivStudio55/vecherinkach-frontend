@@ -341,6 +341,11 @@ export default function AdminRoomDetailsClient({ roomId }: { roomId: string }) {
             <MetricRow label="allPlayersAnswered" value={String(Boolean(roomSnapshot?.all_players_answered))} />
             <MetricRow label="round2Phase" value={String(roomSnapshot?.round2_phase ?? '—')} />
             <MetricRow label="round2ItemIndex" value={String(roomSnapshot?.round2_item_index ?? '—')} />
+            <MetricRow label="round2ShowingFact" value={String(roomSnapshot?.round2_showing_fact ?? '—')} />
+            <MetricRow label="round3QuestionIndex" value={String(roomSnapshot?.round3_question_index ?? '—')} />
+            <MetricRow label="round4PuzzleId" value={String(roomSnapshot?.round4_puzzle_id ?? '—')} />
+            <MetricRow label="round5QuestionIndex" value={String(roomSnapshot?.round5_question_index ?? '—')} />
+            <MetricRow label="transitioningToNext" value={String(Boolean(roomSnapshot?.transitioning_to_next))} />
           </div>
 
           <div className="rounded-3xl border-[3px] border-[#142a45] bg-white p-5 space-y-2">
