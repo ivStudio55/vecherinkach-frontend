@@ -13,6 +13,12 @@ function isMissingTableError(error: PostgrestErrorLike) {
   return code === '42P01' || /relation .* does not exist/i.test(message);
 }
 
+function isMissingColumnError(error: PostgrestErrorLike) {
+  const code = (error as { code?: string } | null)?.code;
+  const message = (error as { message?: string } | null)?.message ?? '';
+  return code === '42703' || /column .* does not exist/i.test(message);
+}
+
 export async function GET(request: Request) {
   const authResponse = requireAdminBasicAuth(request);
   if (authResponse) return authResponse;
@@ -81,16 +87,28 @@ export async function GET(request: Request) {
       loadRowsMaybe<{ question_index: number }>('round5_answers', 'question_index', 10000),
       loadRowsMaybe<{ question_id: number }>('question_likes', 'question_id', 10000),
       (async () => {
-        const res = await supabase
-          .from('logs')
-          .select('id, created_at, level, channel, event_name, message, player_id, player_name, context')
-          .eq('room_id', roomId)
-          .in('level', ['error', 'warn'])
-          .order('created_at', { ascending: false })
-          .limit(50);
-        if (res.error && isMissingTableError(res.error as PostgrestErrorLike)) return [];
-        if (res.error) throw res.error;
-        return res.data ?? [];
+        const loadLogs = async (withPlayerName: boolean) =>
+          supabase
+            .from('logs')
+            .select(
+              withPlayerName
+                ? 'id, created_at, level, channel, event_name, message, player_id, player_name, context'
+                : 'id, created_at, level, channel, event_name, message, player_id, context'
+            )
+            .eq('room_id', roomId)
+            .in('level', ['error', 'warn'])
+            .order('created_at', { ascending: false })
+            .limit(50);
+
+        const initial = await loadLogs(true);
+        if (initial.error && isMissingTableError(initial.error as PostgrestErrorLike)) return [];
+        if (initial.error && isMissingColumnError(initial.error as PostgrestErrorLike)) {
+          const fallback = await loadLogs(false);
+          if (fallback.error) throw fallback.error;
+          return fallback.data ?? [];
+        }
+        if (initial.error) throw initial.error;
+        return initial.data ?? [];
       })(),
     ]);
 

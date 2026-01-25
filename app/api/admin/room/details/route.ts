@@ -3,6 +3,12 @@ import { getSupabaseAdminClient } from '@/lib/supabaseAdmin.server';
 
 export const dynamic = 'force-dynamic';
 
+const isMissingColumnError = (error: { code?: string; message?: string } | null) => {
+  const code = (error as { code?: string } | null)?.code;
+  const message = (error as { message?: string } | null)?.message ?? '';
+  return code === '42703' || /column .* does not exist/i.test(message);
+};
+
 export async function GET(request: Request) {
   const authResponse = requireAdminBasicAuth(request);
   if (authResponse) return authResponse;
@@ -37,15 +43,28 @@ export async function GET(request: Request) {
     return Response.json({ error: playersError.message ?? 'Failed to load players' }, { status: 500 });
   }
 
-  const { data: logs, error: logsError } = await supabase
-    .from('logs')
-    .select('id, created_at, level, channel, message, event_name, player_id, player_name, context')
-    .eq('room_id', room.id)
-    .order('created_at', { ascending: false })
-    .limit(200);
+  const loadLogs = async (withPlayerName: boolean) =>
+    supabase
+      .from('logs')
+      .select(
+        withPlayerName
+          ? 'id, created_at, level, channel, message, event_name, player_id, player_name, context'
+          : 'id, created_at, level, channel, message, event_name, player_id, context'
+      )
+      .eq('room_id', room.id)
+      .order('created_at', { ascending: false })
+      .limit(200);
 
-  if (logsError) {
-    return Response.json({ error: logsError.message ?? 'Failed to load logs' }, { status: 500 });
+  const initialLogs = await loadLogs(true);
+  let logs = initialLogs.data ?? [];
+  if (initialLogs.error && isMissingColumnError(initialLogs.error)) {
+    const fallbackLogs = await loadLogs(false);
+    if (fallbackLogs.error) {
+      return Response.json({ error: fallbackLogs.error.message ?? 'Failed to load logs' }, { status: 500 });
+    }
+    logs = fallbackLogs.data ?? [];
+  } else if (initialLogs.error) {
+    return Response.json({ error: initialLogs.error.message ?? 'Failed to load logs' }, { status: 500 });
   }
 
   const { data: bestQuestion, error: bestQuestionError } = await supabase
