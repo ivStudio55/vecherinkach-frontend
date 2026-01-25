@@ -59,6 +59,13 @@ type ErrorExplanation = {
   details?: string;
 };
 
+type LogLikeEntry = {
+  level: string;
+  channel?: string | null;
+  event_name: string | null;
+  message?: string | null;
+};
+
 const EVENT_EXPLANATIONS: Record<string, ErrorExplanation> = {
   'round1:missing-question-data': {
     title: 'Нет данных для вопроса раунда 1',
@@ -144,7 +151,7 @@ const DEFAULT_EXPLANATIONS: Record<'error' | 'warning', ErrorExplanation> = {
   },
 };
 
-const resolveErrorExplanation = (log?: SummaryResponse['errorLogs'][number]): ErrorExplanation | null => {
+const resolveErrorExplanation = (log?: LogLikeEntry | null): ErrorExplanation | null => {
   if (!log) return null;
   const byEvent = log.event_name ? EVENT_EXPLANATIONS[log.event_name] : undefined;
   if (byEvent) return byEvent;
@@ -593,12 +600,12 @@ export default function AdminRoomDetailsClient({ roomId }: { roomId: string }) {
         <SectionCard title="Последние логи">
           <div className="space-y-2">
             {(details?.logs ?? []).slice(0, 40).map((log) => {
-              const explanation = resolveErrorExplanation(log as SummaryResponse['errorLogs'][number]);
+              const explanation = resolveErrorExplanation(log);
               const longDetails = (explanation?.details ?? '').length > 220;
               return (
                 <div key={log.id} className="rounded-2xl border-[3px] border-[#142a45] bg-white p-4 space-y-3">
                   <div className="flex items-center justify-between gap-2">
-                    <div className="flex flex-wrap gap-2 items-center">
+                    <div className="flex flex-wrap items-center gap-2">
                       <StatusBadge label={log.level} status={log.level === 'error' ? 'error' : log.level === 'warn' ? 'warning' : 'neutral'} />
                       {log.channel ? <StatusBadge label={log.channel} status="neutral" /> : null}
                       {log.event_name ? <StatusBadge label={log.event_name} status="neutral" /> : null}
@@ -607,20 +614,20 @@ export default function AdminRoomDetailsClient({ roomId }: { roomId: string }) {
                   </div>
                   <p className="text-sm font-semibold text-[#142a45]">{log.message}</p>
                   {explanation ? (
-                    <div className="rounded-2xl border-[2px] border-[#142a45]/20 bg-[#f5f7fb] p-3 space-y-2">
-                      <p className="text-xs font-black tracking-[0.2em] text-[#142a45]/70">{explanation.title}</p>
+                    <div className="rounded-2xl border-[2px] border-[#1f6ac6]/30 bg-[#e9f0ff] p-3 space-y-2">
+                      <p className="text-xs font-black tracking-[0.2em] text-[#1f3d6b]">{explanation.title}</p>
                       <p className="text-sm font-semibold text-[#142a45]">{explanation.short}</p>
                       {explanation.details ? (
                         longDetails ? (
                           <button
                             type="button"
                             onClick={() => setActiveExplanation({ title: explanation.title, details: explanation.details ?? '' })}
-                            className="px-4 py-2 rounded-xl border-[2px] border-[#142a45] text-xs font-black text-[#142a45] hover:bg-[#142a45]/5"
+                            className="px-4 py-2 rounded-xl border-[2px] border-[#1f6ac6] text-xs font-black text-[#1f3d6b] hover:bg-[#d7e4ff]"
                           >
-                            Подробнее
+                            Читать пояснение
                           </button>
                         ) : (
-                          <p className="text-xs text-[#142a45]/80 whitespace-pre-wrap">{explanation.details}</p>
+                          <p className="text-xs text-[#1f3d6b] whitespace-pre-wrap">{explanation.details}</p>
                         )
                       ) : null}
                     </div>
