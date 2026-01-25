@@ -58,23 +58,28 @@ export function BarChart({ title, series, valueSuffix }: { title: string; series
         <p className="text-sm font-black text-[#142a45]">{title}</p>
         <p className="text-xs font-semibold text-[#142a45]/60">{series.length} точек</p>
       </div>
-      <div className="flex items-end gap-2 h-28">
-        {series.map((point) => {
-          const height = Math.max(6, Math.round((point.value / maxValue) * 100));
-          return (
-            <div key={point.label} className="flex-1 flex flex-col items-center gap-2">
-              <div
-                className="w-full rounded-xl bg-[#1f6ac6]/80"
-                style={{ height: `${height}%` }}
-                title={`${point.label}: ${point.value}${valueSuffix ?? ''}`}
-              />
+      <div className="space-y-1">
+        <div className="flex items-end gap-2 h-28">
+          {series.map((point) => {
+            const height = Math.max(6, Math.round((point.value / maxValue) * 100));
+            return (
+              <div key={point.label} className="flex-1 flex flex-col items-center gap-1">
+                <div
+                  className="w-full rounded-xl bg-[#1f6ac6]/80 hover:bg-[#1f6ac6]"
+                  style={{ height: `${height}%` }}
+                  title={`${point.label}: ${point.value}${valueSuffix ?? ''}`}
+                />
+              </div>
+            );
+          })}
+        </div>
+        <div className="flex items-center gap-2">
+          {series.map((point) => (
+            <div key={point.label} className="flex-1 text-center text-[9px] font-bold text-[#142a45]/60">
+              {point.label}
             </div>
-          );
-        })}
-      </div>
-      <div className="flex items-center justify-between text-[10px] font-semibold text-[#142a45]/60">
-        <span>{series[0]?.label ?? '—'}</span>
-        <span>{series.at(-1)?.label ?? '—'}</span>
+          ))}
+        </div>
       </div>
     </div>
   );

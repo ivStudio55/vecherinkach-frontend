@@ -50,9 +50,7 @@ function statusBadge(status?: string | null) {
 }
 
 function toSeries(rows: Array<{ id: number; total: number }>, prefix: string): SeriesPoint[] {
-  const series = rows.slice(0, 24).map((row) => ({ label: `${prefix}${row.id}`, value: row.total }));
-  console.log('[toSeries]', { prefix, rowsLength: rows.length, series });
-  return series;
+  return rows.slice(0, 24).map((row) => ({ label: `${prefix}${row.id}`, value: row.total }));
 }
 
 export default function AdminRoomDetailsClient({ roomId }: { roomId: string }) {
@@ -117,15 +115,6 @@ export default function AdminRoomDetailsClient({ roomId }: { roomId: string }) {
         ...(answersPayload as Omit<SummaryResponse, 'room'>),
         room: roomPayload?.room ?? {},
       } as SummaryResponse);
-      
-      // Debug logging
-      if (typeof window !== 'undefined') {
-        console.log('[AdminRoomDetails] Summary loaded:', {
-          countsAnswers: answersPayload?.counts?.answers,
-          breakdownsRound1Length: answersPayload?.breakdowns?.round1?.length,
-          fullBreakdowns: answersPayload?.breakdowns,
-        });
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка загрузки данных');
     } finally {
