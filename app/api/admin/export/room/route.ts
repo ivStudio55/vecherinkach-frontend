@@ -30,7 +30,7 @@ export async function GET(request: Request) {
 
   const supabase = getSupabaseAdminClient();
 
-  const roomQuery = supabase.from('rooms').select('*');
+  const roomQuery = supabase.from('rooms').select('id, code, status, is_active, created_at, pack_id, state_version, transitioning_to_next, current_question_index, question_started_at, all_players_answered, selected_question_ids, round2_item_index, round2_showing_fact, round2_phase');
   const roomRes = roomId ? await roomQuery.eq('id', roomId).maybeSingle() : await roomQuery.eq('code', code!).maybeSingle();
 
   if (roomRes.error) {

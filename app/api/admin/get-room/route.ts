@@ -19,7 +19,7 @@ export async function GET(request: Request) {
   }
 
   const supabase = getSupabaseAdminClient();
-  const { data: room, error } = await supabase.from('rooms').select('*').eq('id', roomId).maybeSingle();
+  const { data: room, error } = await supabase.from('rooms').select('id, code, status, is_active, created_at, pack_id, state_version, transitioning_to_next, current_question_index, question_started_at, all_players_answered, selected_question_ids, round2_item_index, round2_showing_fact, round2_phase').eq('id', roomId).maybeSingle();
 
   if (error) {
     return Response.json({ error: error.message ?? 'Failed to load room' }, { status: 500 });
