@@ -83,7 +83,10 @@ export default function AdminRoomDetailsPage() {
   const [summary, setSummary] = useState<SummaryResponse | null>(null);
 
   const load = useCallback(async () => {
-    if (!roomId) return;
+    if (!roomId) {
+      setLoading(false);
+      return;
+    }
     if (!hasValidRoomId) {
       setError('Некорректный id комнаты');
       setLoading(false);
@@ -93,8 +96,14 @@ export default function AdminRoomDetailsPage() {
     setError(null);
 
     const [detailsRes, summaryRes] = await Promise.all([
-      fetch(`/api/admin/room/details?roomId=${encodeURIComponent(roomId)}`, { cache: 'no-store' }),
-      fetch(`/api/admin/room/summary?roomId=${encodeURIComponent(roomId)}`, { cache: 'no-store' }),
+      fetch(`/api/admin/room/details?roomId=${encodeURIComponent(roomId)}`, {
+        cache: 'no-store',
+        credentials: 'include',
+      }),
+      fetch(`/api/admin/room/summary?roomId=${encodeURIComponent(roomId)}`, {
+        cache: 'no-store',
+        credentials: 'include',
+      }),
     ]);
 
     const detailsPayload = await detailsRes.json().catch(() => null);
@@ -134,6 +143,7 @@ export default function AdminRoomDetailsPage() {
     const res = await fetch('/api/admin/room/close', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ code }),
     });
     const payload = await res.json().catch(() => null);
@@ -158,6 +168,7 @@ export default function AdminRoomDetailsPage() {
     const res = await fetch('/api/admin/room/restart', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ roomId }),
     });
     const payload = await res.json().catch(() => null);
@@ -180,6 +191,7 @@ export default function AdminRoomDetailsPage() {
     const res = await fetch('/api/admin/room/force-end', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ roomId }),
     });
     const payload = await res.json().catch(() => null);
@@ -202,6 +214,7 @@ export default function AdminRoomDetailsPage() {
     const res = await fetch('/api/admin/room/start-round3', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ roomId }),
     });
     const payload = await res.json().catch(() => null);
@@ -219,7 +232,9 @@ export default function AdminRoomDetailsPage() {
       return;
     }
     setError(null);
-    const res = await fetch(`/api/admin/export/room?roomId=${encodeURIComponent(roomId ?? '')}`);
+    const res = await fetch(`/api/admin/export/room?roomId=${encodeURIComponent(roomId ?? '')}`, {
+      credentials: 'include',
+    });
     if (!res.ok) {
       setError('Не удалось выгрузить room export');
       return;
