@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BarChart, KpiCard, MetricRow, SectionCard, StatusBadge, type SeriesPoint } from '@/components/admin/AdminWidgets';
 import { describeLikeQuestionId } from '@/shared/logic/questionLikes';
@@ -67,8 +68,10 @@ function toSeries(rows: Array<{ id: number; total: number }>, prefix: string): S
   return rows.slice(0, 24).map((row) => ({ label: `${prefix}${row.id}`, value: row.total }));
 }
 
-export default function AdminRoomDetailsPage({ params }: { params: { roomId: string } }) {
-  const roomId = params?.roomId;
+export default function AdminRoomDetailsPage() {
+  const params = useParams<{ roomId?: string | string[] }>();
+  const roomIdRaw = params?.roomId;
+  const roomId = Array.isArray(roomIdRaw) ? roomIdRaw[0] : roomIdRaw;
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   const hasValidRoomId = typeof roomId === 'string' && uuidRegex.test(roomId);
 
