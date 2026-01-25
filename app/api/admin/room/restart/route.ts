@@ -31,7 +31,6 @@ export async function POST(request: Request) {
       round2_item_index: null,
       round2_showing_fact: true,
       round2_phase: 'idle',
-      round3_question_index: null,
       round4_puzzle_id: null,
       round5_question_index: null,
       transitioning_to_next: false,
