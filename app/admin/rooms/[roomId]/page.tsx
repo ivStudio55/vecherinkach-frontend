@@ -14,23 +14,7 @@ type RoomDetails = {
 };
 
 type SummaryResponse = {
-  room: {
-    id: string;
-    code?: string;
-    created_at?: string;
-    status?: string;
-    is_active?: boolean;
-    pack_id?: string;
-    state_version?: number;
-    transitioning_to_next?: boolean;
-    current_question_index?: number;
-    question_started_at?: string | null;
-    all_players_answered?: boolean;
-    selected_question_ids?: number[] | null;
-    round2_item_index?: number | null;
-    round2_showing_fact?: boolean | null;
-    round2_phase?: string | null;
-  };
+  room: Record<string, unknown>;
   counts: {
     answers: number;
     round2Answers: number;
@@ -95,33 +79,59 @@ export default function AdminRoomDetailsPage() {
     setLoading(true);
     setError(null);
 
-    const [detailsRes, summaryRes] = await Promise.all([
-      fetch(`/api/admin/room/details?roomId=${encodeURIComponent(roomId)}`, {
-        cache: 'no-store',
-        credentials: 'include',
-      }),
-      fetch(`/api/admin/room/summary?roomId=${encodeURIComponent(roomId)}`, {
-        cache: 'no-store',
-        credentials: 'include',
-      }),
-    ]);
-
-    const detailsPayload = await detailsRes.json().catch(() => null);
-    const summaryPayload = await summaryRes.json().catch(() => null);
-
-    if (!detailsRes.ok) {
-      setError(detailsPayload?.error ?? 'Не удалось загрузить room details');
-      setLoading(false);
-      return;
-    }
-    if (!summaryRes.ok) {
-      setError(summaryPayload?.error ?? 'Не удалось загрузить room summary');
+    const roomRes = await fetch(`/api/admin/get-room?roomId=${encodeURIComponent(roomId)}`, {
+      cache: 'no-store',
+      credentials: 'include',
+    });
+    const roomPayload = await roomRes.json().catch(() => null);
+    if (!roomRes.ok) {
+      setError(roomPayload?.error ?? 'Не удалось загрузить комнату');
       setLoading(false);
       return;
     }
 
-    setDetails(detailsPayload as RoomDetails);
-    setSummary(summaryPayload as SummaryResponse);
+    const playersRes = await fetch(`/api/admin/get-players?roomId=${encodeURIComponent(roomId)}`, {
+      cache: 'no-store',
+      credentials: 'include',
+    });
+    const playersPayload = await playersRes.json().catch(() => null);
+    if (!playersRes.ok) {
+      setError(playersPayload?.error ?? 'Не удалось загрузить игроков');
+      setLoading(false);
+      return;
+    }
+
+    const logsRes = await fetch(`/api/admin/get-logs?roomId=${encodeURIComponent(roomId)}`, {
+      cache: 'no-store',
+      credentials: 'include',
+    });
+    const logsPayload = await logsRes.json().catch(() => null);
+    if (!logsRes.ok) {
+      setError(logsPayload?.error ?? 'Не удалось загрузить логи');
+      setLoading(false);
+      return;
+    }
+
+    const answersRes = await fetch(`/api/admin/get-answers?roomId=${encodeURIComponent(roomId)}`, {
+      cache: 'no-store',
+      credentials: 'include',
+    });
+    const answersPayload = await answersRes.json().catch(() => null);
+    if (!answersRes.ok) {
+      setError(answersPayload?.error ?? 'Не удалось загрузить ответы');
+      setLoading(false);
+      return;
+    }
+
+    setDetails({
+      room: roomPayload?.room ?? null,
+      players: playersPayload?.items ?? [],
+      logs: logsPayload?.items ?? [],
+    } as RoomDetails);
+    setSummary({
+      ...(answersPayload as Omit<SummaryResponse, 'room'>),
+      room: roomPayload?.room ?? {},
+    } as SummaryResponse);
 
     setLoading(false);
   }, [hasValidRoomId, roomId]);
