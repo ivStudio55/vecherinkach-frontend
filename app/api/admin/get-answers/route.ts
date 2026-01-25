@@ -73,7 +73,7 @@ export async function GET(request: Request) {
       likeRows,
       errorLogs,
     ] = await Promise.all([
-      loadRowsMaybe<{ question_id: number; is_correct: boolean }>('answers', 'question_id, is_correct', 10000),
+      loadRowsMaybe<{ question_index: number; is_correct: boolean }>('answers', 'question_index, is_correct', 10000),
       loadRowsMaybe<{ item_index: number; answer_is_fact: boolean; is_correct: boolean }>('round2_answers', 'item_index, answer_is_fact, is_correct', 10000),
       loadRowsMaybe<{ question_index: number }>('round3_answers', 'question_index', 10000),
       loadRowsMaybe<{ question_index: number }>('round3_votes', 'question_index', 10000),
@@ -109,7 +109,7 @@ export async function GET(request: Request) {
         .map(([id, v]) => ({ id, ...v }));
     };
 
-    const round1ByQuestion = aggregateByNumberKey(answerRows as Array<Record<string, unknown>>, 'question_id', 'is_correct');
+    const round1ByQuestion = aggregateByNumberKey(answerRows as Array<Record<string, unknown>>, 'question_index', 'is_correct');
     const round2ByItem = aggregateByNumberKey(round2Rows as Array<Record<string, unknown>>, 'item_index', 'is_correct');
     const round3AnswersByQuestion = aggregateByNumberKey(round3AnswerRows as Array<Record<string, unknown>>, 'question_index');
     const round3VotesByQuestion = aggregateByNumberKey(round3VoteRows as Array<Record<string, unknown>>, 'question_index');
