@@ -40,37 +40,6 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-
 
 const formatIso = (value?: string | null) => (value ? new Date(value).toLocaleString() : '—');
 
-function getErrorExplanation(message: string, eventName?: string | null): string | null {
-  const lowerMsg = message.toLowerCase();
-  
-  if (lowerMsg.includes('column') && lowerMsg.includes('does not exist')) {
-    return 'Запрос обращается к несуществующей колонке в базе данных. Проверьте схему таблицы.';
-  }
-  if (lowerMsg.includes('permission denied') || lowerMsg.includes('rls policy')) {
-    return 'Недостаточно прав доступа. Проверьте Row Level Security политики в Supabase.';
-  }
-  if (lowerMsg.includes('foreign key') || lowerMsg.includes('violates')) {
-    return 'Нарушение целостности данных. Возможно, удалена связанная запись.';
-  }
-  if (lowerMsg.includes('timeout') || lowerMsg.includes('timed out')) {
-    return 'Превышено время ожидания ответа от сервера. Проверьте производительность БД.';
-  }
-  if (lowerMsg.includes('duplicate key') || lowerMsg.includes('unique constraint')) {
-    return 'Попытка создать дубликат уникального значения. Проверьте уникальные индексы.';
-  }
-  if (lowerMsg.includes('null value') || lowerMsg.includes('not null')) {
-    return 'Попытка записать NULL в обязательное поле.';
-  }
-  if (lowerMsg.includes('connection') || lowerMsg.includes('connect')) {
-    return 'Проблема с подключением к базе данных или внешнему сервису.';
-  }
-  if (eventName === 'player_join' || eventName === 'player_answer') {
-    return 'Ошибка во время действия игрока. Проверьте логику обработки действий.';
-  }
-  
-  return null;
-}
-
 function statusBadge(status?: string | null) {
   if (!status) return <StatusBadge label="—" status="neutral" />;
   if (status === 'running') return <StatusBadge label={status} status="success" />;
@@ -84,6 +53,111 @@ function toSeries(rows: Array<{ id: number; total: number }>, prefix: string): S
   return rows.slice(0, 24).map((row) => ({ label: `${prefix}${row.id}`, value: row.total }));
 }
 
+type ErrorExplanation = {
+  title: string;
+  short: string;
+  details?: string;
+};
+
+const EVENT_EXPLANATIONS: Record<string, ErrorExplanation> = {
+  'round1:missing-question-data': {
+    title: 'Нет данных для вопроса раунда 1',
+    short: 'Система не смогла получить текст вопроса. Обычно это происходит, если пак обновился во время игры.',
+    details:
+      'Попросите ведущего перезапустить игру или выбрать вопрос заново. Проверьте, что пак вопросов синхронизирован и игроки не находятся в состоянии паузы.',
+  },
+  'round2:fact-desync': {
+    title: 'Несовпадение факта в раунде 2',
+    short: 'Игроки отвечали уже после того, как ведущий переключил карточку.',
+    details:
+      'Причина чаще всего в нестабильном соединении. Рекомендуется обновить страницу ведущего и при необходимости перезапустить раунд 2 кнопкой Restart.',
+  },
+  'round3:sync-timeout': {
+    title: 'Тайм-аут синхронизации раунда 3',
+    short: 'Не все клиенты подтвердили загрузку вопроса в отведённое время.',
+    details:
+      'Проверьте, что ведущий открыл комнату в режиме host и все игроки находятся онлайн. Можно воспользоваться кнопкой «Force end round», чтобы перевести игру к следующему состоянию.',
+  },
+  'round4:puzzle-cancelled': {
+    title: 'Головоломка была пропущена',
+    short: 'Ведущий вручную пропустил puzzle, поэтому ответы не были сохранены.',
+    details:
+      'Это штатное поведение. Если пропуск был случайным, выберите ту же загадку повторно или начните раунд заново через Restart.',
+  },
+  'round5:final-answer-error': {
+    title: 'Ошибка финального ответа',
+    short: 'Supabase вернул ошибку при записи итогового ответа команды.',
+    details:
+      'Проверьте соединение и попробуйте сохранить ответ ещё раз. Если проблема повторяется, выполните Export room и обратитесь к разработчикам с файлом логов.',
+  },
+};
+
+const CHANNEL_EXPLANATIONS: Record<string, ErrorExplanation> = {
+  round1: {
+    title: 'Раунд 1',
+    short: 'Проблемы с отображением вопросов или подсчётом очков.',
+    details:
+      'Убедитесь, что все игроки подключены к комнате и пак вопросов содержит корректные данные. При необходимости выполните Restart комнаты.',
+  },
+  round2: {
+    title: 'Раунд 2',
+    short: 'Система заметила рассинхронизацию фактов.',
+    details:
+      'Чаще всего помогает перезагрузка страницы ведущего. Если игроки жалуются на задержки, проверьте их подключение.',
+  },
+  round3: {
+    title: 'Раунд 3',
+    short: 'Замечены задержки подтверждения вопросов или голосования.',
+    details:
+      'Запустите Round 3 ещё раз через кнопку «Start round 3 RPC» или завершите его принудительно, если игроки не могут продолжить.',
+  },
+  round4: {
+    title: 'Раунд 4',
+    short: 'Ответы на загадки не были сохранены.',
+    details:
+      'Проверьте соединение ведущего и состояние комнаты. Воспользуйтесь кнопкой Force End, чтобы перейти к следующему этапу.',
+  },
+  round5: {
+    title: 'Раунд 5',
+    short: 'Финальные ответы не подтвердились.',
+    details:
+      'Убедитесь, что у ведущего открыт экран host. В крайнем случае сделайте Export room и сообщите команде поддержки.',
+  },
+  system: {
+    title: 'Системный канал',
+    short: 'Общая техническая ошибка.',
+    details:
+      'Обычно связано с соединением с Supabase. Переподключите интернет или повторите действие спустя минуту. Если ошибка сохраняется, создайте issue.',
+  },
+};
+
+const DEFAULT_EXPLANATIONS: Record<'error' | 'warning', ErrorExplanation> = {
+  error: {
+    title: 'Необработанная ошибка',
+    short: 'Система зафиксировала критическую ошибку.',
+    details: 'Сообщение сервера: {message}. Попробуйте повторить действие и при необходимости перезапустите комнату.',
+  },
+  warning: {
+    title: 'Предупреждение',
+    short: 'Система заметила нестандартное поведение, но игра продолжилась.',
+    details: 'Детали: {message}. Проверьте логи и при необходимости синхронизируйте комнату.',
+  },
+};
+
+const resolveErrorExplanation = (log?: SummaryResponse['errorLogs'][number]): ErrorExplanation | null => {
+  if (!log) return null;
+  const byEvent = log.event_name ? EVENT_EXPLANATIONS[log.event_name] : undefined;
+  if (byEvent) return byEvent;
+  const byChannel = log.channel ? CHANNEL_EXPLANATIONS[log.channel] : undefined;
+  if (byChannel) return byChannel;
+  const levelKey = log.level === 'error' ? 'error' : 'warning';
+  const template = DEFAULT_EXPLANATIONS[levelKey];
+  return {
+    ...template,
+    details: template.details?.replace('{message}', log.message ?? '—') ?? undefined,
+  };
+};
+
 export default function AdminRoomDetailsClient({ roomId }: { roomId: string }) {
   const hasValidRoomId = useMemo(() => {
     return typeof roomId === 'string' && roomId.length > 0 && UUID_REGEX.test(roomId);
@@ -92,10 +166,10 @@ export default function AdminRoomDetailsClient({ roomId }: { roomId: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
-  const [selectedLog, setSelectedLog] = useState<{ message: string; explanation: string | null } | null>(null);
 
   const [details, setDetails] = useState<RoomDetails | null>(null);
   const [summary, setSummary] = useState<SummaryResponse | null>(null);
+  const [activeExplanation, setActiveExplanation] = useState<{ title: string; details: string } | null>(null);
 
   const load = useCallback(async () => {
     // CRITICAL: Не выполнять запросы, если roomId невалиден
@@ -316,7 +390,8 @@ export default function AdminRoomDetailsClient({ roomId }: { roomId: string }) {
   }
 
   return (
-    <div className="space-y-6">
+    <>
+      <div className="space-y-6">
       <SectionCard
         title="Комната"
         actions={
@@ -474,107 +549,92 @@ export default function AdminRoomDetailsClient({ roomId }: { roomId: string }) {
       <SectionCard title="Ошибки (warn/error)">
         <div className="space-y-2">
           {(summary?.errorLogs ?? []).slice(0, 20).map((row) => {
-            const explanation = getErrorExplanation(row.message, row.event_name);
-            const isLongMessage = row.message.length > 120;
-            
-            return (
-              <div key={row.id} className="rounded-2xl border-[3px] border-[#142a45] bg-white p-4">
-                <div className="flex flex-wrap gap-2 items-center justify-between">
-                  <div className="flex gap-2 items-center">
-                    <StatusBadge label={row.level} status={row.level === 'error' ? 'error' : 'warning'} />
-                    <span className="text-xs font-black tracking-[0.25em] text-[#142a45]/60">{row.channel}</span>
-                    {row.event_name ? <StatusBadge label={row.event_name} status="neutral" /> : null}
+              const explanation = resolveErrorExplanation(row);
+              const longDetails = (explanation?.details ?? '').length > 220;
+              return (
+                <div key={row.id} className="rounded-2xl border-[3px] border-[#142a45] bg-white p-4 space-y-3">
+                  <div className="flex flex-wrap gap-2 items-center justify-between">
+                    <div className="flex gap-2 items-center">
+                      <StatusBadge label={row.level} status={row.level === 'error' ? 'error' : 'warning'} />
+                      <span className="text-xs font-black tracking-[0.25em] text-[#142a45]/60">{row.channel}</span>
+                      {row.event_name ? <StatusBadge label={row.event_name} status="neutral" /> : null}
+                    </div>
+                    <span className="text-xs font-semibold text-[#142a45]/60">{formatIso(row.created_at)}</span>
                   </div>
-                  <span className="text-xs font-semibold text-[#142a45]/60">{formatIso(row.created_at)}</span>
+                  <p className="text-sm font-semibold text-[#142a45]">{row.message}</p>
+                  {explanation ? (
+                    <div className="rounded-2xl border-[2px] border-[#b68c1d]/40 bg-[#fff9e7] p-3 space-y-2">
+                      <p className="text-xs font-black tracking-[0.2em] text-[#7a5a0f]">{explanation.title}</p>
+                      <p className="text-sm font-semibold text-[#4e3708]">{explanation.short}</p>
+                      {explanation.details ? (
+                        longDetails ? (
+                          <button
+                            type="button"
+                            onClick={() => setActiveExplanation({ title: explanation.title, details: explanation.details ?? '' })}
+                            className="px-4 py-2 rounded-xl border-[2px] border-[#b68c1d] text-xs font-black text-[#7a5a0f] hover:bg-[#fff2c8]"
+                          >
+                            Читать пояснение
+                          </button>
+                        ) : (
+                          <p className="text-xs text-[#4e3708] whitespace-pre-wrap">{explanation.details}</p>
+                        )
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
-                {explanation && (
-                  <div className="mt-2 rounded-xl bg-[#fff2c8] border-[2px] border-[#b68c1d] p-3">
-                    <p className="text-xs font-black text-[#6a4a06]">💡 Пояснение:</p>
-                    <p className="text-sm font-semibold text-[#6a4a06] mt-1">{explanation}</p>
-                  </div>
-                )}
-                <div className="mt-2">
-                  <p className="font-semibold text-sm">
-                    {isLongMessage ? `${row.message.slice(0, 120)}...` : row.message}
-                  </p>
-                  {isLongMessage && (
-                    <button
-                      onClick={() => setSelectedLog({ message: row.message, explanation })}
-                      className="mt-2 text-xs font-black text-[#1f6ac6] hover:underline"
-                    >
-                      Показать полностью →
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
           {!loading && (summary?.errorLogs?.length ?? 0) === 0 ? (
             <p className="font-black text-[#142a45]/60">Ошибок нет</p>
           ) : null}
         </div>
       </SectionCard>
 
-      <SectionCard title="Последние логи">
-        <div className="space-y-2">
-          {(details?.logs ?? []).slice(0, 40).map((log) => (
-            <div key={log.id} className="rounded-2xl border-[3px] border-[#142a45] bg-white p-4">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <StatusBadge label={log.level} status={log.level === 'error' ? 'error' : log.level === 'warn' ? 'warning' : 'neutral'} />
-                  {log.event_name ? <StatusBadge label={log.event_name} status="neutral" /> : null}
+        <SectionCard title="Последние логи">
+          <div className="space-y-2">
+            {(details?.logs ?? []).slice(0, 40).map((log) => (
+              <div key={log.id} className="rounded-2xl border-[3px] border-[#142a45] bg-white p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <StatusBadge label={log.level} status={log.level === 'error' ? 'error' : log.level === 'warn' ? 'warning' : 'neutral'} />
+                    {log.event_name ? <StatusBadge label={log.event_name} status="neutral" /> : null}
+                  </div>
+                  <span className="text-xs font-semibold text-[#142a45]/60">{formatIso(log.created_at)}</span>
                 </div>
-                <span className="text-xs font-semibold text-[#142a45]/60">{formatIso(log.created_at)}</span>
+                <p className="mt-2 font-semibold">{log.message}</p>
               </div>
-              <p className="mt-2 font-semibold">{log.message}</p>
-            </div>
-          ))}
-        </div>
-      </SectionCard>
-
-      {/* Модальное окно для полного текста ошибки */}
-      {selectedLog && (
+            ))}
+          </div>
+        </SectionCard>
+      </div>
+      {activeExplanation ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          onClick={() => setSelectedLog(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setActiveExplanation(null)}
         >
           <div
-            className="relative max-w-3xl w-full max-h-[80vh] overflow-auto rounded-3xl border-[3px] border-[#142a45] bg-white p-6"
-            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-xl rounded-3xl border-[3px] border-[#142a45] bg-white p-6 space-y-4"
+            onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-black text-[#142a45]">Полный текст ошибки</h3>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-black tracking-[0.4em] text-[#142a45]/60">ПОЯСНЕНИЕ</p>
+                <p className="text-xl font-black text-[#142a45]">{activeExplanation.title}</p>
+              </div>
               <button
-                onClick={() => setSelectedLog(null)}
-                className="text-2xl font-black text-[#142a45] hover:text-[#b23324] w-8 h-8 flex items-center justify-center"
+                type="button"
+                onClick={() => setActiveExplanation(null)}
+                className="px-3 py-1 rounded-xl border-[2px] border-[#142a45] text-xs font-black text-[#142a45] hover:bg-[#142a45]/5"
               >
-                ×
+                Закрыть
               </button>
             </div>
-            
-            {selectedLog.explanation && (
-              <div className="mb-4 rounded-xl bg-[#fff2c8] border-[2px] border-[#b68c1d] p-4">
-                <p className="text-sm font-black text-[#6a4a06]">💡 Пояснение на русском:</p>
-                <p className="text-base font-semibold text-[#6a4a06] mt-2">{selectedLog.explanation}</p>
-              </div>
-            )}
-            
-            <div className="rounded-xl bg-[#f5f5f5] border-[2px] border-[#142a45]/20 p-4">
-              <p className="text-xs font-black text-[#142a45]/60 mb-2">СООБЩЕНИЕ:</p>
-              <p className="font-mono text-sm text-[#142a45] whitespace-pre-wrap break-words">
-                {selectedLog.message}
-              </p>
-            </div>
-            
-            <button
-              onClick={() => setSelectedLog(null)}
-              className="mt-4 w-full px-6 py-3 rounded-2xl border-[3px] border-[#142a45] bg-[#142a45] text-white font-black hover:bg-[#1f3d6b]"
-            >
-              Закрыть
-            </button>
+            <p className="text-sm font-semibold text-[#142a45]/80 whitespace-pre-wrap">{activeExplanation.details}</p>
           </div>
         </div>
-      )}
-    </div>
+      ) : null}
+    </>
   );
 }
