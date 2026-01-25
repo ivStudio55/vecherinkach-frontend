@@ -36,9 +36,9 @@ export async function GET(request: Request) {
   // Note: players(count) works only if a FK relationship rooms -> players exists in PostgREST.
   // We attempt it first, and fallback to a simpler query if PostgREST doesn't expose the relationship.
   const selectWithPlayers =
-    'id, code, status, is_active, created_at, updated_at, pack_id, state_version, transitioning_to_next, current_question_index, question_started_at, all_players_answered, round2_item_index, round2_showing_fact, round2_phase, round3_question_index, round4_puzzle_id, round5_question_index, players(count)';
+    'id, code, status, is_active, created_at, pack_id, state_version, transitioning_to_next, current_question_index, question_started_at, all_players_answered, round2_item_index, round2_showing_fact, round2_phase, round3_question_index, round4_puzzle_id, round5_question_index, players(count)';
   const selectWithoutPlayers =
-    'id, code, status, is_active, created_at, updated_at, pack_id, state_version, transitioning_to_next, current_question_index, question_started_at, all_players_answered, round2_item_index, round2_showing_fact, round2_phase, round3_question_index, round4_puzzle_id, round5_question_index';
+    'id, code, status, is_active, created_at, pack_id, state_version, transitioning_to_next, current_question_index, question_started_at, all_players_answered, round2_item_index, round2_showing_fact, round2_phase, round3_question_index, round4_puzzle_id, round5_question_index';
 
   let query = supabase
     .from('rooms')
@@ -89,7 +89,6 @@ export async function GET(request: Request) {
         status?: unknown;
         is_active?: unknown;
         created_at?: unknown;
-        updated_at?: unknown;
         pack_id?: unknown;
         state_version?: unknown;
         transitioning_to_next?: unknown;
@@ -115,7 +114,6 @@ export async function GET(request: Request) {
         status: meta.status ?? null,
         isActive: meta.is_active ?? null,
         createdAt: meta.created_at ?? null,
-        updatedAt: meta.updated_at ?? null,
         packId: meta.pack_id ?? null,
         stateVersion: meta.state_version ?? null,
         transitioningToNext: meta.transitioning_to_next ?? null,
