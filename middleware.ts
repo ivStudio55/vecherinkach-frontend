@@ -19,6 +19,12 @@ export function middleware(request: NextRequest) {
     return unauthorized();
   }
 
+  const expectedToken = btoa(`${expectedUser}:${expectedPassword}`);
+  const cookieToken = request.cookies.get('admin_auth')?.value;
+  if (cookieToken && cookieToken === expectedToken) {
+    return NextResponse.next();
+  }
+
   const authorization = request.headers.get('authorization');
   if (!authorization) return unauthorized();
 
@@ -42,7 +48,14 @@ export function middleware(request: NextRequest) {
     return unauthorized();
   }
 
-  return NextResponse.next();
+  const response = NextResponse.next();
+  response.cookies.set('admin_auth', expectedToken, {
+    httpOnly: true,
+    sameSite: 'lax',
+    path: '/',
+    secure: process.env.NODE_ENV === 'production',
+  });
+  return response;
 }
 
 export const config = {

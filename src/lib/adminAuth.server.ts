@@ -11,6 +11,18 @@ export function requireAdminBasicAuth(request: Request): Response | null {
     });
   }
 
+  const expectedToken = Buffer.from(`${expectedUser}:${expectedPassword}`, 'utf8').toString('base64');
+  const cookieHeader = request.headers.get('cookie') ?? '';
+  const cookieToken = cookieHeader
+    .split(';')
+    .map((part) => part.trim())
+    .find((part) => part.startsWith('admin_auth='))
+    ?.split('=')[1];
+
+  if (cookieToken && cookieToken === expectedToken) {
+    return null;
+  }
+
   const authorization = request.headers.get('authorization');
   if (!authorization) {
     return new Response('Authentication required', {
