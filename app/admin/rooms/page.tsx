@@ -27,6 +27,9 @@ type RoomsResponse = {
 
 const formatIso = (value?: string | null) => (value ? new Date(value).toLocaleString() : '—');
 
+const isUuid = (value: string | null | undefined) =>
+  typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+
 function statusToBadge(status?: string | null) {
   if (!status) return <StatusBadge label="—" status="neutral" />;
   if (status === 'finished') return <StatusBadge label={status} status="neutral" />;
@@ -250,9 +253,13 @@ export default function AdminRoomsPage() {
               {(data?.items ?? []).map((room) => (
                 <tr key={room.id} className="border-t border-[#142a45]/10">
                   <td className="px-4 py-3 font-black">
-                    <Link className="underline" href={`/admin/rooms/${encodeURIComponent(room.id)}`}>
-                      {room.code}
-                    </Link>
+                    {isUuid(room.id) ? (
+                      <Link className="underline" href={`/admin/rooms/${encodeURIComponent(room.id)}`}>
+                        {room.code}
+                      </Link>
+                    ) : (
+                      <span className="text-[#b23324]">{room.code}</span>
+                    )}
                   </td>
                   <td className="px-4 py-3">{statusToBadge(room.status)}</td>
                   <td className="px-4 py-3">
@@ -263,16 +270,23 @@ export default function AdminRoomsPage() {
                   <td className="px-4 py-3 font-semibold">{formatIso(room.createdAt)}</td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-2">
-                      <Link
-                        href={`/admin/rooms/${encodeURIComponent(room.id)}`}
-                        className="px-3 py-2 rounded-xl border-[2px] border-[#142a45] font-black text-xs hover:bg-[#142a45]/5"
-                      >
-                        Открыть
-                      </Link>
+                      {isUuid(room.id) ? (
+                        <Link
+                          href={`/admin/rooms/${encodeURIComponent(room.id)}`}
+                          className="px-3 py-2 rounded-xl border-[2px] border-[#142a45] font-black text-xs hover:bg-[#142a45]/5"
+                        >
+                          Открыть
+                        </Link>
+                      ) : (
+                        <span className="px-3 py-2 rounded-xl border-[2px] border-[#b23324] font-black text-xs text-[#b23324]">
+                          Нет ID
+                        </span>
+                      )}
                       <button
                         type="button"
                         onClick={() => void exportRoom(room.id)}
-                        className="px-3 py-2 rounded-xl border-[2px] border-[#142a45] font-black text-xs hover:bg-[#142a45]/5"
+                        disabled={!isUuid(room.id)}
+                        className="px-3 py-2 rounded-xl border-[2px] border-[#142a45] font-black text-xs hover:bg-[#142a45]/5 disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         Export
                       </button>

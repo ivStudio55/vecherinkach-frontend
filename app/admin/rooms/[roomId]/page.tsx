@@ -68,7 +68,8 @@ function toSeries(rows: Array<{ id: number; total: number }>, prefix: string): S
 }
 
 export default function AdminRoomDetailsPage({ params }: { params: { roomId: string } }) {
-  const roomId = params.roomId;
+  const roomId = params?.roomId ?? '';
+  const hasValidRoomId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(roomId);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -78,6 +79,11 @@ export default function AdminRoomDetailsPage({ params }: { params: { roomId: str
   const [summary, setSummary] = useState<SummaryResponse | null>(null);
 
   const load = useCallback(async () => {
+    if (!hasValidRoomId) {
+      setError('Некорректный id комнаты');
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
 
@@ -104,7 +110,7 @@ export default function AdminRoomDetailsPage({ params }: { params: { roomId: str
     setSummary(summaryPayload as SummaryResponse);
 
     setLoading(false);
-  }, [roomId]);
+  }, [hasValidRoomId, roomId]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -135,6 +141,10 @@ export default function AdminRoomDetailsPage({ params }: { params: { roomId: str
   }, [details?.room, load]);
 
   const restartRoom = useCallback(async () => {
+    if (!hasValidRoomId) {
+      setError('Некорректный id комнаты');
+      return;
+    }
     setActionMessage(null);
     setError(null);
     if (!confirm('Перезапустить комнату?')) return;
@@ -150,9 +160,13 @@ export default function AdminRoomDetailsPage({ params }: { params: { roomId: str
     }
     setActionMessage('Комната перезапущена');
     void load();
-  }, [load, roomId]);
+  }, [hasValidRoomId, load, roomId]);
 
   const forceEndRound = useCallback(async () => {
+    if (!hasValidRoomId) {
+      setError('Некорректный id комнаты');
+      return;
+    }
     setActionMessage(null);
     setError(null);
     if (!confirm('Принудительно завершить текущий раунд?')) return;
@@ -168,9 +182,13 @@ export default function AdminRoomDetailsPage({ params }: { params: { roomId: str
     }
     setActionMessage('Раунд принудительно завершён');
     void load();
-  }, [load, roomId]);
+  }, [hasValidRoomId, load, roomId]);
 
   const startRound3Rpc = useCallback(async () => {
+    if (!hasValidRoomId) {
+      setError('Некорректный id комнаты');
+      return;
+    }
     setActionMessage(null);
     setError(null);
     if (!confirm('Запустить Round 3 через RPC?')) return;
@@ -186,9 +204,13 @@ export default function AdminRoomDetailsPage({ params }: { params: { roomId: str
     }
     setActionMessage('Round 3 запущен через RPC');
     void load();
-  }, [load, roomId]);
+  }, [hasValidRoomId, load, roomId]);
 
   const exportRoom = useCallback(async () => {
+    if (!hasValidRoomId) {
+      setError('Некорректный id комнаты');
+      return;
+    }
     setError(null);
     const res = await fetch(`/api/admin/export/room?roomId=${encodeURIComponent(roomId)}`);
     if (!res.ok) {
@@ -201,7 +223,7 @@ export default function AdminRoomDetailsPage({ params }: { params: { roomId: str
     link.download = `room-${roomId}.json`;
     link.click();
     URL.revokeObjectURL(link.href);
-  }, [roomId]);
+  }, [hasValidRoomId, roomId]);
 
   const topLikesLabel = useMemo(() => {
     if (!summary?.topLikes?.length) return '—';
