@@ -5,6 +5,8 @@ export const dynamic = 'force-dynamic';
 
 type PostgrestErrorLike = { message?: string; code?: string } | null;
 
+const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 function isMissingTableError(error: PostgrestErrorLike) {
   const code = (error as { code?: string } | null)?.code;
   const message = (error as { message?: string } | null)?.message ?? '';
@@ -21,6 +23,9 @@ export async function GET(request: Request) {
 
   if (!roomId && !code) {
     return Response.json({ error: 'Provide roomId or code' }, { status: 400 });
+  }
+  if (roomId && !uuidRegex.test(roomId)) {
+    return Response.json({ error: 'Invalid roomId UUID' }, { status: 400 });
   }
 
   const supabase = getSupabaseAdminClient();

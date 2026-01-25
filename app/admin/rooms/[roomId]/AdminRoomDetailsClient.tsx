@@ -36,6 +36,8 @@ type SummaryResponse = {
   errorLogs: Array<{ id: string; created_at: string; level: string; channel: string; event_name: string | null; message: string }>;
 };
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 const formatIso = (value?: string | null) => (value ? new Date(value).toLocaleString() : '—');
 
 function statusBadge(status?: string | null) {
@@ -51,9 +53,10 @@ function toSeries(rows: Array<{ id: number; total: number }>, prefix: string): S
   return rows.slice(0, 24).map((row) => ({ label: `${prefix}${row.id}`, value: row.total }));
 }
 
-export default function AdminRoomDetailsClient({ roomId }: { roomId?: string }) {
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  const hasValidRoomId = typeof roomId === 'string' && uuidRegex.test(roomId);
+export default function AdminRoomDetailsClient({ roomId }: { roomId: string }) {
+  const hasValidRoomId = useMemo(() => {
+    return typeof roomId === 'string' && roomId.length > 0 && UUID_REGEX.test(roomId);
+  }, [roomId]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -63,18 +66,17 @@ export default function AdminRoomDetailsClient({ roomId }: { roomId?: string }) 
   const [summary, setSummary] = useState<SummaryResponse | null>(null);
 
   const load = useCallback(async () => {
-    if (!roomId) {
-      setLoading(false);
-      return;
-    }
+    // CRITICAL: Не выполнять запросы, если roomId невалиден
     if (!hasValidRoomId) {
-      setError('Некорректный id комнаты');
+      setError('Некорректный UUID комнаты');
       setLoading(false);
       return;
     }
+
     setLoading(true);
     setError(null);
 
+    // CRITICAL: Все запросы используют один и тот же roomId из замыкания
     const roomRes = await fetch(`/api/admin/get-room?roomId=${encodeURIComponent(roomId)}`, {
       cache: 'no-store',
       credentials: 'include',
@@ -133,9 +135,10 @@ export default function AdminRoomDetailsClient({ roomId }: { roomId?: string }) 
   }, [hasValidRoomId, roomId]);
 
   useEffect(() => {
-    if (!roomId) return;
+    // CRITICAL: Запускать load только если roomId валиден
+    if (!hasValidRoomId) return;
     void load();
-  }, [load, roomId]);
+  }, [hasValidRoomId, load]);
 
   const closeRoom = useCallback(async () => {
     const code = String(details?.room?.code ?? '');
@@ -161,11 +164,9 @@ export default function AdminRoomDetailsClient({ roomId }: { roomId?: string }) 
     void load();
   }, [details?.room, load]);
 
-  const hasResolvedRoomId = Boolean(roomId && hasValidRoomId);
-
   const restartRoom = useCallback(async () => {
-    if (!hasResolvedRoomId) {
-      setError('Некорректный id комнаты');
+    if (!hasValidRoomId) {
+      setError('Некорректный UUID комнаты');
       return;
     }
     setActionMessage(null);
@@ -184,11 +185,11 @@ export default function AdminRoomDetailsClient({ roomId }: { roomId?: string }) 
     }
     setActionMessage('Комната перезапущена');
     void load();
-  }, [hasResolvedRoomId, load, roomId]);
+  }, [hasValidRoomId, load, roomId]);
 
   const forceEndRound = useCallback(async () => {
-    if (!hasResolvedRoomId) {
-      setError('Некорректный id комнаты');
+    if (!hasValidRoomId) {
+      setError('Некорректный UUID комнаты');
       return;
     }
     setActionMessage(null);
@@ -207,11 +208,11 @@ export default function AdminRoomDetailsClient({ roomId }: { roomId?: string }) 
     }
     setActionMessage('Раунд принудительно завершён');
     void load();
-  }, [hasResolvedRoomId, load, roomId]);
+  }, [hasValidRoomId, load, roomId]);
 
   const startRound3Rpc = useCallback(async () => {
-    if (!hasResolvedRoomId) {
-      setError('Некорректный id комнаты');
+    if (!hasValidRoomId) {
+      setError('Некорректный UUID комнаты');
       return;
     }
     setActionMessage(null);
@@ -230,15 +231,15 @@ export default function AdminRoomDetailsClient({ roomId }: { roomId?: string }) 
     }
     setActionMessage('Round 3 запущен через RPC');
     void load();
-  }, [hasResolvedRoomId, load, roomId]);
+  }, [hasValidRoomId, load, roomId]);
 
   const exportRoom = useCallback(async () => {
-    if (!hasResolvedRoomId) {
-      setError('Некорректный id комнаты');
+    if (!hasValidRoomId) {
+      setError('Некорректный UUID комнаты');
       return;
     }
     setError(null);
-    const res = await fetch(`/api/admin/export/room?roomId=${encodeURIComponent(roomId ?? '')}`, {
+    const res = await fetch(`/api/admin/export/room?roomId=${encodeURIComponent(roomId)}`, {
       credentials: 'include',
     });
     if (!res.ok) {
@@ -248,10 +249,10 @@ export default function AdminRoomDetailsClient({ roomId }: { roomId?: string }) 
     const blob = await res.blob();
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `room-${roomId ?? 'export'}.json`;
+    link.download = `room-${roomId}.json`;
     link.click();
     URL.revokeObjectURL(link.href);
-  }, [hasResolvedRoomId, roomId]);
+  }, [hasValidRoomId, roomId]);
 
   const topLikesLabel = useMemo(() => {
     if (!summary?.topLikes?.length) return '—';
@@ -261,6 +262,26 @@ export default function AdminRoomDetailsClient({ roomId }: { roomId?: string }) 
 
   const roomSnapshot = summary?.room;
   const questionStartedAt = typeof roomSnapshot?.question_started_at === 'string' ? roomSnapshot.question_started_at : null;
+
+  // Показываем ошибку, если roomId невалиден
+  if (!hasValidRoomId) {
+    return (
+      <div className="space-y-6">
+        <SectionCard title="Ошибка">
+          <div className="rounded-2xl border-[3px] border-[#b23324] bg-[#ffd7d0] p-6 text-center">
+            <p className="font-black text-xl mb-2">Некорректный UUID комнаты</p>
+            <p className="font-semibold mb-4">roomId = "{roomId}"</p>
+            <Link
+              href="/admin/rooms"
+              className="inline-block px-6 py-3 rounded-2xl border-[3px] border-[#142a45] bg-white font-black tracking-[0.2em] hover:bg-[#142a45]/5"
+            >
+              ← К списку комнат
+            </Link>
+          </div>
+        </SectionCard>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
