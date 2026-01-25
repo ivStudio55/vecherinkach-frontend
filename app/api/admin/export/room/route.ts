@@ -43,8 +43,22 @@ export async function GET(request: Request) {
   const resolvedRoomId = (roomRes.data as { id: string }).id;
   const resolvedCode = (roomRes.data as { code?: string }).code ?? 'room';
 
+  const columnsByTable: Record<string, string> = {
+    players: 'id, room_id, name, score, created_at',
+    answers: 'id, room_id, player_id, question_index, answer_index, is_correct, created_at, submitted_at',
+    round2_answers: 'id, room_id, player_id, item_index, answer_is_fact, is_correct, created_at, submitted_at',
+    round3_answers: 'id, room_id, player_id, question_index, answer_text, created_at, submitted_at',
+    round3_votes: 'id, room_id, player_id, question_index, voted_player_id, created_at',
+    round4_answers: 'id, room_id, player_id, puzzle_id, is_correct, answer_numbers, answer_timestamp, created_at, submitted_at, was_skipped',
+    round5_answers: 'id, room_id, player_id, question_index, answer_text, created_at, submitted_at, is_correct',
+    question_likes: 'id, room_id, player_id, question_id, created_at',
+    logs: 'id, room_id, created_at, level, channel, event_name, message, player_id, player_name, metadata, request_id, session_id, client_timestamp',
+    game_results: 'id, room_id, player_id, final_rank, final_score, created_at, updated_at',
+  };
+
   const loadAllMaybe = async (table: string, limit: number) => {
-    const res = await supabase.from(table).select('*').eq('room_id', resolvedRoomId).limit(limit);
+    const cols = columnsByTable[table] ?? '*';
+    const res = await supabase.from(table).select(cols).eq('room_id', resolvedRoomId).limit(limit);
     if (res.error && isMissingTableError(res.error as PostgrestErrorLike)) return [];
     if (res.error) throw res.error;
     return res.data ?? [];
