@@ -99,22 +99,56 @@ export default function AdminRoomDetailsClient({ roomId }: { roomId: string }) {
       const logsPayload = await logsRes.json().catch(() => null);
       if (!logsRes.ok) throw new Error(logsPayload?.error ?? 'Не удалось загрузить логи');
 
-      const answersRes = await fetch(`/api/admin/get-answers?roomId=${encodeURIComponent(roomId)}`, {
-        cache: 'no-store',
-        credentials: 'include',
-      });
-      const answersPayload = await answersRes.json().catch(() => null);
-      if (!answersRes.ok) throw new Error(answersPayload?.error ?? 'Не удалось загрузить ответы');
-
       setDetails({
         room: roomPayload?.room ?? null,
         players: playersPayload?.items ?? [],
         logs: logsPayload?.items ?? [],
       } as RoomDetails);
-      setSummary({
-        ...(answersPayload as Omit<SummaryResponse, 'room'>),
+
+      const fallbackSummary: SummaryResponse = {
         room: roomPayload?.room ?? {},
-      } as SummaryResponse);
+        counts: {
+          answers: 0,
+          round2Answers: 0,
+          round3Answers: 0,
+          round3Votes: 0,
+          round4Answers: 0,
+          round5Answers: 0,
+          likes: 0,
+          logs: 0,
+        },
+        topLikes: [],
+        breakdowns: {
+          round1: [],
+          round2: [],
+          round3Answers: [],
+          round3Votes: [],
+          round4: [],
+          round5: [],
+        },
+        errorLogs: [],
+      };
+
+      try {
+        const answersRes = await fetch(`/api/admin/get-answers?roomId=${encodeURIComponent(roomId)}`, {
+          cache: 'no-store',
+          credentials: 'include',
+        });
+        const answersPayload = await answersRes.json().catch(() => null);
+        if (!answersRes.ok) throw new Error(answersPayload?.error ?? 'Не удалось загрузить ответы');
+
+        setSummary({
+          ...(answersPayload as Omit<SummaryResponse, 'room'>),
+          room: roomPayload?.room ?? {},
+        } as SummaryResponse);
+      } catch (answersError) {
+        setSummary(fallbackSummary);
+        setError(
+          answersError instanceof Error
+            ? `Ответы/счётчики: ${answersError.message}`
+            : 'Ответы/счётчики: ошибка загрузки'
+        );
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка загрузки данных');
     } finally {
@@ -248,7 +282,7 @@ export default function AdminRoomDetailsClient({ roomId }: { roomId: string }) {
     return `${describeLikeQuestionId(top.questionId)} (${top.likes})`;
   }, [summary?.topLikes]);
 
-  const roomSnapshot = summary?.room;
+  const roomSnapshot = summary?.room ?? details?.room;
   const questionStartedAt = typeof roomSnapshot?.question_started_at === 'string' ? roomSnapshot.question_started_at : null;
 
   // Показываем ошибку, если roomId невалиден
