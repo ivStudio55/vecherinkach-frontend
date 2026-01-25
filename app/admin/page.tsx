@@ -149,12 +149,12 @@ export default function AdminPage() {
         return;
       }
       const [statsRes, lbTotalRes, lbRound2Res, analyticsRes, roomsRes, likesRes] = await Promise.all([
-        fetch(`/api/admin/stats?${qs.toString()}`, { cache: 'no-store', credentials: 'include' }),
-        fetch(`/api/admin/leaderboard?${new URLSearchParams({ ...Object.fromEntries(qs), type: 'total', limit: '10' }).toString()}`, { cache: 'no-store', credentials: 'include' }),
-        fetch(`/api/admin/leaderboard?${new URLSearchParams({ ...Object.fromEntries(qs), type: 'round2', limit: '10' }).toString()}`, { cache: 'no-store', credentials: 'include' }),
-        fetch(`/api/admin/analytics?${qs.toString()}`, { cache: 'no-store', credentials: 'include' }),
-        fetch('/api/admin/rooms/active', { cache: 'no-store', credentials: 'include' }),
-        fetch('/api/admin/likes?limit=10', { cache: 'no-store', credentials: 'include' }),
+        fetch(`/api/admin/stats?${qs.toString()}`, { cache: 'no-store' }),
+        fetch(`/api/admin/leaderboard?${new URLSearchParams({ ...Object.fromEntries(qs), type: 'total', limit: '10' }).toString()}`, { cache: 'no-store' }),
+        fetch(`/api/admin/leaderboard?${new URLSearchParams({ ...Object.fromEntries(qs), type: 'round2', limit: '10' }).toString()}`, { cache: 'no-store' }),
+        fetch(`/api/admin/analytics?${qs.toString()}`, { cache: 'no-store' }),
+        fetch('/api/admin/rooms/active', { cache: 'no-store' }),
+        fetch('/api/admin/likes?limit=10', { cache: 'no-store' }),
       ]);
 
       const statsPayload = await statsRes.json().catch(() => null);
@@ -211,7 +211,7 @@ export default function AdminPage() {
   const loadLogs = useCallback(async () => {
     const qs = buildQuery({ page: logsPage, limit: 25, ...(logSearch ? { search: logSearch } : {}) });
     if (!qs) return;
-    const res = await fetch(`/api/admin/logs?${qs.toString()}`, { cache: 'no-store', credentials: 'include' });
+    const res = await fetch(`/api/admin/logs?${qs.toString()}`, { cache: 'no-store' });
     const payload = await res.json().catch(() => null);
     if (!res.ok) {
       setError(payload?.error ?? 'Не удалось загрузить логи');
@@ -222,7 +222,7 @@ export default function AdminPage() {
 
   const loadRoomDetails = useCallback(async (roomId: string) => {
     setSelectedRoomId(roomId);
-    const res = await fetch(`/api/admin/room/details?roomId=${encodeURIComponent(roomId)}`, { cache: 'no-store', credentials: 'include' });
+    const res = await fetch(`/api/admin/room/details?roomId=${encodeURIComponent(roomId)}`, { cache: 'no-store' });
     const payload = await res.json().catch(() => null);
     if (!res.ok) {
       setError(payload?.error ?? 'Не удалось загрузить комнату');
@@ -242,7 +242,6 @@ export default function AdminPage() {
     const res = await fetch('/api/admin/room/close', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
       body: JSON.stringify({ code }),
     });
     const payload = await res.json().catch(() => null);
@@ -259,7 +258,6 @@ export default function AdminPage() {
     const res = await fetch('/api/admin/room/force-end', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
       body: JSON.stringify({ roomId }),
     });
     const payload = await res.json().catch(() => null);
@@ -276,7 +274,6 @@ export default function AdminPage() {
     const res = await fetch('/api/admin/room/restart', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
       body: JSON.stringify({ roomId }),
     });
     const payload = await res.json().catch(() => null);
@@ -293,7 +290,6 @@ export default function AdminPage() {
     const res = await fetch('/api/admin/room/start-round3', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
       body: JSON.stringify({ roomId }),
     });
     const payload = await res.json().catch(() => null);

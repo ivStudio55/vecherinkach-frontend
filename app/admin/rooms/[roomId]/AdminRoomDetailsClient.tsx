@@ -76,62 +76,50 @@ export default function AdminRoomDetailsClient({ roomId }: { roomId: string }) {
     setLoading(true);
     setError(null);
 
-    // CRITICAL: Все запросы используют один и тот же roomId из замыкания
-    const roomRes = await fetch(`/api/admin/get-room?roomId=${encodeURIComponent(roomId)}`, {
-      cache: 'no-store',
-      credentials: 'include',
-    });
-    const roomPayload = await roomRes.json().catch(() => null);
-    if (!roomRes.ok) {
-      setError(roomPayload?.error ?? 'Не удалось загрузить комнату');
+    try {
+      // CRITICAL: Все запросы используют один и тот же roomId из замыкания
+      const roomRes = await fetch(`/api/admin/get-room?roomId=${encodeURIComponent(roomId)}`, {
+        cache: 'no-store',
+        credentials: 'include',
+      });
+      const roomPayload = await roomRes.json().catch(() => null);
+      if (!roomRes.ok) throw new Error(roomPayload?.error ?? 'Не удалось загрузить комнату');
+
+      const playersRes = await fetch(`/api/admin/get-players?roomId=${encodeURIComponent(roomId)}`, {
+        cache: 'no-store',
+        credentials: 'include',
+      });
+      const playersPayload = await playersRes.json().catch(() => null);
+      if (!playersRes.ok) throw new Error(playersPayload?.error ?? 'Не удалось загрузить игроков');
+
+      const logsRes = await fetch(`/api/admin/get-logs?roomId=${encodeURIComponent(roomId)}`, {
+        cache: 'no-store',
+        credentials: 'include',
+      });
+      const logsPayload = await logsRes.json().catch(() => null);
+      if (!logsRes.ok) throw new Error(logsPayload?.error ?? 'Не удалось загрузить логи');
+
+      const answersRes = await fetch(`/api/admin/get-answers?roomId=${encodeURIComponent(roomId)}`, {
+        cache: 'no-store',
+        credentials: 'include',
+      });
+      const answersPayload = await answersRes.json().catch(() => null);
+      if (!answersRes.ok) throw new Error(answersPayload?.error ?? 'Не удалось загрузить ответы');
+
+      setDetails({
+        room: roomPayload?.room ?? null,
+        players: playersPayload?.items ?? [],
+        logs: logsPayload?.items ?? [],
+      } as RoomDetails);
+      setSummary({
+        ...(answersPayload as Omit<SummaryResponse, 'room'>),
+        room: roomPayload?.room ?? {},
+      } as SummaryResponse);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ошибка загрузки данных');
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const playersRes = await fetch(`/api/admin/get-players?roomId=${encodeURIComponent(roomId)}`, {
-      cache: 'no-store',
-      credentials: 'include',
-    });
-    const playersPayload = await playersRes.json().catch(() => null);
-    if (!playersRes.ok) {
-      setError(playersPayload?.error ?? 'Не удалось загрузить игроков');
-      setLoading(false);
-      return;
-    }
-
-    const logsRes = await fetch(`/api/admin/get-logs?roomId=${encodeURIComponent(roomId)}`, {
-      cache: 'no-store',
-      credentials: 'include',
-    });
-    const logsPayload = await logsRes.json().catch(() => null);
-    if (!logsRes.ok) {
-      setError(logsPayload?.error ?? 'Не удалось загрузить логи');
-      setLoading(false);
-      return;
-    }
-
-    const answersRes = await fetch(`/api/admin/get-answers?roomId=${encodeURIComponent(roomId)}`, {
-      cache: 'no-store',
-      credentials: 'include',
-    });
-    const answersPayload = await answersRes.json().catch(() => null);
-    if (!answersRes.ok) {
-      setError(answersPayload?.error ?? 'Не удалось загрузить ответы');
-      setLoading(false);
-      return;
-    }
-
-    setDetails({
-      room: roomPayload?.room ?? null,
-      players: playersPayload?.items ?? [],
-      logs: logsPayload?.items ?? [],
-    } as RoomDetails);
-    setSummary({
-      ...(answersPayload as Omit<SummaryResponse, 'room'>),
-      room: roomPayload?.room ?? {},
-    } as SummaryResponse);
-
-    setLoading(false);
   }, [hasValidRoomId, roomId]);
 
   useEffect(() => {
@@ -277,6 +265,18 @@ export default function AdminRoomDetailsClient({ roomId }: { roomId: string }) {
             >
               ← К списку комнат
             </Link>
+          </div>
+        </SectionCard>
+      </div>
+    );
+  }
+
+  if (loading && !details) {
+    return (
+      <div className="space-y-6">
+        <SectionCard title="Загрузка...">
+          <div className="p-12 text-center text-[#142a45]/60 font-black animate-pulse">
+            LOADING ROOM DATA...
           </div>
         </SectionCard>
       </div>

@@ -1,5 +1,6 @@
 import AdminRoomDetailsClient from './AdminRoomDetailsClient';
 
-export default function AdminRoomDetailsPage({ params }: { params: { roomId: string } }) {
-  return <AdminRoomDetailsClient roomId={params.roomId} />;
+export default async function AdminRoomDetailsPage({ params }: { params: Promise<{ roomId: string }> }) {
+  const { roomId } = await params;
+  return <AdminRoomDetailsClient roomId={roomId} />;
 }

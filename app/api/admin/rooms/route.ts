@@ -99,10 +99,13 @@ export async function GET(request: Request) {
 
       const playersCount = Array.isArray(meta.players) ? Number(meta.players[0]?.count ?? 0) : null;
 
-      const base = row as { id: string; code: string };
+      const base = row as { id?: string; code?: string };
+      const id = base.id ?? null;
+      if (!id) console.error('Missing ID for room row:', row);
+
       return {
-        id: base.id,
-        code: base.code,
+        id: id ?? 'missing-id',
+        code: base.code ?? 'NO_CODE',
         status: meta.status ?? null,
         isActive: meta.is_active ?? null,
         createdAt: meta.created_at ?? null,
