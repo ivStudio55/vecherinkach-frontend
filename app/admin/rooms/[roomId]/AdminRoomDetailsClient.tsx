@@ -5,6 +5,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BarChart, KpiCard, MetricRow, SectionCard, StatusBadge, type SeriesPoint } from '@/components/admin/AdminWidgets';
 import { describeLikeQuestionId } from '@/shared/logic/questionLikes';
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 type RoomDetails = {
   room: Record<string, unknown>;
   players: Array<{ id: string; name: string; total_points: number; joined_at: string | null }>;
@@ -304,6 +306,21 @@ const resolveLogExplanation = (log?: LogLike, ctx?: ExplanationContext): ErrorEx
   const levelKey: 'error' | 'warning' | 'info' = log.level === 'error' ? 'error' : log.level === 'warn' ? 'warning' : 'info';
   return DEFAULT_EXPLANATIONS[levelKey](log, ctx);
 };
+
+const statusBadge = (status?: string | null) => {
+  if (!status) return <StatusBadge label="—" status="neutral" />;
+  if (status === 'finished') return <StatusBadge label={status} status="neutral" />;
+  if (status === 'final-results') return <StatusBadge label={status} status="info" />;
+  if (status.includes('round')) return <StatusBadge label={status} status="warning" />;
+  if (status === 'running') return <StatusBadge label={status} status="success" />;
+  if (status === 'waiting') return <StatusBadge label={status} status="neutral" />;
+  return <StatusBadge label={status} status="neutral" />;
+};
+
+const formatIso = (value?: string | null) => (value ? new Date(value).toLocaleString() : '—');
+
+const toSeries = (items: Array<{ id: number; total: number }>, prefix: string): SeriesPoint[] =>
+  items.map((item) => ({ label: `${prefix}${item.id}`, value: Number(item.total) || 0 }));
 export default function AdminRoomDetailsClient({ roomId }: { roomId: string }) {
   const hasValidRoomId = useMemo(() => {
     return typeof roomId === 'string' && roomId.length > 0 && UUID_REGEX.test(roomId);
