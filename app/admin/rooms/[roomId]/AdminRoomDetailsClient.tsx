@@ -40,6 +40,37 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-
 
 const formatIso = (value?: string | null) => (value ? new Date(value).toLocaleString() : '—');
 
+function getErrorExplanation(message: string, eventName?: string | null): string | null {
+  const lowerMsg = message.toLowerCase();
+  
+  if (lowerMsg.includes('column') && lowerMsg.includes('does not exist')) {
+    return 'Запрос обращается к несуществующей колонке в базе данных. Проверьте схему таблицы.';
+  }
+  if (lowerMsg.includes('permission denied') || lowerMsg.includes('rls policy')) {
+    return 'Недостаточно прав доступа. Проверьте Row Level Security политики в Supabase.';
+  }
+  if (lowerMsg.includes('foreign key') || lowerMsg.includes('violates')) {
+    return 'Нарушение целостности данных. Возможно, удалена связанная запись.';
+  }
+  if (lowerMsg.includes('timeout') || lowerMsg.includes('timed out')) {
+    return 'Превышено время ожидания ответа от сервера. Проверьте производительность БД.';
+  }
+  if (lowerMsg.includes('duplicate key') || lowerMsg.includes('unique constraint')) {
+    return 'Попытка создать дубликат уникального значения. Проверьте уникальные индексы.';
+  }
+  if (lowerMsg.includes('null value') || lowerMsg.includes('not null')) {
+    return 'Попытка записать NULL в обязательное поле.';
+  }
+  if (lowerMsg.includes('connection') || lowerMsg.includes('connect')) {
+    return 'Проблема с подключением к базе данных или внешнему сервису.';
+  }
+  if (eventName === 'player_join' || eventName === 'player_answer') {
+    return 'Ошибка во время действия игрока. Проверьте логику обработки действий.';
+  }
+  
+  return null;
+}
+
 function statusBadge(status?: string | null) {
   if (!status) return <StatusBadge label="—" status="neutral" />;
   if (status === 'running') return <StatusBadge label={status} status="success" />;
@@ -61,6 +92,7 @@ export default function AdminRoomDetailsClient({ roomId }: { roomId: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [selectedLog, setSelectedLog] = useState<{ message: string; explanation: string | null } | null>(null);
 
   const [details, setDetails] = useState<RoomDetails | null>(null);
   const [summary, setSummary] = useState<SummaryResponse | null>(null);
@@ -441,19 +473,42 @@ export default function AdminRoomDetailsClient({ roomId }: { roomId: string }) {
 
       <SectionCard title="Ошибки (warn/error)">
         <div className="space-y-2">
-          {(summary?.errorLogs ?? []).slice(0, 20).map((row) => (
-            <div key={row.id} className="rounded-2xl border-[3px] border-[#142a45] bg-white p-4">
-              <div className="flex flex-wrap gap-2 items-center justify-between">
-                <div className="flex gap-2 items-center">
-                  <StatusBadge label={row.level} status={row.level === 'error' ? 'error' : 'warning'} />
-                  <span className="text-xs font-black tracking-[0.25em] text-[#142a45]/60">{row.channel}</span>
-                  {row.event_name ? <StatusBadge label={row.event_name} status="neutral" /> : null}
+          {(summary?.errorLogs ?? []).slice(0, 20).map((row) => {
+            const explanation = getErrorExplanation(row.message, row.event_name);
+            const isLongMessage = row.message.length > 120;
+            
+            return (
+              <div key={row.id} className="rounded-2xl border-[3px] border-[#142a45] bg-white p-4">
+                <div className="flex flex-wrap gap-2 items-center justify-between">
+                  <div className="flex gap-2 items-center">
+                    <StatusBadge label={row.level} status={row.level === 'error' ? 'error' : 'warning'} />
+                    <span className="text-xs font-black tracking-[0.25em] text-[#142a45]/60">{row.channel}</span>
+                    {row.event_name ? <StatusBadge label={row.event_name} status="neutral" /> : null}
+                  </div>
+                  <span className="text-xs font-semibold text-[#142a45]/60">{formatIso(row.created_at)}</span>
                 </div>
-                <span className="text-xs font-semibold text-[#142a45]/60">{formatIso(row.created_at)}</span>
+                {explanation && (
+                  <div className="mt-2 rounded-xl bg-[#fff2c8] border-[2px] border-[#b68c1d] p-3">
+                    <p className="text-xs font-black text-[#6a4a06]">💡 Пояснение:</p>
+                    <p className="text-sm font-semibold text-[#6a4a06] mt-1">{explanation}</p>
+                  </div>
+                )}
+                <div className="mt-2">
+                  <p className="font-semibold text-sm">
+                    {isLongMessage ? `${row.message.slice(0, 120)}...` : row.message}
+                  </p>
+                  {isLongMessage && (
+                    <button
+                      onClick={() => setSelectedLog({ message: row.message, explanation })}
+                      className="mt-2 text-xs font-black text-[#1f6ac6] hover:underline"
+                    >
+                      Показать полностью →
+                    </button>
+                  )}
+                </div>
               </div>
-              <p className="mt-2 font-semibold">{row.message}</p>
-            </div>
-          ))}
+            );
+          })}
           {!loading && (summary?.errorLogs?.length ?? 0) === 0 ? (
             <p className="font-black text-[#142a45]/60">Ошибок нет</p>
           ) : null}
@@ -476,6 +531,50 @@ export default function AdminRoomDetailsClient({ roomId }: { roomId: string }) {
           ))}
         </div>
       </SectionCard>
+
+      {/* Модальное окно для полного текста ошибки */}
+      {selectedLog && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setSelectedLog(null)}
+        >
+          <div
+            className="relative max-w-3xl w-full max-h-[80vh] overflow-auto rounded-3xl border-[3px] border-[#142a45] bg-white p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-black text-[#142a45]">Полный текст ошибки</h3>
+              <button
+                onClick={() => setSelectedLog(null)}
+                className="text-2xl font-black text-[#142a45] hover:text-[#b23324] w-8 h-8 flex items-center justify-center"
+              >
+                ×
+              </button>
+            </div>
+            
+            {selectedLog.explanation && (
+              <div className="mb-4 rounded-xl bg-[#fff2c8] border-[2px] border-[#b68c1d] p-4">
+                <p className="text-sm font-black text-[#6a4a06]">💡 Пояснение на русском:</p>
+                <p className="text-base font-semibold text-[#6a4a06] mt-2">{selectedLog.explanation}</p>
+              </div>
+            )}
+            
+            <div className="rounded-xl bg-[#f5f5f5] border-[2px] border-[#142a45]/20 p-4">
+              <p className="text-xs font-black text-[#142a45]/60 mb-2">СООБЩЕНИЕ:</p>
+              <p className="font-mono text-sm text-[#142a45] whitespace-pre-wrap break-words">
+                {selectedLog.message}
+              </p>
+            </div>
+            
+            <button
+              onClick={() => setSelectedLog(null)}
+              className="mt-4 w-full px-6 py-3 rounded-2xl border-[3px] border-[#142a45] bg-[#142a45] text-white font-black hover:bg-[#1f3d6b]"
+            >
+              Закрыть
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
