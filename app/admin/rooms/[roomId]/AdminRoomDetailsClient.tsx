@@ -115,6 +115,15 @@ export default function AdminRoomDetailsClient({ roomId }: { roomId: string }) {
         ...(answersPayload as Omit<SummaryResponse, 'room'>),
         room: roomPayload?.room ?? {},
       } as SummaryResponse);
+      
+      // Debug logging
+      if (typeof window !== 'undefined') {
+        console.log('[AdminRoomDetails] Summary loaded:', {
+          countsAnswers: answersPayload?.counts?.answers,
+          breakdownsRound1Length: answersPayload?.breakdowns?.round1?.length,
+          fullBreakdowns: answersPayload?.breakdowns,
+        });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка загрузки данных');
     } finally {
