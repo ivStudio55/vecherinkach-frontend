@@ -16,10 +16,12 @@ export async function GET(request: Request) {
   if (authResponse) return authResponse;
 
   const url = new URL(request.url);
-  const roomIdParam = url.searchParams.get('roomId') ?? url.searchParams.get('room_id');
-  const code = url.searchParams.get('code');
-  if (!roomIdParam && !code) {
-    return Response.json({ error: 'roomId or code is required' }, { status: 400 });
+  const roomId = url.searchParams.get('roomId') ?? url.searchParams.get('room_id');
+  if (!roomId) {
+    return Response.json({ error: 'roomId is required' }, { status: 400 });
+  }
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(roomId)) {
+    return Response.json({ error: 'Invalid roomId' }, { status: 400 });
   }
 
   const supabase = getSupabaseAdminClient();
@@ -39,22 +41,6 @@ export async function GET(request: Request) {
   };
 
   try {
-    let roomId = roomIdParam ?? null;
-    if (!roomId && code) {
-      const byCode = await supabase.from('rooms').select('id').eq('code', code).maybeSingle();
-      if (byCode.error) {
-        return Response.json({ error: byCode.error.message ?? 'Failed to load room' }, { status: 500 });
-      }
-      if (!byCode.data) {
-        return Response.json({ error: 'Room not found' }, { status: 404 });
-      }
-      roomId = (byCode.data as { id: string }).id;
-    }
-
-    if (!roomId) {
-      return Response.json({ error: 'Room not found' }, { status: 404 });
-    }
-
     const roomRes = await supabase
       .from('rooms')
       .select(

@@ -9,21 +9,20 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const roomId = url.searchParams.get('roomId');
-  const code = url.searchParams.get('code');
-  if (!roomId && !code) {
-    return Response.json({ error: 'Provide roomId or code' }, { status: 400 });
+  if (!roomId) {
+    return Response.json({ error: 'roomId is required' }, { status: 400 });
+  }
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(roomId)) {
+    return Response.json({ error: 'Invalid roomId' }, { status: 400 });
   }
 
   const supabase = getSupabaseAdminClient();
-  const roomQuery = supabase.from('rooms').select('*').limit(1);
-  const { data: rooms, error: roomError } = roomId
-    ? await roomQuery.eq('id', roomId)
-    : await roomQuery.eq('code', code);
+  const roomQuery = supabase.from('rooms').select('*').eq('id', roomId).maybeSingle();
+  const { data: room, error: roomError } = await roomQuery;
 
   if (roomError) {
     return Response.json({ error: roomError.message ?? 'Failed to load room' }, { status: 500 });
   }
-  const room = rooms?.[0] ?? null;
   if (!room) {
     return Response.json({ error: 'Room not found' }, { status: 404 });
   }

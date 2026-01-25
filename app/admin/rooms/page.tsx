@@ -136,13 +136,9 @@ export default function AdminRoomsPage() {
     [load]
   );
 
-  const exportRoom = useCallback(async (roomId: string, roomCode: string) => {
+  const exportRoom = useCallback(async (roomId: string) => {
     setError(null);
-    const hasValidId = isUuid(roomId);
-    const exportQuery = hasValidId
-      ? `roomId=${encodeURIComponent(roomId)}`
-      : `code=${encodeURIComponent(roomCode)}`;
-    const res = await fetch(`/api/admin/export/room?${exportQuery}`);
+    const res = await fetch(`/api/admin/export/room?roomId=${encodeURIComponent(roomId)}`);
     if (!res.ok) {
       setError('Не удалось выгрузить room export');
       return;
@@ -150,7 +146,7 @@ export default function AdminRoomsPage() {
     const blob = await res.blob();
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `room-${hasValidId ? roomId : roomCode}.json`;
+    link.download = `room-${roomId}.json`;
     link.click();
     URL.revokeObjectURL(link.href);
   }, []);
@@ -257,12 +253,13 @@ export default function AdminRoomsPage() {
               {(data?.items ?? []).map((room) => (
                 <tr key={room.id} className="border-t border-[#142a45]/10">
                   <td className="px-4 py-3 font-black">
-                    <Link
-                      className="underline"
-                      href={`/admin/rooms/${encodeURIComponent(isUuid(room.id) ? room.id : room.code)}`}
-                    >
-                      {room.code}
-                    </Link>
+                    {isUuid(room.id) ? (
+                      <Link className="underline" href={`/admin/rooms/${encodeURIComponent(room.id)}`}>
+                        {room.code}
+                      </Link>
+                    ) : (
+                      <span className="text-[#b23324]">{room.code}</span>
+                    )}
                   </td>
                   <td className="px-4 py-3">{statusToBadge(room.status)}</td>
                   <td className="px-4 py-3">
@@ -273,16 +270,23 @@ export default function AdminRoomsPage() {
                   <td className="px-4 py-3 font-semibold">{formatIso(room.createdAt)}</td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-2">
-                      <Link
-                        href={`/admin/rooms/${encodeURIComponent(isUuid(room.id) ? room.id : room.code)}`}
-                        className="px-3 py-2 rounded-xl border-[2px] border-[#142a45] font-black text-xs hover:bg-[#142a45]/5"
-                      >
-                        Открыть
-                      </Link>
+                      {isUuid(room.id) ? (
+                        <Link
+                          href={`/admin/rooms/${encodeURIComponent(room.id)}`}
+                          className="px-3 py-2 rounded-xl border-[2px] border-[#142a45] font-black text-xs hover:bg-[#142a45]/5"
+                        >
+                          Открыть
+                        </Link>
+                      ) : (
+                        <span className="px-3 py-2 rounded-xl border-[2px] border-[#b23324] font-black text-xs text-[#b23324]">
+                          Нет ID
+                        </span>
+                      )}
                       <button
                         type="button"
-                        onClick={() => void exportRoom(room.id, room.code)}
-                        className="px-3 py-2 rounded-xl border-[2px] border-[#142a45] font-black text-xs hover:bg-[#142a45]/5"
+                        onClick={() => void exportRoom(room.id)}
+                        disabled={!isUuid(room.id)}
+                        className="px-3 py-2 rounded-xl border-[2px] border-[#142a45] font-black text-xs hover:bg-[#142a45]/5 disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         Export
                       </button>

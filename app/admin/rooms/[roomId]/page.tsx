@@ -68,12 +68,9 @@ function toSeries(rows: Array<{ id: number; total: number }>, prefix: string): S
 }
 
 export default function AdminRoomDetailsPage({ params }: { params: { roomId: string } }) {
-  const rawParam = params?.roomId ?? '';
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  const isRoomCode = /^[0-9]{4}$/;
-  const roomIdParam = isUuid.test(rawParam) ? rawParam : null;
-  const roomCodeParam = !roomIdParam && isRoomCode.test(rawParam) ? rawParam : null;
-  const hasValidTarget = Boolean(roomIdParam || roomCodeParam);
+  const roomId = params?.roomId;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  const hasValidRoomId = typeof roomId === 'string' && uuidRegex.test(roomId);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -83,7 +80,8 @@ export default function AdminRoomDetailsPage({ params }: { params: { roomId: str
   const [summary, setSummary] = useState<SummaryResponse | null>(null);
 
   const load = useCallback(async () => {
-    if (!hasValidTarget) {
+    if (!roomId) return;
+    if (!hasValidRoomId) {
       setError('Некорректный id комнаты');
       setLoading(false);
       return;
@@ -91,17 +89,9 @@ export default function AdminRoomDetailsPage({ params }: { params: { roomId: str
     setLoading(true);
     setError(null);
 
-    const detailsUrl = roomIdParam
-      ? `/api/admin/room/details?roomId=${encodeURIComponent(roomIdParam)}`
-      : `/api/admin/room/details?code=${encodeURIComponent(roomCodeParam ?? '')}`;
-
-    const summaryUrl = roomIdParam
-      ? `/api/admin/room/summary?roomId=${encodeURIComponent(roomIdParam)}`
-      : `/api/admin/room/summary?code=${encodeURIComponent(roomCodeParam ?? '')}`;
-
     const [detailsRes, summaryRes] = await Promise.all([
-      fetch(detailsUrl, { cache: 'no-store' }),
-      fetch(summaryUrl, { cache: 'no-store' }),
+      fetch(`/api/admin/room/details?roomId=${encodeURIComponent(roomId)}`, { cache: 'no-store' }),
+      fetch(`/api/admin/room/summary?roomId=${encodeURIComponent(roomId)}`, { cache: 'no-store' }),
     ]);
 
     const detailsPayload = await detailsRes.json().catch(() => null);
@@ -122,7 +112,7 @@ export default function AdminRoomDetailsPage({ params }: { params: { roomId: str
     setSummary(summaryPayload as SummaryResponse);
 
     setLoading(false);
-  }, [hasValidTarget, roomCodeParam, roomIdParam]);
+  }, [hasValidRoomId, roomId]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -152,13 +142,7 @@ export default function AdminRoomDetailsPage({ params }: { params: { roomId: str
     void load();
   }, [details?.room, load]);
 
-  const resolvedRoomId = useMemo(() => {
-    if (roomIdParam) return roomIdParam;
-    const fromDetails = details?.room as { id?: unknown } | null | undefined;
-    return typeof fromDetails?.id === 'string' ? fromDetails.id : null;
-  }, [details?.room, roomIdParam]);
-
-  const hasResolvedRoomId = Boolean(resolvedRoomId && isUuid.test(resolvedRoomId));
+  const hasResolvedRoomId = Boolean(roomId && hasValidRoomId);
 
   const restartRoom = useCallback(async () => {
     if (!hasResolvedRoomId) {
@@ -171,7 +155,7 @@ export default function AdminRoomDetailsPage({ params }: { params: { roomId: str
     const res = await fetch('/api/admin/room/restart', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ roomId: resolvedRoomId }),
+      body: JSON.stringify({ roomId }),
     });
     const payload = await res.json().catch(() => null);
     if (!res.ok) {
@@ -180,7 +164,7 @@ export default function AdminRoomDetailsPage({ params }: { params: { roomId: str
     }
     setActionMessage('Комната перезапущена');
     void load();
-  }, [hasResolvedRoomId, load, resolvedRoomId]);
+  }, [hasResolvedRoomId, load, roomId]);
 
   const forceEndRound = useCallback(async () => {
     if (!hasResolvedRoomId) {
@@ -193,7 +177,7 @@ export default function AdminRoomDetailsPage({ params }: { params: { roomId: str
     const res = await fetch('/api/admin/room/force-end', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ roomId: resolvedRoomId }),
+      body: JSON.stringify({ roomId }),
     });
     const payload = await res.json().catch(() => null);
     if (!res.ok) {
@@ -202,7 +186,7 @@ export default function AdminRoomDetailsPage({ params }: { params: { roomId: str
     }
     setActionMessage('Раунд принудительно завершён');
     void load();
-  }, [hasResolvedRoomId, load, resolvedRoomId]);
+  }, [hasResolvedRoomId, load, roomId]);
 
   const startRound3Rpc = useCallback(async () => {
     if (!hasResolvedRoomId) {
@@ -215,7 +199,7 @@ export default function AdminRoomDetailsPage({ params }: { params: { roomId: str
     const res = await fetch('/api/admin/room/start-round3', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ roomId: resolvedRoomId }),
+      body: JSON.stringify({ roomId }),
     });
     const payload = await res.json().catch(() => null);
     if (!res.ok) {
@@ -224,18 +208,15 @@ export default function AdminRoomDetailsPage({ params }: { params: { roomId: str
     }
     setActionMessage('Round 3 запущен через RPC');
     void load();
-  }, [hasResolvedRoomId, load, resolvedRoomId]);
+  }, [hasResolvedRoomId, load, roomId]);
 
   const exportRoom = useCallback(async () => {
-    if (!hasResolvedRoomId && !roomCodeParam) {
+    if (!hasResolvedRoomId) {
       setError('Некорректный id комнаты');
       return;
     }
     setError(null);
-    const exportQuery = hasResolvedRoomId
-      ? `roomId=${encodeURIComponent(resolvedRoomId ?? '')}`
-      : `code=${encodeURIComponent(roomCodeParam ?? '')}`;
-    const res = await fetch(`/api/admin/export/room?${exportQuery}`);
+    const res = await fetch(`/api/admin/export/room?roomId=${encodeURIComponent(roomId ?? '')}`);
     if (!res.ok) {
       setError('Не удалось выгрузить room export');
       return;
@@ -243,10 +224,10 @@ export default function AdminRoomDetailsPage({ params }: { params: { roomId: str
     const blob = await res.blob();
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `room-${resolvedRoomId ?? roomCodeParam ?? 'export'}.json`;
+    link.download = `room-${roomId ?? 'export'}.json`;
     link.click();
     URL.revokeObjectURL(link.href);
-  }, [hasResolvedRoomId, resolvedRoomId, roomCodeParam]);
+  }, [hasResolvedRoomId, roomId]);
 
   const topLikesLabel = useMemo(() => {
     if (!summary?.topLikes?.length) return '—';
