@@ -44,7 +44,7 @@ export async function GET(request: Request) {
     const roomRes = await supabase
       .from('rooms')
       .select(
-        'id, code, created_at, status, is_active, pack_id, state_version, transitioning_to_next, current_question_index, question_started_at, all_players_answered, selected_question_ids, round2_item_index, round2_showing_fact, round2_phase'
+        'id, code, created_at, status, is_active, pack_id, state_version, transitioning_to_next, current_question_index, question_started_at, all_players_answered, selected_question_ids, round2_item_index, round2_showing_fact, round2_phase, round4_puzzle_id, round5_question_index'
       )
       .eq('id', roomId)
       .maybeSingle();
