@@ -50,7 +50,9 @@ function statusBadge(status?: string | null) {
 }
 
 function toSeries(rows: Array<{ id: number; total: number }>, prefix: string): SeriesPoint[] {
-  return rows.slice(0, 24).map((row) => ({ label: `${prefix}${row.id}`, value: row.total }));
+  const series = rows.slice(0, 24).map((row) => ({ label: `${prefix}${row.id}`, value: row.total }));
+  console.log('[toSeries]', { prefix, rowsLength: rows.length, series });
+  return series;
 }
 
 export default function AdminRoomDetailsClient({ roomId }: { roomId: string }) {
