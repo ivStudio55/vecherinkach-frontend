@@ -8,7 +8,7 @@ import { describeLikeQuestionId } from '@/shared/logic/questionLikes';
 type RoomDetails = {
   room: Record<string, unknown>;
   players: Array<{ id: string; name: string; total_points: number; joined_at: string | null }>;
-  logs: Array<{ id: string; created_at: string; level: string; message: string; event_name: string | null }>;
+  logs: Array<{ id: string; created_at: string; level: string; channel: string | null; message: string; event_name: string | null }>;
   bestQuestion?: { question_id: number; likes: number } | null;
 };
 
@@ -592,18 +592,42 @@ export default function AdminRoomDetailsClient({ roomId }: { roomId: string }) {
 
         <SectionCard title="Последние логи">
           <div className="space-y-2">
-            {(details?.logs ?? []).slice(0, 40).map((log) => (
-              <div key={log.id} className="rounded-2xl border-[3px] border-[#142a45] bg-white p-4">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <StatusBadge label={log.level} status={log.level === 'error' ? 'error' : log.level === 'warn' ? 'warning' : 'neutral'} />
-                    {log.event_name ? <StatusBadge label={log.event_name} status="neutral" /> : null}
+            {(details?.logs ?? []).slice(0, 40).map((log) => {
+              const explanation = resolveErrorExplanation(log as SummaryResponse['errorLogs'][number]);
+              const longDetails = (explanation?.details ?? '').length > 220;
+              return (
+                <div key={log.id} className="rounded-2xl border-[3px] border-[#142a45] bg-white p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex flex-wrap gap-2 items-center">
+                      <StatusBadge label={log.level} status={log.level === 'error' ? 'error' : log.level === 'warn' ? 'warning' : 'neutral'} />
+                      {log.channel ? <StatusBadge label={log.channel} status="neutral" /> : null}
+                      {log.event_name ? <StatusBadge label={log.event_name} status="neutral" /> : null}
+                    </div>
+                    <span className="text-xs font-semibold text-[#142a45]/60">{formatIso(log.created_at)}</span>
                   </div>
-                  <span className="text-xs font-semibold text-[#142a45]/60">{formatIso(log.created_at)}</span>
+                  <p className="text-sm font-semibold text-[#142a45]">{log.message}</p>
+                  {explanation ? (
+                    <div className="rounded-2xl border-[2px] border-[#142a45]/20 bg-[#f5f7fb] p-3 space-y-2">
+                      <p className="text-xs font-black tracking-[0.2em] text-[#142a45]/70">{explanation.title}</p>
+                      <p className="text-sm font-semibold text-[#142a45]">{explanation.short}</p>
+                      {explanation.details ? (
+                        longDetails ? (
+                          <button
+                            type="button"
+                            onClick={() => setActiveExplanation({ title: explanation.title, details: explanation.details ?? '' })}
+                            className="px-4 py-2 rounded-xl border-[2px] border-[#142a45] text-xs font-black text-[#142a45] hover:bg-[#142a45]/5"
+                          >
+                            Подробнее
+                          </button>
+                        ) : (
+                          <p className="text-xs text-[#142a45]/80 whitespace-pre-wrap">{explanation.details}</p>
+                        )
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
-                <p className="mt-2 font-semibold">{log.message}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </SectionCard>
       </div>
