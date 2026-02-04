@@ -22,11 +22,20 @@ export const getQuestionsBaseUrl = (packId: PackId): string => {
 
 export const getRound2QuestionUrls = (packId: PackId): string[] => {
   const base = getQuestionsBaseUrl(packId);
-  if (packId === '03012026') {
-    return [`${base}/true_false_explanation_new.json`];
-  }
+  const urls: string[] = [];
 
-  return [`${base}/true_false_explanation_new.json`];
+  // Primary (new) files
+  urls.push(`${base}/true_false_explanation_new.json`);
+
+  // Pack-specific legacy fallback (safe even if file отсутствует)
+  urls.push(`${base}/true_false_explanation.json`);
+
+  // Classic fallbacks (when pack/base misaligned or CDN кеш)
+  urls.push('/questions/true_false_explanation_new.json');
+  urls.push('/questions/true_false_explanation.json');
+
+  // Remove duplicates while preserving order
+  return Array.from(new Set(urls));
 };
 
 const getAudioPrefix = (packId: PackId): string => {
