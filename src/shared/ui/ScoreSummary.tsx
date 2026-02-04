@@ -35,12 +35,12 @@ export const ScoreSummary = ({
       {resolvedTitle ? (
         <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/60">{resolvedTitle}</p>
       ) : null}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="min-w-[150px] rounded-2xl border-[3px] border-[#142a45]/15 bg-white px-6 py-4">
+      <div className="flex flex-col gap-3">
+        <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-white px-6 py-4">
           <p className="text-[11px] font-semibold tracking-[0.25em] text-[#142a45]/60">ОЧКИ</p>
           <p className="text-4xl font-black tabular-nums leading-none break-words">{formatValue(points, isLoading)}</p>
         </div>
-        <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-white p-4">
+        <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-white px-6 py-4">
           <p className="text-[11px] font-semibold tracking-[0.25em] text-[#142a45]/60">МЕСТО</p>
           <p className="text-3xl font-black tabular-nums">
             {formatValue(rank, isLoading)}
