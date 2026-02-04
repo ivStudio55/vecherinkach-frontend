@@ -22,20 +22,11 @@ export const getQuestionsBaseUrl = (packId: PackId): string => {
 
 export const getRound2QuestionUrls = (packId: PackId): string[] => {
   const base = getQuestionsBaseUrl(packId);
-  const urls: string[] = [];
-
   if (packId === '03012026') {
-    urls.push(`${base}/true_false_explanation_new.json`);
-    urls.push(`${base}/true_false_explanation.json`);
-  } else {
-    urls.push(`${base}/true_false_explanation.json`);
+    return [`${base}/true_false_explanation_new.json`];
   }
 
-  if (!urls.includes('/questions/true_false_explanation.json')) {
-    urls.push('/questions/true_false_explanation.json');
-  }
-
-  return urls;
+  return [`${base}/true_false_explanation_new.json`];
 };
 
 const getAudioPrefix = (packId: PackId): string => {

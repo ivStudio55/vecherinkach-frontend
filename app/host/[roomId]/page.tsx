@@ -3274,19 +3274,43 @@ export default function HostRoomPage() {
     setRound2LastAccuracy(0);
   }, []);
 
-  const updateRound2Leaderboard = useCallback(() => {
+  const loadRound2Points = useCallback(async (): Promise<Map<string, number>> => {
+    const pointsMap = new Map<string, number>();
+
+    if (!roomId) {
+      return pointsMap;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('round2_answers')
+        .select('player_id, points_earned')
+        .eq('room_id', roomId);
+
+      if (error) {
+        console.error('Не удалось загрузить очки Раунда 2', error);
+        return pointsMap;
+      }
+
+      for (const row of (data ?? []) as Array<{ player_id: string; points_earned: number }>) {
+        const earned = Number.isFinite(row.points_earned) ? row.points_earned : 0;
+        pointsMap.set(row.player_id, (pointsMap.get(row.player_id) ?? 0) + earned);
+      }
+    } catch (err) {
+      console.error('Не удалось загрузить очки Раунда 2', err);
+    }
+
+    return pointsMap;
+  }, [roomId]);
+
+  const updateRound2Leaderboard = useCallback(async () => {
     const snapshot = playersRef.current;
     if (!snapshot.length) {
       setRound2Leaderboard([]);
       return;
     }
 
-    const round2Answers = round2AnswersRef.current;
-    const pointsMap = new Map<string, number>();
-    for (const answer of round2Answers) {
-      const current = pointsMap.get(answer.player_id) ?? 0;
-      pointsMap.set(answer.player_id, current + answer.points_earned);
-    }
+    const pointsMap = await loadRound2Points();
 
     const leaderboard = snapshot
       .map((player) => {
@@ -3305,7 +3329,7 @@ export default function HostRoomPage() {
       });
 
     setRound2Leaderboard(leaderboard);
-  }, []);
+  }, [loadRound2Points]);
 
   const recordRound2QuestionStats = useCallback(() => {
     const snapshot = round2AnswersRef.current;
@@ -3338,7 +3362,7 @@ export default function HostRoomPage() {
 
     setRound2LastAccuracy(round2LastAccuracyRef.current);
 
-    updateRound2Leaderboard();
+    await updateRound2Leaderboard();
   }, [updateRound2Leaderboard]);
 
   const loadUsedRound2ItemIndices = useCallback(async () => {
@@ -5882,30 +5906,14 @@ export default function HostRoomPage() {
 
       // Award Round 2 points into players.total_points so the host sidebar shows updated totals.
       try {
-        const snapshot = round2AnswersRef.current;
-        const latestByPlayer = new Map<string, Round2AnswerRow>();
-        for (const answer of snapshot) {
-          latestByPlayer.set(answer.player_id, answer);
-        }
-        const uniqueAnswers = Array.from(latestByPlayer.values());
+        const pointsMap = await loadRound2Points();
 
-        const deltas = new Map<string, number>();
-        for (const answer of uniqueAnswers) {
-          if (!answer.is_correct) {
-            continue;
-          }
-          const points = Number.isFinite(answer.points_earned) ? answer.points_earned : ROUND2_POINTS;
-          if (points !== 0) {
-            deltas.set(answer.player_id, (deltas.get(answer.player_id) ?? 0) + points);
-          }
-        }
-
-        if (deltas.size > 0) {
+        if (pointsMap.size > 0) {
           const totalMap = new Map(playersRef.current.map((player) => [player.id, player.total_points ?? 0] as const));
           await Promise.all(
-            Array.from(deltas.entries()).map(async ([playerId, delta]) => {
+            Array.from(pointsMap.entries()).map(async ([playerId, roundPoints]) => {
               const currentTotal = totalMap.get(playerId) ?? 0;
-              const nextTotal = currentTotal + delta;
+              const nextTotal = currentTotal + roundPoints;
               const { error: updateError } = await supabase
                 .from('players')
                 .update({ total_points: nextTotal })
@@ -6367,7 +6375,7 @@ export default function HostRoomPage() {
       return;
     }
 
-    updateRound2Leaderboard();
+    await updateRound2Leaderboard();
     setRoomStatus('finished');
     setShowResults(true);
     setRound2Phase('idle');
