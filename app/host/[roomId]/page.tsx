@@ -3267,6 +3267,8 @@ export default function HostRoomPage() {
     isCountdownVisibleRef.current = isCountdownVisible;
   }, [isCountdownVisible]);
 
+  const round2AwardedPointsRef = useRef<Map<string, number>>(new Map());
+
   useEffect(() => {
     if (roomStatus !== 'round4-running' || !questionStartedAt) {
       return;
@@ -3282,6 +3284,7 @@ export default function HostRoomPage() {
   }, [questionStartedAt, roomStatus, timeOffsetMs]);
 
   const resetRound2Stats = useCallback(() => {
+    round2AwardedPointsRef.current.clear();
     round2StatsRef.current = new Map();
     round2CorrectTotalRef.current = 0;
     round2PossibleTotalRef.current = 0;
@@ -5926,19 +5929,35 @@ export default function HostRoomPage() {
 
         if (pointsMap.size > 0) {
           const totalMap = new Map(playersRef.current.map((player) => [player.id, player.total_points ?? 0] as const));
-          await Promise.all(
-            Array.from(pointsMap.entries()).map(async ([playerId, roundPoints]) => {
-              const currentTotal = totalMap.get(playerId) ?? 0;
-              const nextTotal = currentTotal + roundPoints;
-              const { error: updateError } = await supabase
-                .from('players')
-                .update({ total_points: nextTotal })
-                .eq('id', playerId);
-              if (updateError) {
-                console.error('Не удалось обновить очки игрока (round2)', updateError);
+          const previousTotals = round2AwardedPointsRef.current;
+
+          const updates = Array.from(pointsMap.entries())
+            .map(([playerId, roundPoints]) => {
+              const alreadyAwarded = previousTotals.get(playerId) ?? 0;
+              const delta = roundPoints - alreadyAwarded;
+              if (delta <= 0) {
+                return null;
               }
+              previousTotals.set(playerId, roundPoints);
+              return { playerId, delta } as const;
             })
-          );
+            .filter(Boolean) as Array<{ playerId: string; delta: number }>;
+
+          if (updates.length) {
+            await Promise.all(
+              updates.map(async ({ playerId, delta }) => {
+                const currentTotal = totalMap.get(playerId) ?? 0;
+                const nextTotal = currentTotal + delta;
+                const { error: updateError } = await supabase
+                  .from('players')
+                  .update({ total_points: nextTotal })
+                  .eq('id', playerId);
+                if (updateError) {
+                  console.error('Не удалось обновить очки игрока (round2)', updateError);
+                }
+              })
+            );
+          }
           loadPlayersRef.current?.();
         }
       } catch (err) {
