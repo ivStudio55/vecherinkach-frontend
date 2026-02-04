@@ -4,7 +4,13 @@ import { Fragment, useState, useEffect, useLayoutEffect, useCallback, useMemo, u
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { logError, logEvent } from '@/shared/logic/logger';
-import { TrueFalseItem, ROUND2_POINTS, normalizeTrueFalseItems } from '@/lib/round2';
+import {
+  TrueFalseItem,
+  ROUND2_POINTS,
+  normalizeTrueFalseItems,
+  filterTrueFalseItemsForPack,
+  resolveRound2AudioOrdinal,
+} from '@/lib/round2';
 import { Round1VariantsPanel, Round1VariantsPanelHandle } from '@/components/Round1VariantsPanel';
 import { AnimatedText } from '@/components/AnimatedText';
 import { useRoomSync } from '@/lib/useRoomSync';
@@ -712,8 +718,10 @@ export default function HostRoomPage() {
       ? `packs/03012026/round1/${questionId}.mp3`
       : `round1/questions/${questionId}.mp3`;
 
-  const getRound2AudioOrdinal = (index: number) =>
-    packIdRef.current === '03012026' ? PACK_03012026_ROUND2_AUDIO_START + index : index + 1;
+  const getRound2AudioOrdinal = (index: number, isFact: boolean) => {
+    const item = round2ItemsRef.current[index];
+    return resolveRound2AudioOrdinal(item, index, packIdRef.current, isFact);
+  };
 
   const getRound3AudioOrdinal = (index: number) =>
     packIdRef.current === '03012026' ? PACK_03012026_ROUND3_AUDIO_START + index : index + 1;
@@ -1064,6 +1072,7 @@ export default function HostRoomPage() {
   const isTransitioningRound2Ref = useRef(false);
   const lastRound2AwardKeyRef = useRef<string | null>(null);
   const round2CurrentIndexRef = useRef<number | null>(round2CurrentIndex);
+  const round2ItemsRef = useRef<TrueFalseItem[]>([]);
   const countdownCompleteActionRef = useRef<(() => Promise<void> | void) | null>(null);
   const round2ShowingFactRef = useRef(round2ShowingFact);
   const round2PhaseRef = useRef<Round2Phase>(round2PhaseState);
@@ -1220,6 +1229,10 @@ export default function HostRoomPage() {
   useEffect(() => {
     round2AnswersRef.current = round2Answers;
   }, [round2Answers]);
+
+  useEffect(() => {
+    round2ItemsRef.current = round2Items;
+  }, [round2Items]);
 
   useEffect(() => {
     playersRef.current = players;
@@ -3109,8 +3122,9 @@ export default function HostRoomPage() {
           if (!res.ok) continue;
           const json = await res.json();
           const normalized = normalizeTrueFalseItems(json);
-          if (normalized.length === 0) continue;
-          setRound2Items(normalized);
+          const filtered = filterTrueFalseItemsForPack(normalized, packId);
+          if (filtered.length === 0) continue;
+          setRound2Items(filtered);
           return;
         } catch (e) {
           console.error('Failed to load round2 data from', url, e);
@@ -3653,7 +3667,7 @@ export default function HostRoomPage() {
       stopRound2Audio();
 
       const folder = isFact ? 'round2/true' : 'round2/false';
-      const ordinal = getRound2AudioOrdinal(index);
+      const ordinal = getRound2AudioOrdinal(index, isFact);
       const prefix = isFact ? 'true' : 'false';
       const filePath = `${folder}/${prefix}${ordinal}.mp3`;
       const audio = new Audio(buildAudioUrl(filePath));
@@ -3733,7 +3747,7 @@ export default function HostRoomPage() {
       bg.loop = true;
       round2ExplanationBgAudioRef.current = bg;
 
-      const ordinal = getRound2AudioOrdinal(index);
+      const ordinal = getRound2AudioOrdinal(index, true);
       const voice = new Audio(buildAudioUrl(`round2/explanation/${ordinal}.mp3`));
       voice.volume = 0.95;
 
@@ -3776,7 +3790,7 @@ export default function HostRoomPage() {
       bg.loop = true;
       round2ExplanationBgAudioRef.current = bg;
 
-      const ordinal = getRound2AudioOrdinal(index);
+      const ordinal = getRound2AudioOrdinal(index, false);
       const voice = new Audio(buildAudioUrl(`round2/fictionExplanation/${ordinal}.mp3`));
       voice.volume = 0.95;
 
