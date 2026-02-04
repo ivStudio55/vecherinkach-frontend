@@ -3331,7 +3331,7 @@ export default function HostRoomPage() {
     setRound2Leaderboard(leaderboard);
   }, [loadRound2Points]);
 
-  const recordRound2QuestionStats = useCallback(() => {
+  const recordRound2QuestionStats = useCallback(async () => {
     const snapshot = round2AnswersRef.current;
     const uniqueMap = new Map<string, Round2AnswerRow>();
     for (const answer of snapshot) {
