@@ -20,6 +20,24 @@ export const getQuestionsBaseUrl = (packId: PackId): string => {
   return packId === '03012026' ? '/packs/03012026/questions' : '/questions';
 };
 
+export const getRound2QuestionUrls = (packId: PackId): string[] => {
+  const base = getQuestionsBaseUrl(packId);
+  const urls: string[] = [];
+
+  if (packId === '03012026') {
+    urls.push(`${base}/true_false_explanation_new.json`);
+    urls.push(`${base}/true_false_explanation.json`);
+  } else {
+    urls.push(`${base}/true_false_explanation.json`);
+  }
+
+  if (!urls.includes('/questions/true_false_explanation.json')) {
+    urls.push('/questions/true_false_explanation.json');
+  }
+
+  return urls;
+};
+
 const getAudioPrefix = (packId: PackId): string => {
   return packId === '03012026' ? 'packs/03012026' : '';
 };

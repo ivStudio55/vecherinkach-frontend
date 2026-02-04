@@ -42,6 +42,7 @@ import {
 import {
   DEFAULT_PACK_ID,
   getQuestionsBaseUrl,
+  getRound2QuestionUrls,
   normalizePackId,
   type PackId,
   withAudioPackPrefixIfNeeded,
@@ -3100,13 +3101,18 @@ export default function HostRoomPage() {
 
   useEffect(() => {
     const loadRound2Data = async () => {
-      try {
-        const res = await fetch(`${getQuestionsBaseUrl(packId)}/true_false_explanation.json?t=${Date.now()}`, { cache: 'no-store' });
-        if (!res.ok) return;
-        const json = (await res.json()) as TrueFalseItem[];
-        setRound2Items(json);
-      } catch (e) {
-        console.error('Failed to load round2 data', e);
+      const urls = getRound2QuestionUrls(packId);
+      for (const url of urls) {
+        try {
+          const bust = url.includes('?') ? `&t=${Date.now()}` : `?t=${Date.now()}`;
+          const res = await fetch(`${url}${bust}`, { cache: 'no-store' });
+          if (!res.ok) continue;
+          const json = (await res.json()) as TrueFalseItem[];
+          setRound2Items(json);
+          return;
+        } catch (e) {
+          console.error('Failed to load round2 data from', url, e);
+        }
       }
     };
     loadRound2Data();
