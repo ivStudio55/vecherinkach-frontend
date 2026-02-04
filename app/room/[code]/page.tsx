@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { TrueFalseItem, ROUND2_POINTS } from '@/lib/round2';
+import { TrueFalseItem, ROUND2_POINTS, normalizeTrueFalseItems } from '@/lib/round2';
 import { AnimatedText } from '@/components/AnimatedText';
 import { submitRound1Answer } from '@/shared/logic/submitAnswer';
 import { logEvent } from '@/shared/logic/logger';
@@ -314,8 +314,10 @@ export default function RoomPage() {
           const bust = url.includes('?') ? `&t=${Date.now()}` : `?t=${Date.now()}`;
           const res = await fetch(`${url}${bust}`, { cache: 'no-store' });
           if (!res.ok) continue;
-          const json = (await res.json()) as TrueFalseItem[];
-          setRound2Items(json);
+          const json = await res.json();
+          const normalized = normalizeTrueFalseItems(json);
+          if (normalized.length === 0) continue;
+          setRound2Items(normalized);
           return;
         } catch (e) {
           console.error('Failed to load round2 data from', url, e);

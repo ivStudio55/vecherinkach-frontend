@@ -4,7 +4,7 @@ import { Fragment, useState, useEffect, useLayoutEffect, useCallback, useMemo, u
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { logError, logEvent } from '@/shared/logic/logger';
-import { TrueFalseItem, ROUND2_POINTS } from '@/lib/round2';
+import { TrueFalseItem, ROUND2_POINTS, normalizeTrueFalseItems } from '@/lib/round2';
 import { Round1VariantsPanel, Round1VariantsPanelHandle } from '@/components/Round1VariantsPanel';
 import { AnimatedText } from '@/components/AnimatedText';
 import { useRoomSync } from '@/lib/useRoomSync';
@@ -3107,8 +3107,10 @@ export default function HostRoomPage() {
           const bust = url.includes('?') ? `&t=${Date.now()}` : `?t=${Date.now()}`;
           const res = await fetch(`${url}${bust}`, { cache: 'no-store' });
           if (!res.ok) continue;
-          const json = (await res.json()) as TrueFalseItem[];
-          setRound2Items(json);
+          const json = await res.json();
+          const normalized = normalizeTrueFalseItems(json);
+          if (normalized.length === 0) continue;
+          setRound2Items(normalized);
           return;
         } catch (e) {
           console.error('Failed to load round2 data from', url, e);
