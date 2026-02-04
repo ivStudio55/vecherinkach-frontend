@@ -239,6 +239,14 @@ export default function HostPage() {
                         alt="QR код Telegram"
                         className={`mx-auto mt-2 ${isMobileLayout ? 'h-28 w-28' : 'h-36 w-36'} rounded-xl border-[2px] border-[#142a45]/20 bg-white`}
                       />
+                      <a
+                        href="https://t.me/vecherinkach"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-2 inline-block text-xs font-semibold text-[#142a45] underline underline-offset-4"
+                      >
+                        t.me/vecherinkach
+                      </a>
                     </div>
                     <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-white p-3 text-center">
                       <p className="text-xs font-semibold text-[#142a45]/70">Join</p>
@@ -255,6 +263,14 @@ export default function HostPage() {
                         alt="QR код VK"
                         className={`mx-auto mt-2 ${isMobileLayout ? 'h-28 w-28' : 'h-36 w-36'} rounded-xl border-[2px] border-[#142a45]/20 bg-white`}
                       />
+                      <a
+                        href="https://vk.com/vecherinkach"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-2 inline-block text-xs font-semibold text-[#142a45] underline underline-offset-4"
+                      >
+                        vk.com/vecherinkach
+                      </a>
                     </div>
                   </div>
                 </div>

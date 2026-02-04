@@ -22,27 +22,6 @@ export function HostRoleNoticeModal({ isOpen, onContinue, onPlayer }: HostRoleNo
             <br />
             Если вы игрок — нажмите ниже.
           </p>
-          <div className="space-y-1 text-sm sm:text-base text-[#142a45]/80">
-            <p className="font-semibold">QR на экране ведут сюда:</p>
-            <div className="flex flex-wrap gap-3">
-              <a
-                href="https://t.me/vecherinkach"
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border-[2px] border-[#142a45] font-semibold hover:bg-[#142a45]/5"
-              >
-                Telegram канал
-              </a>
-              <a
-                href="https://vk.com/vecherinkach"
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border-[2px] border-[#142a45] font-semibold hover:bg-[#142a45]/5"
-              >
-                Сообщество VK
-              </a>
-            </div>
-          </div>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3">
