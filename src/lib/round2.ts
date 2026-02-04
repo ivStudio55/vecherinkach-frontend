@@ -43,14 +43,23 @@ export const filterTrueFalseItemsForPack = (items: TrueFalseItem[], packId: Pack
   const bounds = getRound2AudioBounds(packId);
 
   const filtered = items.filter((item, idx) => {
+    const factIdRaw = item.factId;
+    const fictionIdRaw = item.fictionId;
+
+    if (typeof factIdRaw === 'number' && (!Number.isFinite(factIdRaw) || factIdRaw < bounds.min || factIdRaw > bounds.max)) {
+      return false;
+    }
+    if (
+      typeof fictionIdRaw === 'number' &&
+      (!Number.isFinite(fictionIdRaw) || fictionIdRaw < bounds.min || fictionIdRaw > bounds.max)
+    ) {
+      return false;
+    }
+
     const factOrdinal = resolveRound2AudioOrdinal(item, idx, packId, true);
     const fictionOrdinal = resolveRound2AudioOrdinal(item, idx, packId, false);
-    return (
-      factOrdinal >= bounds.min &&
-      factOrdinal <= bounds.max &&
-      fictionOrdinal >= bounds.min &&
-      fictionOrdinal <= bounds.max
-    );
+
+    return factOrdinal >= bounds.min && factOrdinal <= bounds.max && fictionOrdinal >= bounds.min && fictionOrdinal <= bounds.max;
   });
 
   return filtered.length ? filtered : items;
