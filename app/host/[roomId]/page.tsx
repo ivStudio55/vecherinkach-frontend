@@ -7467,7 +7467,7 @@ export default function HostRoomPage() {
     uiPhase === 'transition'
       ? 'Загружаем следующий вопрос'
       : uiPhase === 'calculating'
-        ? 'Подсчёт результатов'
+        ? ''
         : uiPhase === 'waiting'
           ? 'Ожидаем игроков'
           : '';
