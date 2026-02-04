@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BarChart, KpiCard, MetricRow, SectionCard, StatusBadge, type SeriesPoint } from '@/components/admin/AdminWidgets';
 import { describeLikeQuestionId } from '@/shared/logic/questionLikes';
+import { createQuestionBank, DEFAULT_QUESTION_BANK, getQuestionForIndex, type QuestionBank } from '@/lib/questions';
+import { getQuestionsBaseUrl, normalizePackId, type PackId } from '@/lib/questionPacks';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -333,6 +335,37 @@ export default function AdminRoomDetailsClient({ roomId }: { roomId: string }) {
   const [details, setDetails] = useState<RoomDetails | null>(null);
   const [summary, setSummary] = useState<SummaryResponse | null>(null);
   const [activeExplanation, setActiveExplanation] = useState<{ title: string; details: string } | null>(null);
+  const [questionBank, setQuestionBank] = useState<QuestionBank | null>(null);
+  const [questionBankPack, setQuestionBankPack] = useState<PackId | null>(null);
+  const [questionBankError, setQuestionBankError] = useState<string | null>(null);
+
+  const loadQuestionBank = useCallback(
+    async (rawPackId: unknown) => {
+      const normalized = normalizePackId(rawPackId ?? undefined);
+      if (questionBank && questionBankPack === normalized) return;
+
+      const candidates = [`${getQuestionsBaseUrl(normalized)}/round1.json`, '/questions/round1.json'];
+      for (const url of candidates) {
+        try {
+          const res = await fetch(url, { cache: 'no-store' });
+          if (!res.ok) continue;
+          const json = await res.json();
+          const bank = createQuestionBank(json);
+          setQuestionBank(bank);
+          setQuestionBankPack(normalized);
+          setQuestionBankError(null);
+          return;
+        } catch (err) {
+          console.warn('Failed to load question bank candidate', { url, err });
+        }
+      }
+
+      setQuestionBank(null);
+      setQuestionBankPack(normalized);
+      setQuestionBankError('Не удалось загрузить текст вопросов пакета');
+    },
+    [questionBank, questionBankPack]
+  );
 
   const load = useCallback(async () => {
     // CRITICAL: Не выполнять запросы, если roomId невалиден
@@ -467,6 +500,28 @@ export default function AdminRoomDetailsClient({ roomId }: { roomId: string }) {
     void load();
   }, [hasValidRoomId, load, roomId]);
 
+  const forceNextQuestion = useCallback(async () => {
+    if (!hasValidRoomId) {
+      setError('Некорректный UUID комнаты');
+      return;
+    }
+    setActionMessage(null);
+    setError(null);
+    const res = await fetch('/api/admin/room/next-question', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ roomId }),
+    });
+    const payload = await res.json().catch(() => null);
+    if (!res.ok) {
+      setError(payload?.error ?? 'Не удалось переключить вопрос');
+      return;
+    }
+    setActionMessage('Следующий вопрос запущен');
+    void load();
+  }, [hasValidRoomId, load, roomId]);
+
   const startRound3Rpc = useCallback(async () => {
     if (!hasValidRoomId) {
       setError('Некорректный UUID комнаты');
@@ -518,6 +573,29 @@ export default function AdminRoomDetailsClient({ roomId }: { roomId: string }) {
   }, [summary?.topLikes]);
 
   const roomSnapshot = summary?.room;
+  useEffect(() => {
+    if (!roomSnapshot) return;
+    void loadQuestionBank((roomSnapshot as { pack_id?: unknown }).pack_id);
+  }, [loadQuestionBank, roomSnapshot]);
+
+  const selectedQuestionIds = useMemo(() => {
+    const raw = (roomSnapshot as { selected_question_ids?: unknown })?.selected_question_ids;
+    if (!Array.isArray(raw)) return [] as number[];
+    return (raw as Array<number | string>)
+      .map((value) => Number(value))
+      .filter((value) => Number.isFinite(value));
+  }, [roomSnapshot]);
+
+  const displayedQuestions = useMemo(() => {
+    if (!selectedQuestionIds.length) return [] as Array<{ order: number; questionId: number; text: string; status: string }>;
+    const bank = questionBank ?? DEFAULT_QUESTION_BANK;
+    const currentIndex = Number(roomSnapshot?.current_question_index ?? -1);
+    return selectedQuestionIds.map((questionId, index) => {
+      const question = getQuestionForIndex(selectedQuestionIds, index, bank);
+      const status = index < currentIndex ? 'показан' : index === currentIndex ? 'текущий' : 'в очереди';
+      return { order: index + 1, questionId, text: question?.text ?? '', status };
+    });
+  }, [questionBank, roomSnapshot?.current_question_index, selectedQuestionIds]);
   const questionStartedAt = typeof roomSnapshot?.question_started_at === 'string' ? roomSnapshot.question_started_at : null;
   const playersMap = useMemo(() => {
     if (!details?.players?.length) return undefined;
@@ -649,6 +727,13 @@ export default function AdminRoomDetailsClient({ roomId }: { roomId: string }) {
               </button>
               <button
                 type="button"
+                onClick={() => void forceNextQuestion()}
+                className="px-4 py-3 rounded-2xl border-[3px] border-[#1f6ac6] font-black hover:bg-[#e9f0ff]"
+              >
+                Next question
+              </button>
+              <button
+                type="button"
                 onClick={() => void startRound3Rpc()}
                 className="px-4 py-3 rounded-2xl border-[3px] border-[#142a45] font-black hover:bg-[#142a45]/5"
               >
@@ -670,6 +755,46 @@ export default function AdminRoomDetailsClient({ roomId }: { roomId: string }) {
           <KpiCard label="Round5 answers" value={summary?.counts.round5Answers ?? 0} />
           <KpiCard label="Likes" value={summary?.counts.likes ?? 0} />
           <KpiCard label="Logs" value={summary?.counts.logs ?? 0} />
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Показанные вопросы раунда 1">
+        {questionBankError ? (
+          <div className="rounded-2xl border-[3px] border-[#b23324] bg-[#ffd7d0] p-4 font-black">{questionBankError}</div>
+        ) : null}
+        <div className="overflow-auto rounded-3xl border-[3px] border-[#142a45]">
+          <table className="min-w-[700px] w-full bg-white">
+            <thead className="bg-[#142a45] text-[#ffeccd]">
+              <tr>
+                <th className="text-left px-4 py-3 text-xs tracking-[0.3em]">#</th>
+                <th className="text-left px-4 py-3 text-xs tracking-[0.3em]">QUESTION ID</th>
+                <th className="text-left px-4 py-3 text-xs tracking-[0.3em]">TEXT</th>
+                <th className="text-left px-4 py-3 text-xs tracking-[0.3em]">STATUS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {displayedQuestions.map((row) => (
+                <tr key={`${row.order}-${row.questionId}`} className="border-t border-[#142a45]/10">
+                  <td className="px-4 py-3 font-black">{row.order}</td>
+                  <td className="px-4 py-3 font-semibold">{row.questionId}</td>
+                  <td className="px-4 py-3 font-semibold whitespace-pre-wrap">{row.text || '—'}</td>
+                  <td className="px-4 py-3">
+                    <StatusBadge
+                      label={row.status}
+                      status={row.status === 'текущий' ? 'info' : row.status === 'показан' ? 'success' : 'neutral'}
+                    />
+                  </td>
+                </tr>
+              ))}
+              {!loading && displayedQuestions.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-4 py-6 text-center font-black text-[#142a45]/60">
+                    Пока нет выбранных вопросов
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
         </div>
       </SectionCard>
 
