@@ -173,7 +173,11 @@ type RoomUpdatePayload = {
 
 export default function RoomPage() {
   const params = useParams();
+      const prevStatus = roomStatusRef.current;
+      const prevStatus = roomStatusRef.current;
+      roomStatusRef.current = detectedStatus;
   const router = useRouter();
+      roomStatusRef.current = detectedStatus;
   const roomCode = params.code as string;
   const realtimeEnabled = isRealtimeEnabled();
 
@@ -222,6 +226,8 @@ export default function RoomPage() {
   const playerIdRef = useRef('');
   const round2ShowingFactRef = useRef(round2ShowingFact);
   const round4PuzzlesRef = useRef<Round4Puzzle[]>([]);
+  const lastRound4PuzzleIdRef = useRef<number | null>(null);
+  const lastRound5BankIndexRef = useRef<number | null>(null);
   const currentLikeQuestionIdRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -721,7 +727,9 @@ export default function RoomPage() {
       const selection = (room.selected_question_ids as number[] | null) || [];
       setSelectedQuestionIds(selection);
       const detectedStatus = (room.status as RoomStatus) || (room.is_active ? 'waiting' : 'finished');
+      const prevStatus = roomStatusRef.current;
       setRoomStatus(detectedStatus);
+      roomStatusRef.current = detectedStatus;
       setAllPlayersAnswered(
         detectedStatus === 'running' ||
           detectedStatus === 'round2-running' ||
@@ -749,6 +757,8 @@ export default function RoomPage() {
         setRound4Puzzle(null);
         setRound4PuzzleId(null);
         setRound4AnswerText('');
+        lastRound4PuzzleIdRef.current = null;
+        lastRound5BankIndexRef.current = null;
         setQuestionStartedAt(null);
         setTimeLeft(QUESTION_DURATION_SECONDS);
         setIsLoading(false);
@@ -762,6 +772,8 @@ export default function RoomPage() {
         setRound4Puzzle(null);
         setRound4PuzzleId(null);
         setRound4AnswerText('');
+        lastRound4PuzzleIdRef.current = null;
+        lastRound5BankIndexRef.current = null;
         setQuestionStartedAt(null);
         setIsLoading(false);
       } else if (detectedStatus === 'round2-running') {
@@ -856,24 +868,31 @@ export default function RoomPage() {
         setRound4PuzzleId(puzzleId);
         setRound4Puzzle(puzzleId ? round4Puzzles.find((p) => p.id === puzzleId) ?? null : null);
 
-        // Immediately reset per-puzzle UI state; then restore from DB if needed.
-        setHasAnswered(false);
-        setRound4AnswerText('');
-        setError('');
+        const prevPuzzleId = lastRound4PuzzleIdRef.current;
+        const shouldResetRound4 = prevStatus !== 'round4-running' || puzzleId !== prevPuzzleId;
 
-        if (puzzleId) {
-          const { data: existingRound4Answer } = await supabase
-            .from('round4_answers')
-            .select('id')
-            .eq('player_id', storedPlayerId)
-            .eq('room_id', room.id)
-            .eq('puzzle_id', puzzleId)
-            .maybeSingle();
-
-          setHasAnswered(!!existingRound4Answer);
-        } else {
+        if (shouldResetRound4) {
+          // Immediately reset per-puzzle UI state; then restore from DB if needed.
           setHasAnswered(false);
+          setRound4AnswerText('');
+          setError('');
+
+          if (puzzleId) {
+            const { data: existingRound4Answer } = await supabase
+              .from('round4_answers')
+              .select('id')
+              .eq('player_id', storedPlayerId)
+              .eq('room_id', room.id)
+              .eq('puzzle_id', puzzleId)
+              .maybeSingle();
+
+            setHasAnswered(!!existingRound4Answer);
+          } else {
+            setHasAnswered(false);
+          }
         }
+
+        lastRound4PuzzleIdRef.current = puzzleId ?? null;
 
         if (!cancelled) {
           setIsLoading(false);
@@ -891,12 +910,18 @@ export default function RoomPage() {
 
         const tourIndex = coerceToNumber(room.current_question_index) ?? 0;
         const bankIndex = typeof selection[tourIndex] === 'number' ? selection[tourIndex] : null;
+        const prevBankIndex = lastRound5BankIndexRef.current;
+        const statusWasRound5 = prevStatus === 'round5-running' || prevStatus === 'round5-explanation';
+        const bankChanged = bankIndex !== prevBankIndex;
+        const shouldResetRound5 = !statusWasRound5 || bankChanged;
         setRound5CurrentBankIndex(bankIndex);
         const bank = round5QuestionsRef.current;
         setRound5CurrentQuestion(bankIndex !== null ? bank[bankIndex] ?? null : null);
-        setRound5AnswerValue('');
-        setHasAnswered(false);
-        setError('');
+        if (shouldResetRound5) {
+          setRound5AnswerValue('');
+          setHasAnswered(false);
+          setError('');
+        }
 
         setQuestionStartedAt(room.question_started_at);
         if (detectedStatus === 'round5-running') {
@@ -906,7 +931,7 @@ export default function RoomPage() {
           setTimeLeft(0);
         }
 
-        if (bankIndex !== null) {
+        if (bankIndex !== null && shouldResetRound5) {
           const { data: existingRound5Answer } = await supabase
             .from('round5_answers')
             .select('answer_value')
@@ -925,10 +950,10 @@ export default function RoomPage() {
             if (existingValue !== null) {
               setRound5AnswerValue(String(existingValue));
             }
-          } else {
-            setHasAnswered(false);
           }
         }
+
+        lastRound5BankIndexRef.current = bankIndex;
 
         if (!cancelled) {
           setIsLoading(false);
@@ -1060,7 +1085,9 @@ export default function RoomPage() {
         return;
       }
 
+      const prevStatus = roomStatusRef.current;
       setRoomStatus(newStatus);
+      roomStatusRef.current = newStatus;
       const everyoneAnsweredFlag =
         newStatus === 'running' ||
           newStatus === 'round2-running' ||
@@ -1241,24 +1268,31 @@ export default function RoomPage() {
           effectivePuzzleId ? round4PuzzlesRef.current.find((p) => p.id === effectivePuzzleId) ?? null : null
         );
 
-        setHasAnswered(false);
-        setRound4AnswerText('');
-        setError('');
+        const prevPuzzleId = lastRound4PuzzleIdRef.current;
+        const shouldResetRound4 = prevStatus !== 'round4-running' || effectivePuzzleId !== prevPuzzleId;
 
-        const currentPlayerId = playerIdRef.current;
-        const currentRoomId = roomIdRef.current;
-        if (currentPlayerId && currentRoomId && effectivePuzzleId) {
-          const { data: newAnswer } = await supabase
-            .from('round4_answers')
-            .select('id')
-            .eq('player_id', currentPlayerId)
-            .eq('room_id', currentRoomId)
-            .eq('puzzle_id', effectivePuzzleId)
-            .maybeSingle();
-          setHasAnswered(!!newAnswer);
-        } else {
+        if (shouldResetRound4) {
           setHasAnswered(false);
+          setRound4AnswerText('');
+          setError('');
+
+          const currentPlayerId = playerIdRef.current;
+          const currentRoomId = roomIdRef.current;
+          if (currentPlayerId && currentRoomId && effectivePuzzleId) {
+            const { data: newAnswer } = await supabase
+              .from('round4_answers')
+              .select('id')
+              .eq('player_id', currentPlayerId)
+              .eq('room_id', currentRoomId)
+              .eq('puzzle_id', effectivePuzzleId)
+              .maybeSingle();
+            setHasAnswered(!!newAnswer);
+          } else {
+            setHasAnswered(false);
+          }
         }
+
+        lastRound4PuzzleIdRef.current = effectivePuzzleId ?? null;
         return;
       }
 
@@ -1276,12 +1310,18 @@ export default function RoomPage() {
 
         const tourIndex = newQuestionIndex ?? 0;
         const bankIndex = typeof selection[tourIndex] === 'number' ? selection[tourIndex] : null;
+        const prevBankIndex = lastRound5BankIndexRef.current;
+        const statusWasRound5 = prevStatus === 'round5-running' || prevStatus === 'round5-explanation';
+        const bankChanged = bankIndex !== prevBankIndex;
+        const shouldResetRound5 = !statusWasRound5 || bankChanged;
         setRound5CurrentBankIndex(bankIndex);
         const bank = round5QuestionsRef.current;
         setRound5CurrentQuestion(bankIndex !== null ? bank[bankIndex] ?? null : null);
-        setRound5AnswerValue('');
-        setHasAnswered(false);
-        setError('');
+        if (shouldResetRound5) {
+          setRound5AnswerValue('');
+          setHasAnswered(false);
+          setError('');
+        }
 
         setQuestionStartedAt(startedAt);
         const offset = await syncServerTimeRef.current?.();
@@ -1297,7 +1337,7 @@ export default function RoomPage() {
 
         const currentPlayerId = playerIdRef.current;
         const currentRoomId = roomIdRef.current;
-        if (currentPlayerId && currentRoomId && bankIndex !== null) {
+        if (currentPlayerId && currentRoomId && bankIndex !== null && shouldResetRound5) {
           const { data: newAnswer } = await supabase
             .from('round5_answers')
             .select('answer_value')
@@ -1315,12 +1355,10 @@ export default function RoomPage() {
             if (existingValue !== null) {
               setRound5AnswerValue(String(existingValue));
             }
-          } else {
-            setHasAnswered(false);
           }
-        } else {
-          setHasAnswered(false);
         }
+
+        lastRound5BankIndexRef.current = bankIndex;
         return;
       }
 
