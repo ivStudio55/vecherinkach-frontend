@@ -7493,13 +7493,6 @@ export default function HostRoomPage() {
         : roomStatus === 'waiting'
           ? 'bg-[#ffe184] text-[#142a45]'
           : 'bg-[#1f6ac6] text-white';
-  const shouldLockViewport =
-    roomStatus === 'running' ||
-    roomStatus === 'round2-running' ||
-    roomStatus === 'round3-running' ||
-    roomStatus === 'round4-running' ||
-    roomStatus === 'round5-running' ||
-    roomStatus === 'round5-explanation';
 
   const isMobileLayout = layoutMode === 'mobile';
   const isStackedLayout = layoutMode === 'stacked';
@@ -7542,14 +7535,13 @@ export default function HostRoomPage() {
               ? ({ zoom: forcedLayoutScale } as unknown as CSSProperties)
               : undefined
         }
-        className={`${
-          shouldLockViewport && !isCompactLayout && !isMobileLayout ? 'h-[100dvh] overflow-hidden' : 'min-h-screen'
-        } bg-[#fef4dc] text-[#142a45] ${isCompactForcedLayout ? 'px-2 py-3' : 'px-4 py-6'} transition-opacity duration-1000 opacity-100 ${
+        className={`min-h-screen bg-[#fef4dc] text-[#142a45] ${isCompactForcedLayout ? 'px-2 py-3' : 'px-4 py-6'} transition-opacity duration-1000 opacity-100 ${
           isMobileLayout ? 'text-[calc(1rem*var(--host-font-scale))]' : ''
         }`}
       >
         <div className={`${isMobileLayout ? 'max-w-full' : 'max-w-[95vw] mx-auto'} ${isCompactForcedLayout ? 'space-y-3' : 'space-y-6'}`}>
-          <header className="retro-panel bg-[#142a45] text-[#ffeccd] px-6 py-5">
+          {!isMobileLayout && !isStackedLayout ? (
+            <header className="retro-panel bg-[#142a45] text-[#ffeccd] px-6 py-5">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="retro-heading text-[11px] tracking-[0.5em] text-[#ffeccd]/70">Панель ведущего</p>
@@ -7557,7 +7549,6 @@ export default function HostRoomPage() {
                   Комната {roomCode || '----'}
                 </h1>
               </div>
-              {!isMobileLayout && !isStackedLayout ? (
                 <HostControls
                   primaryLabel={headerActionLabel}
                   onPrimaryAction={handlePrimaryHeaderAction}
@@ -7565,9 +7556,9 @@ export default function HostRoomPage() {
                   layoutLabel={layoutModeLabel}
                   compact={isCompactForcedLayout}
                 />
-              ) : null}
             </div>
-          </header>
+            </header>
+          ) : null}
 
         {showMobilePrompt ? (
           <div className="rounded-3xl border-[3px] border-[#142a45]/30 bg-white px-4 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -7614,76 +7605,380 @@ export default function HostRoomPage() {
                 />
               </div>
             }
-            questionView={
-              roomStatus === 'running' && question ? (
-                <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 flex flex-col gap-5">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between min-h-[44px]">
-                    <span className="px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
-                      Вопрос {question.order} / {totalQuestions}
-                    </span>
-                    <span className="text-sm font-semibold text-[#142a45]/70 whitespace-nowrap">
-                      Ответили: <span className="text-[#1f6ac6] tabular-nums">{answeredCount}/{totalPlayers}</span>
-                    </span>
+            questionView={(() => {
+              if (roomStatus === 'waiting') {
+                return (
+                  <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Сцена перед стартом</p>
+                        <h2 className="text-2xl font-black">⌛ Ждём подключений</h2>
+                        <p className="text-sm text-[#142a45]/80 mt-1">Код комнаты: <span className="font-mono font-black text-lg">{roomCode}</span></p>
+                      </div>
+                      <span className="text-sm font-semibold text-[#142a45]/70 whitespace-nowrap">Игроков: {players.length}</span>
+                    </div>
+                    <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-4 space-y-2">
+                      <p className="text-sm font-semibold text-[#142a45]/80">Поделитесь кодом или QR, затем жмите старт.</p>
+                      <JoinQrBlock
+                        roomCode={roomCode}
+                        qrWindowUrl={`/host/${roomId}/qr?code=${encodeURIComponent(roomCode)}`}
+                        className="rounded-2xl border-[3px] border-[#142a45]/10 bg-white"
+                      />
+                    </div>
+                    <button
+                      onClick={handlePrepareRound}
+                      disabled={players.length === 0}
+                      className="hover:scale-105 hover:shadow-lg transition-all duration-200 w-full py-3 rounded-2xl font-black text-base tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] disabled:opacity-40 disabled:cursor-not-allowed host-start-blink"
+                    >
+                      Начать игру →
+                    </button>
+                    {players.length === 0 && <p className="text-xs text-[#142a45]/60">Нужно как минимум 1 игрок.</p>}
                   </div>
+                );
+              }
 
-                  <div>
-                    <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
-                      <span>Таймер · 30 сек</span>
-                      <span className="font-black text-[#142a45]">
-                        {allPlayersAnswered ? 'Все ответили' : `${effectiveTimeLeft} c`}
+              if (roomStatus === 'running' && question) {
+                return (
+                  <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 flex flex-col gap-5">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between min-h-[44px]">
+                      <span className="px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
+                        Вопрос {question.order} / {totalQuestions}
+                      </span>
+                      <span className="text-sm font-semibold text-[#142a45]/70 whitespace-nowrap">
+                        Ответили: <span className="text-[#1f6ac6] tabular-nums">{answeredCount}/{totalPlayers}</span>
                       </span>
                     </div>
-                    <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
-                      <div
-                        className={`h-full ${effectiveTimeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
-                        style={{ width: `${progressPercent}%` }}
-                      />
+
+                    <div>
+                      <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
+                        <span>Таймер · 30 сек</span>
+                        <span className="font-black text-[#142a45]">
+                          {allPlayersAnswered ? 'Все ответили' : `${effectiveTimeLeft} c`}
+                        </span>
+                      </div>
+                      <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
+                        <div
+                          className={`h-full ${effectiveTimeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
+                          style={{ width: `${progressPercent}%` }}
+                        />
+                      </div>
+                      <div className="min-h-[20px]">
+                        {allPlayersAnswered && (
+                          <p className="text-xs text-[#1f6ac6] font-semibold mt-2">Все игроки уже ответили — можно переходить дальше.</p>
+                        )}
+                      </div>
                     </div>
-                    <div className="min-h-[20px]">
-                      {allPlayersAnswered && (
-                        <p className="text-xs text-[#1f6ac6] font-semibold mt-2">Все игроки уже ответили — можно переходить дальше.</p>
+
+                    <div className="flex-1 min-h-0 flex flex-col gap-5">
+                      <div className="flex-1 min-h-0 flex items-center justify-center">
+                        <h2 className="text-3xl font-black leading-tight text-center max-h-full overflow-y-auto">
+                          <AnimatedText
+                            key={`r1-q-${typeof question.id === 'number' ? question.id : question.order}`}
+                            text={question.text}
+                            className="text-4xl sm:text-5xl font-black leading-tight"
+                          />
+                        </h2>
+                      </div>
+
+                      <div className="rounded-3xl border-[3px] border-dashed border-[#142a45]/30 bg-[#fff6da] p-4 space-y-3 shrink-0">
+                        <div className="flex items-center justify-between">
+                          <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/70">Варианты</p>
+                          <span className="text-xs font-semibold text-[#142a45]/60">+{question.points} 💎</span>
+                        </div>
+                        <Round1VariantsPanel
+                          ref={round1VariantsPanelRef}
+                          options={question.options.slice(0, 4)}
+                          correctIndex={question.correctIndex}
+                          points={question.points}
+                          revealCorrect={canAdvance}
+                          questionKey={typeof question.id === 'number' ? question.id : question.order}
+                        />
+                      </div>
+
+                      <p className="text-xs text-[#142a45]/70 shrink-0">
+                        {isRoundEndButtonLocked
+                          ? 'Подождите несколько секунд — звучит финальный джингл перед стартом следующего раунда.'
+                          : canAdvance
+                            ? isLastQuestion
+                              ? 'Итоги появятся автоматически.'
+                              : 'Следующий вопрос появится автоматически.'
+                            : 'После таймера правильный ответ покажется сам.'}
+                      </p>
+                    </div>
+                  </div>
+                );
+              }
+
+              if (roomStatus === 'round2-running') {
+                return (
+                  <div className="rounded-3xl border-[4px] border-[#b4007f] bg-white shadow-xl p-6 space-y-5">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="retro-heading text-xs tracking-[0.4em] text-[#b4007f]/70">Раунд 2 · «Фейколов»</p>
+                        <h2 className="text-3xl font-black">⚡ Охота на фейк</h2>
+                      </div>
+                      <div className="flex flex-col items-start sm:items-end gap-2">
+                        <span className="px-4 py-2 rounded-full border-[3px] border-[#b4007f] text-sm font-black text-[#b4007f]">
+                          Факт <span className="text-[#142a45]">{clampedRound2QuestionNumber}</span>/{ROUND2_TOTAL_QUESTIONS}
+                        </span>
+                        <span className="text-xs font-semibold text-[#142a45]/70">
+                          Ответили: <span className="font-black text-[#b4007f]">{answeredCount}/{totalPlayers}</span>
+                        </span>
+                      </div>
+                    </div>
+
+                    <div
+                      key={`round2-onair-${round2CurrentIndex ?? clampedRound2QuestionNumber}-${round2Phase}`}
+                      className="rounded-3xl border-[3px] border-[#b4007f]/20 bg-[#fff0fa] p-5 space-y-2 animate-round2-onair"
+                    >
+                      <p className="text-[11px] tracking-[0.4em] text-[#b4007f]/60">{round2Phase === 'fact' ? 'Сейчас в эфире' : 'Объяснение'}</p>
+
+                      {round2Phase === 'fact' ? (
+                        <p className="text-4xl sm:text-5xl font-black leading-tight text-center">
+                          <AnimatedText
+                            key={`r2-fact-${round2CurrentIndex ?? clampedRound2QuestionNumber}`}
+                            text={round2Statement}
+                          />
+                        </p>
+                      ) : (
+                        <div className="space-y-4">
+                          <div className="rounded-2xl border-[3px] border-[#b4007f]/30 bg-white px-4 py-5 text-center">
+                            <p
+                              className={`text-5xl sm:text-6xl font-black ${round2ShowingFact ? 'text-[#1f6ac6]' : 'text-[#b4007f]'} animate-round2-answer`}
+                            >
+                              {round2ShowingFact ? 'ПРАВДА' : 'ВЫМЫСЕЛ'}
+                            </p>
+                          </div>
+                          <p className="text-3xl sm:text-4xl font-black leading-tight text-center">
+                            <AnimatedText
+                              key={`r2-expl-${round2CurrentIndex ?? clampedRound2QuestionNumber}-${round2ShowingFact ? 't' : 'f'}`}
+                              text={round2ExplanationText}
+                            />
+                          </p>
+                        </div>
                       )}
                     </div>
-                  </div>
 
-                  <div className="flex-1 min-h-0 flex flex-col gap-5">
-                    <div className="flex-1 min-h-0 flex items-center justify-center">
-                      <h2 className="text-3xl font-black leading-tight text-center max-h-full overflow-y-auto">
-                        <AnimatedText
-                          key={`r1-q-${typeof question.id === 'number' ? question.id : question.order}`}
-                          text={question.text}
-                          className="text-4xl sm:text-5xl font-black leading-tight"
-                        />
-                      </h2>
-                    </div>
-
-                    <div className="rounded-3xl border-[3px] border-dashed border-[#142a45]/30 bg-[#fff6da] p-4 space-y-3 shrink-0">
-                      <div className="flex items-center justify-between">
-                        <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/70">Варианты</p>
-                        <span className="text-xs font-semibold text-[#142a45]/60">+{question.points} 💎</span>
+                    {round2Phase === 'fact' ? (
+                      <div>
+                        <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
+                          <span>Таймер · 30 сек</span>
+                          <span className={`font-black ${serverAllPlayersAnswered ? 'text-[#b4007f]' : 'text-[#142a45]'}`}>
+                            {serverAllPlayersAnswered ? 'Все проголосовали' : `${effectiveTimeLeft} c`}
+                          </span>
+                        </div>
+                        <div className="h-3 rounded-full bg-[#ffe0f4] overflow-hidden">
+                          <div
+                            className={`h-full ${effectiveTimeLeft > 5 ? 'bg-[#b4007f]' : 'bg-[#f1532f]'}`}
+                            style={{ width: `${progressPercent}%` }}
+                          />
+                        </div>
+                        {serverAllPlayersAnswered && (
+                          <p className="text-xs text-[#b4007f] font-semibold mt-2">Можно открывать правду прямо сейчас.</p>
+                        )}
                       </div>
-                      <Round1VariantsPanel
-                        ref={round1VariantsPanelRef}
-                        options={question.options.slice(0, 4)}
-                        correctIndex={question.correctIndex}
-                        points={question.points}
-                        revealCorrect={canAdvance}
-                        questionKey={typeof question.id === 'number' ? question.id : question.order}
-                      />
+                    ) : null}
+                  </div>
+                );
+              }
+
+              if (roomStatus === 'round3-running') {
+                return (
+                  <div className="rounded-3xl border-[4px] border-[#f1532f] bg-white shadow-xl p-6 space-y-5">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <h2 className="text-3xl font-black">🧠 {currentRound3Question?.category ?? 'Категория не указана'}</h2>
+                      </div>
+                      <div className="flex flex-col items-start sm:items-end gap-2">
+                        <span className="px-4 py-2 rounded-full border-[3px] border-[#f1532f] text-sm font-black text-[#f1532f]">
+                          Факт <span className="text-[#142a45]">{currentQuestionIndex + 1}</span>/{round3QuestionCount || ROUND3_TOTAL_QUESTIONS}
+                        </span>
+                      </div>
                     </div>
 
-                    <p className="text-xs text-[#142a45]/70 shrink-0">
-                      {isRoundEndButtonLocked
-                        ? 'Подождите несколько секунд — звучит финальный джингл перед стартом следующего раунда.'
-                        : canAdvance
-                          ? isLastQuestion
-                            ? 'Итоги появятся автоматически.'
-                            : 'Следующий вопрос появится автоматически.'
-                          : 'После таймера правильный ответ покажется сам.'}
-                    </p>
+                    {isRound3ResultsPhase && (
+                      <div className="rounded-3xl border-[3px] border-[#f1532f]/20 bg-[#fff6da] p-4 space-y-3 animate-round3-panel">
+                        <p className="text-lg sm:text-xl tracking-[0.35em] text-[#f1532f]/70 font-black">Правильный ответ</p>
+                        <p className="text-2xl sm:text-3xl font-black leading-snug">
+                          {renderRound3CorrectAnswerExcerpt(currentRound3Question?.question ?? '', currentRound3Question?.answer ?? '')}
+                        </p>
+                      </div>
+                    )}
+
+                    {isRound3ResultsPhase && bestRound3WrongAnswerText && (
+                      <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-white p-4 space-y-3 animate-round3-panel">
+                        <p className="text-base sm:text-lg tracking-[0.25em] text-[#142a45]/65 font-black">Лучший неправильный ответ</p>
+                        <p className="text-2xl sm:text-3xl font-black leading-snug">
+                          {renderRound3WrongAnswerExcerpt(currentRound3Question?.question ?? '', bestRound3WrongAnswerText)}
+                        </p>
+                      </div>
+                    )}
+
+                    {!isRound3ResultsPhase && (
+                      <div className="rounded-3xl border-[3px] border-[#f1532f]/20 bg-[#fff6da] p-5 space-y-2 animate-round3-panel">
+                        <p className="text-[11px] tracking-[0.4em] text-[#f1532f]/60">Сейчас в эфире</p>
+                        <p className="text-4xl sm:text-5xl font-black leading-tight">
+                          {currentRound3Question?.question ? (
+                            <AnimatedText key={`r3-q-${currentQuestionIndex}`} text={currentRound3Question.question} />
+                          ) : (
+                            'Подождите, факты загружаются…'
+                          )}
+                        </p>
+                      </div>
+                    )}
+
+                    <div>
+                      <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
+                        <span>{isRound3ResultsPhase ? 'Итоги' : `Таймер · ${ROUND3_ANSWER_SECONDS} сек`}</span>
+                        <span className={`font-black ${allPlayersAnswered ? 'text-[#1f6ac6]' : 'text-[#142a45]'}`}>
+                          {isRound3ResultsPhase ? 'Готово' : allPlayersAnswered ? 'Все ответили' : `${round3TimerTimeLeft} c`}
+                        </span>
+                      </div>
+                      <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
+                        <div
+                          className={`h-full ${round3TimerTimeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
+                          style={{ width: `${round3ProgressPercent}%` }}
+                        />
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ) : (
+                );
+              }
+
+              if (roomStatus === 'round4-running') {
+                return (
+                  <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5 animate-round4-panel">
+                    <div className="text-center space-y-3">
+                      {round4CurrentPuzzle && (
+                        <p className="text-3xl font-black text-[#1f6ac6] uppercase tracking-wide">{round4CurrentPuzzle.category}</p>
+                      )}
+                      <h2 className="text-5xl sm:text-6xl font-black leading-tight text-center">{round4CurrentPuzzle ? round4CurrentPuzzle.emoji : '⏳'}</h2>
+                      {!round4CurrentPuzzle && (
+                        <p className="text-sm text-[#142a45]/70">Ждём выдачу первой загадки — нажмите «Раунд 4», если нужно перезапустить.</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
+                        <span>Таймер · 30 сек</span>
+                        <span className={`font-black ${timeLeft <= 0 ? 'text-[#f1532f]' : 'text-[#142a45]'}`}>
+                          {timeLeft > 0 ? `${timeLeft} c` : 'Время истекло'}
+                        </span>
+                      </div>
+                      <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
+                        <div
+                          className={`h-full ${timeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
+                          style={{ width: `${round4ProgressPercent}%` }}
+                        />
+                      </div>
+                      {timeLeft <= 0 && <p className="text-xs text-[#1f6ac6] font-semibold mt-2">Время истекло — озвучиваем ответ.</p>}
+                    </div>
+
+                    {timeLeft <= 0 && round4CurrentPuzzle && (
+                      <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-5 space-y-2 text-center animate-correct-reveal">
+                        <p className="retro-heading text-[11px] tracking-[0.5em] text-[#142a45]/70">Правильный ответ</p>
+                        <p className="text-4xl font-black text-[#1f6ac6]">{round4CurrentPuzzle.answers?.[0] ?? '—'}</p>
+
+                        {round4AnswerRows.length > 0 && (
+                          <div className="pt-2 space-y-2">
+                            <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/60">Ответы игроков</p>
+                            <div className="flex flex-wrap justify-center gap-2">
+                              {round4AnswerRows
+                                .slice()
+                                .sort((a, b) => Number(!!b.is_correct) - Number(!!a.is_correct))
+                                .map((row, index) => (
+                                  <span
+                                    key={row.id}
+                                    className={`px-4 py-3 rounded-2xl border-[3px] font-black text-lg sm:text-xl animate-drop-in ${
+                                      row.is_correct
+                                        ? 'border-[#1f6ac6]/30 bg-white text-[#1f6ac6]'
+                                        : 'border-[#142a45]/15 bg-white text-[#142a45]'
+                                    }`}
+                                    style={{ animationDelay: `${index * 40}ms` }}
+                                  >
+                                    {row.answer_text?.trim() ? row.answer_text : '—'}
+                                  </span>
+                                ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="flex justify-center">
+                      <span className="px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
+                        Тур {round4CurrentPuzzle ? Math.min(Math.max(round4AskedIds.length, 1), ROUND4_TOTAL_TOURS) : 0} / {ROUND4_TOTAL_TOURS}
+                      </span>
+                    </div>
+                  </div>
+                );
+              }
+
+              if (roomStatus === 'round5-running' || roomStatus === 'round5-explanation') {
+                return (
+                  <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
+                    <div className="text-center space-y-3">
+                      <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Финал · «Цифровая интуиция»</p>
+                      {roomStatus === 'round5-running' ? (
+                        <h2 className="text-5xl sm:text-6xl font-black leading-tight text-center text-[#142a45]">
+                          {round5CurrentQuestion?.question ? (
+                            <AnimatedText
+                              key={`r5-q-${round5CurrentBankIndex ?? currentQuestionIndex}`}
+                              text={round5CurrentQuestion.question}
+                            />
+                          ) : (
+                            '⏳'
+                          )}
+                        </h2>
+                      ) : (
+                        <div className="h-[44px] sm:h-[56px]" aria-hidden="true" />
+                      )}
+                      <div className="flex items-center justify-center gap-3 flex-wrap">
+                        <span className="px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
+                          Тур {Math.min(Math.max(currentQuestionIndex + 1, 1), round5TotalCount)} / {round5TotalCount}
+                        </span>
+                        <span className="text-sm font-semibold text-[#142a45]/70">
+                          Ответили: <span className="text-[#1f6ac6]">{answerCount}/{totalPlayers}</span>
+                        </span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
+                        <span>Таймер · 30 сек</span>
+                        {roomStatus === 'round5-running' ? (
+                          <span className={`font-black ${timeLeft <= 0 ? 'text-[#f1532f]' : 'text-[#142a45]'}`}>
+                            {timeLeft > 0 ? `${timeLeft} c` : 'Время истекло'}
+                          </span>
+                        ) : (
+                          <span className="font-black text-[#1f6ac6]">Ответ открыт</span>
+                        )}
+                      </div>
+                      <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
+                        <div
+                          className={`h-full ${timeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
+                          style={{ width: `${Math.max(0, Math.min(100, (timeLeft / QUESTION_DURATION_SECONDS) * 100))}%` }}
+                        />
+                      </div>
+                      {roomStatus === 'round5-running' && timeLeft <= 0 && (
+                        <p className="text-xs text-[#1f6ac6] font-semibold mt-2">Время истекло — начисляем очки и показываем ответ.</p>
+                      )}
+                    </div>
+
+                    {roomStatus === 'round5-explanation' && round5CurrentQuestion && (
+                      <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-5 space-y-3 text-center animate-correct-reveal">
+                        <p className="retro-heading text-[11px] tracking-[0.5em] text-[#142a45]/70">Правильный ответ</p>
+                        <p className="text-5xl font-black text-[#1f6ac6]">{round5CurrentQuestion.answer}</p>
+                        {round5CurrentQuestion.explanation && (
+                          <p className="text-sm font-semibold text-[#142a45]/80 whitespace-pre-line">{round5CurrentQuestion.explanation}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              return (
                 <QuestionView>
                   <p className="retro-heading text-[10px] tracking-[0.35em] text-[#142a45]/60">СЕЙЧАС</p>
                   <h2 className="text-2xl font-black text-[#142a45] leading-tight">{statusLabel}</h2>
@@ -7693,8 +7988,8 @@ export default function HostRoomPage() {
                     <span className="font-black text-xl text-[#142a45]">{mobileTimerLabel}</span>
                   </div>
                 </QuestionView>
-              )
-            }
+              );
+            })()}
             stateView={
               <section className="rounded-3xl border-[3px] border-[#142a45] bg-white shadow-xl p-4 space-y-4">
                 <div className="flex items-start justify-between gap-4">
@@ -8334,7 +8629,7 @@ export default function HostRoomPage() {
                 <button
                   onClick={handlePrepareRound}
                   disabled={players.length === 0}
-                  className="hover:scale-105 hover:shadow-lg transition-all duration-200 w-1/3 py-2 rounded-2xl font-black text-base tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] disabled:opacity-40 disabled:cursor-not-allowed host-start-blink"
+                  className="hover:scale-105 hover:shadow-lg transition-all duration-200 w-full py-3 rounded-2xl font-black text-base tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] disabled:opacity-40 disabled:cursor-not-allowed host-start-blink"
                 >
                   Начать игру →
                 </button>
