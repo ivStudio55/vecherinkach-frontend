@@ -567,14 +567,14 @@ const HostMobileLayout = ({
   controlsView: ReactNode;
 }) => (
   <div className="flex flex-col gap-3">
+    <div className="rounded-3xl border-[3px] border-[#142a45] bg-[#142a45] text-[#ffeccd] p-3">
+      {controlsView}
+    </div>
     {questionView}
     {answersView}
     {likesView}
     {extraView}
     {playersView}
-    <div className="rounded-3xl border-[3px] border-[#142a45] bg-[#142a45] text-[#ffeccd] p-3">
-      {controlsView}
-    </div>
   </div>
 );
 

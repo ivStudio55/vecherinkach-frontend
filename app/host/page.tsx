@@ -200,10 +200,70 @@ export default function HostPage() {
               }`}
             >
               <div
+                className={`rounded-3xl border-[4px] border-[#142a45] bg-[#ffe184] ${
+                  isCompactLayout ? 'p-4 space-y-4' : 'p-6 space-y-5'
+                } animate-host-panel`}
+                style={{ animationDelay: '60ms' }}
+              >
+                <div className="space-y-2">
+                  <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Создание комнаты</p>
+                  <h2 className={`${isCompactLayout ? 'text-xl' : 'text-2xl'} font-black`}>Управление запуском</h2>
+                  <p className={`${isCompactLayout ? 'text-xs' : 'text-sm'} text-[#142a45]/80`}>Одним нажатием вы запускаете новый сеанс игры и бронируете код за собой.</p>
+                </div>
+
+                {error && (
+                  <div className="rounded-2xl border-[3px] border-[#b23324] bg-[#ffd7d0] px-4 py-3 text-sm font-semibold text-[#7b1d16]">
+                    {error}
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-[#142a45]/80">Пакет вопросов</p>
+                  <select
+                    value={packId}
+                    onChange={(e) => {
+                      const next = normalizePackId(e.target.value);
+                      setPackId(next);
+                      localStorage.setItem('hostPackId', next);
+                    }}
+                    className={`w-full rounded-2xl border-[3px] border-[#142a45] bg-white ${
+                      isCompactLayout ? 'px-3 py-2 text-sm' : 'px-4 py-3 text-base'
+                    } font-semibold`}
+                  >
+                    {QUESTION_PACKS.map((pack) => (
+                      <option key={pack.id} value={pack.id}>
+                        {pack.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <button
+                  onClick={createRoom}
+                  disabled={isCreating}
+                  className={`hover:scale-105 hover:shadow-lg transition-all duration-200 w-full ${
+                    isCompactLayout ? 'py-3 text-base' : 'py-4 text-xl'
+                  } rounded-2xl font-black tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] disabled:opacity-40 disabled:cursor-not-allowed`}
+                >
+                  {isCreating ? 'Создаём комнату…' : '🎮 Создать комнату'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => router.push('/')}
+                  className={`hover:scale-105 hover:shadow-lg transition-all duration-200 w-full ${
+                    isCompactLayout ? 'py-2 text-sm' : 'py-3'
+                  } rounded-2xl border-[3px] border-[#142a45] font-semibold bg-white hover:bg-[#fef4dc]`}
+                >
+                  ← На главную
+                </button>
+              </div>
+
+              <div
                 className={`rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl ${
                   isCompactLayout ? 'p-4 space-y-4' : 'p-6 space-y-5'
                 } relative overflow-hidden animate-host-panel`}
-                style={{ animationDelay: '60ms' }}
+                style={{ animationDelay: '180ms' }}
               >
                 <div className="space-y-2">
                   <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Инструкция по подключению</p>
@@ -282,66 +342,6 @@ export default function HostPage() {
                     Подписывайтесь на канал в Telegram и сообщество ВК — там новости, обновления пакетов и быстрые ответы на вопросы.
                   </p>
                 </div>
-              </div>
-
-              <div
-                className={`rounded-3xl border-[4px] border-[#142a45] bg-[#ffe184] ${
-                  isCompactLayout ? 'p-4 space-y-4' : 'p-6 space-y-5'
-                } animate-host-panel`}
-                style={{ animationDelay: '180ms' }}
-              >
-                <div className="space-y-2">
-                  <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Создание комнаты</p>
-                  <h2 className={`${isCompactLayout ? 'text-xl' : 'text-2xl'} font-black`}>Управление запуском</h2>
-                  <p className={`${isCompactLayout ? 'text-xs' : 'text-sm'} text-[#142a45]/80`}>Одним нажатием вы запускаете новый сеанс игры и бронируете код за собой.</p>
-                </div>
-
-                {error && (
-                  <div className="rounded-2xl border-[3px] border-[#b23324] bg-[#ffd7d0] px-4 py-3 text-sm font-semibold text-[#7b1d16]">
-                    {error}
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-[#142a45]/80">Пакет вопросов</p>
-                  <select
-                    value={packId}
-                    onChange={(e) => {
-                      const next = normalizePackId(e.target.value);
-                      setPackId(next);
-                      localStorage.setItem('hostPackId', next);
-                    }}
-                    className={`w-full rounded-2xl border-[3px] border-[#142a45] bg-white ${
-                      isCompactLayout ? 'px-3 py-2 text-sm' : 'px-4 py-3 text-base'
-                    } font-semibold`}
-                  >
-                    {QUESTION_PACKS.map((pack) => (
-                      <option key={pack.id} value={pack.id}>
-                        {pack.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <button
-                  onClick={createRoom}
-                  disabled={isCreating}
-                  className={`hover:scale-105 hover:shadow-lg transition-all duration-200 w-full ${
-                    isCompactLayout ? 'py-3 text-base' : 'py-4 text-xl'
-                  } rounded-2xl font-black tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] disabled:opacity-40 disabled:cursor-not-allowed`}
-                >
-                  {isCreating ? 'Создаём комнату…' : '🎮 Создать комнату'}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => router.push('/')}
-                  className={`hover:scale-105 hover:shadow-lg transition-all duration-200 w-full ${
-                    isCompactLayout ? 'py-2 text-sm' : 'py-3'
-                  } rounded-2xl border-[3px] border-[#142a45] font-semibold bg-white hover:bg-[#fef4dc]`}
-                >
-                  ← На главную
-                </button>
               </div>
             </section>
           </div>
