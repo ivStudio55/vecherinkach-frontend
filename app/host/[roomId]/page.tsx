@@ -14,8 +14,7 @@ import {
 import { Round1VariantsPanel, Round1VariantsPanelHandle } from '@/components/Round1VariantsPanel';
 import { AnimatedText } from '@/components/AnimatedText';
 import { useRoomSync } from '@/lib/useRoomSync';
-import { mapRoundStateToUiPhase, roundStateReducer } from '@/lib/roundStateMachine';
-import { PhaseStatusBanner } from '@/shared/ui/PhaseStatusBanner';
+import { roundStateReducer } from '@/lib/roundStateMachine';
 import { WinnerBanner } from '@/shared/ui/WinnerBanner';
 import { BestQuestionCard } from '@/shared/ui/BestQuestionCard';
 import { JoinQrBlock } from '@/shared/ui/JoinQrBlock';
@@ -462,7 +461,7 @@ type Round2LeaderboardEntry = {
   attempts: number;
 };
 
-type HostLayoutMode = 'default' | 'compact' | 'mobile';
+type HostLayoutMode = 'default' | 'compact' | 'stacked' | 'mobile';
 
 const HostControls = ({
   primaryLabel,
@@ -495,6 +494,7 @@ const HostControls = ({
       type="button"
       onClick={onToggleLayout}
       className={`${compact ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'} rounded-xl border-2 border-[#ffeccd] text-[#ffeccd] font-bold hover:bg-[#ffeccd]/10 transition`}
+      title="Не нравится текущий вид? Нажмите, чтобы переключить отображение"
     >
       Вид: {layoutLabel}
     </button>
@@ -578,6 +578,36 @@ const HostMobileLayout = ({
   </div>
 );
 
+const HostStackedLayout = ({
+  controlsView,
+  questionView,
+  stateView,
+  answersView,
+  likesView,
+  extraView,
+  playersView,
+}: {
+  controlsView: ReactNode;
+  questionView: ReactNode;
+  stateView: ReactNode;
+  answersView: ReactNode;
+  likesView: ReactNode;
+  extraView?: ReactNode;
+  playersView: ReactNode;
+}) => (
+  <div className="flex flex-col gap-4">
+    <div className="rounded-3xl border-[3px] border-[#142a45] bg-[#142a45] text-[#ffeccd] p-4 shadow-lg">
+      {controlsView}
+    </div>
+    {questionView}
+    {stateView}
+    {answersView}
+    {likesView}
+    {extraView}
+    {playersView}
+  </div>
+);
+
 export default function HostRoomPage() {
   const params = useParams();
   const router = useRouter();
@@ -590,7 +620,7 @@ export default function HostRoomPage() {
   useEffect(() => {
     try {
       const storedMode = localStorage.getItem('hostLayoutMode') as HostLayoutMode | null;
-      if (storedMode === 'default' || storedMode === 'compact' || storedMode === 'mobile') {
+      if (storedMode === 'default' || storedMode === 'compact' || storedMode === 'stacked' || storedMode === 'mobile') {
         setLayoutMode(storedMode);
         return;
       }
@@ -668,7 +698,8 @@ export default function HostRoomPage() {
 
   const setNextLayoutMode = () => {
     setLayoutMode((prev) => {
-      const next: HostLayoutMode = prev === 'default' ? 'compact' : prev === 'compact' ? 'mobile' : 'default';
+      const next: HostLayoutMode =
+        prev === 'default' ? 'compact' : prev === 'compact' ? 'stacked' : prev === 'stacked' ? 'mobile' : 'default';
       try {
         localStorage.setItem('hostLayoutMode', next);
         localStorage.setItem('forceDesktopLayout', next === 'compact' ? '1' : '0');
@@ -7462,15 +7493,6 @@ export default function HostRoomPage() {
         : roomStatus === 'waiting'
           ? 'bg-[#ffe184] text-[#142a45]'
           : 'bg-[#1f6ac6] text-white';
-  const uiPhase = mapRoundStateToUiPhase(roundState);
-  const localPhaseLabel =
-    uiPhase === 'transition'
-      ? 'Загружаем следующий вопрос'
-      : uiPhase === 'calculating'
-        ? ''
-        : uiPhase === 'waiting'
-          ? 'Ожидаем игроков'
-          : '';
   const shouldLockViewport =
     roomStatus === 'running' ||
     roomStatus === 'round2-running' ||
@@ -7480,9 +7502,11 @@ export default function HostRoomPage() {
     roomStatus === 'round5-explanation';
 
   const isMobileLayout = layoutMode === 'mobile';
+  const isStackedLayout = layoutMode === 'stacked';
   const isCompactLayout = layoutMode === 'compact';
-  const isCompactForcedLayout = layoutMode !== 'default';
-  const layoutModeLabel = layoutMode === 'default' ? 'Desktop' : layoutMode === 'compact' ? 'Compact' : 'Mobile';
+  const isCompactForcedLayout = layoutMode === 'compact';
+  const layoutModeLabel =
+    layoutMode === 'default' ? 'Desktop' : layoutMode === 'compact' ? 'Compact' : layoutMode === 'stacked' ? 'Stacked' : 'Mobile';
   const mobileQuestionText =
     roomStatus === 'round2-running'
       ? round2Phase === 'fact'
@@ -7533,7 +7557,7 @@ export default function HostRoomPage() {
                   Комната {roomCode || '----'}
                 </h1>
               </div>
-              {!isMobileLayout ? (
+              {!isMobileLayout && !isStackedLayout ? (
                 <HostControls
                   primaryLabel={headerActionLabel}
                   onPrimaryAction={handlePrimaryHeaderAction}
@@ -7567,15 +7591,137 @@ export default function HostRoomPage() {
           </div>
         ) : null}
 
-        <PhaseStatusBanner phaseLabel={localPhaseLabel} connectionStatus={connectionStatus} />
-
         {error && (
           <div className="rounded-3xl border-[3px] border-[#b23324] bg-[#ffd7d0] px-4 py-3 text-sm font-semibold text-[#7b1d16]">
             {error}
           </div>
         )}
 
-        {isMobileLayout ? (
+        {isStackedLayout ? (
+          <HostStackedLayout
+            controlsView={
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="retro-heading text-[11px] tracking-[0.5em] text-[#ffeccd]/80">Панель ведущего</p>
+                  <h2 className="text-2xl font-black leading-tight text-[#ffeccd]">Комната {roomCode || '----'}</h2>
+                </div>
+                <HostControls
+                  primaryLabel={headerActionLabel}
+                  onPrimaryAction={handlePrimaryHeaderAction}
+                  onToggleLayout={setNextLayoutMode}
+                  layoutLabel={layoutModeLabel}
+                  compact
+                />
+              </div>
+            }
+            questionView={
+              <QuestionView>
+                <p className="retro-heading text-[10px] tracking-[0.35em] text-[#142a45]/60">СЕЙЧАС</p>
+                <h2 className="text-2xl font-black text-[#142a45] leading-tight">{statusLabel}</h2>
+                <p className="text-xl font-semibold text-[#142a45] break-words leading-tight">{mobileQuestionText}</p>
+                <div className="flex items-center justify-between text-sm sm:text-base text-[#142a45]/70">
+                  <span>Таймер</span>
+                  <span className="font-black text-xl text-[#142a45]">{mobileTimerLabel}</span>
+                </div>
+              </QuestionView>
+            }
+            stateView={
+              <section className="rounded-3xl border-[3px] border-[#142a45] bg-white shadow-xl p-4 space-y-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Состояние раунда</p>
+                    <p className="text-lg sm:text-xl font-black text-[#142a45] leading-tight whitespace-normal break-words">{statusLabel}</p>
+                    <p className="text-xs font-semibold text-[#142a45]/60">{roomStatus === 'waiting' ? 'Ждём игроков' : 'Игра идёт'}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[11px] text-[#142a45]/60">Игроки</p>
+                    <p className="text-2xl font-black">{players.length || 0}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 text-sm font-semibold">
+                  <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-[#fff6da] px-4 py-3">
+                    <p className="text-[11px] text-[#142a45]/60">Вопрос</p>
+                    <p className="text-2xl font-black">
+                      {roomStatus === 'round2-running'
+                        ? round2Offset + clampedRound2QuestionNumber
+                        : isRound3Running
+                          ? round3Offset + (currentQuestionIndex + 1)
+                          : roomStatus === 'round4-running'
+                            ? round4Offset + currentRound4TourNumber
+                            : roomStatus === 'round5-running' || roomStatus === 'round5-explanation'
+                              ? round5Offset + (currentQuestionIndex + 1)
+                              : showResults && roomStatus === 'finished'
+                                ? round2Leaderboard.length > 0
+                                  ? round2Offset + ROUND2_TOTAL_QUESTIONS
+                                  : totalQuestions
+                                : question
+                                  ? question.order
+                                  : 0}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-white px-4 py-3">
+                    <p className="text-[11px] text-[#142a45]/60">Ответы</p>
+                    <p className="text-2xl font-black text-[#1f6ac6]">{answeredCount}</p>
+                  </div>
+                </div>
+              </section>
+            }
+            answersView={
+              <AnswersView>
+                <div className="flex items-center justify-between text-sm font-semibold">
+                  <span>Ответы</span>
+                  <span className="font-black text-[#1f6ac6]">
+                    {answeredCount}/{totalPlayers}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm font-semibold">
+                  <span>Правильные</span>
+                  <span className="font-black text-[#1f6ac6]">{correctAnswerCount}</span>
+                </div>
+              </AnswersView>
+            }
+            likesView={
+              <LikesView>
+                <div className="flex items-center justify-between text-sm font-semibold">
+                  <span>Текущий вопрос</span>
+                  <span className="font-black text-[#f1532f]">{currentQuestionLikes ?? 0}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm font-semibold">
+                  <span>Все вопросы</span>
+                  <span className="font-black text-[#f1532f]">{likesForQuestions}</span>
+                </div>
+              </LikesView>
+            }
+            extraView={null}
+            playersView={
+              <PlayersAccordion title="Игроки" count={players.length}>
+                {players.length === 0 ? (
+                  <p className="text-sm text-[#142a45]/70 text-center py-2">Пока никто не присоединился</p>
+                ) : (
+                  <div className="space-y-2 max-h-[45vh] overflow-y-auto pr-1 no-scrollbar">
+                    {players.map((player, index) => (
+                      <div
+                        key={player.id}
+                        className="rounded-2xl border-[2px] border-[#142a45]/15 bg-white px-3 py-2 flex items-center justify-between"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className="w-7 h-7 rounded-full border-[2px] border-[#142a45]/30 flex items-center justify-center font-black text-xs">
+                            {index + 1}
+                          </span>
+                          <p className="font-semibold text-sm leading-snug whitespace-normal break-words overflow-hidden max-h-[2.8em]">
+                            {player.name}
+                          </p>
+                        </div>
+                        <p className="font-black text-[#f1532f] text-sm">{player.total_points} 💎</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </PlayersAccordion>
+            }
+          />
+        ) : isMobileLayout ? (
           <HostMobileLayout
             questionView={
               <QuestionView>

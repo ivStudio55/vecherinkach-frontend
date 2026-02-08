@@ -10,7 +10,7 @@ import { DEFAULT_PACK_ID, normalizePackId, QUESTION_PACKS, type PackId } from '@
 
 export default function HostPage() {
   const router = useRouter();
-  const [layoutMode, setLayoutMode] = useState<'default' | 'compact' | 'mobile'>('default');
+  const [layoutMode, setLayoutMode] = useState<'default' | 'compact' | 'stacked' | 'mobile'>('default');
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState('');
   const [isRoleNoticeOpen, setIsRoleNoticeOpen] = useState(true);
@@ -27,8 +27,8 @@ export default function HostPage() {
 
   useEffect(() => {
     try {
-      const storedMode = localStorage.getItem('hostLayoutMode') as 'default' | 'compact' | 'mobile' | null;
-      if (storedMode === 'default' || storedMode === 'compact' || storedMode === 'mobile') {
+      const storedMode = localStorage.getItem('hostLayoutMode') as 'default' | 'compact' | 'stacked' | 'mobile' | null;
+      if (storedMode === 'default' || storedMode === 'compact' || storedMode === 'stacked' || storedMode === 'mobile') {
         setLayoutMode(storedMode);
       }
     } catch {
@@ -38,7 +38,7 @@ export default function HostPage() {
 
   const cycleLayoutMode = () => {
     setLayoutMode((prev) => {
-      const next = prev === 'default' ? 'compact' : prev === 'compact' ? 'mobile' : 'default';
+      const next = prev === 'default' ? 'compact' : prev === 'compact' ? 'stacked' : prev === 'stacked' ? 'mobile' : 'default';
       try {
         localStorage.setItem('hostLayoutMode', next);
       } catch {
@@ -153,7 +153,7 @@ export default function HostPage() {
 
   const isMobileLayout = layoutMode === 'mobile';
   const isCompactLayout = layoutMode === 'compact';
-  const layoutLabel = layoutMode === 'default' ? 'Desktop' : layoutMode === 'compact' ? 'Compact' : 'Mobile';
+  const layoutLabel = layoutMode === 'default' ? 'Desktop' : layoutMode === 'compact' ? 'Compact' : layoutMode === 'stacked' ? 'Stacked' : 'Mobile';
 
   return (
     <div
@@ -188,6 +188,7 @@ export default function HostPage() {
                   type="button"
                   onClick={cycleLayoutMode}
                   className={`${isCompactLayout ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'} rounded-xl border-2 border-[#ffeccd] text-[#ffeccd] font-bold hover:bg-[#ffeccd]/10 transition`}
+                  title="Не нравится текущий вид? Нажмите, чтобы переключить отображение"
                 >
                   Вид: {layoutLabel}
                 </button>
