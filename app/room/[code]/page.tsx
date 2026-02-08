@@ -173,11 +173,7 @@ type RoomUpdatePayload = {
 
 export default function RoomPage() {
   const params = useParams();
-      const prevStatus = roomStatusRef.current;
-      const prevStatus = roomStatusRef.current;
-      roomStatusRef.current = detectedStatus;
   const router = useRouter();
-      roomStatusRef.current = detectedStatus;
   const roomCode = params.code as string;
   const realtimeEnabled = isRealtimeEnabled();
 
