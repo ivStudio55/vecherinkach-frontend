@@ -7615,15 +7615,85 @@ export default function HostRoomPage() {
               </div>
             }
             questionView={
-              <QuestionView>
-                <p className="retro-heading text-[10px] tracking-[0.35em] text-[#142a45]/60">СЕЙЧАС</p>
-                <h2 className="text-2xl font-black text-[#142a45] leading-tight">{statusLabel}</h2>
-                <p className="text-xl font-semibold text-[#142a45] break-words leading-tight">{mobileQuestionText}</p>
-                <div className="flex items-center justify-between text-sm sm:text-base text-[#142a45]/70">
-                  <span>Таймер</span>
-                  <span className="font-black text-xl text-[#142a45]">{mobileTimerLabel}</span>
+              roomStatus === 'running' && question ? (
+                <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 flex flex-col gap-5">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between min-h-[44px]">
+                    <span className="px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
+                      Вопрос {question.order} / {totalQuestions}
+                    </span>
+                    <span className="text-sm font-semibold text-[#142a45]/70 whitespace-nowrap">
+                      Ответили: <span className="text-[#1f6ac6] tabular-nums">{answeredCount}/{totalPlayers}</span>
+                    </span>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
+                      <span>Таймер · 30 сек</span>
+                      <span className="font-black text-[#142a45]">
+                        {allPlayersAnswered ? 'Все ответили' : `${effectiveTimeLeft} c`}
+                      </span>
+                    </div>
+                    <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
+                      <div
+                        className={`h-full ${effectiveTimeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
+                        style={{ width: `${progressPercent}%` }}
+                      />
+                    </div>
+                    <div className="min-h-[20px]">
+                      {allPlayersAnswered && (
+                        <p className="text-xs text-[#1f6ac6] font-semibold mt-2">Все игроки уже ответили — можно переходить дальше.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex-1 min-h-0 flex flex-col gap-5">
+                    <div className="flex-1 min-h-0 flex items-center justify-center">
+                      <h2 className="text-3xl font-black leading-tight text-center max-h-full overflow-y-auto">
+                        <AnimatedText
+                          key={`r1-q-${typeof question.id === 'number' ? question.id : question.order}`}
+                          text={question.text}
+                          className="text-4xl sm:text-5xl font-black leading-tight"
+                        />
+                      </h2>
+                    </div>
+
+                    <div className="rounded-3xl border-[3px] border-dashed border-[#142a45]/30 bg-[#fff6da] p-4 space-y-3 shrink-0">
+                      <div className="flex items-center justify-between">
+                        <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/70">Варианты</p>
+                        <span className="text-xs font-semibold text-[#142a45]/60">+{question.points} 💎</span>
+                      </div>
+                      <Round1VariantsPanel
+                        ref={round1VariantsPanelRef}
+                        options={question.options.slice(0, 4)}
+                        correctIndex={question.correctIndex}
+                        points={question.points}
+                        revealCorrect={canAdvance}
+                        questionKey={typeof question.id === 'number' ? question.id : question.order}
+                      />
+                    </div>
+
+                    <p className="text-xs text-[#142a45]/70 shrink-0">
+                      {isRoundEndButtonLocked
+                        ? 'Подождите несколько секунд — звучит финальный джингл перед стартом следующего раунда.'
+                        : canAdvance
+                          ? isLastQuestion
+                            ? 'Итоги появятся автоматически.'
+                            : 'Следующий вопрос появится автоматически.'
+                          : 'После таймера правильный ответ покажется сам.'}
+                    </p>
+                  </div>
                 </div>
-              </QuestionView>
+              ) : (
+                <QuestionView>
+                  <p className="retro-heading text-[10px] tracking-[0.35em] text-[#142a45]/60">СЕЙЧАС</p>
+                  <h2 className="text-2xl font-black text-[#142a45] leading-tight">{statusLabel}</h2>
+                  <p className="text-xl font-semibold text-[#142a45] break-words leading-tight">{mobileQuestionText}</p>
+                  <div className="flex items-center justify-between text-sm sm:text-base text-[#142a45]/70">
+                    <span>Таймер</span>
+                    <span className="font-black text-xl text-[#142a45]">{mobileTimerLabel}</span>
+                  </div>
+                </QuestionView>
+              )
             }
             stateView={
               <section className="rounded-3xl border-[3px] border-[#142a45] bg-white shadow-xl p-4 space-y-4">
