@@ -1108,6 +1108,9 @@ export default function RoomPage() {
       const statusChanged = newStatus !== prevStatus;
 
       if (newStatus === 'waiting') {
+        if (!statusChanged) {
+          return;
+        }
         setShowResults(false);
         setHasAnswered(false);
         setPlayerAnswer(null);
@@ -1121,15 +1124,15 @@ export default function RoomPage() {
         setRound4AnswerText('');
         setQuestionStartedAt(null);
         setTimeLeft(QUESTION_DURATION_SECONDS);
-        if (!statusChanged) {
-          return;
-        }
         return;
       }
 
       // Only treat as finished if status is 'finished', not just is_active=false
       // (round4-running may have is_active=false during answer reveal)
       if (newStatus === 'finished' || newStatus === 'final-results') {
+        if (!statusChanged) {
+          return;
+        }
         setShowResults(true);
         setPlayerAnswer(null);
         setQuestion(null);
@@ -1142,9 +1145,6 @@ export default function RoomPage() {
         setRound4AnswerText('');
         setQuestionStartedAt(null);
         setTimeLeft(QUESTION_DURATION_SECONDS);
-        if (!statusChanged) {
-          return;
-        }
         return;
       }
 
@@ -1273,7 +1273,7 @@ export default function RoomPage() {
         );
 
         const prevPuzzleId = lastRound4PuzzleIdRef.current;
-        const shouldResetRound4 = prevStatus !== 'round4-running' || effectivePuzzleId !== prevPuzzleId;
+        const shouldResetRound4 = prevStatus !== 'round4-running' || (effectivePuzzleId !== null && effectivePuzzleId !== prevPuzzleId);
 
         if (shouldResetRound4) {
           setHasAnswered(false);
