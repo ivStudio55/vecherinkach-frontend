@@ -865,7 +865,7 @@ export default function RoomPage() {
         setRound4Puzzle(puzzleId ? round4Puzzles.find((p) => p.id === puzzleId) ?? null : null);
 
         const prevPuzzleId = lastRound4PuzzleIdRef.current;
-        const shouldResetRound4 = prevStatus !== 'round4-running' || puzzleId !== prevPuzzleId;
+        const shouldResetRound4 = prevStatus !== 'round4-running' || (puzzleId !== null && puzzleId !== prevPuzzleId);
 
         if (shouldResetRound4) {
           // Immediately reset per-puzzle UI state; then restore from DB if needed.
@@ -908,7 +908,7 @@ export default function RoomPage() {
         const bankIndex = typeof selection[tourIndex] === 'number' ? selection[tourIndex] : null;
         const prevBankIndex = lastRound5BankIndexRef.current;
         const statusWasRound5 = prevStatus === 'round5-running' || prevStatus === 'round5-explanation';
-        const bankChanged = bankIndex !== prevBankIndex;
+        const bankChanged = bankIndex !== null && bankIndex !== prevBankIndex;
         const shouldResetRound5 = !statusWasRound5 || bankChanged;
         setRound5CurrentBankIndex(bankIndex);
         const bank = round5QuestionsRef.current;
@@ -1105,6 +1105,8 @@ export default function RoomPage() {
           : round2ShowingFactRef.current;
       const nextRound2Phase = ((payload.new.round2_phase as Round2Phase) || 'idle') as Round2Phase;
 
+      const statusChanged = newStatus !== prevStatus;
+
       if (newStatus === 'waiting') {
         setShowResults(false);
         setHasAnswered(false);
@@ -1119,6 +1121,9 @@ export default function RoomPage() {
         setRound4AnswerText('');
         setQuestionStartedAt(null);
         setTimeLeft(QUESTION_DURATION_SECONDS);
+        if (!statusChanged) {
+          return;
+        }
         return;
       }
 
@@ -1137,6 +1142,9 @@ export default function RoomPage() {
         setRound4AnswerText('');
         setQuestionStartedAt(null);
         setTimeLeft(QUESTION_DURATION_SECONDS);
+        if (!statusChanged) {
+          return;
+        }
         return;
       }
 
@@ -1308,7 +1316,7 @@ export default function RoomPage() {
         const bankIndex = typeof selection[tourIndex] === 'number' ? selection[tourIndex] : null;
         const prevBankIndex = lastRound5BankIndexRef.current;
         const statusWasRound5 = prevStatus === 'round5-running' || prevStatus === 'round5-explanation';
-        const bankChanged = bankIndex !== prevBankIndex;
+        const bankChanged = bankIndex !== null && bankIndex !== prevBankIndex;
         const shouldResetRound5 = !statusWasRound5 || bankChanged;
         setRound5CurrentBankIndex(bankIndex);
         const bank = round5QuestionsRef.current;
