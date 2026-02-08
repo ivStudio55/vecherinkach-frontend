@@ -7687,10 +7687,6 @@ export default function HostRoomPage() {
                   <span>Текущий вопрос</span>
                   <span className="font-black text-[#f1532f]">{currentQuestionLikes ?? 0}</span>
                 </div>
-                <div className="flex items-center justify-between text-sm font-semibold">
-                  <span>Все вопросы</span>
-                  <span className="font-black text-[#f1532f]">{likesForQuestions}</span>
-                </div>
               </LikesView>
             }
             extraView={null}
