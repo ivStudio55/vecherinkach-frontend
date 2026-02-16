@@ -609,23 +609,45 @@ declare
   room_row public.uno_rooms;
   card jsonb;
   hand jsonb;
+  reshuffled jsonb;
 begin
   select * into room_row from public.uno_rooms where code = p_room_code for update;
   if room_row.id is null then raise exception 'Комната не найдена'; end if;
-  if jsonb_array_length(room_row.draw_pile) = 0 then raise exception 'Колода пуста'; end if;
+  if room_row.status <> 'playing' then raise exception 'Игра не запущена'; end if;
+  if room_row.current_player_id <> p_player_id then raise exception 'Сейчас ход другого игрока'; end if;
+
+  -- If draw pile is empty, reshuffle discard pile (keep top card)
+  if jsonb_array_length(room_row.draw_pile) = 0 then
+    if jsonb_array_length(room_row.discard_pile) <= 1 then
+      raise exception 'Колода пуста и нечего перемешивать';
+    end if;
+    -- Keep only the top card in discard, rest goes to draw pile
+    reshuffled := '[]'::jsonb;
+    for i in 0..(jsonb_array_length(room_row.discard_pile) - 2) loop
+      reshuffled := reshuffled || jsonb_build_array(room_row.discard_pile -> i);
+    end loop;
+    room_row.draw_pile := public._uno_shuffle(reshuffled);
+    room_row.discard_pile := jsonb_build_array(room_row.discard_pile -> (jsonb_array_length(room_row.discard_pile) - 1));
+  end if;
 
   card := room_row.draw_pile -> 0;
   hand := coalesce(room_row.hands -> p_player_id::text, '[]'::jsonb);
   hand := hand || jsonb_build_array(card);
+  room_row.draw_pile := room_row.draw_pile - 0;
 
   update public.uno_rooms
-  set draw_pile = room_row.draw_pile - 0,
+  set draw_pile = room_row.draw_pile,
+      discard_pile = room_row.discard_pile,
       hands = jsonb_set(room_row.hands, array[p_player_id::text], hand, true),
       current_player_id = public._uno_next_player(room_row.id, p_player_id),
       state_version = state_version + 1,
       updated_at = now()
   where id = room_row.id
   returning * into room_row;
+
+  -- log event
+  insert into public.uno_events (room_id, player_id, event_type, payload)
+  values (room_row.id, p_player_id, 'draw_card', jsonb_build_object('card_id', card ->> 'id'));
 
   return jsonb_build_object('card', card, 'room', to_jsonb(room_row));
 end;
@@ -656,6 +678,8 @@ declare
   draw_n integer := 0;
   target_hand jsonb;
   dealt jsonb;
+  player_count integer;
+  reshuffled jsonb;
 begin
   select * into room_row from public.uno_rooms where code = p_room_code for update;
   if room_row.id is null then raise exception 'Комната не найдена'; end if;
@@ -706,8 +730,14 @@ begin
   dir := room_row.direction;
   if card ->> 'kind' = 'reverse' then dir := dir * -1; end if;
 
+  -- count players for 2-player Reverse=Skip rule
+  select count(*) into player_count from public.uno_players where room_id = room_row.id;
+
   -- determine next player + specials
   if card ->> 'kind' = 'skip' then
+    next_p := public._uno_skip_next(room_row.id, p_player_id);
+  elsif card ->> 'kind' = 'reverse' and player_count = 2 then
+    -- In 2-player UNO, Reverse acts as Skip
     next_p := public._uno_skip_next(room_row.id, p_player_id);
   elsif card ->> 'kind' = 'draw2' then
     next_p := public._uno_next_player(room_row.id, p_player_id);
@@ -719,16 +749,30 @@ begin
     next_p := public._uno_next_player(room_row.id, p_player_id);
   end if;
 
-  -- apply draws to target player
+  -- update the playing player's hand in room_row
   room_row.hands := jsonb_set(room_row.hands, array[p_player_id::text], hand, true);
+
+  -- apply draws to target player (for +2 and +4)
   if draw_n > 0 and next_p is not null then
+    -- If draw pile exhausted, reshuffle discard (keep top card which is the one just played)
+    if jsonb_array_length(room_row.draw_pile) < draw_n then
+      -- Move all but the last card from the current discard pile into draw
+      -- Note: 'pile' already includes the card just played at the end
+      if jsonb_array_length(pile) > 1 then
+        reshuffled := '[]'::jsonb;
+        for ri in 0..(jsonb_array_length(pile) - 2) loop
+          reshuffled := reshuffled || jsonb_build_array(pile -> ri);
+        end loop;
+        room_row.draw_pile := room_row.draw_pile || public._uno_shuffle(reshuffled);
+        pile := jsonb_build_array(pile -> (jsonb_array_length(pile) - 1));
+      end if;
+    end if;
+
     target_hand := coalesce(room_row.hands -> next_p::text, '[]'::jsonb);
-    dealt := public._uno_deal(room_row.draw_pile - 0, target_hand, draw_n); -- we use - 0 just for type safety
-    -- actually deal properly
     dealt := public._uno_deal(room_row.draw_pile, target_hand, draw_n);
     room_row.draw_pile := dealt -> 'pile';
     room_row.hands := jsonb_set(room_row.hands, array[next_p::text], dealt -> 'hand', true);
-    -- after draw, skip that player
+    -- after drawing, skip that player's turn (standard UNO rule)
     next_p := public._uno_next_player(room_row.id, next_p);
   end if;
 

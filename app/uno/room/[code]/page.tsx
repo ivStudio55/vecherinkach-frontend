@@ -20,7 +20,8 @@ import ColorPicker from '@/components/uno/ColorPicker';
 import {
   sfxPlayCard, sfxDrawCard, sfxYourTurn,
   sfxWin, sfxLose, sfxWild, sfxPenalty, sfxAction,
-  sfxPlayerJoin, sfxGameStart, sfxClick,
+  sfxGameStart, sfxClick,
+  playLobbyMusic, stopLobbyMusic, playDuckSound,
 } from '@/lib/uno/sounds';
 
 /* ─────────── page ─────────── */
@@ -61,6 +62,7 @@ export default function UnoRoomPage() {
   }, [room]);
 
   const myTurn = room?.status === 'playing' && !!me && room.current_player_id === me.id;
+  const hasPlayable = useMemo(() => myHand.some(c => cardPlayable(c, topCard)), [myHand, topCard]);
   const isFinished = room?.status === 'finished';
   const winnerName = useMemo(() => {
     if (!room?.winner_id) return null;
@@ -92,6 +94,16 @@ export default function UnoRoomPage() {
   }, [room?.id]);
 
   /* ── sound triggers on state changes ── */
+  /* ── lobby music ── */
+  useEffect(() => {
+    if (room?.status === 'lobby') {
+      playLobbyMusic();
+    } else {
+      stopLobbyMusic();
+    }
+    return () => { stopLobbyMusic(); };
+  }, [room?.status]);
+
   useEffect(() => {
     if (!room) return;
     if (prevStatusRef.current === 'lobby' && room.status === 'playing') sfxGameStart();
@@ -102,7 +114,7 @@ export default function UnoRoomPage() {
   }, [room?.status, room?.winner_id, me?.id]);
 
   useEffect(() => {
-    if (players.length > prevPlayerCountRef.current && prevPlayerCountRef.current > 0) sfxPlayerJoin();
+    if (players.length > prevPlayerCountRef.current && prevPlayerCountRef.current > 0) playDuckSound();
     prevPlayerCountRef.current = players.length;
   }, [players.length]);
 
@@ -309,11 +321,14 @@ export default function UnoRoomPage() {
                 className={`relative flex flex-col items-center gap-2 group transition-all
                   ${myTurn ? 'cursor-pointer hover:scale-105' : 'opacity-60 cursor-not-allowed'}`}
               >
-                <div className="w-24 h-36 rounded-xl bg-[#1e293b] border-2 border-[#334155] flex items-center justify-center shadow-xl
-                  group-hover:border-[#60a5fa] group-hover:shadow-[#60a5fa]/30 transition-all">
+                <div className={`w-24 h-36 rounded-xl bg-[#1e293b] border-2 flex items-center justify-center shadow-xl transition-all
+                  ${myTurn && !hasPlayable ? 'border-[#eab308] shadow-[#eab308]/30 animate-pulse' : 'border-[#334155] group-hover:border-[#60a5fa] group-hover:shadow-[#60a5fa]/30'}`}>
                   <span className="text-3xl font-black text-white/20">U</span>
                 </div>
                 <span className="text-xs text-white/50">{room.draw_pile?.length ?? 0}</span>
+                {myTurn && !hasPlayable && (
+                  <span className="text-xs text-[#eab308] font-semibold animate-pulse">Возьми карту!</span>
+                )}
               </button>
 
               {/* Direction indicator */}

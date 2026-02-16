@@ -1,6 +1,5 @@
 /**
- * UNO Game Sounds — Web Audio API procedural sounds
- * No audio files needed, all generated in-browser.
+ * UNO Game Sounds — Web Audio API procedural sounds + audio file playback
  */
 
 let _ctx: AudioContext | null = null;
@@ -50,6 +49,40 @@ function playNoise(duration: number, volume = 0.06) {
   filter.connect(gain);
   gain.connect(ctx.destination);
   source.start(ctx.currentTime);
+}
+
+/* ─── Audio file playback ─── */
+
+let _lobbyAudio: HTMLAudioElement | null = null;
+
+/** Play lobby background music (loops) */
+export function playLobbyMusic() {
+  stopLobbyMusic();
+  try {
+    _lobbyAudio = new Audio('/audio/sound/jingle_uno.mp3');
+    _lobbyAudio.loop = true;
+    _lobbyAudio.volume = 0.3;
+    _lobbyAudio.play().catch(() => {});
+  } catch {}
+}
+
+/** Stop lobby background music */
+export function stopLobbyMusic() {
+  if (_lobbyAudio) {
+    _lobbyAudio.pause();
+    _lobbyAudio.currentTime = 0;
+    _lobbyAudio = null;
+  }
+}
+
+/** Play random duck sound (for player joins) */
+export function playDuckSound() {
+  try {
+    const n = Math.floor(Math.random() * 7) + 1; // 1-7
+    const audio = new Audio(`/audio/duck/${n}.mp3`);
+    audio.volume = 0.5;
+    audio.play().catch(() => {});
+  } catch {}
 }
 
 /* ─── sound effects ─── */
