@@ -314,18 +314,6 @@ export default function DrawRoomPage() {
             <h2 className="text-xl font-black">Ожидание начала игры</h2>
             <p className="text-sm text-white/60">Код: <span className="text-purple-300 font-bold text-lg">{code}</span></p>
             <div>
-            {/* Refresh hint for players: shows in every phase */}
-            <div className="max-w-md mx-auto px-4 py-4">
-              <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-center text-xs text-white/60 flex items-center justify-between gap-3">
-                <span>если ты видишь не тожесамое, что и другие игроки - обнови экран</span>
-                <button
-                  onClick={() => { refresh(); if (typeof window !== 'undefined') window.location.reload(); }}
-                  className="ml-2 px-3 py-1 rounded bg-purple-600 text-white text-sm font-bold"
-                >
-                  Обновить экран
-                </button>
-              </div>
-            </div>
               <p className="text-xs text-white/50 mb-2">Игроки ({gamePlayers.length})</p>
               <div className="flex flex-wrap justify-center gap-2">
                 {gamePlayers.map(p => (
@@ -567,6 +555,22 @@ export default function DrawRoomPage() {
           </section>
         )}
       </div>
+      {/* Bottom refresh panel shown after submission or during voting */}
+      {(phase === 'submitted' || phase === 'voting') && (
+        <div className="fixed left-0 right-0 bottom-4 flex justify-center pointer-events-none">
+          <div className="max-w-md w-full px-4 pointer-events-auto">
+            <div className="rounded-2xl border-2 border-white/10 bg-black/40 backdrop-blur px-4 py-3 flex items-center justify-between gap-3">
+              <p className="text-sm text-white/60">Если ты видишь не то, что видят другие игроки — обнови экран</p>
+              <button
+                onClick={() => { if (typeof window !== 'undefined') window.location.reload(); }}
+                className="ml-2 rounded-xl bg-purple-600 text-white font-bold px-3 py-2 text-sm hover:bg-purple-500 active:scale-95 transition"
+              >
+                Обновить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
