@@ -17,7 +17,7 @@ export async function GET(request: Request) {
 
   let query = supabase
     .from('draw_rooms')
-    .select('id, code, mode, status, current_round, current_step, total_steps, voting_chain_index, step_duration, created_at', { count: 'exact' })
+    .select('id, code, mode, status, current_round, current_step, total_steps, voting_chain_index, step_duration, created_at, updated_at', { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
 
