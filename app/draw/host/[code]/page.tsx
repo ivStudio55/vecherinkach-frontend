@@ -133,7 +133,9 @@ export default function DrawHostPage() {
     } else if (room.status === 'results') {
       audio.stopBgm();
       audio.playBgm(AUDIO.afterRoundJingle, false);
-      setTimeout(() => audio.playVoice(AUDIO.finalDraw()), 3000);
+      if (room.current_round >= 3) {
+        setTimeout(() => audio.playVoice(AUDIO.finalDraw()), 3000);
+      }
     } else if (room.status === 'finished') {
       audio.playBgm(AUDIO.afterRoundJingle, false);
       setTimeout(() => audio.playVoice(AUDIO.finalDraw()), 2000);
