@@ -57,8 +57,8 @@ export default function HomePage() {
       id: 'risunkach',
       title: 'Рисункач',
       subtitle: 'Мини-игра на рисунки',
-      description: 'В разработке — заглушка с пометкой «Скоро».',
-      isSoon: true,
+      description: 'Рисуй, угадывай, голосуй! 3 раунда цепочек превращений.',
+      badge: 'новое',
     },
   ];
 
@@ -70,6 +70,8 @@ export default function HomePage() {
   const handleMiniGameClick = (gameId: 'uno' | 'risunkach') => {
     if (gameId === 'uno') {
       navigateWithExit(() => router.push('/uno'));
+    } else if (gameId === 'risunkach') {
+      navigateWithExit(() => router.push('/draw'));
     }
   };
 
