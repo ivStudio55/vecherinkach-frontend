@@ -11,22 +11,24 @@ const modes = [
     id: 'classic',
     title: 'Классический',
     accent: 'bg-[#f1362f]',
-    description: 'Полные правила UNO, со всеми базовыми картами и подсчётом очков.',
-    bullets: ['Полный набор действий: Skip, Reverse, Draw Two, Wild, Wild +4', 'Мультиплеер на Supabase Realtime (комнаты по коду)', 'Быстрая раздача и плавные анимации ходов'],
-    status: 'Включим в ближайшем обновлении',
+    description: 'Полные правила UNO, со всеми базовыми картами: числа 0–9, Skip, Reverse, Draw Two, Wild, Wild +4.',
+    bullets: ['108 карт, классические правила', 'Мультиплеер через Supabase Realtime', 'Определение победителя'],
+    badge: 'играть',
+    badgeColor: 'bg-[#f1362f]',
   },
   {
     id: 'irregular-verbs',
     title: 'Неправильные глаголы',
     accent: 'bg-[#ffd92c]',
     description:
-      'UNO по правилам цвет/фигура, но цифры заменены глаголами: infinitive, Past Simple, Past Participle + перевод.',
+      'UNO по правилам цвет/фигура, но вместо цифр — неправильные глаголы: infinitive, Past Simple, Past Participle + перевод.',
     bullets: [
-      'Случайная выборка 15–25 глаголов из базы (150+)',
-      'Сопоставление либо по цвету, либо по совпадению глагола (аналог цифры)',
-      'TTS произношение по клику на карту (добавим позже)',
+      'Случайная выборка 15–25 глаголов из 150+',
+      'Сопоставление по цвету или по глаголу',
+      'Учи глаголы играя!',
     ],
-    status: 'Дизайн готов, реализацию подключаем',
+    badge: 'играть',
+    badgeColor: 'bg-[#ffd92c]',
   },
 ];
 
@@ -111,7 +113,7 @@ export default function UnoPage() {
                   <h2 className="text-2xl font-black">{mode.title}</h2>
                   <p className="text-sm text-white/75">{mode.description}</p>
                 </div>
-                <span className={`rounded-full px-3 py-1 text-xs font-bold tracking-[0.2em] ${mode.accent} text-black border border-white/30`}>скоро</span>
+                <span className={`rounded-full px-3 py-1 text-xs font-bold tracking-[0.2em] ${mode.badgeColor} text-black border border-white/30`}>{mode.badge}</span>
               </div>
               <ul className="space-y-2 text-sm text-white/80">
                 {mode.bullets.map(item => (
@@ -121,9 +123,6 @@ export default function UnoPage() {
                   </li>
                 ))}
               </ul>
-              <div className="rounded-2xl bg-white/5 border border-white/10 px-4 py-3 text-xs text-white/70 font-semibold">
-                {mode.status}
-              </div>
             </article>
           ))}
         </section>

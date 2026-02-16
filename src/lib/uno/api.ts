@@ -1,5 +1,7 @@
 import { supabase } from '../supabase';
-import type { UnoMode, UnoRoom, UnoPlayer, UnoCard } from './types';
+import type { UnoMode, UnoRoom, UnoPlayer, UnoCard, UnoColor } from './types';
+
+/* ============ localStorage session ============ */
 
 const PLAYER_ID_KEY = 'unoPlayerId';
 const PLAYER_NAME_KEY = 'unoPlayerName';
@@ -14,10 +16,7 @@ export const unoStorage = {
     localStorage.setItem(ROOM_ID_KEY, data.roomId);
   },
   clear() {
-    localStorage.removeItem(PLAYER_ID_KEY);
-    localStorage.removeItem(PLAYER_NAME_KEY);
-    localStorage.removeItem(ROOM_CODE_KEY);
-    localStorage.removeItem(ROOM_ID_KEY);
+    [PLAYER_ID_KEY, PLAYER_NAME_KEY, ROOM_CODE_KEY, ROOM_ID_KEY].forEach(k => localStorage.removeItem(k));
   },
   get() {
     return {
@@ -29,21 +28,21 @@ export const unoStorage = {
   },
 };
 
+/* ============ RPC wrappers ============ */
+
 export async function createUnoRoom(params: { mode: UnoMode; verbCount?: number; hostName: string; code?: string }) {
   const code = params.code || Math.random().toString(36).slice(2, 6).toUpperCase();
-  const verbCount = params.verbCount ?? 20;
 
   const { data, error } = await supabase.rpc('uno_create_room', {
     p_code: code,
     p_mode: params.mode,
-    p_verb_count: verbCount,
+    p_verb_count: params.verbCount ?? 20,
     p_host_name: params.hostName,
   });
-
   if (error) throw error;
+
   const room = (data as any)?.room as UnoRoom | undefined;
   const player = (data as any)?.player as UnoPlayer | undefined;
-
   if (!room || !player) throw new Error('Не удалось создать комнату UNO');
 
   unoStorage.setSession({ playerId: player.id, playerName: player.name, roomCode: room.code, roomId: room.id });
@@ -55,11 +54,10 @@ export async function joinUnoRoom(params: { code: string; name: string }) {
     p_room_code: params.code,
     p_player_name: params.name,
   });
-
   if (error) throw error;
+
   const room = (data as any)?.room as UnoRoom | undefined;
   const player = (data as any)?.player as UnoPlayer | undefined;
-
   if (!room || !player) throw new Error('Не удалось подключиться к комнате');
 
   unoStorage.setSession({ playerId: player.id, playerName: player.name, roomCode: room.code, roomId: room.id });
@@ -89,7 +87,10 @@ export async function startUnoGame(roomCode: string) {
 }
 
 export async function drawUnoCard(roomCode: string, playerId: string) {
-  const { data, error } = await supabase.rpc('uno_draw_card', { p_room_code: roomCode, p_player_id: playerId });
+  const { data, error } = await supabase.rpc('uno_draw_card', {
+    p_room_code: roomCode,
+    p_player_id: playerId,
+  });
   if (error) throw error;
   return data as { card: UnoCard; room: UnoRoom };
 }
@@ -98,7 +99,7 @@ export async function playUnoCard(params: {
   roomCode: string;
   playerId: string;
   cardId: string;
-  chosenColor?: 'red' | 'yellow' | 'green' | 'blue';
+  chosenColor?: UnoColor;
 }) {
   const { data, error } = await supabase.rpc('uno_play_card', {
     p_room_code: params.roomCode,
@@ -107,8 +108,10 @@ export async function playUnoCard(params: {
     p_chosen_color: params.chosenColor ?? null,
   });
   if (error) throw error;
-  return data as { room: any };
+  return data as { room: UnoRoom };
 }
+
+/* ============ Realtime subscriptions ============ */
 
 export function subscribeUnoRoom(roomId: string, onChange: (room: UnoRoom) => void) {
   const channel = supabase
@@ -116,29 +119,24 @@ export function subscribeUnoRoom(roomId: string, onChange: (room: UnoRoom) => vo
     .on(
       'postgres_changes',
       { event: 'UPDATE', schema: 'public', table: 'uno_rooms', filter: `id=eq.${roomId}` },
-      payload => {
-        onChange(payload.new as UnoRoom);
-      },
+      payload => onChange(payload.new as UnoRoom),
     )
     .subscribe();
-
-  return () => {
-    supabase.removeChannel(channel);
-  };
+  return () => void supabase.removeChannel(channel);
 }
 
 export function subscribeUnoPlayers(roomId: string, onChange: () => void) {
   const channel = supabase
     .channel(`uno-players-${roomId}`)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'uno_players', filter: `room_id=eq.${roomId}` }, () => {
-      onChange();
-    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'uno_players', filter: `room_id=eq.${roomId}` }, () => onChange())
     .subscribe();
-
-  return () => supabase.removeChannel(channel);
+  return () => void supabase.removeChannel(channel);
 }
 
-export function cardPlayable(card: UnoCard, top: UnoCard | null) {
+/* ============ Card helpers ============ */
+
+/** Can this card be played on `top`? */
+export function cardPlayable(card: UnoCard, top: UnoCard | null): boolean {
   if (!top) return true;
   if (card.kind === 'wild' || card.kind === 'wild4') return true;
   if (card.color === top.color) return true;
@@ -146,4 +144,29 @@ export function cardPlayable(card: UnoCard, top: UnoCard | null) {
   if (card.kind === 'number' && top.kind === 'number' && card.value === top.value) return true;
   if (card.kind === top.kind && ['skip', 'reverse', 'draw2'].includes(card.kind)) return true;
   return false;
+}
+
+/** Human-readable card label */
+export function cardLabel(card: UnoCard): string {
+  if (card.kind === 'verb' && card.verb) {
+    return `${card.verb.infinitive}\n${card.verb.past_simple}\n${card.verb.past_participle}`;
+  }
+  if (card.kind === 'number') return `${card.value ?? ''}`;
+  if (card.kind === 'wild') return '🌈';
+  if (card.kind === 'wild4') return '+4';
+  if (card.kind === 'draw2') return '+2';
+  if (card.kind === 'skip') return '⊘';
+  if (card.kind === 'reverse') return '⟲';
+  return card.kind;
+}
+
+/** Background colour class for a card */
+export function cardColorClass(card: UnoCard): string {
+  switch (card.color) {
+    case 'red': return 'uno-red';
+    case 'yellow': return 'uno-yellow';
+    case 'green': return 'uno-green';
+    case 'blue': return 'uno-blue';
+    default: return 'uno-wild';
+  }
 }

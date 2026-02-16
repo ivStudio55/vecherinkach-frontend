@@ -2,13 +2,13 @@ export type UnoMode = 'classic' | 'irregular-verbs';
 export type UnoColor = 'red' | 'yellow' | 'green' | 'blue' | 'wild';
 export type UnoKind = 'number' | 'verb' | 'skip' | 'reverse' | 'draw2' | 'wild' | 'wild4';
 
+/** DB uses snake_case: past_simple, past_participle */
 export type UnoVerb = {
   id: string;
   infinitive: string;
-  pastSimple: string;
-  pastParticiple: string;
+  past_simple: string;
+  past_participle: string;
   translation?: string | null;
-  audioUrl?: string | null;
 };
 
 export type UnoCard = {
@@ -36,10 +36,12 @@ export type UnoRoom = {
   direction: 1 | -1;
   current_player_id: string | null;
   host_id: string | null;
+  winner_id: string | null;
   draw_pile: UnoCard[];
   discard_pile: UnoCard[];
   hands: Record<string, UnoCard[]>;
   verb_count: number;
+  state_version: number;
   created_at?: string;
   updated_at?: string;
 };

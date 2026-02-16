@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -14,240 +14,338 @@ import {
   subscribeUnoRoom,
   unoStorage,
 } from '@/lib/uno/api';
-import type { UnoCard, UnoPlayer, UnoRoom } from '@/lib/uno/types';
+import type { UnoCard, UnoColor, UnoPlayer, UnoRoom } from '@/lib/uno/types';
+import UnoCardView from '@/components/uno/UnoCardView';
+import ColorPicker from '@/components/uno/ColorPicker';
 
-function cardLabel(card: UnoCard) {
-  if (card.kind === 'verb' && card.verb) {
-    return `${card.verb.infinitive} · ${card.verb.pastSimple} · ${card.verb.pastParticiple}`;
-  }
-  if (card.kind === 'number') return `${card.value ?? ''}`;
-  if (card.kind === 'wild') return 'Wild';
-  if (card.kind === 'wild4') return 'Wild +4';
-  if (card.kind === 'draw2') return '+2';
-  if (card.kind === 'skip') return 'Skip';
-  if (card.kind === 'reverse') return 'Reverse';
-  return card.kind;
-}
-
-function cardBg(card: UnoCard) {
-  switch (card.color) {
-    case 'red':
-      return 'bg-[#f1362f]';
-    case 'yellow':
-      return 'bg-[#ffd92c] text-black';
-    case 'green':
-      return 'bg-[#2fc36f]';
-    case 'blue':
-      return 'bg-[#1f6ac6]';
-    default:
-      return 'bg-white/10';
-  }
-}
+/* ─────────── page ─────────── */
 
 export default function UnoRoomPage() {
   const params = useParams<{ code: string }>();
   const router = useRouter();
   const code = (params?.code || '').toString().toUpperCase();
+
   const [room, setRoom] = useState<UnoRoom | null>(null);
   const [players, setPlayers] = useState<UnoPlayer[]>([]);
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
+  const [pickingColor, setPickingColor] = useState<UnoCard | null>(null);
+  const [lastEvent, setLastEvent] = useState<string>('');
 
-  const session = useMemo(() => unoStorage.get(), []);
+  const session = useMemo(() => {
+    if (typeof window === 'undefined') return { playerId: null, playerName: null, roomCode: null, roomId: null };
+    return unoStorage.get();
+  }, []);
+
   const me = useMemo(() => players.find(p => p.id === session.playerId), [players, session.playerId]);
 
+  /* ── derived state ── */
   const myHand: UnoCard[] = useMemo(() => {
     if (!room || !me) return [];
-    const raw = (room.hands?.[me.id] as unknown) as UnoCard[] | undefined;
-    return raw || [];
+    return (room.hands?.[me.id] as UnoCard[]) || [];
   }, [room, me]);
 
   const topCard: UnoCard | null = useMemo(() => {
-    if (!room || !room.discard_pile || room.discard_pile.length === 0) return null;
-    return room.discard_pile[room.discard_pile.length - 1];
+    if (!room?.discard_pile) return null;
+    const pile = room.discard_pile;
+    if (Array.isArray(pile) && pile.length > 0) return pile[pile.length - 1];
+    return null;
   }, [room]);
 
-  const refresh = async () => {
-    try {
-      const fetchedRoom = await fetchUnoRoomByCode(code);
-      setRoom(fetchedRoom);
-      const fetchedPlayers = await fetchUnoPlayers(fetchedRoom.id);
-      setPlayers(fetchedPlayers);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось загрузить комнату');
-    }
-  };
+  const myTurn = room?.status === 'playing' && !!me && room.current_player_id === me.id;
+  const isFinished = room?.status === 'finished';
+  const winnerName = useMemo(() => {
+    if (!room?.winner_id) return null;
+    return players.find(p => p.id === room.winner_id)?.name ?? 'Неизвестный';
+  }, [room, players]);
 
-  useEffect(() => {
-    refresh();
+  /* ── data loading ── */
+  const refresh = useCallback(async () => {
+    try {
+      const r = await fetchUnoRoomByCode(code);
+      setRoom(r);
+      const p = await fetchUnoPlayers(r.id);
+      setPlayers(p);
+    } catch (e: any) {
+      setError(e?.message ?? 'Ошибка загрузки');
+    }
   }, [code]);
+
+  useEffect(() => { refresh(); }, [refresh]);
 
   useEffect(() => {
     if (!room) return;
     const offRoom = subscribeUnoRoom(room.id, updated => setRoom(updated));
-    const offPlayers = subscribeUnoPlayers(room.id, () => refresh());
-    return () => {
-      offRoom();
-      offPlayers();
-    };
+    const offPlayers = subscribeUnoPlayers(room.id, () => {
+      fetchUnoPlayers(room.id).then(p => setPlayers(p)).catch(() => {});
+    });
+    return () => { offRoom(); offPlayers(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room?.id]);
 
+  /* ── actions ── */
   const handleStart = async () => {
     if (!room) return;
     setPending(true);
+    setError('');
     try {
       await startUnoGame(room.code);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось стартовать игру');
-    } finally {
-      setPending(false);
-    }
+      setLastEvent('🎮 Игра началась!');
+    } catch (e: any) { setError(e?.message ?? 'Ошибка'); }
+    finally { setPending(false); }
   };
 
   const handleDraw = async () => {
     if (!room || !me) return;
     setPending(true);
+    setError('');
     try {
-      await drawUnoCard(room.code, me.id);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось взять карту');
-    } finally {
-      setPending(false);
-    }
+      const res = await drawUnoCard(room.code, me.id);
+      setLastEvent('📥 Взята карта');
+      if (res?.room) setRoom(res.room);
+    } catch (e: any) { setError(e?.message ?? 'Ошибка'); }
+    finally { setPending(false); }
   };
 
-  const handlePlay = async (card: UnoCard) => {
+  const handlePlay = async (card: UnoCard, chosenColor?: UnoColor) => {
     if (!room || !me) return;
-    const needsColor = card.kind === 'wild' || card.kind === 'wild4';
-    let chosenColor: 'red' | 'yellow' | 'green' | 'blue' | undefined;
-    if (needsColor) {
-      chosenColor = prompt('Выберите цвет: red / yellow / green / blue') as any;
-    }
     setPending(true);
+    setError('');
     try {
-      await playUnoCard({ roomCode: room.code, playerId: me.id, cardId: card.id, chosenColor });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось сходить картой');
-    } finally {
-      setPending(false);
-    }
+      const res = await playUnoCard({
+        roomCode: room.code,
+        playerId: me.id,
+        cardId: card.id,
+        chosenColor,
+      });
+      setLastEvent(`🃏 Сыграна карта`);
+      if (res?.room) setRoom(res.room);
+    } catch (e: any) { setError(e?.message ?? 'Нельзя сходить этой картой'); }
+    finally { setPending(false); }
   };
 
-  const myTurn = room && me && room.current_player_id === me.id;
+  const onCardClick = (card: UnoCard) => {
+    if (card.kind === 'wild' || card.kind === 'wild4') {
+      setPickingColor(card);
+      return;
+    }
+    handlePlay(card);
+  };
+
+  const currentPlayerName = useMemo(() => {
+    if (!room?.current_player_id) return null;
+    return players.find(p => p.id === room.current_player_id)?.name ?? '...';
+  }, [room, players]);
+
+  /* ── direction indicator ── */
+  const dirArrow = room?.direction === -1 ? '⟲' : '⟳';
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#0d1117] via-[#0b1224] to-[#0d1117] text-white">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-6">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-xs uppercase tracking-[0.28em] text-white/60">комната</p>
-            <h1 className="text-2xl font-black">UNO · {code}</h1>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-white/80">
-            <Link href="/uno" className="rounded-xl border border-white/20 px-3 py-2 hover:bg-white/10">Назад</Link>
-            <Link href="/host" className="rounded-xl border border-[#f1362f] bg-[#f1362f] text-black px-3 py-2 font-bold hover:brightness-95">Создать квиз-комнату</Link>
+    <div className="min-h-screen bg-gradient-to-b from-[#0a0e1a] via-[#0d1226] to-[#0a0e1a] text-white overflow-hidden">
+      {/* ── Color picker modal ── */}
+      {pickingColor && (
+        <ColorPicker
+          onPick={(color) => {
+            const card = pickingColor;
+            setPickingColor(null);
+            handlePlay(card, color);
+          }}
+          onCancel={() => setPickingColor(null)}
+        />
+      )}
+
+      {/* ── Winner overlay ── */}
+      {isFinished && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fadeIn">
+          <div className="text-center space-y-6 animate-scaleIn">
+            <div className="text-6xl">🏆</div>
+            <h2 className="text-4xl font-black">
+              {room?.winner_id === me?.id ? 'Ты победил!' : `${winnerName} побеждает!`}
+            </h2>
+            <div className="flex gap-3 justify-center">
+              <Link
+                href="/uno"
+                className="rounded-xl bg-white/10 border border-white/20 px-6 py-3 font-bold hover:bg-white/20 transition"
+              >
+                В лобби
+              </Link>
+              <button
+                onClick={() => router.push('/uno')}
+                className="rounded-xl bg-[#e5383b] px-6 py-3 font-bold text-white hover:brightness-110 transition"
+              >
+                Новая игра
+              </button>
+            </div>
           </div>
         </div>
+      )}
 
-        {error ? <div className="rounded-xl border border-[#ffb4b4]/40 bg-[#ffb4b4]/10 px-4 py-3 text-sm text-[#ffb4b4]">{error}</div> : null}
+      <div className="max-w-6xl mx-auto px-3 sm:px-6 py-4 space-y-4">
+        {/* ── Header ── */}
+        <header className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <Link href="/uno" className="text-white/60 hover:text-white text-sm">← назад</Link>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2">
+                UNO
+                <span className="text-sm font-mono bg-white/10 rounded-lg px-2 py-0.5 tracking-widest">{code}</span>
+              </h1>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-white/60">
+            {room && (
+              <>
+                <span className={`inline-block w-2 h-2 rounded-full ${room.status === 'playing' ? 'bg-green-400 animate-pulse' : room.status === 'finished' ? 'bg-red-400' : 'bg-yellow-400'}`} />
+                <span>{room.status === 'lobby' ? 'Лобби' : room.status === 'playing' ? 'Игра' : 'Завершена'}</span>
+                <span className="mx-1">·</span>
+                <span>{room.mode === 'irregular-verbs' ? 'Глаголы' : 'Классика'}</span>
+              </>
+            )}
+          </div>
+        </header>
 
-        <div className="grid gap-4 md:grid-cols-[1.1fr,0.9fr]">
-          <div className="space-y-4">
-            <div className="rounded-3xl border border-white/15 bg-white/5 p-4">
-              <div className="flex items-center justify-between gap-3 text-sm text-white/80">
-                <span>Статус: {room?.status || '...'} · Режим: {room?.mode || '-'}</span>
-                <span>Ход: {myTurn ? 'твой' : room?.current_player_id ? 'ждём' : '—'}</span>
+        {error && (
+          <div className="rounded-xl border border-[#ffb4b4]/30 bg-[#ffb4b4]/10 px-4 py-2 text-sm text-[#ffb4b4] flex justify-between items-center">
+            <span>{error}</span>
+            <button onClick={() => setError('')} className="text-[#ffb4b4]/60 hover:text-white ml-2">✕</button>
+          </div>
+        )}
+
+        {/* ── Lobby ── */}
+        {room?.status === 'lobby' && (
+          <section className="rounded-2xl border border-white/10 bg-white/5 p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold">Ожидание игроков</h2>
+                <p className="text-sm text-white/60">Поделитесь кодом <strong>{code}</strong> с друзьями</p>
               </div>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-                  <p className="text-xs uppercase tracking-[0.18em] text-white/60">верхняя карта</p>
-                  {topCard ? (
-                    <div className={`mt-2 rounded-2xl px-3 py-3 text-sm font-bold ${cardBg(topCard)}`}>
-                      {cardLabel(topCard)}
-                    </div>
-                  ) : (
-                    <p className="text-white/70 text-sm mt-1">Колода не разложена</p>
-                  )}
+              <span className="text-3xl animate-pulse">⏳</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {players.map(p => (
+                <div key={p.id} className={`rounded-xl px-3 py-2 text-sm border ${p.id === me?.id ? 'border-[#eab308] bg-[#eab308]/10 text-[#eab308]' : 'border-white/10 bg-white/5'}`}>
+                  {p.name} {p.is_host ? '👑' : ''}
                 </div>
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-                  <p className="text-xs uppercase tracking-[0.18em] text-white/60">колоды</p>
-                  <p className="text-sm text-white/80 mt-1">Взять: {room?.draw_pile?.length ?? 0}</p>
-                  <p className="text-sm text-white/80">Сброс: {room?.discard_pile?.length ?? 0}</p>
+              ))}
+            </div>
+            {me?.is_host && players.length >= 2 && (
+              <button
+                onClick={handleStart}
+                disabled={pending}
+                className="rounded-xl bg-[#e5383b] text-white font-bold px-6 py-3 text-sm tracking-wide hover:brightness-110 transition disabled:opacity-50"
+              >
+                {pending ? 'Запускаем…' : `🚀 Начать игру (${players.length} игроков)`}
+              </button>
+            )}
+            {me?.is_host && players.length < 2 && (
+              <p className="text-sm text-white/50">Нужно минимум 2 игрока для старта</p>
+            )}
+          </section>
+        )}
+
+        {/* ── Game Table ── */}
+        {room?.status === 'playing' && (
+          <>
+            {/* Opponents bar */}
+            <section className="flex flex-wrap gap-2 justify-center">
+              {players.filter(p => p.id !== me?.id).map(p => {
+                const hand = room.hands?.[p.id] as UnoCard[] | undefined;
+                const count = hand?.length ?? 0;
+                const isCurrent = room.current_player_id === p.id;
+                return (
+                  <div
+                    key={p.id}
+                    className={`rounded-xl px-3 py-2 text-sm border transition-all duration-300
+                      ${isCurrent ? 'border-[#eab308] bg-[#eab308]/15 shadow-lg shadow-[#eab308]/20 scale-105' : 'border-white/10 bg-white/5'}`}
+                  >
+                    <span className="font-semibold">{p.name}</span>
+                    <span className="ml-2 text-white/50">{count} 🃏</span>
+                    {count === 1 && <span className="ml-1 text-[#e5383b] font-black text-xs animate-pulse">UNO!</span>}
+                  </div>
+                );
+              })}
+            </section>
+
+            {/* Table center */}
+            <section className="flex items-center justify-center gap-6 py-6">
+              {/* Draw pile */}
+              <button
+                onClick={handleDraw}
+                disabled={!myTurn || pending}
+                className={`relative flex flex-col items-center gap-2 group transition-all
+                  ${myTurn ? 'cursor-pointer hover:scale-105' : 'opacity-60 cursor-not-allowed'}`}
+              >
+                <div className="w-24 h-36 rounded-xl bg-[#1e293b] border-2 border-[#334155] flex items-center justify-center shadow-xl
+                  group-hover:border-[#60a5fa] group-hover:shadow-[#60a5fa]/30 transition-all">
+                  <span className="text-3xl font-black text-white/20">U</span>
                 </div>
+                <span className="text-xs text-white/50">{room.draw_pile?.length ?? 0}</span>
+              </button>
+
+              {/* Direction indicator */}
+              <div className="text-4xl text-white/20 select-none">{dirArrow}</div>
+
+              {/* Discard pile */}
+              <div className="flex flex-col items-center gap-2">
+                {topCard ? (
+                  <UnoCardView card={topCard} size="lg" playable={false} disabled />
+                ) : (
+                  <div className="w-28 h-40 rounded-xl border-2 border-dashed border-white/10 flex items-center justify-center text-white/30 text-sm">
+                    Сброс
+                  </div>
+                )}
+                <span className="text-xs text-white/50">{room.discard_pile?.length ?? 0}</span>
               </div>
-              <div className="mt-4 flex flex-wrap gap-2 text-sm font-semibold">
-                <button
-                  type="button"
-                  onClick={handleStart}
-                  disabled={pending || !me || room?.status !== 'lobby'}
-                  className="rounded-xl bg-[#ffd92c] text-black px-4 py-2 border border-white/20 disabled:opacity-60"
-                >
-                  {pending ? '...' : 'Старт игры'}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDraw}
-                  disabled={pending || !myTurn}
-                  className="rounded-xl bg-white/10 px-4 py-2 border border-white/20 disabled:opacity-60"
-                >
-                  Взять карту
-                </button>
-              </div>
+            </section>
+
+            {/* Turn indicator */}
+            <div className="text-center">
+              {myTurn ? (
+                <span className="inline-block rounded-full bg-[#eab308]/20 border border-[#eab308]/40 px-4 py-1.5 text-sm font-bold text-[#eab308] animate-pulse">
+                  ⚡ Твой ход!
+                </span>
+              ) : (
+                <span className="text-sm text-white/50">
+                  Ходит: <strong>{currentPlayerName}</strong>
+                </span>
+              )}
             </div>
 
-            <div className="rounded-3xl border border-white/15 bg-white/5 p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-bold">Твоя рука ({myHand.length})</p>
-                <span className="text-xs text-white/60">клик по карте — ход</span>
+            {/* My hand */}
+            <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-bold">Твои карты ({myHand.length})</span>
+                {myHand.length === 1 && (
+                  <span className="text-[#e5383b] font-black text-sm animate-pulse">UNO!</span>
+                )}
               </div>
+
               {myHand.length === 0 ? (
-                <p className="text-white/70 text-sm">Пока нет карт.</p>
+                <p className="text-white/50 text-sm text-center py-6">Нет карт</p>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                <div className="flex flex-wrap gap-2 justify-center">
                   {myHand.map(card => {
                     const playable = cardPlayable(card, topCard);
                     return (
-                      <button
+                      <UnoCardView
                         key={card.id}
-                        onClick={() => handlePlay(card)}
+                        card={card}
+                        playable={playable && myTurn}
                         disabled={!playable || !myTurn || pending}
-                        className={`text-left rounded-2xl px-3 py-3 border border-white/20 ${cardBg(card)} ${playable && myTurn ? 'hover:scale-[1.02]' : 'opacity-60 cursor-not-allowed'}`}
-                      >
-                        <div className="text-xs uppercase tracking-[0.12em]">{card.color}</div>
-                        <div className="text-sm font-bold leading-snug mt-1">{cardLabel(card)}</div>
-                      </button>
+                        onClick={() => onCardClick(card)}
+                      />
                     );
                   })}
                 </div>
               )}
-            </div>
-          </div>
+            </section>
+          </>
+        )}
 
-          <div className="rounded-3xl border border-white/15 bg-white/5 p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-bold">Игроки</p>
-              <span className="text-xs text-white/60">{players.length} чел.</span>
-            </div>
-            <div className="space-y-2">
-              {players.map(p => {
-                const handCount = room?.hands?.[p.id]?.length ?? 0;
-                const isCurrent = room?.current_player_id === p.id;
-                return (
-                  <div
-                    key={p.id}
-                    className={`rounded-2xl border border-white/10 px-3 py-2 text-sm flex items-center justify-between ${isCurrent ? 'bg-white/10' : 'bg-white/5'}`}
-                  >
-                    <div className="flex flex-col">
-                      <span className="font-semibold">{p.name}</span>
-                      <span className="text-xs text-white/60">Карт: {handCount}</span>
-                    </div>
-                    {p.is_host ? <span className="text-[11px] uppercase tracking-[0.2em] text-[#ffd92c]">host</span> : null}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
+        {/* ── Event log (subtle) ── */}
+        {lastEvent && (
+          <div className="text-center text-xs text-white/40 animate-fadeIn">{lastEvent}</div>
+        )}
       </div>
     </div>
   );
