@@ -1,6 +1,7 @@
-export type UnoMode = 'classic' | 'irregular-verbs';
+export type UnoMode = 'classic' | 'irregular-verbs' | 'verb-match';
 export type UnoColor = 'red' | 'yellow' | 'green' | 'blue' | 'wild';
-export type UnoKind = 'number' | 'verb' | 'skip' | 'reverse' | 'draw2' | 'wild' | 'wild4';
+export type UnoKind = 'number' | 'verb' | 'verb-match' | 'skip' | 'reverse' | 'draw2' | 'wild' | 'wild4';
+export type VerbForm = 'infinitive' | 'past_simple' | 'past_participle' | 'translation';
 
 /** DB uses snake_case: past_simple, past_participle */
 export type UnoVerb = {
@@ -17,6 +18,12 @@ export type UnoCard = {
   kind: UnoKind;
   value?: number | null;
   verb?: UnoVerb | null;
+  /** verb-match mode: the single word displayed on the card */
+  display?: string | null;
+  /** verb-match mode: which form this card shows */
+  form?: VerbForm | null;
+  /** verb-match mode: verb id for matching (same verb = same nominal) */
+  verb_id?: string | null;
 };
 
 export type UnoPlayer = {

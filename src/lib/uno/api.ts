@@ -140,7 +140,10 @@ export function cardPlayable(card: UnoCard, top: UnoCard | null): boolean {
   if (!top) return true;
   if (card.kind === 'wild' || card.kind === 'wild4') return true;
   if (card.color === top.color) return true;
+  // verb mode: match by verb object id
   if (card.kind === 'verb' && top.kind === 'verb' && card.verb && top.verb && card.verb.id === top.verb.id) return true;
+  // verb-match mode: match by verb_id
+  if (card.kind === 'verb-match' && top.kind === 'verb-match' && card.verb_id && top.verb_id && card.verb_id === top.verb_id) return true;
   if (card.kind === 'number' && top.kind === 'number' && card.value === top.value) return true;
   if (card.kind === top.kind && ['skip', 'reverse', 'draw2'].includes(card.kind)) return true;
   return false;
@@ -148,6 +151,8 @@ export function cardPlayable(card: UnoCard, top: UnoCard | null): boolean {
 
 /** Human-readable card label */
 export function cardLabel(card: UnoCard): string {
+  // verb-match: show ONE word only
+  if (card.kind === 'verb-match' && card.display) return card.display;
   if (card.kind === 'verb' && card.verb) {
     return `${card.verb.infinitive}\n${card.verb.past_simple}\n${card.verb.past_participle}`;
   }

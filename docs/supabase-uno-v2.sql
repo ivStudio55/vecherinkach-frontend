@@ -12,7 +12,7 @@ drop table if exists public.uno_rooms cascade;
 create table public.uno_rooms (
   id uuid primary key default gen_random_uuid(),
   code text not null unique,
-  mode text not null check (mode in ('classic', 'irregular-verbs')),
+  mode text not null check (mode in ('classic', 'irregular-verbs', 'verb-match')),
   status text not null default 'lobby' check (status in ('lobby','playing','finished')),
   direction smallint not null default 1,
   current_player_id uuid,
@@ -215,6 +215,59 @@ begin
 end;
 $$;
 
+-- Build verb-match deck: each verb produces 4 cards (one per form),
+-- each card shows ONLY one word. Cards of the same verb share verb_id.
+-- Colors are cycled so that the 4 forms get different colors.
+create or replace function public._uno_build_match_deck(p_verbs jsonb)
+returns jsonb
+language plpgsql as $$
+declare
+  deck jsonb := '[]'::jsonb;
+  colors text[] := array['red','yellow','green','blue'];
+  c text;
+  v jsonb;
+  forms text[];
+  displays text[];
+  cIdx integer;
+begin
+  for i in 0..jsonb_array_length(p_verbs)-1 loop
+    v := p_verbs -> i;
+    forms := array['infinitive','past_simple','past_participle','translation'];
+    displays := array[
+      v ->> 'infinitive',
+      v ->> 'past_simple',
+      v ->> 'past_participle',
+      coalesce(v ->> 'translation', v ->> 'infinitive')
+    ];
+    for fi in 1..4 loop
+      cIdx := ((i * 4 + fi - 1) % 4) + 1;  -- rotate colours
+      deck := deck || jsonb_build_array(jsonb_build_object(
+        'id', gen_random_uuid()::text,
+        'color', colors[cIdx],
+        'kind', 'verb-match',
+        'verb_id', v ->> 'id',
+        'display', displays[fi],
+        'form', forms[fi]
+      ));
+    end loop;
+  end loop;
+  -- action cards
+  foreach c in array colors loop
+    for j in 1..2 loop
+      deck := deck || jsonb_build_array(jsonb_build_object('id', gen_random_uuid()::text, 'color', c, 'kind', 'skip'));
+      deck := deck || jsonb_build_array(jsonb_build_object('id', gen_random_uuid()::text, 'color', c, 'kind', 'reverse'));
+      deck := deck || jsonb_build_array(jsonb_build_object('id', gen_random_uuid()::text, 'color', c, 'kind', 'draw2'));
+    end loop;
+  end loop;
+  -- wild
+  for k in 1..4 loop
+    deck := deck || jsonb_build_array(jsonb_build_object('id', gen_random_uuid()::text, 'color', 'wild', 'kind', 'wild'));
+    deck := deck || jsonb_build_array(jsonb_build_object('id', gen_random_uuid()::text, 'color', 'wild', 'kind', 'wild4'));
+  end loop;
+  return deck;
+end;
+$$;
+
 -- ======================= ROOM CREATION =============================
 
 drop function if exists public.uno_create_room(text, text, integer, text);
@@ -232,7 +285,9 @@ declare
   room_row public.uno_rooms;
   host_row public.uno_players;
 begin
-  if p_mode = 'irregular-verbs' then
+  if p_mode = 'verb-match' then
+    deck := public._uno_build_match_deck(public._uno_pick_verbs(p_verb_count));
+  elsif p_mode = 'irregular-verbs' then
     deck := public._uno_build_verb_deck(public._uno_pick_verbs(p_verb_count));
   else
     deck := public._uno_build_classic_deck();
@@ -433,6 +488,7 @@ begin
   if card ->> 'kind' not in ('wild','wild4') and top_card is not null then
     if not (
          (card ->> 'color') = (top_card ->> 'color')
+      or ((card ->> 'kind') = 'verb-match' and (top_card ->> 'kind') = 'verb-match' and (card ->> 'verb_id') = (top_card ->> 'verb_id'))
       or ((card ->> 'kind') = 'verb' and (top_card ->> 'kind') = 'verb' and (card -> 'verb' ->> 'id') = (top_card -> 'verb' ->> 'id'))
       or ((card ->> 'kind') = 'number' and (top_card ->> 'kind') = 'number' and (card ->> 'value') = (top_card ->> 'value'))
       or ((card ->> 'kind') = (top_card ->> 'kind') and (card ->> 'kind') in ('skip','reverse','draw2'))

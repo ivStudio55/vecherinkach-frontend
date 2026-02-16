@@ -35,6 +35,7 @@ export default function UnoCardView({ card, playable = false, disabled = false, 
   const border = BORDER[card.color] ?? BORDER.wild;
   const isWild = card.kind === 'wild' || card.kind === 'wild4';
   const isVerb = card.kind === 'verb' && card.verb;
+  const isVerbMatch = card.kind === 'verb-match' && card.display;
 
   const dims = size === 'sm' ? 'w-16 h-24' : size === 'lg' ? 'w-28 h-40' : 'w-22 h-32';
 
@@ -82,12 +83,23 @@ export default function UnoCardView({ card, playable = false, disabled = false, 
 
       {/* Corner label */}
       <span className="absolute top-1.5 left-2 text-[10px] font-bold opacity-70 leading-none">
-        {card.kind === 'number' ? card.value : card.kind === 'verb' ? 'V' : card.kind === 'wild4' ? '+4' : card.kind === 'draw2' ? '+2' : card.kind[0]?.toUpperCase()}
+        {card.kind === 'number' ? card.value : card.kind === 'verb' ? 'V' : card.kind === 'verb-match' ? (card.form === 'translation' ? 'RU' : 'EN') : card.kind === 'wild4' ? '+4' : card.kind === 'draw2' ? '+2' : card.kind[0]?.toUpperCase()}
       </span>
 
       {/* Main content */}
       <div className="relative z-10 flex flex-col items-center gap-0.5 px-1">
-        {isVerb ? (
+        {isVerbMatch ? (
+          <>
+            <span className={`font-black leading-tight text-center ${size === 'lg' ? 'text-base' : size === 'sm' ? 'text-[10px]' : 'text-xs'}`}>
+              {card.display}
+            </span>
+            {card.form && (
+              <span className="text-[7px] opacity-50 uppercase tracking-wider mt-0.5">
+                {card.form === 'translation' ? 'перевод' : card.form === 'infinitive' ? 'inf' : card.form === 'past_simple' ? 'V2' : 'V3'}
+              </span>
+            )}
+          </>
+        ) : isVerb ? (
           <>
             <span className="text-[11px] font-bold leading-tight">{lines[0]}</span>
             <span className="text-[9px] opacity-80 leading-tight">{lines[1]}</span>
@@ -105,7 +117,7 @@ export default function UnoCardView({ card, playable = false, disabled = false, 
 
       {/* Bottom corner */}
       <span className="absolute bottom-1.5 right-2 text-[10px] font-bold opacity-70 rotate-180 leading-none">
-        {card.kind === 'number' ? card.value : card.kind === 'verb' ? 'V' : card.kind === 'wild4' ? '+4' : card.kind === 'draw2' ? '+2' : card.kind[0]?.toUpperCase()}
+        {card.kind === 'number' ? card.value : card.kind === 'verb' ? 'V' : card.kind === 'verb-match' ? (card.form === 'translation' ? 'RU' : 'EN') : card.kind === 'wild4' ? '+4' : card.kind === 'draw2' ? '+2' : card.kind[0]?.toUpperCase()}
       </span>
     </button>
   );

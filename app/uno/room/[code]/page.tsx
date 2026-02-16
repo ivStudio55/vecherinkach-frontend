@@ -198,7 +198,7 @@ export default function UnoRoomPage() {
                 <span className={`inline-block w-2 h-2 rounded-full ${room.status === 'playing' ? 'bg-green-400 animate-pulse' : room.status === 'finished' ? 'bg-red-400' : 'bg-yellow-400'}`} />
                 <span>{room.status === 'lobby' ? 'Лобби' : room.status === 'playing' ? 'Игра' : 'Завершена'}</span>
                 <span className="mx-1">·</span>
-                <span>{room.mode === 'irregular-verbs' ? 'Глаголы' : 'Классика'}</span>
+                <span>{room.mode === 'irregular-verbs' ? 'Все формы' : room.mode === 'verb-match' ? 'Угадай глагол' : 'Классика'}</span>
               </>
             )}
           </div>
