@@ -36,8 +36,10 @@ export default function DrawHostPage() {
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
 
-  // Playing state
-  const [submittedCount, setSubmittedCount] = useState(0);
+  // Playing state – track which step the count belongs to so stale values
+  // from a previous step can never trigger auto-advance for the new step.
+  const [submittedInfo, setSubmittedInfo] = useState<{count: number; step: number; round: number}>({count: 0, step: 0, round: 0});
+  const submittedCount = submittedInfo.count; // convenience alias for display
   const [timeLeft, setTimeLeft] = useState(60);
 
   // Pre-round countdown ("На старт, внимание, рисуем!")
@@ -146,11 +148,11 @@ export default function DrawHostPage() {
 
   /* ── Duck sound on drawing submission ── */
   useEffect(() => {
-    if (submittedCount > prevSubmittedRef.current && prevSubmittedRef.current > 0) {
+    if (submittedInfo.count > prevSubmittedRef.current && prevSubmittedRef.current > 0) {
       audioRef.current.playSfx(AUDIO.duck());
     }
-    prevSubmittedRef.current = submittedCount;
-  }, [submittedCount]);
+    prevSubmittedRef.current = submittedInfo.count;
+  }, [submittedInfo]);
 
   /* ── Cleanup audio on unmount ── */
   useEffect(() => {
@@ -161,19 +163,24 @@ export default function DrawHostPage() {
   const checkSubmissions = useCallback(async () => {
     if (!room || room.status !== 'playing') return;
     try {
-      const c = await fetchDrawChains(room.id, room.current_round);
+      const step = room.current_step;
+      const round = room.current_round;
+      const c = await fetchDrawChains(room.id, round);
       const ids = c.map(ch => ch.id);
-      const count = await fetchSubmittedCount(ids, room.current_step);
-      setSubmittedCount(count);
+      const count = await fetchSubmittedCount(ids, step);
+      // Tag the count with the step/round it was fetched for.
+      // If the room moved to a different step while the fetch was in-flight,
+      // the auto-advance guard will harmlessly ignore this stale value.
+      setSubmittedInfo({count, step, round});
     } catch { /* ignore */ }
   }, [room]);
 
   // Keep ref in sync so subscription always calls latest version
   useEffect(() => { checkSubmissionsRef.current = checkSubmissions; }, [checkSubmissions]);
 
-  // Reset submitted count when step changes (prevents stale count from triggering auto-advance)
+  // Reset submitted count when step changes (for display; auto-advance guard is the real protection)
   useEffect(() => {
-    setSubmittedCount(0);
+    setSubmittedInfo({count: 0, step: room?.current_step || 0, round: room?.current_round || 0});
   }, [room?.current_step, room?.current_round]);
 
   useEffect(() => {
@@ -367,7 +374,12 @@ export default function DrawHostPage() {
     if (room.current_step !== lastAdvancedStepRef.current) {
       advancingRef.current = false;
     }
-    if (submittedCount >= totalGamePlayers && totalGamePlayers > 0) {
+    // CRITICAL GUARD: only auto-advance if the count was fetched for THIS exact step/round.
+    // Without this, a stale count from step N causes an immediate double-advance into voting.
+    const countIsCurrent = submittedInfo.step === room.current_step
+      && submittedInfo.round === room.current_round;
+
+    if (countIsCurrent && submittedInfo.count >= totalGamePlayers && totalGamePlayers > 0) {
       if (advancingRef.current) return;
       advancingRef.current = true;
       lastAdvancedStepRef.current = room.current_step;
@@ -381,7 +393,7 @@ export default function DrawHostPage() {
       const t = setTimeout(() => advanceStep(room), 1000);
       return () => clearTimeout(t);
     }
-  }, [submittedCount, totalGamePlayers, timeLeft, room]);
+  }, [submittedInfo, totalGamePlayers, timeLeft, room]);
 
   /* ── Poll vote count during voting ── */
   useEffect(() => {
