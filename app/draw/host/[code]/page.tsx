@@ -60,6 +60,7 @@ export default function DrawHostPage() {
   const prevStatusRef = useRef<string>('');
   const prevSubmittedRef = useRef<number>(0);
   const commentaryPlayedRef = useRef<string>('');
+  const advancingRef = useRef(false);
 
   /** Game players = non-host players */
   const gamePlayers = useMemo(() => players.filter(p => !p.is_host), [players]);
@@ -348,10 +349,15 @@ export default function DrawHostPage() {
 
   /* ── Auto-advance when all submitted or timer expired ── */
   useEffect(() => {
-    if (!room || room.status !== 'playing') return;
+    if (!room || room.status !== 'playing') {
+      advancingRef.current = false;
+      return;
+    }
     if (submittedCount >= totalGamePlayers && totalGamePlayers > 0) {
-      const t = setTimeout(() => advanceStep(room), 2000);
-      return () => clearTimeout(t);
+      if (advancingRef.current) return;
+      advancingRef.current = true;
+      advanceStep(room);
+      return;
     }
     if (timeLeft <= 0 && totalGamePlayers > 0) {
       const t = setTimeout(() => advanceStep(room), 1000);
@@ -546,11 +552,7 @@ export default function DrawHostPage() {
                   </div>
                 ))}
               </div>
-              {submittedCount >= totalGamePlayers && (
-                <p className="text-center text-green-400 font-bold mt-4 animate-pulse">
-                  Все готовы! Переход к следующему шагу…
-                </p>
-              )}
+
               <div className="mt-4 text-center">
                 <button
                   onClick={handleAdvanceStep}
