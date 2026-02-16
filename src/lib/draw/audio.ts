@@ -27,7 +27,9 @@ export const AUDIO = {
   votingJingle: '/audio/sound/jingle_draw.mp3',
   /** Voting host commentary (5 files) */
   voteDraw: () => randomFile('/audio/vote_draw', 'vote_draw', 5),
-  /** After all 3 rounds - jingle */
+  /** Host commentary for guessing phase (5 files) */
+  guessDraw: () => randomFile('/audio/guess_draw', 'guess_draw', 5),
+  /** After round - jingle */
   afterRoundJingle: '/audio/round1_end/jingle_(after_round1).mp3',
   /** Final host voice (5 files) */
   finalDraw: () => randomFile('/audio/final_draw', 'final_draw', 5),

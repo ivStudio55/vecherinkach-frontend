@@ -229,22 +229,22 @@ export default function DrawRoomPage() {
   const strokeLimit = room ? maxStrokesForRound(room.current_round) : undefined;
   const sortedPlayers = useMemo(() => [...gamePlayers].sort((a, b) => b.score - a.score), [gamePlayers]);
 
-  // For voting: get final drawings (last step of each chain in current round)
-  const finalDrawings = useMemo(() => {
+  // For voting: get drawings from the current chain (matching host's view)
+  const currentChainDrawings = useMemo(() => {
     if (!room || !chains.length) return [];
     const roundChains = chains.filter(c => c.round === room.current_round);
-    return roundChains.map(chain => {
-      const chainSteps = allSteps
-        .filter(s => s.chain_id === chain.id)
-        .sort((a, b) => a.step_number - b.step_number);
-      const lastStep = chainSteps[chainSteps.length - 1];
-      return {
-        chain,
-        lastStep,
-        playerName: players.find(p => p.id === lastStep?.player_id)?.name || '???',
-        playerId: lastStep?.player_id || '',
-      };
-    });
+    const currentChain = roundChains[room.voting_chain_index || 0];
+    if (!currentChain) return [];
+
+    return allSteps
+      .filter(s => s.chain_id === currentChain.id && s.drawing_data)
+      .sort((a, b) => a.step_number - b.step_number)
+      .map(step => ({
+        step,
+        chain: currentChain,
+        playerName: players.find(p => p.id === step.player_id)?.name || '???',
+        playerId: step.player_id,
+      }));
   }, [chains, allSteps, players, room]);
 
   if (!room) {
@@ -441,14 +441,13 @@ export default function DrawRoomPage() {
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              {finalDrawings.map(({ chain, lastStep, playerName, playerId }) => {
-                if (!lastStep) return null;
+              {currentChainDrawings.map(({ step, chain, playerName, playerId }) => {
                 const isMe = playerId === session.playerId;
                 const isVoted = myVote === playerId;
 
                 return (
                   <button
-                    key={chain.id}
+                    key={step.id}
                     onClick={() => !isMe && handleVote(playerId)}
                     disabled={isMe || votePending || !!myVote}
                     className={`rounded-2xl border-2 overflow-hidden transition-all active:scale-95 ${
@@ -458,13 +457,12 @@ export default function DrawRoomPage() {
                       'border-white/20 hover:border-purple-400/50'
                     }`}
                   >
-                    {lastStep.drawing_data ? (
-                      <img src={lastStep.drawing_data} alt="" className="w-full aspect-square object-contain bg-white" />
-                    ) : (
-                      <div className="w-full aspect-square bg-white/10 flex items-center justify-center text-white/30 text-sm">—</div>
-                    )}
+                    <img src={step.drawing_data!} alt="" className="w-full aspect-square object-contain bg-white" />
                     <div className="px-2 py-2 text-center bg-black/40">
                       <span className="text-xs font-bold">{playerName}</span>
+                      {step.target_word && (
+                        <p className="text-[10px] text-purple-300 mt-0.5">«{step.target_word}»</p>
+                      )}
                       {isVoted && <span className="ml-1 text-yellow-300">★</span>}
                       {isMe && <span className="ml-1 text-white/40">(ты)</span>}
                     </div>

@@ -9,6 +9,7 @@ import {
   fetchDrawChains,
   fetchDrawSteps,
   fetchSubmittedCount,
+  fetchVoteCountForChain,
   subscribeDrawRoom,
   subscribeDrawPlayers,
   subscribeDrawSteps,
@@ -39,10 +40,15 @@ export default function DrawHostPage() {
   const [submittedCount, setSubmittedCount] = useState(0);
   const [timeLeft, setTimeLeft] = useState(60);
 
+  // Pre-round countdown ("На старт, внимание, рисуем!")
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const countdownLabels = ['', 'РИСУЕМ! 🎨', 'ВНИМАНИЕ...', 'НА СТАРТ...'];
+
   // Voting state
   const [chains, setChains] = useState<DrawChain[]>([]);
   const [allSteps, setAllSteps] = useState<DrawStep[]>([]);
   const [showingChain, setShowingChain] = useState(true);
+  const [voteCount, setVoteCount] = useState(0);
 
   // Audio controls
   const [jingleMuted, setJingleMuted] = useState(false);
@@ -115,17 +121,19 @@ export default function DrawHostPage() {
       const commentKey = `r${room.current_round}s${room.current_step}`;
       if (commentaryPlayedRef.current !== commentKey) {
         commentaryPlayedRef.current = commentKey;
-        setTimeout(() => audio.playVoice(getDrawCommentary(room.current_round)), 2000);
+        if (room.current_step === 1) {
+          setTimeout(() => audio.playVoice(getDrawCommentary(room.current_round)), 2000);
+        } else {
+          setTimeout(() => audio.playVoice(AUDIO.guessDraw()), 2000);
+        }
       }
     } else if (room.status === 'voting') {
       audio.playBgm(AUDIO.votingJingle);
       setTimeout(() => audio.playVoice(AUDIO.voteDraw()), 1500);
     } else if (room.status === 'results') {
       audio.stopBgm();
-      if (room.current_round >= 3) {
-        audio.playBgm(AUDIO.afterRoundJingle, false);
-        setTimeout(() => audio.playVoice(AUDIO.finalDraw()), 3000);
-      }
+      audio.playBgm(AUDIO.afterRoundJingle, false);
+      setTimeout(() => audio.playVoice(AUDIO.finalDraw()), 3000);
     } else if (room.status === 'finished') {
       audio.playBgm(AUDIO.afterRoundJingle, false);
       setTimeout(() => audio.playVoice(AUDIO.finalDraw()), 2000);
@@ -220,15 +228,36 @@ export default function DrawHostPage() {
   /* ── Actions ── */
   const handleStartGame = async () => {
     if (!room || gamePlayers.length < 2) return;
-    setPending(true);
-    try {
-      await startRound(room.id, 1, players, room.mode);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Ошибка');
-    } finally {
-      setPending(false);
-    }
+    // Start countdown: 3 → 2 → 1 → go!
+    setCountdown(3);
   };
+
+  /* ── Countdown effect ── */
+  useEffect(() => {
+    if (countdown === null) return;
+    if (countdown <= 0) {
+      // Countdown finished — start the round
+      setCountdown(null);
+      (async () => {
+        setPending(true);
+        try {
+          if (room!.status === 'lobby') {
+            await startRound(room!.id, 1, players, room!.mode);
+          } else {
+            await nextRoundOrFinish(room!, players);
+          }
+        } catch (e: unknown) {
+          setError(e instanceof Error ? e.message : 'Ошибка');
+        } finally {
+          setPending(false);
+        }
+      })();
+      return;
+    }
+    const t = setTimeout(() => setCountdown(countdown - 1), 1000);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [countdown]);
 
   const handleAdvanceStep = async () => {
     if (!room) return;
@@ -264,13 +293,19 @@ export default function DrawHostPage() {
 
   const handleNextRound = async () => {
     if (!room) return;
-    setPending(true);
-    try {
-      await nextRoundOrFinish(room, players);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Ошибка');
-    } finally {
-      setPending(false);
+    if (room.current_round >= 3) {
+      // Final round — go to finished directly
+      setPending(true);
+      try {
+        await nextRoundOrFinish(room, players);
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : 'Ошибка');
+      } finally {
+        setPending(false);
+      }
+    } else {
+      // Next round — show countdown first
+      setCountdown(3);
     }
   };
 
@@ -321,6 +356,33 @@ export default function DrawHostPage() {
       return () => clearTimeout(t);
     }
   }, [submittedCount, totalGamePlayers, timeLeft, room]);
+
+  /* ── Poll vote count during voting ── */
+  useEffect(() => {
+    if (!room || room.status !== 'voting' || !currentChain) {
+      setVoteCount(0);
+      return;
+    }
+    const checkVotes = async () => {
+      try {
+        const count = await fetchVoteCountForChain(currentChain.id);
+        setVoteCount(count);
+      } catch { /* ignore */ }
+    };
+    checkVotes();
+    const interval = setInterval(checkVotes, 3000);
+    return () => clearInterval(interval);
+  }, [room?.status, room?.voting_chain_index, currentChain]);
+
+  /* ── Auto-advance voting when all voted ── */
+  useEffect(() => {
+    if (!room || room.status !== 'voting') return;
+    if (voteCount >= totalGamePlayers && totalGamePlayers > 0) {
+      const t = setTimeout(() => handleNextChain(), 2000);
+      return () => clearTimeout(t);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [voteCount, totalGamePlayers, room?.status]);
 
   if (!room) {
     return (
@@ -379,6 +441,20 @@ export default function DrawHostPage() {
         {error && (
           <div className="rounded-xl bg-red-500/20 border border-red-400/30 px-4 py-3 text-red-200 text-sm">
             {error}
+          </div>
+        )}
+
+        {/* ═══════════ COUNTDOWN OVERLAY ═══════════ */}
+        {countdown !== null && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+            <div className="text-center animate-pulse">
+              <p className="text-9xl font-black text-purple-300 drop-shadow-2xl">
+                {countdown > 0 ? countdown : '🎨'}
+              </p>
+              <p className="text-4xl font-black mt-6 text-white">
+                {countdownLabels[countdown] || 'РИСУЕМ! 🎨'}
+              </p>
+            </div>
           </div>
         )}
 
@@ -513,8 +589,31 @@ export default function DrawHostPage() {
             <section className="rounded-3xl border-4 border-yellow-400/20 bg-yellow-400/5 p-6 text-center space-y-4">
               <h3 className="text-xl font-black text-yellow-300">🗳️ Игроки голосуют на своих телефонах!</h3>
               <p className="text-sm text-white/60">
-                Каждый выбирает лучший финальный рисунок этой цепочки
+                Каждый выбирает лучший рисунок этой цепочки
               </p>
+              <p className="text-lg font-bold text-purple-300">
+                Проголосовало: {voteCount} / {totalGamePlayers}
+              </p>
+
+              {/* Show all drawings from current chain with target words */}
+              {currentChainSteps.length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-4">
+                  {currentChainSteps.filter(s => s.drawing_data).map(step => {
+                    const player = gamePlayers.find(p => p.id === step.player_id);
+                    return (
+                      <div key={step.id} className="rounded-xl border-2 border-white/20 bg-white/5 overflow-hidden">
+                        <img src={step.drawing_data!} alt="" className="w-full aspect-square object-contain bg-white" />
+                        <div className="px-2 py-2 text-center">
+                          <p className="text-xs font-bold text-white/80">{player?.name || '???'}</p>
+                          {step.target_word && (
+                            <p className="text-xs text-purple-300 mt-0.5">«{step.target_word}»</p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </section>
 
             <div className="text-center">

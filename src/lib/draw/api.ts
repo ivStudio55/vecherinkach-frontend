@@ -172,6 +172,16 @@ export async function fetchVotes(roomId: string, round: number): Promise<DrawVot
   return (data || []) as DrawVote[];
 }
 
+/** Count how many unique voters voted for a specific chain */
+export async function fetchVoteCountForChain(chainId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('draw_votes')
+    .select('*', { count: 'exact', head: true })
+    .eq('chain_id', chainId);
+  if (error) throw error;
+  return count || 0;
+}
+
 /* ============ Game Flow — Host actions ============ */
 
 export async function fetchRandomWords(count: number, mode: DrawGameMode = 'russian'): Promise<string[]> {
