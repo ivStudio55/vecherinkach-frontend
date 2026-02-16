@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -17,6 +17,11 @@ import {
 import type { UnoCard, UnoColor, UnoPlayer, UnoRoom } from '@/lib/uno/types';
 import UnoCardView from '@/components/uno/UnoCardView';
 import ColorPicker from '@/components/uno/ColorPicker';
+import {
+  sfxPlayCard, sfxDrawCard, sfxYourTurn,
+  sfxWin, sfxLose, sfxWild, sfxPenalty, sfxAction,
+  sfxPlayerJoin, sfxGameStart, sfxClick,
+} from '@/lib/uno/sounds';
 
 /* ─────────── page ─────────── */
 
@@ -38,6 +43,9 @@ export default function UnoRoomPage() {
   }, []);
 
   const me = useMemo(() => players.find(p => p.id === session.playerId), [players, session.playerId]);
+  const prevStatusRef = useRef<string | null>(null);
+  const prevPlayerCountRef = useRef<number>(0);
+  const prevTurnRef = useRef<boolean>(false);
 
   /* ── derived state ── */
   const myHand: UnoCard[] = useMemo(() => {
@@ -83,12 +91,33 @@ export default function UnoRoomPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room?.id]);
 
+  /* ── sound triggers on state changes ── */
+  useEffect(() => {
+    if (!room) return;
+    if (prevStatusRef.current === 'lobby' && room.status === 'playing') sfxGameStart();
+    if (prevStatusRef.current === 'playing' && room.status === 'finished') {
+      if (room.winner_id === me?.id) sfxWin(); else sfxLose();
+    }
+    prevStatusRef.current = room.status;
+  }, [room?.status, room?.winner_id, me?.id]);
+
+  useEffect(() => {
+    if (players.length > prevPlayerCountRef.current && prevPlayerCountRef.current > 0) sfxPlayerJoin();
+    prevPlayerCountRef.current = players.length;
+  }, [players.length]);
+
+  useEffect(() => {
+    if (myTurn && !prevTurnRef.current) sfxYourTurn();
+    prevTurnRef.current = myTurn;
+  }, [myTurn]);
+
   /* ── actions ── */
   const handleStart = async () => {
     if (!room) return;
     setPending(true);
     setError('');
     try {
+      sfxClick();
       await startUnoGame(room.code);
       setLastEvent('🎮 Игра началась!');
     } catch (e: any) { setError(e?.message ?? 'Ошибка'); }
@@ -101,6 +130,7 @@ export default function UnoRoomPage() {
     setError('');
     try {
       const res = await drawUnoCard(room.code, me.id);
+      sfxDrawCard();
       setLastEvent('📥 Взята карта');
       if (res?.room) setRoom(res.room);
     } catch (e: any) { setError(e?.message ?? 'Ошибка'); }
@@ -118,6 +148,10 @@ export default function UnoRoomPage() {
         cardId: card.id,
         chosenColor,
       });
+      if (card.kind === 'wild' || card.kind === 'wild4') sfxWild();
+      else if (card.kind === 'draw2') sfxPenalty();
+      else if (card.kind === 'skip' || card.kind === 'reverse') sfxAction();
+      else sfxPlayCard();
       setLastEvent(`🃏 Сыграна карта`);
       if (res?.room) setRoom(res.room);
     } catch (e: any) { setError(e?.message ?? 'Нельзя сходить этой картой'); }

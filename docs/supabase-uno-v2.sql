@@ -1,12 +1,205 @@
 -- ================================================================
--- UNO: schema v2 — fixes for Realtime + jsonb piles
--- Run AFTER supabase-add-uno.sql (drops & recreates functions/tables)
+-- UNO: FULL self-contained schema v2
+-- Run this SINGLE file in Supabase SQL Editor — no other files needed
+-- Includes: tables, verbs dictionary, seed data, all RPC functions
 -- ================================================================
 
 -- Drop old tables to recreate with correct types
 drop table if exists public.uno_events cascade;
 drop table if exists public.uno_players cascade;
 drop table if exists public.uno_rooms cascade;
+
+-- ===================== IRREGULAR VERBS DICTIONARY =================
+create table if not exists public.irregular_verbs (
+  id uuid primary key default gen_random_uuid(),
+  infinitive text not null,
+  past_simple text not null,
+  past_participle text not null,
+  translation text,
+  level text,
+  tags text[],
+  audio_url text,
+  created_at timestamptz not null default timezone('utc', now())
+);
+
+alter table public.irregular_verbs enable row level security;
+drop policy if exists "Allow read verbs" on public.irregular_verbs;
+drop policy if exists "Allow insert verbs" on public.irregular_verbs;
+create policy "Allow read verbs" on public.irregular_verbs for select using (true);
+create policy "Allow insert verbs" on public.irregular_verbs for insert with check (true);
+
+-- Seed verbs (clear + insert 150+ irregular verbs)
+delete from public.irregular_verbs;
+
+insert into public.irregular_verbs (infinitive, past_simple, past_participle, translation) values
+  ('be', 'was/were', 'been', 'быть'),
+  ('beat', 'beat', 'beaten', 'бить'),
+  ('become', 'became', 'become', 'становиться'),
+  ('begin', 'began', 'begun', 'начинать'),
+  ('bend', 'bent', 'bent', 'гнуть'),
+  ('bet', 'bet', 'bet', 'ставить (пари)'),
+  ('bind', 'bound', 'bound', 'связывать'),
+  ('bite', 'bit', 'bitten', 'кусать'),
+  ('bleed', 'bled', 'bled', 'кровоточить'),
+  ('blow', 'blew', 'blown', 'дуть'),
+  ('break', 'broke', 'broken', 'ломать'),
+  ('breed', 'bred', 'bred', 'разводить'),
+  ('bring', 'brought', 'brought', 'приносить'),
+  ('broadcast', 'broadcast', 'broadcast', 'транслировать'),
+  ('build', 'built', 'built', 'строить'),
+  ('burn', 'burnt', 'burnt', 'жечь'),
+  ('burst', 'burst', 'burst', 'лопаться'),
+  ('buy', 'bought', 'bought', 'покупать'),
+  ('catch', 'caught', 'caught', 'ловить'),
+  ('choose', 'chose', 'chosen', 'выбирать'),
+  ('cling', 'clung', 'clung', 'цепляться'),
+  ('come', 'came', 'come', 'приходить'),
+  ('cost', 'cost', 'cost', 'стоить'),
+  ('creep', 'crept', 'crept', 'ползать'),
+  ('cut', 'cut', 'cut', 'резать'),
+  ('deal', 'dealt', 'dealt', 'иметь дело'),
+  ('dig', 'dug', 'dug', 'копать'),
+  ('do', 'did', 'done', 'делать'),
+  ('draw', 'drew', 'drawn', 'рисовать'),
+  ('dream', 'dreamt', 'dreamt', 'мечтать'),
+  ('drink', 'drank', 'drunk', 'пить'),
+  ('drive', 'drove', 'driven', 'водить'),
+  ('eat', 'ate', 'eaten', 'есть'),
+  ('fall', 'fell', 'fallen', 'падать'),
+  ('feed', 'fed', 'fed', 'кормить'),
+  ('feel', 'felt', 'felt', 'чувствовать'),
+  ('fight', 'fought', 'fought', 'драться'),
+  ('find', 'found', 'found', 'находить'),
+  ('flee', 'fled', 'fled', 'бежать'),
+  ('fly', 'flew', 'flown', 'летать'),
+  ('forbid', 'forbade', 'forbidden', 'запрещать'),
+  ('forget', 'forgot', 'forgotten', 'забывать'),
+  ('forgive', 'forgave', 'forgiven', 'прощать'),
+  ('freeze', 'froze', 'frozen', 'замерзать'),
+  ('get', 'got', 'got', 'получать'),
+  ('give', 'gave', 'given', 'давать'),
+  ('go', 'went', 'gone', 'идти'),
+  ('grow', 'grew', 'grown', 'расти'),
+  ('hang', 'hung', 'hung', 'вешать'),
+  ('have', 'had', 'had', 'иметь'),
+  ('hear', 'heard', 'heard', 'слышать'),
+  ('hide', 'hid', 'hidden', 'прятать'),
+  ('hit', 'hit', 'hit', 'ударять'),
+  ('hold', 'held', 'held', 'держать'),
+  ('hurt', 'hurt', 'hurt', 'причинять боль'),
+  ('keep', 'kept', 'kept', 'хранить'),
+  ('kneel', 'knelt', 'knelt', 'стоять на коленях'),
+  ('knit', 'knit', 'knit', 'вязать'),
+  ('know', 'knew', 'known', 'знать'),
+  ('lay', 'laid', 'laid', 'класть'),
+  ('lead', 'led', 'led', 'вести'),
+  ('lean', 'leant', 'leant', 'наклоняться'),
+  ('leap', 'leapt', 'leapt', 'прыгать'),
+  ('learn', 'learnt', 'learnt', 'учиться'),
+  ('leave', 'left', 'left', 'покидать'),
+  ('lend', 'lent', 'lent', 'одалживать'),
+  ('let', 'let', 'let', 'позволять'),
+  ('lie', 'lay', 'lain', 'лежать'),
+  ('light', 'lit', 'lit', 'зажигать'),
+  ('lose', 'lost', 'lost', 'терять'),
+  ('make', 'made', 'made', 'делать'),
+  ('mean', 'meant', 'meant', 'значить'),
+  ('meet', 'met', 'met', 'встречать'),
+  ('mow', 'mowed', 'mown', 'косить'),
+  ('overcome', 'overcame', 'overcome', 'преодолевать'),
+  ('pay', 'paid', 'paid', 'платить'),
+  ('put', 'put', 'put', 'класть'),
+  ('quit', 'quit', 'quit', 'бросать'),
+  ('read', 'read', 'read', 'читать'),
+  ('ride', 'rode', 'ridden', 'ехать верхом'),
+  ('ring', 'rang', 'rung', 'звонить'),
+  ('rise', 'rose', 'risen', 'подниматься'),
+  ('run', 'ran', 'run', 'бегать'),
+  ('say', 'said', 'said', 'говорить'),
+  ('see', 'saw', 'seen', 'видеть'),
+  ('seek', 'sought', 'sought', 'искать'),
+  ('sell', 'sold', 'sold', 'продавать'),
+  ('send', 'sent', 'sent', 'отправлять'),
+  ('set', 'set', 'set', 'устанавливать'),
+  ('sew', 'sewed', 'sewn', 'шить'),
+  ('shake', 'shook', 'shaken', 'трясти'),
+  ('shine', 'shone', 'shone', 'светить'),
+  ('shoot', 'shot', 'shot', 'стрелять'),
+  ('show', 'showed', 'shown', 'показывать'),
+  ('shrink', 'shrank', 'shrunk', 'сжиматься'),
+  ('shut', 'shut', 'shut', 'закрывать'),
+  ('sing', 'sang', 'sung', 'петь'),
+  ('sink', 'sank', 'sunk', 'тонуть'),
+  ('sit', 'sat', 'sat', 'сидеть'),
+  ('sleep', 'slept', 'slept', 'спать'),
+  ('slide', 'slid', 'slid', 'скользить'),
+  ('smell', 'smelt', 'smelt', 'нюхать'),
+  ('sow', 'sowed', 'sown', 'сеять'),
+  ('speak', 'spoke', 'spoken', 'разговаривать'),
+  ('speed', 'sped', 'sped', 'мчаться'),
+  ('spell', 'spelt', 'spelt', 'произносить по буквам'),
+  ('spend', 'spent', 'spent', 'тратить'),
+  ('spill', 'spilt', 'spilt', 'проливать'),
+  ('spin', 'spun', 'spun', 'вращать'),
+  ('spit', 'spat', 'spat', 'плевать'),
+  ('split', 'split', 'split', 'раскалывать'),
+  ('spoil', 'spoilt', 'spoilt', 'портить'),
+  ('spread', 'spread', 'spread', 'распространять'),
+  ('spring', 'sprang', 'sprung', 'прыгать'),
+  ('stand', 'stood', 'stood', 'стоять'),
+  ('steal', 'stole', 'stolen', 'красть'),
+  ('stick', 'stuck', 'stuck', 'приклеивать'),
+  ('sting', 'stung', 'stung', 'жалить'),
+  ('stink', 'stank', 'stunk', 'вонять'),
+  ('strike', 'struck', 'struck', 'ударять'),
+  ('strive', 'strove', 'striven', 'стремиться'),
+  ('swear', 'swore', 'sworn', 'клясться'),
+  ('sweep', 'swept', 'swept', 'подметать'),
+  ('swim', 'swam', 'swum', 'плавать'),
+  ('swing', 'swung', 'swung', 'качаться'),
+  ('take', 'took', 'taken', 'брать'),
+  ('teach', 'taught', 'taught', 'учить'),
+  ('tear', 'tore', 'torn', 'рвать'),
+  ('tell', 'told', 'told', 'рассказывать'),
+  ('think', 'thought', 'thought', 'думать'),
+  ('throw', 'threw', 'thrown', 'бросать'),
+  ('tread', 'trod', 'trodden', 'ступать'),
+  ('understand', 'understood', 'understood', 'понимать'),
+  ('upset', 'upset', 'upset', 'расстраивать'),
+  ('wake', 'woke', 'woken', 'просыпаться'),
+  ('wear', 'wore', 'worn', 'носить'),
+  ('weave', 'wove', 'woven', 'ткать'),
+  ('weep', 'wept', 'wept', 'плакать'),
+  ('win', 'won', 'won', 'побеждать'),
+  ('wind', 'wound', 'wound', 'наматывать'),
+  ('withdraw', 'withdrew', 'withdrawn', 'отступать'),
+  ('wring', 'wrung', 'wrung', 'выжимать'),
+  ('write', 'wrote', 'written', 'писать'),
+  ('arise', 'arose', 'arisen', 'возникать'),
+  ('awake', 'awoke', 'awoken', 'просыпаться'),
+  ('bear', 'bore', 'borne', 'нести'),
+  ('bid', 'bid', 'bid', 'предлагать цену'),
+  ('dwell', 'dwelt', 'dwelt', 'обитать'),
+  ('fling', 'flung', 'flung', 'бросать'),
+  ('grind', 'ground', 'ground', 'молоть'),
+  ('mistake', 'mistook', 'mistaken', 'ошибаться'),
+  ('overtake', 'overtook', 'overtaken', 'обгонять'),
+  ('prove', 'proved', 'proven', 'доказывать'),
+  ('rid', 'rid', 'rid', 'избавляться'),
+  ('slay', 'slew', 'slain', 'убивать'),
+  ('sling', 'slung', 'slung', 'бросать (камень)'),
+  ('slit', 'slit', 'slit', 'разрезать'),
+  ('sneak', 'snuck', 'snuck', 'красться'),
+  ('stride', 'strode', 'stridden', 'шагать'),
+  ('string', 'strung', 'strung', 'нанизывать'),
+  ('thrust', 'thrust', 'thrust', 'толкать'),
+  ('undergo', 'underwent', 'undergone', 'проходить'),
+  ('undertake', 'undertook', 'undertaken', 'предпринимать'),
+  ('undo', 'undid', 'undone', 'отменять'),
+  ('uphold', 'upheld', 'upheld', 'поддерживать'),
+  ('withstand', 'withstood', 'withstood', 'выдерживать');
+
+-- =====================================================================
 
 -- Rooms — all game state in jsonb (not jsonb[]) for Realtime compat
 create table public.uno_rooms (
@@ -575,3 +768,8 @@ end;
 $$;
 
 grant execute on function public.uno_play_card(text, uuid, text, text) to anon, authenticated;
+
+-- ===================== VERIFICATION ================================
+select 'irregular_verbs' as "table", count(*) as "rows" from public.irregular_verbs
+union all
+select 'uno_rooms', count(*) from public.uno_rooms;

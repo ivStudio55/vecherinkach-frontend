@@ -24,6 +24,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               >
                 Комнаты
               </Link>
+              <Link
+                href="/admin/uno"
+                className="px-5 py-3 rounded-2xl border-[3px] border-[#f1362f] text-[#f1362f] font-black tracking-[0.2em] hover:bg-[#f1362f]/10 transition"
+              >
+                UNO
+              </Link>
             </nav>
           </div>
         </header>
