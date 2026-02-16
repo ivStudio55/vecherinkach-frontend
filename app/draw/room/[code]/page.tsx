@@ -314,6 +314,18 @@ export default function DrawRoomPage() {
             <h2 className="text-xl font-black">Ожидание начала игры</h2>
             <p className="text-sm text-white/60">Код: <span className="text-purple-300 font-bold text-lg">{code}</span></p>
             <div>
+            {/* Refresh hint for players: shows in every phase */}
+            <div className="max-w-md mx-auto px-4 py-4">
+              <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-center text-xs text-white/60 flex items-center justify-between gap-3">
+                <span>если ты видишь не тожесамое, что и другие игроки - обнови экран</span>
+                <button
+                  onClick={() => { refresh(); if (typeof window !== 'undefined') window.location.reload(); }}
+                  className="ml-2 px-3 py-1 rounded bg-purple-600 text-white text-sm font-bold"
+                >
+                  Обновить экран
+                </button>
+              </div>
+            </div>
               <p className="text-xs text-white/50 mb-2">Игроки ({gamePlayers.length})</p>
               <div className="flex flex-wrap justify-center gap-2">
                 {gamePlayers.map(p => (
