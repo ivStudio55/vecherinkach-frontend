@@ -38,9 +38,39 @@ export default function HomePage() {
     },
   ];
 
+  const miniGames: Array<{
+    id: 'uno' | 'risunkach';
+    title: string;
+    subtitle: string;
+    description: string;
+    badge?: string;
+    isSoon?: boolean;
+  }> = [
+    {
+      id: 'uno',
+      title: 'UNO',
+      subtitle: 'Карточная мини-игра',
+      description: 'Два режима: классический и неправильные глаголы (TTS позже).',
+      badge: 'новое',
+    },
+    {
+      id: 'risunkach',
+      title: 'Рисункач',
+      subtitle: 'Мини-игра на рисунки',
+      description: 'В разработке — заглушка с пометкой «Скоро».',
+      isSoon: true,
+    },
+  ];
+
   const choosePackAndGoHost = (nextPackId: PackId) => {
     localStorage.setItem('hostPackId', nextPackId);
     navigateWithExit(() => router.push('/host'));
+  };
+
+  const handleMiniGameClick = (gameId: 'uno' | 'risunkach') => {
+    if (gameId === 'uno') {
+      navigateWithExit(() => router.push('/uno'));
+    }
   };
 
   const handleUserInteraction = () => {
@@ -401,37 +431,86 @@ export default function HomePage() {
 
           {/* Отдельная панель выбора пакета вопросов */}
           <div className={panelEnterClass(panelStage >= 3)} style={panelEnterStyle(panelStage >= 3, 280)}>
-            <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
-              <h2 className="text-2xl font-black text-[#142a45] text-center">перейти к созданию комнаты</h2>
-              <div className="grid sm:grid-cols-2 gap-4">
-                {packCards.map((pack, index) => (
-                  <button
-                    key={pack.id}
-                    type="button"
-                    onClick={() => choosePackAndGoHost(normalizePackId(pack.id))}
-                    className={`text-left rounded-3xl border-[3px] border-[#142a45] bg-white/90 p-4 flex flex-col gap-3 transition transform hover:scale-105 ${isExiting ? 'scale-95 opacity-70' : cardsVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0 translate-y-3'}`}
-                    style={{ transitionDelay: `${index * 70}ms` }}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Пакет</p>
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-xl font-black text-[#142a45]">{pack.title}</h3>
-                          {pack.badge ? (
-                            <span className="rounded-full border-[2px] border-[#142a45] bg-[#ffe184] px-2 py-0.5 text-xs font-black tracking-[0.12em] text-[#142a45]">
-                              {pack.badge}
-                            </span>
-                          ) : null}
+            <div className="space-y-5">
+              <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="text-2xl font-black text-[#142a45]">Мини-игры</h2>
+                  <span className="text-xs font-semibold tracking-[0.3em] text-[#142a45]/70">beta</span>
+                </div>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  {miniGames.map((game, index) => {
+                    const isDisabled = Boolean(game.isSoon);
+                    return (
+                      <button
+                        key={game.id}
+                        type="button"
+                        onClick={() => handleMiniGameClick(game.id)}
+                        disabled={isDisabled}
+                        className={`text-left rounded-3xl border-[3px] border-[#142a45] bg-white/95 p-4 flex flex-col gap-3 transition transform hover:scale-105 ${isDisabled ? 'opacity-70 cursor-not-allowed' : ''} ${isExiting ? 'scale-95 opacity-70' : cardsVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0 translate-y-3'}`}
+                        style={{ transitionDelay: `${index * 70}ms` }}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">{game.subtitle}</p>
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-xl font-black text-[#142a45]">{game.title}</h3>
+                              {game.badge ? (
+                                <span className="rounded-full border-[2px] border-[#142a45] bg-[#ffe184] px-2 py-0.5 text-xs font-black tracking-[0.12em] text-[#142a45]">
+                                  {game.badge}
+                                </span>
+                              ) : null}
+                              {game.isSoon ? (
+                                <span className="rounded-full border-[2px] border-[#142a45] bg-white px-2 py-0.5 text-xs font-black tracking-[0.12em] text-[#142a45]">
+                                  скоро
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
+                          <span className="text-3xl" aria-hidden="true">{game.id === 'uno' ? '🃏' : '🎨'}</span>
                         </div>
+                        <p className="text-sm text-[#142a45]/80 flex-1">{game.description}</p>
+                        <div className="flex items-center justify-between text-xs font-semibold text-[#1f6ac6]">
+                          <span>{game.id === 'uno' ? 'два режима: классический и irregular verbs' : 'готовим концепт'}</span>
+                          <span>{game.isSoon ? '🔒' : '▶'}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
+                <h2 className="text-2xl font-black text-[#142a45] text-center">перейти к созданию комнаты</h2>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  {packCards.map((pack, index) => (
+                    <button
+                      key={pack.id}
+                      type="button"
+                      onClick={() => choosePackAndGoHost(normalizePackId(pack.id))}
+                      className={`text-left rounded-3xl border-[3px] border-[#142a45] bg-white/90 p-4 flex flex-col gap-3 transition transform hover:scale-105 ${isExiting ? 'scale-95 opacity-70' : cardsVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0 translate-y-3'}`}
+                      style={{ transitionDelay: `${index * 70}ms` }}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Пакет</p>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-xl font-black text-[#142a45]">{pack.title}</h3>
+                            {pack.badge ? (
+                              <span className="rounded-full border-[2px] border-[#142a45] bg-[#ffe184] px-2 py-0.5 text-xs font-black tracking-[0.12em] text-[#142a45]">
+                                {pack.badge}
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+                        <span className="text-3xl">{pack.id === 'classic' ? '📘' : '📦'}</span>
                       </div>
-                      <span className="text-3xl">{pack.id === 'classic' ? '📘' : '📦'}</span>
-                    </div>
-                    <p className="text-sm text-[#142a45]/80 flex-1">{pack.description}</p>
-                    <div className="text-xs font-semibold text-[#1f6ac6]">выбрать и перейти к созданию</div>
-                  </button>
-                ))}
-              </div>
-            </section>
+                      <p className="text-sm text-[#142a45]/80 flex-1">{pack.description}</p>
+                      <div className="text-xs font-semibold text-[#1f6ac6]">выбрать и перейти к созданию</div>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            </div>
           </div>
         </div>
       )}
