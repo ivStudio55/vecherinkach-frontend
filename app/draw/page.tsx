@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useState } from 'react';
 import { createDrawRoom, joinDrawRoom } from '@/lib/draw/api';
+import type { DrawGameMode } from '@/lib/draw/types';
 
 export default function DrawPage() {
   const router = useRouter();
@@ -12,12 +13,13 @@ export default function DrawPage() {
   const [joinName, setJoinName] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
+  const [mode, setMode] = useState<DrawGameMode>('russian');
 
   const handleCreate = async () => {
     setPending(true);
     setError('');
     try {
-      const { room } = await createDrawRoom(hostName);
+      const { room } = await createDrawRoom(hostName, mode);
       router.push(`/draw/host/${room.code}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Не удалось создать комнату');
@@ -110,6 +112,33 @@ export default function DrawPage() {
                 onChange={e => setHostName(e.target.value)}
                 placeholder="Имя ведущего"
               />
+
+              {/* Game mode selector */}
+              <div className="space-y-2">
+                <p className="text-xs text-white/60 font-bold">Режим игры</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {([
+                    { value: 'russian' as DrawGameMode, label: '🇷🇺 Русский', desc: 'Слова на русском' },
+                    { value: 'english' as DrawGameMode, label: '🇬🇧 English', desc: 'Words in English' },
+                    { value: 'free' as DrawGameMode, label: '✏️ Свободный', desc: 'Свои слова' },
+                  ]).map(m => (
+                    <button
+                      key={m.value}
+                      type="button"
+                      onClick={() => setMode(m.value)}
+                      className={`rounded-xl border px-2 py-2 text-center transition ${
+                        mode === m.value
+                          ? 'border-purple-400 bg-purple-400/20 text-purple-300'
+                          : 'border-white/20 bg-white/5 text-white/60 hover:bg-white/10'
+                      }`}
+                    >
+                      <span className="text-xs font-bold block">{m.label}</span>
+                      <span className="text-[10px] text-white/40">{m.desc}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <button
                 type="button"
                 disabled={pending}

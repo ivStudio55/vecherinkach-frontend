@@ -145,6 +145,8 @@ create table public.draw_rooms (
   code text not null unique,
   status text not null default 'lobby'
     check (status in ('lobby', 'playing', 'voting', 'results', 'finished')),
+  mode text not null default 'russian'
+    check (mode in ('russian', 'english', 'free')),
   current_round integer not null default 0,
   current_step integer not null default 0,
   total_steps integer not null default 0,

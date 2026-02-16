@@ -30,6 +30,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               >
                 UNO
               </Link>
+              <Link
+                href="/admin/draw"
+                className="px-5 py-3 rounded-2xl border-[3px] border-[#a855f7] text-[#a855f7] font-black tracking-[0.2em] hover:bg-[#a855f7]/10 transition"
+              >
+                Рисункач
+              </Link>
             </nav>
           </div>
         </header>

@@ -18,11 +18,13 @@ import {
   finishVoting,
   nextRoundOrFinish,
   awardVotePoints,
+  closeDrawRoom,
   drawStorage,
 } from '@/lib/draw/api';
 import type { DrawRoom, DrawPlayer, DrawChain, DrawStep } from '@/lib/draw/types';
 import { roundLabel } from '@/lib/draw/types';
 import ChainViewer from '@/components/draw/ChainViewer';
+import { DrawAudioPlayer, AUDIO, getDrawCommentary } from '@/lib/draw/audio';
 
 export default function DrawHostPage() {
   const params = useParams<{ code: string }>();
@@ -40,11 +42,22 @@ export default function DrawHostPage() {
   // Voting state
   const [chains, setChains] = useState<DrawChain[]>([]);
   const [allSteps, setAllSteps] = useState<DrawStep[]>([]);
-  const [votingDone, setVotingDone] = useState(false);
   const [showingChain, setShowingChain] = useState(true);
+
+  // Audio controls
+  const [jingleMuted, setJingleMuted] = useState(false);
+  const [voiceMuted, setVoiceMuted] = useState(false);
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const audioRef = useRef<DrawAudioPlayer>(new DrawAudioPlayer());
+  const prevStatusRef = useRef<string>('');
+  const prevSubmittedRef = useRef<number>(0);
+  const commentaryPlayedRef = useRef<string>('');
+
+  /** Game players = non-host players */
+  const gamePlayers = useMemo(() => players.filter(p => !p.is_host), [players]);
+  const totalGamePlayers = gamePlayers.length;
 
   /* ── Load room + players ── */
   const refresh = useCallback(async () => {
@@ -67,10 +80,17 @@ export default function DrawHostPage() {
       setRoom(updated);
     });
     const offPlayers = subscribeDrawPlayers(room.id, () => {
-      fetchDrawPlayers(room.id).then(p => setPlayers(p)).catch(() => {});
+      fetchDrawPlayers(room.id).then(p => {
+        setPlayers(prev => {
+          // Play duck sound on new player join
+          if (p.length > prev.length) {
+            audioRef.current.playSfx(AUDIO.duck());
+          }
+          return p;
+        });
+      }).catch(() => {});
     });
     const offSteps = subscribeDrawSteps(room.id, () => {
-      // trigger submission check
       if (room.status === 'playing') {
         checkSubmissions();
       }
@@ -78,6 +98,52 @@ export default function DrawHostPage() {
     return () => { offRoom(); offPlayers(); offSteps(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room?.id, room?.status]);
+
+  /* ── Audio: react to status changes ── */
+  useEffect(() => {
+    if (!room) return;
+    const audio = audioRef.current;
+    const statusKey = `${room.status}-${room.current_round}-${room.current_step}`;
+    if (statusKey === prevStatusRef.current) return;
+    prevStatusRef.current = statusKey;
+
+    if (room.status === 'lobby') {
+      audio.playBgm(AUDIO.lobbyJingle);
+      setTimeout(() => audio.playVoice(AUDIO.meetDraw()), 1500);
+    } else if (room.status === 'playing') {
+      audio.playBgm(AUDIO.drawTimer, false);
+      const commentKey = `r${room.current_round}s${room.current_step}`;
+      if (commentaryPlayedRef.current !== commentKey) {
+        commentaryPlayedRef.current = commentKey;
+        setTimeout(() => audio.playVoice(getDrawCommentary(room.current_round)), 2000);
+      }
+    } else if (room.status === 'voting') {
+      audio.playBgm(AUDIO.votingJingle);
+      setTimeout(() => audio.playVoice(AUDIO.voteDraw()), 1500);
+    } else if (room.status === 'results') {
+      audio.stopBgm();
+      if (room.current_round >= 3) {
+        audio.playBgm(AUDIO.afterRoundJingle, false);
+        setTimeout(() => audio.playVoice(AUDIO.finalDraw()), 3000);
+      }
+    } else if (room.status === 'finished') {
+      audio.playBgm(AUDIO.afterRoundJingle, false);
+      setTimeout(() => audio.playVoice(AUDIO.finalDraw()), 2000);
+    }
+  }, [room?.status, room?.current_round, room?.current_step]);
+
+  /* ── Duck sound on drawing submission ── */
+  useEffect(() => {
+    if (submittedCount > prevSubmittedRef.current && prevSubmittedRef.current > 0) {
+      audioRef.current.playSfx(AUDIO.duck());
+    }
+    prevSubmittedRef.current = submittedCount;
+  }, [submittedCount]);
+
+  /* ── Cleanup audio on unmount ── */
+  useEffect(() => {
+    return () => { audioRef.current.stopAll(); };
+  }, []);
 
   /* ── Poll submissions during playing ── */
   const checkSubmissions = useCallback(async () => {
@@ -120,9 +186,7 @@ export default function DrawHostPage() {
     if (!room || (room.status !== 'voting' && room.status !== 'results' && room.status !== 'finished')) return;
     (async () => {
       try {
-        // Load all chains and steps for current round (or all rounds for finished)
         if (room.status === 'finished') {
-          // Load all rounds
           const allChains: DrawChain[] = [];
           const allS: DrawStep[] = [];
           for (let r = 1; r <= 3; r++) {
@@ -155,10 +219,10 @@ export default function DrawHostPage() {
 
   /* ── Actions ── */
   const handleStartGame = async () => {
-    if (!room || players.length < 3) return;
+    if (!room || gamePlayers.length < 2) return;
     setPending(true);
     try {
-      await startRound(room.id, 1, players);
+      await startRound(room.id, 1, players, room.mode);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Ошибка');
     } finally {
@@ -180,9 +244,8 @@ export default function DrawHostPage() {
 
   const handleNextChain = async () => {
     if (!room) return;
-    const roundChains = chains.filter(c => c.round === room.current_round);
-    if (room.voting_chain_index >= roundChains.length - 1) {
-      // All chains reviewed -> finish voting
+    const roundChainsArr = chains.filter(c => c.round === room.current_round);
+    if (room.voting_chain_index >= roundChainsArr.length - 1) {
       setPending(true);
       try {
         await awardVotePoints(room.id, room.current_round);
@@ -211,9 +274,29 @@ export default function DrawHostPage() {
     }
   };
 
+  const handleCloseRoom = async () => {
+    if (!room) return;
+    if (!confirm('Закрыть комнату? Это завершит игру для всех.')) return;
+    try {
+      await closeDrawRoom(room.id);
+      audioRef.current.stopAll();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Ошибка');
+    }
+  };
+
+  const handleToggleJingle = () => {
+    const muted = audioRef.current.toggleJingleMute();
+    setJingleMuted(muted);
+  };
+
+  const handleToggleVoice = () => {
+    const muted = audioRef.current.toggleVoiceMute();
+    setVoiceMuted(muted);
+  };
+
   /* ── Derived ── */
-  const sortedPlayers = useMemo(() => [...players].sort((a, b) => b.score - a.score), [players]);
-  const totalPlayers = players.length;
+  const sortedPlayers = useMemo(() => [...gamePlayers].sort((a, b) => b.score - a.score), [gamePlayers]);
   const roundChains = useMemo(
     () => chains.filter(c => c.round === (room?.current_round || 0)),
     [chains, room?.current_round],
@@ -224,20 +307,20 @@ export default function DrawHostPage() {
     [currentChain, allSteps],
   );
 
+  const modeLabel = room?.mode === 'english' ? '🇬🇧 English' : room?.mode === 'free' ? '✏️ Свободный' : '🇷🇺 Русский';
+
   /* ── Auto-advance when all submitted or timer expired ── */
   useEffect(() => {
     if (!room || room.status !== 'playing') return;
-    if (submittedCount >= totalPlayers && totalPlayers > 0) {
-      // All submitted → auto-advance after 2 seconds
+    if (submittedCount >= totalGamePlayers && totalGamePlayers > 0) {
       const t = setTimeout(() => advanceStep(room), 2000);
       return () => clearTimeout(t);
     }
-    if (timeLeft <= 0 && totalPlayers > 0) {
-      // Timer expired → auto-advance after 1 second
+    if (timeLeft <= 0 && totalGamePlayers > 0) {
       const t = setTimeout(() => advanceStep(room), 1000);
       return () => clearTimeout(t);
     }
-  }, [submittedCount, totalPlayers, timeLeft, room]);
+  }, [submittedCount, totalGamePlayers, timeLeft, room]);
 
   if (!room) {
     return (
@@ -255,16 +338,41 @@ export default function DrawHostPage() {
           <div>
             <p className="uppercase text-xs tracking-[0.5em] text-white/60">🎨 Рисункач</p>
             <h1 className="text-4xl font-black">Комната: {code}</h1>
+            <p className="text-xs text-white/40 mt-1">{modeLabel}</p>
           </div>
-          <div className="text-right">
-            <p className="text-sm text-white/60">Статус</p>
-            <p className="text-lg font-bold capitalize">{
-              room.status === 'lobby' ? '⏳ Лобби' :
-              room.status === 'playing' ? `🎮 Раунд ${room.current_round}` :
-              room.status === 'voting' ? '🗳️ Голосование' :
-              room.status === 'results' ? '📊 Результаты' :
-              '🏆 Финал'
-            }</p>
+          <div className="flex items-center gap-4">
+            {/* Audio controls */}
+            <button
+              onClick={handleToggleJingle}
+              className={`px-3 py-2 rounded-xl border text-xs font-bold transition ${jingleMuted ? 'border-red-400/50 bg-red-400/10 text-red-300' : 'border-white/20 bg-white/10 text-white/80 hover:bg-white/20'}`}
+              title={jingleMuted ? 'Включить музыку' : 'Выключить музыку'}
+            >
+              {jingleMuted ? '🔇 Музыка' : '🔊 Музыка'}
+            </button>
+            <button
+              onClick={handleToggleVoice}
+              className={`px-3 py-2 rounded-xl border text-xs font-bold transition ${voiceMuted ? 'border-red-400/50 bg-red-400/10 text-red-300' : 'border-white/20 bg-white/10 text-white/80 hover:bg-white/20'}`}
+              title={voiceMuted ? 'Включить голос' : 'Выключить голос'}
+            >
+              {voiceMuted ? '🔇 Голос' : '🗣️ Голос'}
+            </button>
+            <button
+              onClick={handleCloseRoom}
+              className="px-3 py-2 rounded-xl border border-red-400/30 bg-red-500/10 text-red-300 text-xs font-bold hover:bg-red-500/20 transition"
+              title="Закрыть комнату"
+            >
+              ✕ Закрыть
+            </button>
+            <div className="text-right ml-2">
+              <p className="text-sm text-white/60">Статус</p>
+              <p className="text-lg font-bold capitalize">{
+                room.status === 'lobby' ? '⏳ Лобби' :
+                room.status === 'playing' ? `🎮 Раунд ${room.current_round}` :
+                room.status === 'voting' ? '🗳️ Голосование' :
+                room.status === 'results' ? '📊 Результаты' :
+                '🏆 Финал'
+              }</p>
+            </div>
           </div>
         </header>
 
@@ -285,23 +393,23 @@ export default function DrawHostPage() {
               </div>
 
               <div>
-                <p className="text-sm text-white/60 mb-3">Игроки ({players.length})</p>
+                <p className="text-sm text-white/60 mb-3">Игроки ({gamePlayers.length})</p>
                 <div className="flex flex-wrap justify-center gap-3">
-                  {players.map(p => (
+                  {gamePlayers.map(p => (
                     <div key={p.id} className="rounded-2xl border-2 border-white/20 bg-white/10 px-5 py-3 text-sm font-bold">
-                      {p.is_host ? '👑 ' : ''}{p.name}
+                      {p.name}
                     </div>
                   ))}
-                  {players.length === 0 && <p className="text-white/40">Пока никого…</p>}
+                  {gamePlayers.length === 0 && <p className="text-white/40">Пока никого…</p>}
                 </div>
               </div>
 
               <button
                 onClick={handleStartGame}
-                disabled={pending || players.length < 3}
+                disabled={pending || gamePlayers.length < 2}
                 className="px-12 py-4 rounded-2xl bg-purple-600 text-white text-xl font-black tracking-[0.1em] hover:bg-purple-500 disabled:opacity-40 active:scale-95 transition"
               >
-                {players.length < 3 ? `Нужно минимум 3 игрока (сейчас ${players.length})` : '🚀 Начать игру!'}
+                {gamePlayers.length < 2 ? `Нужно минимум 2 игрока (сейчас ${gamePlayers.length})` : '🚀 Начать игру!'}
               </button>
             </section>
           </div>
@@ -346,10 +454,10 @@ export default function DrawHostPage() {
             <section className="rounded-3xl border-4 border-white/10 bg-white/5 p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-black">Статус игроков</h2>
-                <span className="text-lg font-bold text-purple-300">{submittedCount}/{totalPlayers}</span>
+                <span className="text-lg font-bold text-purple-300">{submittedCount}/{totalGamePlayers}</span>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                {players.map((p, i) => (
+                {gamePlayers.map((p, i) => (
                   <div
                     key={p.id}
                     className={`rounded-xl border-2 px-4 py-3 text-center text-sm font-bold transition-all ${
@@ -360,7 +468,7 @@ export default function DrawHostPage() {
                   </div>
                 ))}
               </div>
-              {submittedCount >= totalPlayers && (
+              {submittedCount >= totalGamePlayers && (
                 <p className="text-center text-green-400 font-bold mt-4 animate-pulse">
                   Все готовы! Переход к следующему шагу…
                 </p>
@@ -395,7 +503,7 @@ export default function DrawHostPage() {
                 <ChainViewer
                   originalWord={currentChain.original_word}
                   steps={currentChainSteps}
-                  players={players}
+                  players={gamePlayers}
                   animated={showingChain}
                 />
               </section>
@@ -504,6 +612,30 @@ export default function DrawHostPage() {
                     <span className="text-2xl font-black text-purple-300">{p.score}</span>
                   </div>
                 ))}
+              </div>
+            </section>
+
+            {/* Gallery of all drawings */}
+            <section className="rounded-3xl border-4 border-white/10 bg-white/5 p-6">
+              <h3 className="text-xl font-black mb-4 text-center">🖼️ Галерея рисунков</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                {allSteps
+                  .filter(s => s.drawing_data)
+                  .map(s => {
+                    const player = gamePlayers.find(p => p.id === s.player_id);
+                    return (
+                      <div key={s.id} className="rounded-xl border border-white/10 bg-white/5 p-2">
+                        <img
+                          src={s.drawing_data!}
+                          alt={s.guess || 'drawing'}
+                          className="w-full aspect-square object-contain rounded-lg bg-white"
+                        />
+                        <p className="text-xs text-white/60 text-center mt-1 truncate">
+                          {player?.name || '?'}{s.guess ? `: ${s.guess}` : ''}
+                        </p>
+                      </div>
+                    );
+                  })}
               </div>
             </section>
 

@@ -15,13 +15,14 @@ import {
   submitDrawingStep1,
   submitGuessAndDrawing,
   castVote,
+  submitFreeWord,
   drawStorage,
 } from '@/lib/draw/api';
 import type { DrawRoom, DrawPlayer, DrawChain, DrawStep } from '@/lib/draw/types';
 import { maxStrokesForRound, roundLabel } from '@/lib/draw/types';
 import DrawCanvas from '@/components/draw/DrawCanvas';
 
-type PlayerPhase = 'waiting' | 'drawing' | 'guessing' | 'drawing-guess' | 'submitted' | 'voting' | 'results' | 'finished';
+type PlayerPhase = 'waiting' | 'free-word' | 'drawing' | 'guessing' | 'drawing-guess' | 'submitted' | 'voting' | 'results' | 'finished';
 
 export default function DrawRoomPage() {
   const params = useParams<{ code: string }>();
@@ -38,6 +39,7 @@ export default function DrawRoomPage() {
   const [guess, setGuess] = useState('');
   const [guessResult, setGuessResult] = useState<{ isCorrect: boolean } | null>(null);
   const [timeLeft, setTimeLeft] = useState(60);
+  const [freeWord, setFreeWord] = useState('');
 
   // Voting data
   const [chains, setChains] = useState<DrawChain[]>([]);
@@ -54,6 +56,7 @@ export default function DrawRoomPage() {
 
   const me = useMemo(() => players.find(p => p.id === session.playerId), [players, session.playerId]);
   const myScore = me?.score || 0;
+  const gamePlayers = useMemo(() => players.filter(p => !p.is_host), [players]);
 
   /* ── Load room + players ── */
   const refresh = useCallback(async () => {
@@ -107,7 +110,12 @@ export default function DrawRoomPage() {
           } else if (step.submitted) {
             setPhase('submitted');
           } else if (room.current_step === 1) {
-            setPhase('drawing');
+            // Free mode: player must enter their own word first
+            if (room.mode === 'free' && !step.target_word) {
+              setPhase('free-word');
+            } else {
+              setPhase('drawing');
+            }
           } else {
             setPhase('guessing');
           }
@@ -119,8 +127,7 @@ export default function DrawRoomPage() {
       })();
     } else if (room.status === 'voting') {
       setPhase('voting');
-      setMyVote(null);
-      // Load chains and steps for voting
+      // Load chains and steps for voting (also re-loads when voting_chain_index changes)
       (async () => {
         try {
           const c = await fetchDrawChains(room.id, room.current_round);
@@ -140,7 +147,12 @@ export default function DrawRoomPage() {
     } else {
       setPhase('waiting');
     }
-  }, [room?.status, room?.current_round, room?.current_step, session.playerId, room?.id]);
+  }, [room?.status, room?.current_round, room?.current_step, session.playerId, room?.id, room?.voting_chain_index]);
+
+  /* ── Reset vote when chain changes ── */
+  useEffect(() => {
+    setMyVote(null);
+  }, [room?.voting_chain_index]);
 
   /* ── Timer ── */
   useEffect(() => {
@@ -173,6 +185,18 @@ export default function DrawRoomPage() {
     setPhase('drawing-guess');
   };
 
+  const handleSubmitFreeWord = async () => {
+    if (!freeWord.trim() || !myStep) return;
+    try {
+      await submitFreeWord(myStep.id, freeWord.trim());
+      setMyStep({ ...myStep, target_word: freeWord.trim() });
+      setFreeWord('');
+      setPhase('drawing');
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Ошибка');
+    }
+  };
+
   const handleSubmitGuessAndDrawing = async (dataUrl: string) => {
     if (!myStep || !previousStep) return;
     try {
@@ -203,7 +227,7 @@ export default function DrawRoomPage() {
 
   /* ── Derived ── */
   const strokeLimit = room ? maxStrokesForRound(room.current_round) : undefined;
-  const sortedPlayers = useMemo(() => [...players].sort((a, b) => b.score - a.score), [players]);
+  const sortedPlayers = useMemo(() => [...gamePlayers].sort((a, b) => b.score - a.score), [gamePlayers]);
 
   // For voting: get final drawings (last step of each chain in current round)
   const finalDrawings = useMemo(() => {
@@ -267,21 +291,47 @@ export default function DrawRoomPage() {
             <h2 className="text-xl font-black">Ожидание начала игры</h2>
             <p className="text-sm text-white/60">Код: <span className="text-purple-300 font-bold text-lg">{code}</span></p>
             <div>
-              <p className="text-xs text-white/50 mb-2">Игроки ({players.length})</p>
+              <p className="text-xs text-white/50 mb-2">Игроки ({gamePlayers.length})</p>
               <div className="flex flex-wrap justify-center gap-2">
-                {players.map(p => (
+                {gamePlayers.map(p => (
                   <span
                     key={p.id}
                     className={`rounded-full border px-3 py-1 text-xs font-bold ${
                       p.id === session.playerId ? 'border-purple-400 bg-purple-400/20 text-purple-300' : 'border-white/20 bg-white/5 text-white/70'
                     }`}
                   >
-                    {p.is_host ? '👑 ' : ''}{p.name}
+                    {p.name}
                   </span>
                 ))}
               </div>
             </div>
             <p className="text-xs text-white/40">Ведущий скоро начнёт игру…</p>
+          </section>
+        )}
+
+        {/* ═══════════ FREE MODE: ENTER WORD ═══════════ */}
+        {phase === 'free-word' && myStep && (
+          <section className="space-y-4">
+            <div className="rounded-xl border border-purple-400/30 bg-purple-400/10 px-4 py-2 text-center">
+              <span className="text-xs text-white/60">✏️ Свободный режим</span>
+            </div>
+            <div className="rounded-2xl border-2 border-white/10 bg-white/5 p-6 text-center space-y-4">
+              <p className="text-lg font-bold">Придумай слово для рисования!</p>
+              <input
+                className="w-full rounded-xl bg-white/10 border-2 border-white/20 px-4 py-3 text-lg text-center font-bold focus:outline-none focus:border-purple-400 text-white placeholder-white/30"
+                value={freeWord}
+                onChange={e => setFreeWord(e.target.value)}
+                placeholder="Введи слово…"
+                autoFocus
+              />
+              <button
+                onClick={handleSubmitFreeWord}
+                disabled={!freeWord.trim()}
+                className="w-full rounded-xl bg-purple-600 text-white font-bold px-4 py-3 text-lg disabled:opacity-40 active:scale-95 transition"
+              >
+                Далее → Рисовать
+              </button>
+            </div>
           </section>
         )}
 

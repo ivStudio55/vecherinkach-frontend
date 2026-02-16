@@ -1,6 +1,6 @@
 import { supabase } from '../supabase';
-import type { DrawRoom, DrawPlayer, DrawChain, DrawStep, DrawVote, DrawWord } from './types';
-import { FALLBACK_WORDS, pickRandomWords } from './words';
+import type { DrawRoom, DrawPlayer, DrawChain, DrawStep, DrawVote, DrawWord, DrawGameMode } from './types';
+import { FALLBACK_WORDS, FALLBACK_WORDS_EN, pickRandomWords } from './words';
 
 /* ============ localStorage session ============ */
 
@@ -31,12 +31,12 @@ export const drawStorage = {
 
 /* ============ Room CRUD ============ */
 
-export async function createDrawRoom(hostName: string): Promise<{ room: DrawRoom; player: DrawPlayer }> {
+export async function createDrawRoom(hostName: string, mode: DrawGameMode = 'russian'): Promise<{ room: DrawRoom; player: DrawPlayer }> {
   const code = Math.random().toString(36).slice(2, 6).toUpperCase();
 
   const { data: roomData, error: roomErr } = await supabase
     .from('draw_rooms')
-    .insert({ code })
+    .insert({ code, mode })
     .select()
     .single();
   if (roomErr) throw roomErr;
@@ -174,7 +174,14 @@ export async function fetchVotes(roomId: string, round: number): Promise<DrawVot
 
 /* ============ Game Flow — Host actions ============ */
 
-export async function fetchRandomWords(count: number): Promise<string[]> {
+export async function fetchRandomWords(count: number, mode: DrawGameMode = 'russian'): Promise<string[]> {
+  if (mode === 'english') {
+    return pickRandomWords(FALLBACK_WORDS_EN, count);
+  }
+  if (mode === 'free') {
+    // In free mode, words are entered by players — return placeholder markers
+    return Array.from({ length: count }, (_, i) => `__FREE_${i}__`);
+  }
   const { data, error } = await supabase.from('draw_words').select('word');
   if (error || !data || data.length === 0) {
     return pickRandomWords(FALLBACK_WORDS, count);
@@ -183,11 +190,15 @@ export async function fetchRandomWords(count: number): Promise<string[]> {
   return pickRandomWords(allWords, count);
 }
 
-/** Start a new round: create chains + steps, update room */
-export async function startRound(roomId: string, roundNumber: number, players: DrawPlayer[]): Promise<void> {
-  const n = players.length;
-  const sorted = [...players].sort((a, b) => a.seat - b.seat);
-  const words = await fetchRandomWords(n);
+/** Start a new round: create chains + steps, update room.
+ *  Only non-host players participate in the game chains. */
+export async function startRound(roomId: string, roundNumber: number, players: DrawPlayer[], mode: DrawGameMode = 'russian'): Promise<void> {
+  // Exclude host from game players
+  const gamePlayers = players.filter(p => !p.is_host);
+  const n = gamePlayers.length;
+  if (n < 2) throw new Error('Нужно минимум 2 игрока (не считая ведущего)');
+  const sorted = [...gamePlayers].sort((a, b) => a.seat - b.seat);
+  const words = await fetchRandomWords(n, mode);
 
   // Create chains
   const chainInserts = words.map((word, ci) => ({
@@ -274,7 +285,7 @@ export async function nextRoundOrFinish(room: DrawRoom, players: DrawPlayer[]): 
       updated_at: new Date().toISOString(),
     }).eq('id', room.id);
   } else {
-    await startRound(room.id, room.current_round + 1, players);
+    await startRound(room.id, room.current_round + 1, players, room.mode);
   }
 }
 
@@ -401,6 +412,39 @@ export function subscribeDrawSteps(roomId: string, onChange: () => void) {
     })
     .subscribe();
   return () => void supabase.removeChannel(channel);
+}
+
+/* ============ Room Management ============ */
+
+/** Close/delete a draw room */
+export async function closeDrawRoom(roomId: string): Promise<void> {
+  await supabase.from('draw_rooms').update({
+    status: 'finished',
+    updated_at: new Date().toISOString(),
+  }).eq('id', roomId);
+}
+
+/** Fetch all draw rooms (for admin) */
+export async function fetchAllDrawRooms(): Promise<DrawRoom[]> {
+  const { data, error } = await supabase
+    .from('draw_rooms')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(100);
+  if (error) throw error;
+  return (data || []) as DrawRoom[];
+}
+
+/** Delete a draw room completely */
+export async function deleteDrawRoom(roomId: string): Promise<void> {
+  await supabase.from('draw_rooms').delete().eq('id', roomId);
+}
+
+/** Submit custom word for free mode (step 1) */
+export async function submitFreeWord(stepId: string, word: string): Promise<void> {
+  await supabase.from('draw_steps').update({
+    target_word: word,
+  }).eq('id', stepId);
 }
 
 /* ============ Helpers ============ */

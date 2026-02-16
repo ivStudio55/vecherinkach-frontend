@@ -2,10 +2,14 @@
 
 export type DrawRoomStatus = 'lobby' | 'playing' | 'voting' | 'results' | 'finished';
 
+/** Game mode: russian (default), english, free (player enters own word) */
+export type DrawGameMode = 'russian' | 'english' | 'free';
+
 export type DrawRoom = {
   id: string;
   code: string;
   status: DrawRoomStatus;
+  mode: DrawGameMode;
   current_round: number;
   current_step: number;
   total_steps: number;

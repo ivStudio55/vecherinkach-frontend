@@ -15,6 +15,23 @@ export const FALLBACK_WORDS: string[] = [
   'колесо', 'череп', 'алмаз', 'щит', 'барабан', 'шляпа',
 ];
 
+/** English fallback words */
+export const FALLBACK_WORDS_EN: string[] = [
+  'cat', 'dog', 'fish', 'elephant', 'rabbit', 'bear', 'horse', 'bird', 'snake', 'giraffe',
+  'turtle', 'butterfly', 'cow', 'monkey', 'penguin', 'crocodile', 'dolphin', 'spider', 'mouse',
+  'frog', 'shark', 'crab', 'snail', 'octopus', 'whale', 'bee', 'lion', 'wolf', 'deer', 'hedgehog',
+  'pizza', 'cake', 'ice cream', 'banana', 'apple', 'watermelon', 'cheese', 'burger', 'popcorn', 'donut',
+  'candy', 'grapes', 'carrot', 'pineapple', 'cherry',
+  'house', 'car', 'bicycle', 'umbrella', 'key', 'clock', 'phone', 'lamp', 'chair', 'glasses',
+  'book', 'guitar', 'scissors', 'airplane', 'rocket', 'ship', 'train', 'candle', 'robot', 'sword',
+  'tree', 'flower', 'sun', 'moon', 'star', 'cloud', 'mountain', 'rainbow', 'snowflake', 'lightning',
+  'campfire', 'volcano', 'island', 'waterfall', 'cactus',
+  'pirate', 'astronaut', 'clown', 'princess', 'dragon', 'ghost', 'snowman', 'ninja',
+  'mermaid', 'witch',
+  'ball', 'crown', 'heart', 'anchor', 'flag', 'balloon', 'gift', 'castle', 'lighthouse',
+  'wheel', 'skull', 'diamond', 'shield', 'drum', 'hat',
+];
+
 /** Pick `count` unique random words from the list */
 export function pickRandomWords(list: string[], count: number): string[] {
   const shuffled = [...list].sort(() => Math.random() - 0.5);
