@@ -62,6 +62,7 @@ export default function DrawHostPage() {
   const commentaryPlayedRef = useRef<string>('');
   const advancingRef = useRef(false);
   const lastAdvancedStepRef = useRef<number>(0);
+  const checkSubmissionsRef = useRef<() => void>(() => {});
 
   /** Game players = non-host players */
   const gamePlayers = useMemo(() => players.filter(p => !p.is_host), [players]);
@@ -99,13 +100,12 @@ export default function DrawHostPage() {
       }).catch(() => {});
     });
     const offSteps = subscribeDrawSteps(room.id, () => {
-      if (room.status === 'playing') {
-        checkSubmissions();
-      }
+      // Use ref to always call the latest checkSubmissions (avoids stale closure)
+      checkSubmissionsRef.current();
     });
     return () => { offRoom(); offPlayers(); offSteps(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [room?.id, room?.status]);
+  }, [room?.id]);
 
   /* ── Audio: react to status changes ── */
   useEffect(() => {
@@ -167,6 +167,14 @@ export default function DrawHostPage() {
       setSubmittedCount(count);
     } catch { /* ignore */ }
   }, [room]);
+
+  // Keep ref in sync so subscription always calls latest version
+  useEffect(() => { checkSubmissionsRef.current = checkSubmissions; }, [checkSubmissions]);
+
+  // Reset submitted count when step changes (prevents stale count from triggering auto-advance)
+  useEffect(() => {
+    setSubmittedCount(0);
+  }, [room?.current_step, room?.current_round]);
 
   useEffect(() => {
     if (!room || room.status !== 'playing') {

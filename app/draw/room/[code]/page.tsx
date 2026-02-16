@@ -48,6 +48,7 @@ export default function DrawRoomPage() {
   const [votePending, setVotePending] = useState(false);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const roomPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const session = useMemo(() => {
     if (typeof window === 'undefined') return { playerId: null, playerName: null, roomCode: null, roomId: null };
@@ -148,6 +149,28 @@ export default function DrawRoomPage() {
       setPhase('waiting');
     }
   }, [room?.status, room?.current_round, room?.current_step, session.playerId, room?.id, room?.voting_chain_index]);
+
+  /* ── Poll room as fallback (realtime may lose events) ── */
+  useEffect(() => {
+    if (!room || room.status === 'finished') {
+      if (roomPollRef.current) clearInterval(roomPollRef.current);
+      return;
+    }
+    // Only poll when player is waiting for a state change they can't control
+    if (phase !== 'submitted' && phase !== 'voting' && phase !== 'results') {
+      if (roomPollRef.current) clearInterval(roomPollRef.current);
+      return;
+    }
+    roomPollRef.current = setInterval(async () => {
+      try {
+        const r = await fetchDrawRoom(code);
+        if (r.status !== room.status || r.current_step !== room.current_step || r.voting_chain_index !== room.voting_chain_index) {
+          setRoom(r);
+        }
+      } catch { /* ignore */ }
+    }, 3000);
+    return () => { if (roomPollRef.current) clearInterval(roomPollRef.current); };
+  }, [phase, room?.status, room?.current_step, room?.voting_chain_index, code]);
 
   /* ── Reset vote when chain changes ── */
   useEffect(() => {
