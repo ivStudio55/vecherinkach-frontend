@@ -111,7 +111,7 @@ export default function DrawRoomPage() {
             setPhase('submitted');
           } else if (room.current_step === 1) {
             // Free mode: player must enter their own word first
-            if (room.mode === 'free' && !step.target_word) {
+            if (room.mode === 'free' && (!step.target_word || step.target_word.startsWith('__FREE_'))) {
               setPhase('free-word');
             } else {
               setPhase('drawing');

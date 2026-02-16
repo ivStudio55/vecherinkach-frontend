@@ -61,6 +61,7 @@ export default function DrawHostPage() {
   const prevSubmittedRef = useRef<number>(0);
   const commentaryPlayedRef = useRef<string>('');
   const advancingRef = useRef(false);
+  const lastAdvancedStepRef = useRef<number>(0);
 
   /** Game players = non-host players */
   const gamePlayers = useMemo(() => players.filter(p => !p.is_host), [players]);
@@ -351,15 +352,24 @@ export default function DrawHostPage() {
   useEffect(() => {
     if (!room || room.status !== 'playing') {
       advancingRef.current = false;
+      lastAdvancedStepRef.current = 0;
       return;
+    }
+    // Reset advancingRef when step changes (so auto-advance works on step 2+)
+    if (room.current_step !== lastAdvancedStepRef.current) {
+      advancingRef.current = false;
     }
     if (submittedCount >= totalGamePlayers && totalGamePlayers > 0) {
       if (advancingRef.current) return;
       advancingRef.current = true;
+      lastAdvancedStepRef.current = room.current_step;
       advanceStep(room);
       return;
     }
     if (timeLeft <= 0 && totalGamePlayers > 0) {
+      if (advancingRef.current) return;
+      advancingRef.current = true;
+      lastAdvancedStepRef.current = room.current_step;
       const t = setTimeout(() => advanceStep(room), 1000);
       return () => clearTimeout(t);
     }

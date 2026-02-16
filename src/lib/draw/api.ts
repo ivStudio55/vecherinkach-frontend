@@ -452,9 +452,16 @@ export async function deleteDrawRoom(roomId: string): Promise<void> {
 
 /** Submit custom word for free mode (step 1) */
 export async function submitFreeWord(stepId: string, word: string): Promise<void> {
-  await supabase.from('draw_steps').update({
+  const { data } = await supabase.from('draw_steps').update({
     target_word: word,
-  }).eq('id', stepId);
+  }).eq('id', stepId).select('chain_id').single();
+
+  // Also update chain's original_word so voting/results show the real word
+  if (data) {
+    await supabase.from('draw_chains').update({
+      original_word: word,
+    }).eq('id', (data as { chain_id: string }).chain_id);
+  }
 }
 
 /* ============ Helpers ============ */
