@@ -24,7 +24,6 @@ import {
 } from '@/lib/draw/api';
 import type { DrawRoom, DrawPlayer, DrawChain, DrawStep } from '@/lib/draw/types';
 import { roundLabel } from '@/lib/draw/types';
-import ChainViewer from '@/components/draw/ChainViewer';
 import { DrawAudioPlayer, AUDIO, getDrawCommentary } from '@/lib/draw/audio';
 
 export default function DrawHostPage() {
@@ -49,7 +48,6 @@ export default function DrawHostPage() {
   // Voting state
   const [chains, setChains] = useState<DrawChain[]>([]);
   const [allSteps, setAllSteps] = useState<DrawStep[]>([]);
-  const [showingChain, setShowingChain] = useState(true);
   const [voteCount, setVoteCount] = useState(0);
 
   // Audio controls
@@ -305,7 +303,6 @@ export default function DrawHostPage() {
         setPending(false);
       }
     } else {
-      setShowingChain(true);
       await advanceVotingChain(room);
     }
   };
@@ -599,7 +596,7 @@ export default function DrawHostPage() {
         {/* ═══════════ VOTING ═══════════ */}
         {room.status === 'voting' && (
           <div className="space-y-6">
-            <section className="rounded-3xl border-4 border-white/10 bg-white/5 p-8 text-center space-y-2">
+            <section className="rounded-3xl border-4 border-white/10 bg-white/5 p-8 text-center space-y-2 animate-draw-panel">
               <p className="text-sm text-white/60">Голосование после раунда {room.current_round}</p>
               <h2 className="text-3xl font-black">
                 Цепочка {(room.voting_chain_index || 0) + 1} из {roundChains.length}
@@ -607,20 +604,8 @@ export default function DrawHostPage() {
               <p className="text-white/60 text-sm">Смотрим как менялся рисунок от слова к слову</p>
             </section>
 
-            {/* Chain viewer */}
-            {currentChain && (
-              <section className="rounded-3xl border-4 border-white/10 bg-white/5 p-8">
-                <ChainViewer
-                  originalWord={currentChain.original_word}
-                  steps={currentChainSteps}
-                  players={gamePlayers}
-                  animated={showingChain}
-                />
-              </section>
-            )}
-
-            {/* Final drawings for voting */}
-            <section className="rounded-3xl border-4 border-yellow-400/20 bg-yellow-400/5 p-6 text-center space-y-4">
+            {/* Drawings for voting with sequential animation */}
+            <section className="rounded-3xl border-4 border-yellow-400/20 bg-yellow-400/5 p-6 text-center space-y-4 animate-draw-panel" style={{animationDelay: '150ms'}}>
               <h3 className="text-xl font-black text-yellow-300">🗳️ Игроки голосуют на своих телефонах!</h3>
               <p className="text-sm text-white/60">
                 Каждый выбирает лучший рисунок этой цепочки
@@ -629,18 +614,25 @@ export default function DrawHostPage() {
                 Проголосовало: {voteCount} / {totalGamePlayers}
               </p>
 
-              {/* Show all drawings from current chain with target words */}
+              {/* Show all drawings from current chain with sequential reveal */}
               {currentChainSteps.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-4">
-                  {currentChainSteps.filter(s => s.drawing_data).map(step => {
+                  {currentChainSteps.filter(s => s.drawing_data).map((step, idx) => {
                     const player = gamePlayers.find(p => p.id === step.player_id);
                     return (
-                      <div key={step.id} className="rounded-xl border-2 border-white/20 bg-white/5 overflow-hidden">
-                        <img src={step.drawing_data!} alt="" className="w-full aspect-square object-contain bg-white" />
+                      <div
+                        key={step.id}
+                        className="rounded-xl border-2 border-white/20 bg-white/5 overflow-hidden animate-draw-card-reveal"
+                        style={{ animationDelay: `${idx * 400 + 300}ms` }}
+                      >
+                        <div className="relative">
+                          <img src={step.drawing_data!} alt="" className="w-full aspect-square object-contain bg-white" />
+                          <span className="absolute top-2 left-2 w-7 h-7 rounded-full bg-purple-600/90 text-white text-xs font-black flex items-center justify-center shadow">{idx + 1}</span>
+                        </div>
                         <div className="px-2 py-2 text-center">
-                          <p className="text-xs font-bold text-white/80">{player?.name || '???'}</p>
+                          <p className="text-sm font-bold text-white/80">{player?.name || '???'}</p>
                           {step.target_word && (
-                            <p className="text-xs text-purple-300 mt-0.5">«{step.target_word}»</p>
+                            <p className="text-base font-bold text-purple-300 mt-0.5">«{step.target_word}»</p>
                           )}
                         </div>
                       </div>
@@ -650,7 +642,7 @@ export default function DrawHostPage() {
               )}
             </section>
 
-            <div className="text-center">
+            <div className="text-center animate-draw-panel" style={{animationDelay: '300ms'}}>
               <button
                 onClick={handleNextChain}
                 disabled={pending}
@@ -667,12 +659,12 @@ export default function DrawHostPage() {
         {/* ═══════════ RESULTS ═══════════ */}
         {room.status === 'results' && (
           <div className="space-y-6">
-            <section className="rounded-3xl border-4 border-white/10 bg-white/5 p-8 text-center space-y-2">
+            <section className="rounded-3xl border-4 border-white/10 bg-white/5 p-8 text-center space-y-2 animate-draw-panel">
               <p className="text-sm text-white/60">Результаты раунда {room.current_round}</p>
               <h2 className="text-3xl font-black">📊 Таблица лидеров</h2>
             </section>
 
-            <section className="rounded-3xl border-4 border-white/10 bg-white/5 p-6">
+            <section className="rounded-3xl border-4 border-white/10 bg-white/5 p-6 animate-draw-panel" style={{animationDelay: '200ms'}}>
               <div className="space-y-3">
                 {sortedPlayers.map((p, i) => (
                   <div
@@ -713,7 +705,7 @@ export default function DrawHostPage() {
         {/* ═══════════ FINISHED ═══════════ */}
         {room.status === 'finished' && (
           <div className="space-y-6">
-            <section className="rounded-3xl border-4 border-yellow-400/30 bg-yellow-400/5 p-8 text-center space-y-4">
+            <section className="rounded-3xl border-4 border-yellow-400/30 bg-yellow-400/5 p-8 text-center space-y-4 animate-draw-panel">
               <p className="text-6xl">🏆</p>
               <h2 className="text-4xl font-black">Игра окончена!</h2>
               {sortedPlayers[0] && (
@@ -723,7 +715,7 @@ export default function DrawHostPage() {
               )}
             </section>
 
-            <section className="rounded-3xl border-4 border-white/10 bg-white/5 p-6">
+            <section className="rounded-3xl border-4 border-white/10 bg-white/5 p-6 animate-draw-panel" style={{animationDelay: '200ms'}}>
               <h3 className="text-xl font-black mb-4 text-center">Финальная таблица</h3>
               <div className="space-y-3">
                 {sortedPlayers.map((p, i) => (
@@ -749,23 +741,28 @@ export default function DrawHostPage() {
             </section>
 
             {/* Gallery of all drawings */}
-            <section className="rounded-3xl border-4 border-white/10 bg-white/5 p-6">
+            <section className="rounded-3xl border-4 border-white/10 bg-white/5 p-6 animate-draw-panel" style={{animationDelay: '400ms'}}>
               <h3 className="text-xl font-black mb-4 text-center">🖼️ Галерея рисунков</h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                 {allSteps
                   .filter(s => s.drawing_data)
-                  .map(s => {
+                  .map((s, idx) => {
                     const player = gamePlayers.find(p => p.id === s.player_id);
                     return (
-                      <div key={s.id} className="rounded-xl border border-white/10 bg-white/5 p-2">
+                      <div key={s.id} className="rounded-xl border border-white/10 bg-white/5 p-2 animate-draw-card-reveal" style={{animationDelay: `${idx * 100 + 500}ms`}}>
                         <img
                           src={s.drawing_data!}
-                          alt={s.guess || 'drawing'}
+                          alt={s.guess || s.target_word || 'drawing'}
                           className="w-full aspect-square object-contain rounded-lg bg-white"
                         />
-                        <p className="text-xs text-white/60 text-center mt-1 truncate">
-                          {player?.name || '?'}{s.guess ? `: ${s.guess}` : ''}
-                        </p>
+                        <div className="text-center mt-2 space-y-0.5">
+                          <p className="text-base font-black text-white">
+                            {s.target_word ? `«${s.target_word}»` : (s.guess ? `«${s.guess}»` : '')}
+                          </p>
+                          <p className="text-sm font-bold text-purple-300">
+                            🎨 {player?.name || '?'}
+                          </p>
+                        </div>
                       </div>
                     );
                   })}

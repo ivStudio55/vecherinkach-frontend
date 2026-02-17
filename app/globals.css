@@ -691,3 +691,60 @@ body {
 .animate-scaleIn {
   animation: scaleIn 350ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
+
+/* ====================== DRAW GAME ANIMATIONS ====================== */
+
+@keyframes drawPanelIn {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.97);
+    filter: blur(8px);
+  }
+  65% {
+    opacity: 1;
+    transform: translateY(0) scale(1.01);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+.animate-draw-panel {
+  animation: drawPanelIn 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes drawCardReveal {
+  0% {
+    opacity: 0;
+    transform: scale(0.7) rotateY(-15deg);
+    filter: blur(6px);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.04) rotateY(2deg);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotateY(0deg);
+    filter: blur(0);
+  }
+}
+
+.animate-draw-card-reveal {
+  opacity: 0;
+  animation: drawCardReveal 550ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-draw-panel,
+  .animate-draw-card-reveal {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+}

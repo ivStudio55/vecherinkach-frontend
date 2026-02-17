@@ -456,7 +456,7 @@ export default function DrawRoomPage() {
         {/* ═══════════ VOTING ═══════════ */}
         {phase === 'voting' && (
           <section className="space-y-4">
-            <div className="rounded-2xl border-2 border-yellow-400/30 bg-yellow-400/5 p-4 text-center">
+            <div className="rounded-2xl border-2 border-yellow-400/30 bg-yellow-400/5 p-4 text-center animate-draw-panel">
               <h2 className="text-xl font-black text-yellow-300">🗳️ Голосование</h2>
               <p className="text-xs text-white/60 mt-1">
                 Цепочка {(room.voting_chain_index || 0) + 1} — выбери лучший финальный рисунок
@@ -464,7 +464,7 @@ export default function DrawRoomPage() {
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              {currentChainDrawings.map(({ step, chain, playerName, playerId }) => {
+              {currentChainDrawings.map(({ step, chain, playerName, playerId }, idx) => {
                 const isMe = playerId === session.playerId;
                 const isVoted = myVote === playerId;
 
@@ -473,21 +473,21 @@ export default function DrawRoomPage() {
                     key={step.id}
                     onClick={() => !isMe && handleVote(playerId)}
                     disabled={isMe || votePending || !!myVote}
-                    className={`rounded-2xl border-2 overflow-hidden transition-all active:scale-95 ${
+                    className={`rounded-2xl border-2 overflow-hidden transition-all active:scale-95 animate-draw-card-reveal ${
                       isVoted ? 'border-yellow-400 shadow-lg shadow-yellow-400/20' :
                       isMe ? 'border-white/10 opacity-50' :
                       myVote ? 'border-white/10 opacity-60' :
                       'border-white/20 hover:border-purple-400/50'
                     }`}
+                    style={{ animationDelay: `${idx * 300}ms` }}
                   >
                     <img src={step.drawing_data!} alt="" className="w-full aspect-square object-contain bg-white" />
                     <div className="px-2 py-2 text-center bg-black/40">
-                      <span className="text-xs font-bold">{playerName}</span>
                       {step.target_word && (
-                        <p className="text-[10px] text-purple-300 mt-0.5">«{step.target_word}»</p>
+                        <p className="text-sm font-bold text-purple-300">«{step.target_word}»</p>
                       )}
-                      {isVoted && <span className="ml-1 text-yellow-300">★</span>}
-                      {isMe && <span className="ml-1 text-white/40">(ты)</span>}
+                      {isVoted && <span className="text-yellow-300">★ Выбрано</span>}
+                      {isMe && <span className="text-white/40 text-xs">(ты)</span>}
                     </div>
                   </button>
                 );
@@ -555,8 +555,8 @@ export default function DrawRoomPage() {
           </section>
         )}
       </div>
-      {/* Bottom refresh panel shown after submission or during voting */}
-      {(phase === 'submitted' || phase === 'voting') && (
+      {/* Bottom refresh panel shown after submission only (not during voting) */}
+      {phase === 'submitted' && (
         <div className="fixed left-0 right-0 bottom-4 flex justify-center pointer-events-none">
           <div className="max-w-md w-full px-4 pointer-events-auto">
             <div className="rounded-2xl border-2 border-white/10 bg-black/40 backdrop-blur px-4 py-3 flex items-center justify-between gap-3">
