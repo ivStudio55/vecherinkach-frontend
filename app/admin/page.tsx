@@ -13,6 +13,28 @@ type AnalyticsResponse = {
   realtime?: { latencyAvg?: number | null; latencyP95?: number | null; reconnects?: number; fallbackCount?: number };
   diagnostics?: { activeRooms?: number; activePlayers?: number };
   retention?: { join?: number; answer1?: number; round2?: number; finish?: number; notes?: string[] };
+  engagement?: {
+    sessions?: number;
+    returningSessions?: number;
+    marathonSessions?: number;
+    consecutiveSessions?: number;
+    avgSessionMinutes?: number;
+    medianSessionMinutes?: number;
+    avgGamesPerSession?: number;
+    avgFinishedRoomDurationMinutes?: number;
+  };
+  questionReactions?: {
+    totalLikes?: number;
+    byRound?: Record<string, number>;
+    topQuestions?: Array<{ questionId: number; likes: number; sharePct: number }>;
+  };
+  errors?: {
+    total?: number;
+    critical?: number;
+    byEvent?: Record<string, number>;
+    byChannel?: Record<string, number>;
+    topEvents?: Array<{ event: string; count: number }>;
+  };
   charts?: {
     roomsByTime?: SeriesPoint[];
     playerJoinsByTime?: SeriesPoint[];
@@ -38,6 +60,16 @@ type LogsResponse = {
   total: number;
   page: number;
   pageSize: number;
+};
+
+type ErrorFeedItem = {
+  id: string;
+  createdAt: string;
+  level: string;
+  channel: string;
+  message: string;
+  eventName: string | null;
+  roomId: string | null;
 };
 
 type ActiveRoomRow = { id: string; code: string; status: string | null; createdAt: string | null };
@@ -72,6 +104,7 @@ export default function AdminPage() {
   const [topLikedQuestions, setTopLikedQuestions] = useState<TopLikedQuestionRow[]>([]);
 
   const [logsData, setLogsData] = useState<LogsResponse | null>(null);
+  const [errorFeed, setErrorFeed] = useState<ErrorFeedItem[]>([]);
   const [logsPage, setLogsPage] = useState(1);
   const [logSearch, setLogSearch] = useState('');
 
@@ -220,6 +253,27 @@ export default function AdminPage() {
     setLogsData(payload as LogsResponse);
   }, [buildQuery, logSearch, logsPage]);
 
+  const loadErrorFeed = useCallback(async () => {
+    const qs = buildQuery({ page: 1, limit: 8, level: 'error' });
+    if (!qs) return;
+    const res = await fetch(`/api/admin/logs?${qs.toString()}`, { cache: 'no-store' });
+    const payload = await res.json().catch(() => null);
+    if (!res.ok) {
+      setError(payload?.error ?? 'Не удалось загрузить блок ошибок');
+      return;
+    }
+    const items = (payload?.items ?? []) as Array<Record<string, unknown>>;
+    setErrorFeed(items.map((it) => ({
+      id: String(it.id),
+      createdAt: String(it.createdAt ?? ''),
+      level: String(it.level ?? 'error'),
+      channel: String(it.channel ?? 'unknown'),
+      message: String(it.message ?? ''),
+      eventName: typeof it.eventName === 'string' ? it.eventName : null,
+      roomId: typeof it.roomId === 'string' ? it.roomId : null,
+    })));
+  }, [buildQuery]);
+
   const loadRoomDetails = useCallback(async (roomId: string) => {
     setSelectedRoomId(roomId);
     const res = await fetch(`/api/admin/room/details?roomId=${encodeURIComponent(roomId)}`, { cache: 'no-store' });
@@ -323,6 +377,10 @@ export default function AdminPage() {
     void loadLogs();
   }, [loadLogs]);
 
+  useEffect(() => {
+    void loadErrorFeed();
+  }, [loadErrorFeed]);
+
   const totalExits = useMemo(() => {
     const byStatus = analytics?.exits?.byStatus ?? {};
     return Object.values(byStatus).reduce((sum, count) => sum + count, 0);
@@ -336,6 +394,47 @@ export default function AdminPage() {
     return 'success' as const;
   }, [analytics?.realtime?.latencyP95, analytics?.realtime?.reconnects]);
 
+  const engagement = analytics?.engagement;
+  const retention = analytics?.retention;
+  const returnRate = useMemo(() => {
+    const sessions = engagement?.sessions ?? 0;
+    const returning = engagement?.returningSessions ?? 0;
+    if (sessions <= 0) return 0;
+    return Math.round((returning / sessions) * 1000) / 10;
+  }, [engagement?.returningSessions, engagement?.sessions]);
+
+  const consecutiveRate = useMemo(() => {
+    const sessions = engagement?.sessions ?? 0;
+    const consecutive = engagement?.consecutiveSessions ?? 0;
+    if (sessions <= 0) return 0;
+    return Math.round((consecutive / sessions) * 1000) / 10;
+  }, [engagement?.consecutiveSessions, engagement?.sessions]);
+
+  const retentionToAnswer1 = useMemo(() => {
+    const join = retention?.join ?? 0;
+    const answer1 = retention?.answer1 ?? 0;
+    if (join <= 0) return 0;
+    return Math.round((answer1 / join) * 1000) / 10;
+  }, [retention?.answer1, retention?.join]);
+
+  const retentionToFinish = useMemo(() => {
+    const join = retention?.join ?? 0;
+    const finish = retention?.finish ?? 0;
+    if (join <= 0) return 0;
+    return Math.round((finish / join) * 1000) / 10;
+  }, [retention?.finish, retention?.join]);
+
+  const likesByRoundSeries = useMemo(() => {
+    const byRound = analytics?.questionReactions?.byRound ?? {};
+    return [
+      { label: 'R1', value: Number(byRound.round1 ?? 0) },
+      { label: 'R2', value: Number(byRound.round2 ?? 0) },
+      { label: 'R3', value: Number(byRound.round3 ?? 0) },
+      { label: 'R4', value: Number(byRound.round4 ?? 0) },
+      { label: 'R5', value: Number(byRound.round5 ?? 0) },
+    ];
+  }, [analytics?.questionReactions?.byRound]);
+
   return (
     <div className="min-h-screen bg-[#fef4dc] text-[#142a45] px-4 py-6">
       <div className="max-w-[95vw] mx-auto space-y-6">
@@ -348,7 +447,11 @@ export default function AdminPage() {
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => void loadDashboard()}
+                onClick={() => {
+                  void loadDashboard();
+                  void loadLogs();
+                  void loadErrorFeed();
+                }}
                 className="px-5 py-3 rounded-2xl border-[3px] border-[#ffeccd] text-[#ffeccd] font-black tracking-[0.2em] hover:bg-[#ffeccd]/10 transition"
               >
                 Обновить
@@ -375,6 +478,12 @@ export default function AdminPage() {
         {actionMessage ? (
           <div className="rounded-3xl border-[3px] border-[#2f7a3b] bg-[#dff7e3] px-4 py-3 text-sm font-semibold text-[#1b4d23]">
             {actionMessage}
+          </div>
+        ) : null}
+
+        {loading ? (
+          <div className="rounded-3xl border-[3px] border-[#1f6ac6] bg-[#e9f0ff] px-4 py-3 text-sm font-semibold text-[#1f3d6b]">
+            Обновляем данные аналитического центра…
           </div>
         ) : null}
 
@@ -485,6 +594,7 @@ export default function AdminPage() {
                   setLogsPage(1);
                   void loadDashboard();
                   void loadLogs();
+                  void loadErrorFeed();
                 }}
                 className="w-full px-5 py-3 rounded-2xl border-[3px] border-[#142a45] text-[#142a45] font-black tracking-[0.2em] hover:bg-[#142a45]/5 transition"
               >
@@ -509,8 +619,8 @@ export default function AdminPage() {
           <KpiCard label="Комнаты активные" value={formatNumber(roomsActive ?? 0)} status="success" />
           <KpiCard label="Игроки активные" value={formatNumber(analytics?.diagnostics?.activePlayers ?? 0)} status="info" />
           <KpiCard label="Уникальные игроки" value={formatNumber(analytics?.players?.unique ?? 0)} status="neutral" />
-          <KpiCard label="Запуски раундов" value={formatNumber(analytics?.rounds?.started ?? 0)} status="neutral" />
-          <KpiCard label="Ошибки realtime" value={formatNumber(analytics?.realtime?.reconnects ?? 0)} status={realtimeStatus} />
+          <KpiCard label="Сессии" value={formatNumber(analytics?.engagement?.sessions ?? 0)} status="neutral" />
+          <KpiCard label="Критичные ошибки" value={formatNumber(analytics?.errors?.critical ?? 0)} status={(analytics?.errors?.critical ?? 0) > 0 ? 'error' : 'success'} />
         </div>
 
         <div className="grid gap-4 lg:grid-cols-2">
@@ -543,31 +653,107 @@ export default function AdminPage() {
           </div>
         </SectionCard>
 
-        <div className="grid gap-4 lg:grid-cols-2">
-          <SectionCard title="Диагностика Realtime">
-            <div className="space-y-3">
-              <StatusBadge label={`Состояние: ${realtimeStatus}`} status={realtimeStatus} />
-              <MetricRow label="Latency avg" value={`${analytics?.realtime?.latencyAvg ?? 0} ms`} />
-              <MetricRow label="Latency p95" value={`${analytics?.realtime?.latencyP95 ?? 0} ms`} />
-              <MetricRow label="Reconnects" value={formatNumber(analytics?.realtime?.reconnects ?? 0)} status={realtimeStatus} />
-              <MetricRow label="Fallback usage" value={formatNumber(analytics?.realtime?.fallbackCount ?? 0)} status={analytics?.realtime?.fallbackCount ? 'warning' : 'success'} />
-              <MetricRow label="Активные комнаты" value={formatNumber(analytics?.diagnostics?.activeRooms ?? 0)} />
-              <MetricRow label="Активные игроки" value={formatNumber(analytics?.diagnostics?.activePlayers ?? 0)} />
-            </div>
-          </SectionCard>
+        <SectionCard title="Продуктовая аналитика · 5 раундов">
+          <div className="grid gap-4 lg:grid-cols-4">
+            <KpiCard label="Сессии" value={formatNumber(engagement?.sessions ?? 0)} status="info" />
+            <KpiCard label="Возвращение" value={`${returnRate}%`} hint={`${formatNumber(engagement?.returningSessions ?? 0)} из ${formatNumber(engagement?.sessions ?? 0)}`} status={returnRate >= 35 ? 'success' : returnRate >= 20 ? 'warning' : 'error'} />
+            <KpiCard label="Играют подряд" value={`${consecutiveRate}%`} hint={formatNumber(engagement?.consecutiveSessions ?? 0)} status={consecutiveRate >= 30 ? 'success' : consecutiveRate >= 15 ? 'warning' : 'neutral'} />
+            <KpiCard label="Средняя сессия" value={`${engagement?.avgSessionMinutes ?? 0} мин`} hint={`медиана ${engagement?.medianSessionMinutes ?? 0} мин`} status="neutral" />
+          </div>
 
-          <SectionCard title="Retention-фонтанка">
-            <div className="space-y-2">
-              <MetricRow label="Join" value={formatNumber(analytics?.retention?.join ?? 0)} />
-              <MetricRow label="Answer 1" value={formatNumber(analytics?.retention?.answer1 ?? 0)} />
-              <MetricRow label="Round 2" value={formatNumber(analytics?.retention?.round2 ?? 0)} />
-              <MetricRow label="Finish" value={formatNumber(analytics?.retention?.finish ?? 0)} />
-              {analytics?.retention?.notes?.length ? (
-                <p className="text-xs text-[#142a45]/60">{analytics.retention.notes.join(' · ')}</p>
-              ) : null}
+          <div className="grid gap-4 lg:grid-cols-3 mt-2">
+            <div className="rounded-2xl border-[2px] border-[#142a45]/15 bg-[#fffaf0] p-4 space-y-2">
+              <p className="text-xs font-black tracking-[0.3em] text-[#142a45]/60">ВОРОНКА ВОВЛЕЧЁННОСТИ</p>
+              <MetricRow label="Join" value={formatNumber(retention?.join ?? 0)} />
+              <MetricRow label="Ответили в R1" value={`${formatNumber(retention?.answer1 ?? 0)} (${retentionToAnswer1}%)`} />
+              <MetricRow label="Дошли до R2" value={formatNumber(retention?.round2 ?? 0)} />
+              <MetricRow label="Финиш" value={`${formatNumber(retention?.finish ?? 0)} (${retentionToFinish}%)`} status={retentionToFinish >= 35 ? 'success' : retentionToFinish >= 20 ? 'warning' : 'error'} />
             </div>
-          </SectionCard>
-        </div>
+            <div className="rounded-2xl border-[2px] border-[#142a45]/15 bg-[#fffaf0] p-4 space-y-2">
+              <p className="text-xs font-black tracking-[0.3em] text-[#142a45]/60">ПОВЕДЕНИЕ СЕССИЙ</p>
+              <MetricRow label="Среднее игр за сессию" value={engagement?.avgGamesPerSession ?? 0} />
+              <MetricRow label="Марафон-сессии (3+ игр)" value={formatNumber(engagement?.marathonSessions ?? 0)} status={(engagement?.marathonSessions ?? 0) > 0 ? 'success' : 'neutral'} />
+              <MetricRow label="Средняя длительность комнаты" value={`${engagement?.avgFinishedRoomDurationMinutes ?? 0} мин`} />
+              {analytics?.retention?.notes?.length ? <p className="text-xs text-[#142a45]/60">{analytics.retention.notes.join(' · ')}</p> : null}
+            </div>
+            <div className="rounded-2xl border-[2px] border-[#142a45]/15 bg-[#fffaf0] p-4">
+              <BarChart title="Лайки по раундам" series={likesByRoundSeries} />
+            </div>
+          </div>
+        </SectionCard>
+
+        <SectionCard title="Ошибки и стабильность (отдельно от аналитики)">
+          <div className="grid gap-4 lg:grid-cols-3">
+            <KpiCard label="Ошибки+предупреждения" value={formatNumber(analytics?.errors?.total ?? 0)} status={(analytics?.errors?.total ?? 0) > 0 ? 'warning' : 'success'} />
+            <KpiCard label="Критичные ошибки" value={formatNumber(analytics?.errors?.critical ?? 0)} status={(analytics?.errors?.critical ?? 0) > 0 ? 'error' : 'success'} />
+            <KpiCard label="Realtime health" value={`${analytics?.realtime?.latencyP95 ?? 0} ms p95`} hint={`reconnect ${formatNumber(analytics?.realtime?.reconnects ?? 0)}`} status={realtimeStatus} />
+          </div>
+          <div className="grid gap-4 lg:grid-cols-2 mt-2">
+            <div className="rounded-2xl border-[2px] border-[#142a45]/15 bg-white p-4 space-y-2">
+              <p className="text-xs font-black tracking-[0.3em] text-[#142a45]/60">ГОРЯЧИЕ ПРОБЛЕМЫ</p>
+              {(analytics?.errors?.topEvents ?? []).length === 0 ? (
+                <p className="text-sm text-[#142a45]/60">Критичных событий за период не найдено.</p>
+              ) : (
+                <div className="space-y-2">
+                  {(analytics?.errors?.topEvents ?? []).map((row) => (
+                    <div key={row.event} className="flex items-center justify-between rounded-xl border border-[#142a45]/10 px-3 py-2 text-sm">
+                      <span className="font-semibold text-[#142a45]/80">{row.event}</span>
+                      <StatusBadge label={String(row.count)} status={row.count > 5 ? 'error' : 'warning'} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="rounded-2xl border-[2px] border-[#142a45]/15 bg-white p-4 space-y-2">
+              <p className="text-xs font-black tracking-[0.3em] text-[#142a45]/60">ПОСЛЕДНИЕ ERROR-ЛОГИ</p>
+              {errorFeed.length === 0 ? (
+                <p className="text-sm text-[#142a45]/60">Нет ошибок за выбранный период.</p>
+              ) : (
+                <div className="space-y-2 max-h-56 overflow-y-auto">
+                  {errorFeed.map((item) => (
+                    <div key={item.id} className="rounded-xl border border-[#b23324]/30 bg-[#fff3f0] p-3 space-y-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <StatusBadge label={item.level} status="error" />
+                        <span className="text-[11px] font-semibold text-[#142a45]/60">{formatIso(item.createdAt)}</span>
+                      </div>
+                      <p className="text-sm font-semibold text-[#7b1d16]">{item.message}</p>
+                      <p className="text-[11px] text-[#7b1d16]/80">{item.channel} · {item.eventName ?? 'event:unknown'} · {item.roomId ?? 'room:—'}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </SectionCard>
+
+        <SectionCard title="На какие вопросы реагируют больше всего">
+          <div className="grid gap-4 lg:grid-cols-3">
+            <KpiCard label="Лайки за период" value={formatNumber(analytics?.questionReactions?.totalLikes ?? 0)} status="info" />
+            <KpiCard label="Топ-вопрос" value={analytics?.questionReactions?.topQuestions?.length ? describeLikeQuestionId(analytics.questionReactions.topQuestions[0].questionId) : '—'} hint={analytics?.questionReactions?.topQuestions?.length ? `${analytics.questionReactions.topQuestions[0].likes} лайков` : undefined} status="neutral" />
+            <KpiCard label="Доля топ-1" value={`${analytics?.questionReactions?.topQuestions?.length ? analytics.questionReactions.topQuestions[0].sharePct : 0}%`} status="warning" />
+          </div>
+
+          <div className="overflow-x-auto mt-2">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs uppercase tracking-[0.2em] text-[#142a45]/60">
+                  <th className="py-2">Вопрос</th>
+                  <th className="py-2">Лайки</th>
+                  <th className="py-2">Доля</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(analytics?.questionReactions?.topQuestions ?? []).map((row, idx) => (
+                  <tr key={`${row.questionId}-${idx}`} className="border-t border-[#142a45]/10">
+                    <td className="py-2 font-semibold text-[#142a45]">{describeLikeQuestionId(row.questionId)}</td>
+                    <td className="py-2"><StatusBadge label={String(row.likes)} status={row.likes >= 10 ? 'success' : 'neutral'} /></td>
+                    <td className="py-2 text-[#142a45]/80 font-semibold">{row.sharePct}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </SectionCard>
 
         <SectionCard title="Логи">
           <div className="flex flex-wrap gap-2 mb-3">
