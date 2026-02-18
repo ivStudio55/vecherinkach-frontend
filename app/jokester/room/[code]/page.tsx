@@ -13,6 +13,7 @@ import {
   subscribeJokesterRoom,
   subscribeJokesterPlayers,
   subscribeJokesterDuels,
+  subscribeJokesterAnswers,
   subscribeJokesterCategoryVotes,
   submitCategoryVote,
   submitAnswer,
@@ -50,6 +51,7 @@ export default function JokesterPlayerPage() {
   const [myCatVotes, setMyCatVotes] = useState<Set<string>>(new Set());
   const [showCategoryScroll, setShowCategoryScroll] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [duelAnswers, setDuelAnswers] = useState<JokesterAnswer[]>([]);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const session = jokesterStorage.get();
@@ -82,7 +84,7 @@ export default function JokesterPlayerPage() {
     const unsubs = [
       subscribeJokesterRoom(room.id, setRoom),
       subscribeJokesterPlayers(room.id, setPlayers),
-      subscribeJokesterDuels(room.id, d => {
+      subscribeJokesterDuels(room.id, async d => {
         setDuels(d);
         // Reset answers for new duel
         setAnswer1('');
@@ -90,6 +92,7 @@ export default function JokesterPlayerPage() {
         setSubmitted1(false);
         setSubmitted2(false);
         setMyVote(null);
+        setDuelAnswers([]);
       }),
     ];
     return () => unsubs.forEach(fn => fn());
@@ -153,6 +156,22 @@ export default function JokesterPlayerPage() {
     if (qIndex === 0) setSubmitted1(true);
     else setSubmitted2(true);
   };
+
+  /* ─── Live answers subscription during voting ─── */
+  useEffect(() => {
+    if (!currentDuel || room?.voting_phase !== 'voting') return;
+    // Initial fetch
+    fetchDuelAnswers(currentDuel.id).then(setDuelAnswers);
+    // Subscribe for live updates
+    const unsub = subscribeJokesterAnswers(currentDuel.id, setDuelAnswers);
+    return unsub;
+  }, [currentDuel?.id, room?.voting_phase]);
+
+  /* ─── Load duel answers when voting starts ─── */
+  useEffect(() => {
+    if (!currentDuel || room?.voting_phase !== 'voting') return;
+    fetchDuelAnswers(currentDuel.id).then(setDuelAnswers);
+  }, [currentDuel?.id, room?.voting_phase]);
 
   /* ─── Vote handler ─── */
   const handleVote = async (votedForId: string) => {
@@ -368,53 +387,16 @@ export default function JokesterPlayerPage() {
 
         {/* ═══ VOTING ═══ */}
         {(room.status === 'round_playing' || room.status === 'final_playing') && room.voting_phase === 'voting' && (
-          <div className="space-y-5 animate-[fadeIn_0.5s_ease]">
-            <PlayerTimerBar seconds={timer} total={VOTE_TIME_SEC} />
-
-            {amInDuel ? (
-              <div className="text-center py-12 space-y-4">
-                <div className="text-5xl">⚔️</div>
-                <p className="text-xl font-bold text-[#ffd700]">Ты дуэлянт!</p>
-                <p className="text-gray-400">Ждём результатов голосования...</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <h2 className="text-xl font-black text-center text-[#ffd700]">Голосуй!</h2>
-                <p className="text-center text-sm text-gray-400">Чей ответ смешнее?</p>
-                <div className="grid grid-cols-2 gap-4">
-                  <button
-                    onClick={() => currentDuel && handleVote(currentDuel.player1_id)}
-                    disabled={!!myVote}
-                    className={`rounded-2xl border-3 p-5 text-center transition-all active:scale-95 ${
-                      myVote === currentDuel?.player1_id
-                        ? 'bg-[#1f6ac6]/30 border-[#1f6ac6] scale-105'
-                        : myVote ? 'opacity-40' : 'bg-[#111d33] border-[#1f6ac6] hover:bg-[#1f6ac6]/20'
-                    }`}
-                  >
-                    <p className="text-3xl mb-2">🔵</p>
-                    <p className="font-bold">Дуэлянт 1</p>
-                  </button>
-                  <button
-                    onClick={() => currentDuel && handleVote(currentDuel.player2_id)}
-                    disabled={!!myVote}
-                    className={`rounded-2xl border-3 p-5 text-center transition-all active:scale-95 ${
-                      myVote === currentDuel?.player2_id
-                        ? 'bg-red-600/30 border-red-600 scale-105'
-                        : myVote ? 'opacity-40' : 'bg-[#111d33] border-red-600 hover:bg-red-600/20'
-                    }`}
-                  >
-                    <p className="text-3xl mb-2">🔴</p>
-                    <p className="font-bold">Дуэлянт 2</p>
-                  </button>
-                </div>
-                {myVote && (
-                  <p className="text-center text-[#ffd700] font-bold animate-[fadeIn_0.3s_ease]">
-                    ✅ Голос принят!
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
+          <VotingPanel
+            currentDuel={currentDuel ?? null}
+            players={players}
+            myId={myId}
+            amInDuel={!!amInDuel}
+            myVote={myVote}
+            timer={timer}
+            duelAnswers={duelAnswers}
+            onVote={handleVote}
+          />
         )}
 
         {/* ═══ VOTE RESULTS ═══ */}
@@ -503,6 +485,122 @@ export default function JokesterPlayerPage() {
 }
 
 /* ─── Sub-components ─── */
+
+/* ─── VotingPanel ─── */
+function VotingPanel({
+  currentDuel,
+  players,
+  myId,
+  amInDuel,
+  myVote,
+  timer,
+  duelAnswers,
+  onVote,
+}: {
+  currentDuel: JokesterDuel | null;
+  players: JokesterPlayer[];
+  myId: string;
+  amInDuel: boolean;
+  myVote: string | null;
+  timer: number;
+  duelAnswers: JokesterAnswer[];
+  onVote: (id: string) => void;
+}) {
+  const p1 = players.find(p => p.id === currentDuel?.player1_id);
+  const p2 = players.find(p => p.id === currentDuel?.player2_id);
+  const p1Answers = duelAnswers.filter(a => a.player_id === currentDuel?.player1_id);
+  const p2Answers = duelAnswers.filter(a => a.player_id === currentDuel?.player2_id);
+
+  const avatarBase = '/audio/sound/Jokester/ava/';
+
+  return (
+    <div className="space-y-5 animate-[fadeIn_0.5s_ease]">
+      <PlayerTimerBar seconds={timer} total={VOTE_TIME_SEC} />
+
+      {amInDuel ? (
+        <div className="text-center py-10 space-y-4">
+          <div className="text-5xl">⚔️</div>
+          <p className="text-xl font-bold text-[#ffd700]">Ты дуэлянт!</p>
+          <p className="text-gray-400">Ждём результатов голосования...</p>
+          {/* Показываем свои ответы */}
+          {p1Answers.length > 0 && p1 && currentDuel && myId === currentDuel.player1_id && (
+            <div className="bg-[#111d33] border border-[#1f6ac6]/40 rounded-2xl p-4 text-left space-y-2">
+              <p className="text-xs text-gray-400">Твои ответы:</p>
+              {p1Answers.map(a => <p key={a.id} className="text-white font-bold">« {a.answer_text} »</p>)}
+            </div>
+          )}
+          {p2Answers.length > 0 && p2 && currentDuel && myId === currentDuel.player2_id && (
+            <div className="bg-[#111d33] border border-red-600/40 rounded-2xl p-4 text-left space-y-2">
+              <p className="text-xs text-gray-400">Твои ответы:</p>
+              {p2Answers.map(a => <p key={a.id} className="text-white font-bold">« {a.answer_text} »</p>)}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <h2 className="text-xl font-black text-center text-[#ffd700]">Голосуй!</h2>
+          <p className="text-center text-sm text-gray-400">Чей ответ смешнее?</p>
+
+          {/* Первый дуэлянт */}
+          <button
+            onClick={() => currentDuel && onVote(currentDuel.player1_id)}
+            disabled={!!myVote}
+            className={`w-full rounded-2xl border-2 p-4 text-left transition-all active:scale-95 ${
+              myVote === currentDuel?.player1_id
+                ? 'bg-[#1f6ac6]/30 border-[#1f6ac6] scale-[1.02]'
+                : myVote ? 'opacity-40 border-gray-700' : 'bg-[#111d33] border-[#1f6ac6] hover:bg-[#1f6ac6]/20'
+            }`}
+          >
+            <div className="flex items-center gap-3 mb-2">
+              {p1?.avatar && (
+                <img src={`${avatarBase}${p1.avatar}`} alt="" className="w-8 h-8 rounded-full object-cover" />
+              )}
+              <span className="font-bold text-[#1f6ac6]">🔵 ????? (Дуэлянт 1)</span>
+            </div>
+            {p1Answers.length > 0 ? (
+              p1Answers.map(a => (
+                <p key={a.id} className="text-white text-sm mt-1 italic">« {a.answer_text} »</p>
+              ))
+            ) : (
+              <p className="text-gray-500 text-sm italic">Ответ ещё не подан...</p>
+            )}
+          </button>
+
+          {/* Второй дуэлянт */}
+          <button
+            onClick={() => currentDuel && onVote(currentDuel.player2_id)}
+            disabled={!!myVote}
+            className={`w-full rounded-2xl border-2 p-4 text-left transition-all active:scale-95 ${
+              myVote === currentDuel?.player2_id
+                ? 'bg-red-600/30 border-red-600 scale-[1.02]'
+                : myVote ? 'opacity-40 border-gray-700' : 'bg-[#111d33] border-red-600 hover:bg-red-600/20'
+            }`}
+          >
+            <div className="flex items-center gap-3 mb-2">
+              {p2?.avatar && (
+                <img src={`${avatarBase}${p2.avatar}`} alt="" className="w-8 h-8 rounded-full object-cover" />
+              )}
+              <span className="font-bold text-red-400">🔴 ????? (Дуэлянт 2)</span>
+            </div>
+            {p2Answers.length > 0 ? (
+              p2Answers.map(a => (
+                <p key={a.id} className="text-white text-sm mt-1 italic">« {a.answer_text} »</p>
+              ))
+            ) : (
+              <p className="text-gray-500 text-sm italic">Ответ ещё не подан...</p>
+            )}
+          </button>
+
+          {myVote && (
+            <p className="text-center text-[#ffd700] font-bold animate-[fadeIn_0.3s_ease]">
+              ✅ Голос принят!
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function PlayerTimerBar({ seconds, total }: { seconds: number; total: number }) {
   const pct = total > 0 ? (seconds / total) * 100 : 0;

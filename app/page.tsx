@@ -65,7 +65,7 @@ export default function HomePage() {
       title: 'Пошути-кач',
       subtitle: 'Битва юмора',
       description: 'Дуэли шуток! Отвечай смешно на каверзные вопросы, голосуй и побеждай.',
-      badge: 'новое',
+      badge: 'тестирование',
     },
     {
       id: 'placeholder',

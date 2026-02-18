@@ -202,7 +202,7 @@ export default function JokesterHostPage() {
     audioRef.current?.stopBgm();
 
     // Голосование за категории
-    audioRef.current?.playBgm(JOKESTER_AUDIO.categoryMusic, 0.25);
+    audioRef.current?.playBgm('/audio/sound/Jokester/soundTrack/category.mp3', 0.4);
     await audioRef.current?.playVoiceRandom(JOKESTER_AUDIO.choosingCategoryFolder, 3);
     await updateJokesterRoom(room.id, { status: 'category_vote', state_version: room.state_version + 2 });
 
@@ -221,21 +221,21 @@ export default function JokesterHostPage() {
     const n = playerIds.length;
     const topCats = categoryRanking.slice(0, n).map(c => c.id);
 
-    // Подбираем вопросы
+    // Подбираем вопросы — каждому дуэлянту нужно по 2 вопроса, дуэлей n штук (каждый игрок в 2 дуэлях, но вопросы разные)
+    const schedule = generateDuelSchedule(playerIds);
     const usedTexts = await getUsedQuestions(room.id);
-    const questions = selectQuestions(categories, topCats, n * 2, usedTexts);
+    const questions = selectQuestions(categories, topCats, schedule.length * 2, usedTexts);
     await markQuestionsUsed(room.id, round, questions);
 
-    // Генерируем расписание дуэлей
-    const schedule = generateDuelSchedule(playerIds);
+    // Создаём все дуэли раунда
     await createDuels(room.id, round, schedule, questions);
 
     // Рефетч дуэлей
     const freshDuels = await fetchJokesterDuels(room.id, round);
     setDuels(freshDuels);
 
-    // Переключаем на первую дуэль
-    audioRef.current?.playBgm(JOKESTER_AUDIO.timerMusic120, 0.3);
+    // Фаза 1: все игроки отвечают одновременно (120 сек)
+    audioRef.current?.playBgm('/audio/sound/Jokester/soundTrack/120sec.mp3', 0.35);
     audioRef.current?.playVoiceRandom(JOKESTER_AUDIO.roundFolder, 4);
 
     await updateJokesterRoom(room.id, {
@@ -248,27 +248,49 @@ export default function JokesterHostPage() {
       state_version: room.state_version + 3,
     });
 
-    startTimer(ANSWER_TIME_SEC, () => handleDuelAnswerTimeout());
+    // По истечении 120 сек начинаем поочерёдные дуэли с голосованием
+    startTimer(ANSWER_TIME_SEC, () => handleAnswerPhaseEnd());
   };
 
-  const handleDuelAnswerTimeout = async () => {
+  // Вызывается когда 120 сек на ответы истекли → начинаем первую дуэль
+  const handleAnswerPhaseEnd = async () => {
+    if (!room) return;
+    audioRef.current?.stopBgm();
+    // Запускаем голосование первой дуэли
+    await startDuelVoting(0);
+  };
+
+  // Начать фазу голосования для дуэли с указанным индексом
+  const startDuelVoting = async (duelIndex: number) => {
     if (!room) return;
     audioRef.current?.stopBgm();
 
-    // Переход к голосованию
+    // Рефетч ответов текущей дуэли для отображения на экране
+    const duelList = duels.filter(d => d.round === room.current_round);
+    const duel = duelList[duelIndex];
+    if (duel) {
+      const answers = await fetchDuelAnswers(duel.id);
+      setCurrentAnswers(answers);
+      setCurrentVotes([]);
+    }
+
     await updateJokesterRoom(room.id, {
+      current_duel_index: duelIndex,
       voting_phase: 'voting',
       timer_started_at: new Date().toISOString(),
       timer_duration_sec: VOTE_TIME_SEC,
-      state_version: room.state_version + 4,
+      state_version: room.state_version + 10 + duelIndex,
     });
 
-    audioRef.current?.playBgm(JOKESTER_AUDIO.voteMusic30, 0.3);
+    audioRef.current?.playBgm('/audio/sound/Jokester/soundTrack/vote30sec.mp3', 0.4);
     audioRef.current?.playVoiceRandom(JOKESTER_AUDIO.voteFolder, 3);
     setShowDeAnon(false);
 
     startTimer(VOTE_TIME_SEC, () => handleVoteEnd());
   };
+
+  // Оставляем для совместимости — теперь не используется напрямую
+  const handleDuelAnswerTimeout = handleAnswerPhaseEnd;
 
   const handleVoteEnd = async () => {
     if (!room || !currentDuel) return;
@@ -325,17 +347,8 @@ export default function JokesterHostPage() {
     const nextIndex = room.current_duel_index + 1;
 
     if (nextIndex < roundDuels.length) {
-      // Следующая дуэль
-      audioRef.current?.playBgm(JOKESTER_AUDIO.timerMusic120, 0.3);
-      await updateJokesterRoom(room.id, {
-        current_duel_index: nextIndex,
-        current_question: 0,
-        voting_phase: 'answering',
-        timer_started_at: new Date().toISOString(),
-        timer_duration_sec: ANSWER_TIME_SEC,
-        state_version: room.state_version + 6,
-      });
-      startTimer(ANSWER_TIME_SEC, () => handleDuelAnswerTimeout());
+      // Следующая дуэль — сразу голосование (ответы уже были даны)
+      await startDuelVoting(nextIndex);
     } else {
       // Результаты раунда
       audioRef.current?.stopBgm();
@@ -401,7 +414,7 @@ export default function JokesterHostPage() {
     const freshDuels = await fetchJokesterDuels(room.id, 4);
     setDuels(prev => [...prev, ...freshDuels]);
 
-    audioRef.current?.playBgm(JOKESTER_AUDIO.timerMusic120, 0.3);
+    audioRef.current?.playBgm('/audio/sound/Jokester/soundTrack/120sec.mp3', 0.35);
     await updateJokesterRoom(room.id, {
       status: 'final_playing',
       current_duel_index: 0,
@@ -411,7 +424,7 @@ export default function JokesterHostPage() {
       timer_duration_sec: ANSWER_TIME_SEC,
       state_version: room.state_version + 10,
     });
-    startTimer(ANSWER_TIME_SEC, () => handleDuelAnswerTimeout());
+    startTimer(ANSWER_TIME_SEC, () => handleAnswerPhaseEnd());
   };
 
   const handleShowCredits = async () => {
@@ -455,7 +468,7 @@ export default function JokesterHostPage() {
           >
             Пошути-кач
           </h1>
-          <span className="text-xs text-gray-400 font-mono">[ PURE CSS EFFECT ]</span>
+          <span className="text-xs text-gray-500 font-mono">Пошути-кач</span>
         </div>
         <div className="flex items-center gap-3">
           <span className="px-3 py-1 rounded-full text-sm font-bold bg-[#ffd700] text-[#0a1628]">
