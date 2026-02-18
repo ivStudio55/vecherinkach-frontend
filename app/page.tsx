@@ -39,7 +39,7 @@ export default function HomePage() {
   ];
 
   const miniGames: Array<{
-    id: 'uno' | 'risunkach';
+    id: 'uno' | 'risunkach' | 'jokester' | 'placeholder';
     title: string;
     subtitle: string;
     description: string;
@@ -60,6 +60,20 @@ export default function HomePage() {
       description: 'Рисуй, угадывай, голосуй! 3 раунда цепочек превращений.',
       badge: 'новое',
     },
+    {
+      id: 'jokester',
+      title: 'Пошути-кач',
+      subtitle: 'Битва юмора',
+      description: 'Дуэли шуток! Отвечай смешно на каверзные вопросы, голосуй и побеждай.',
+      badge: 'новое',
+    },
+    {
+      id: 'placeholder',
+      title: '???',
+      subtitle: 'Скоро',
+      description: 'Разработчик думает, что бы сюда ещё влепить... 🤔',
+      isSoon: true,
+    },
   ];
 
   const choosePackAndGoHost = (nextPackId: PackId) => {
@@ -67,11 +81,13 @@ export default function HomePage() {
     navigateWithExit(() => router.push('/host'));
   };
 
-  const handleMiniGameClick = (gameId: 'uno' | 'risunkach') => {
+  const handleMiniGameClick = (gameId: 'uno' | 'risunkach' | 'jokester' | 'placeholder') => {
     if (gameId === 'uno') {
       navigateWithExit(() => router.push('/uno'));
     } else if (gameId === 'risunkach') {
       navigateWithExit(() => router.push('/draw'));
+    } else if (gameId === 'jokester') {
+      navigateWithExit(() => router.push('/jokester'));
     }
   };
 
