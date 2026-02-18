@@ -160,6 +160,7 @@ export default function JokesterPlayerPage() {
     return t;
   });
   const currentTarget = pendingTargets[0] || null;
+  const selectedCategoryMeta = categories.find(c => c.id === selectedCategory);
 
   /* ─── Category vote handler ─── */
   const handleCategoryVote = async (catId: string) => {
@@ -330,17 +331,11 @@ export default function JokesterPlayerPage() {
             {showCategoryScroll && (
               <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 animate-[fadeIn_0.3s_ease]">
                 <div className="text-center space-y-4">
-                  <div className="overflow-hidden h-16 relative">
-                    <div className="animate-[categoryScroll_2.5s_ease-out_forwards] space-y-2 text-xl text-gray-400">
-                      {categories.map(c => (
-                        <div
-                          key={c.id}
-                          className={`py-1 ${c.id === selectedCategory ? 'text-[#ffd700] text-3xl font-black' : ''}`}
-                        >
-                          {c.emoji} {c.name}
-                        </div>
-                      ))}
-                    </div>
+                  <p className="text-sm text-gray-400">Категория вопроса</p>
+                  <div className="px-6 py-4 rounded-2xl bg-[#111d33] border-2 border-[#ffd700]/50 animate-[pulse_1.2s_ease-in-out_infinite]">
+                    <p className="text-3xl font-black text-[#ffd700]">
+                      {selectedCategoryMeta ? `${selectedCategoryMeta.emoji} ${selectedCategoryMeta.name}` : '🎭 Категория'}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -470,14 +465,6 @@ export default function JokesterPlayerPage() {
         )}
 
       </div>
-
-      <style jsx>{`
-        @keyframes categoryScroll {
-          0% { transform: translateY(0); }
-          80% { transform: translateY(calc(-100% + 3rem)); }
-          100% { transform: translateY(calc(-100% + 3rem)); }
-        }
-      `}</style>
     </div>
   );
 }

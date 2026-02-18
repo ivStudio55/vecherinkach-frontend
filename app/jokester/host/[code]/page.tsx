@@ -62,6 +62,8 @@ export default function JokesterHostPage() {
   const [categories, setCategories] = useState<JokesterCategory[]>([]);
   const [timer, setTimer] = useState(0);
   const [showDeAnon, setShowDeAnon] = useState(false);
+  const [isBgmMuted, setIsBgmMuted] = useState(false);
+  const [isVoiceMuted, setIsVoiceMuted] = useState(false);
   const [bestAnswer, setBestAnswer] = useState<{ text: string; playerName: string; playerAvatar: string; question: string } | null>(null);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -69,6 +71,7 @@ export default function JokesterHostPage() {
   const prevPlayerCountRef = useRef(0);
   const autoStartingDuelsRef = useRef(false);
   const prevVoteCountRef = useRef(0);
+  const prevAnswerCountRef = useRef(0);
   const voteEndLockRef = useRef(false);
   const selectedTopCategoriesRef = useRef<string[]>([]);
   const currentDuel = duels.find(d => d.duel_index === room?.current_duel_index && d.round === room?.current_round);
@@ -155,10 +158,19 @@ export default function JokesterHostPage() {
   useEffect(() => {
     if (!room || room.voting_phase !== 'answering') return;
     let cancelled = false;
+    prevAnswerCountRef.current = 0;
     const tick = async () => {
       const roundDuels = duels.filter(d => d.round === room.current_round);
       const all = await Promise.all(roundDuels.map(d => fetchDuelAnswers(d.id)));
-      if (!cancelled) setCurrentAnswers(all.flat());
+      const flat = all.flat();
+      if (!cancelled) {
+        if (flat.length > prevAnswerCountRef.current) {
+          const idx = Math.floor(Math.random() * 7) + 1;
+          audioRef.current?.playSfx(`/audio/duck/${idx}.mp3`, 0.45);
+        }
+        prevAnswerCountRef.current = flat.length;
+        setCurrentAnswers(flat);
+      }
     };
     void tick();
     const iv = setInterval(() => { void tick(); }, 2000);
@@ -303,7 +315,9 @@ export default function JokesterHostPage() {
     audioRef.current?.stopBgm();
 
     const round = effectiveRoom.current_round;
-    const playerIds = gamePlayers.map(p => p.id);
+    const playerIds = players
+      .filter(p => p.role === 'player' && !p.is_host)
+      .map(p => p.id);
 
     // Определяем топ-N категорий
     let topCats: string[] = selectedTopCategoriesRef.current;
@@ -320,7 +334,35 @@ export default function JokesterHostPage() {
     // Подбираем вопросы — 1 вопрос на дуэль (каждый игрок в 2 дуэлях => 2 вопроса на игрока)
     const schedule = generateDuelSchedule(playerIds);
     const usedTexts = await getUsedQuestions(effectiveRoom.id);
-    const questions = selectQuestions(categories, topCats, schedule.length, usedTexts);
+    let questions = selectQuestions(categories, topCats, schedule.length, usedTexts);
+
+    // Фолбэк: если в выбранных категориях вопросов не хватает — расширяем пул
+    if (questions.length < schedule.length) {
+      const allCategoryIds = categories.map(c => c.id);
+      const extraUnused = selectQuestions(categories, allCategoryIds, schedule.length - questions.length, usedTexts);
+      questions = [...questions, ...extraUnused];
+    }
+
+    // Фолбэк 2: если всё ещё не хватает, разрешаем повтор ранее использованных вопросов
+    if (questions.length < schedule.length) {
+      const selected = topCats.length > 0 ? topCats : categories.map(c => c.id);
+      const reusablePool: Array<{ text: string; category: string }> = [];
+      for (const catId of selected) {
+        const cat = categories.find(c => c.id === catId);
+        if (!cat) continue;
+        for (const q of cat.questions) {
+          reusablePool.push({ text: q, category: cat.id });
+        }
+      }
+      for (let i = reusablePool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [reusablePool[i], reusablePool[j]] = [reusablePool[j], reusablePool[i]];
+      }
+      for (const q of reusablePool) {
+        if (questions.length >= schedule.length) break;
+        questions.push(q);
+      }
+    }
     await markQuestionsUsed(effectiveRoom.id, round, questions);
 
     // Создаём все дуэли раунда
@@ -357,21 +399,28 @@ export default function JokesterHostPage() {
   const handleAnswerPhaseEnd = async () => {
     if (!room) return;
     audioRef.current?.stopBgm();
+    const freshRoom = await fetchJokesterRoom(room.code);
+    const roomSnapshot = freshRoom || room;
     // Запускаем голосование первой дуэли
-    await startDuelVoting(0);
+    await startDuelVoting(0, roomSnapshot);
   };
 
   // Начать фазу голосования для дуэли с указанным индексом
-  const startDuelVoting = async (duelIndex: number) => {
-    if (!room) return;
+  const startDuelVoting = async (duelIndex: number, roomSnapshot?: JokesterRoom) => {
+    const effectiveRoom = roomSnapshot || room;
+    if (!effectiveRoom) return;
     audioRef.current?.stopBgm();
 
     // Рефетч ответов текущей дуэли для отображения на экране
-    const duelList = await fetchJokesterDuels(room.id, room.current_round);
+    const duelList = await fetchJokesterDuels(effectiveRoom.id, effectiveRoom.current_round);
     setDuels(duelList);
     const duel = duelList[duelIndex];
     if (!duel) {
-      await updateJokesterRoom(room.id, { status: 'round_results', voting_phase: 'results', state_version: room.state_version + 100 });
+      await updateJokesterRoom(effectiveRoom.id, {
+        status: effectiveRoom.current_round >= 4 ? 'final_results' : 'round_results',
+        voting_phase: 'results',
+        state_version: effectiveRoom.state_version + 100,
+      });
       audioRef.current?.stopBgm();
       return;
     }
@@ -379,13 +428,13 @@ export default function JokesterHostPage() {
     setCurrentAnswers(answers);
     setCurrentVotes([]);
 
-    await updateJokesterRoom(room.id, {
+    await updateJokesterRoom(effectiveRoom.id, {
       current_duel_index: duelIndex,
       current_question: 0,
       voting_phase: 'voting',
       timer_started_at: new Date().toISOString(),
       timer_duration_sec: VOTE_TIME_SEC,
-      state_version: room.state_version + 10 + duelIndex,
+      state_version: effectiveRoom.state_version + 10 + duelIndex,
     });
 
     audioRef.current?.playBgm('/audio/sound/Jokester/soundTrack/vote30sec.mp3', 0.4);
@@ -459,8 +508,10 @@ export default function JokesterHostPage() {
 
       await updateJokesterRoom(roomSnapshot.id, { voting_phase: 'results', state_version: roomSnapshot.state_version + 5 });
 
-    // Озвучка комментария
+    // Озвучка комментария + музыкальная подложка между дуэлями
+      audioRef.current?.playBgm(JOKESTER_AUDIO.betweenMusic, 0.28);
       await audioRef.current?.playVoteComment(winnerPercent, 3);
+      audioRef.current?.stopBgm();
 
       // Автопереход к следующей дуэли или результатам раунда
       await handleNextDuelOrResults(roomSnapshot);
@@ -478,11 +529,14 @@ export default function JokesterHostPage() {
 
     if (nextIndex < roundDuels.length) {
       // Следующая дуэль — сразу голосование (ответы уже были даны)
-      await startDuelVoting(nextIndex);
+      await startDuelVoting(nextIndex, effectiveRoom);
     } else {
       // Результаты раунда
       audioRef.current?.stopBgm();
-      await updateJokesterRoom(effectiveRoom.id, { status: 'round_results', state_version: effectiveRoom.state_version + 7 });
+      await updateJokesterRoom(effectiveRoom.id, {
+        status: effectiveRoom.current_round >= 4 ? 'final_results' : 'round_results',
+        state_version: effectiveRoom.state_version + 7,
+      });
 
       // Рефетч игроков для рейтинга
       const freshPlayers = await fetchJokesterPlayers(effectiveRoom.id);
@@ -492,7 +546,7 @@ export default function JokesterHostPage() {
       const afterFolder = effectiveRoom.current_round <= 3
         ? JOKESTER_AUDIO.afterRound(effectiveRoom.current_round)
         : JOKESTER_AUDIO.afterFinal;
-      audioRef.current?.playBgm(JOKESTER_AUDIO.betweenMusic, 0.28);
+      audioRef.current?.playBgm('/audio/sound/Jokester/soundTrack/after_round.mp3', 0.3);
       await audioRef.current?.playVoiceRandom(afterFolder, 3);
       audioRef.current?.stopBgm();
       autoStartingDuelsRef.current = false;
@@ -532,8 +586,7 @@ export default function JokesterHostPage() {
   const handleStartFinal = async () => {
     if (!room) return;
     const freshPlayers = await fetchJokesterPlayers(room.id);
-    const sorted = freshPlayers.filter(p => p.role === 'player' && !p.is_host).sort((a, b) => b.total_points - a.total_points);
-    const finalists = sorted.slice(0, 2);
+    const finalists = freshPlayers.filter(p => p.role === 'player' && !p.is_host);
 
     if (finalists.length < 2) return;
 
@@ -547,14 +600,36 @@ export default function JokesterHostPage() {
     await audioRef.current?.playRoundRules(4);
     audioRef.current?.stopBgm();
 
-    // Создать финальную дуэль
+    // Создать финальные дуэли (в финале участвуют все игроки)
     const usedTexts = await getUsedQuestions(room.id);
     const topCats = selectedTopCategoriesRef.current.length > 0
       ? selectedTopCategoriesRef.current
       : categories.map(c => c.id);
-    const questions = selectQuestions(categories, topCats, 1, usedTexts);
+    const finalPairs = generateDuelSchedule(finalists.map(p => p.id));
+    let questions = selectQuestions(categories, topCats, finalPairs.length, usedTexts);
+    if (questions.length < finalPairs.length) {
+      const allCategoryIds = categories.map(c => c.id);
+      const extra = selectQuestions(categories, allCategoryIds, finalPairs.length - questions.length, usedTexts);
+      questions = [...questions, ...extra];
+    }
+    if (questions.length < finalPairs.length) {
+      const reusablePool: Array<{ text: string; category: string }> = [];
+      for (const catId of (topCats.length > 0 ? topCats : categories.map(c => c.id))) {
+        const cat = categories.find(c => c.id === catId);
+        if (!cat) continue;
+        for (const q of cat.questions) reusablePool.push({ text: q, category: cat.id });
+      }
+      for (let i = reusablePool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [reusablePool[i], reusablePool[j]] = [reusablePool[j], reusablePool[i]];
+      }
+      for (const q of reusablePool) {
+        if (questions.length >= finalPairs.length) break;
+        questions.push(q);
+      }
+    }
     await markQuestionsUsed(room.id, 4, questions);
-    await createDuels(room.id, 4, [{ player1_id: finalists[0].id, player2_id: finalists[1].id }], questions);
+    await createDuels(room.id, 4, finalPairs, questions);
 
     const freshDuels = await fetchJokesterDuels(room.id, 4);
     setDuels(prev => [...prev, ...freshDuels]);
@@ -622,16 +697,24 @@ export default function JokesterHostPage() {
             R{room.current_round} · {room.status}
           </span>
           <button
-            onClick={() => audioRef.current?.toggleBgmMute()}
-            className="px-3 py-1 rounded-lg text-xs border border-gray-600 hover:border-[#ffd700] transition"
+            onClick={() => setIsBgmMuted(!!audioRef.current?.toggleBgmMute())}
+            className={`px-3 py-1 rounded-lg text-xs border transition ${
+              isBgmMuted
+                ? 'border-red-500 bg-red-500/20 text-red-200'
+                : 'border-emerald-500 bg-emerald-500/20 text-emerald-200 hover:border-[#ffd700]'
+            }`}
           >
-            🎵
+            🎵 {isBgmMuted ? 'OFF' : 'ON'}
           </button>
           <button
-            onClick={() => audioRef.current?.toggleVoiceMute()}
-            className="px-3 py-1 rounded-lg text-xs border border-gray-600 hover:border-[#ffd700] transition"
+            onClick={() => setIsVoiceMuted(!!audioRef.current?.toggleVoiceMute())}
+            className={`px-3 py-1 rounded-lg text-xs border transition ${
+              isVoiceMuted
+                ? 'border-red-500 bg-red-500/20 text-red-200'
+                : 'border-emerald-500 bg-emerald-500/20 text-emerald-200 hover:border-[#ffd700]'
+            }`}
           >
-            🎤
+            🎤 {isVoiceMuted ? 'OFF' : 'ON'}
           </button>
           <button
             onClick={handleCloseRoom}
@@ -1081,13 +1164,16 @@ function DuelAnswerCard({
       <div className="flex flex-wrap gap-2">
         {votes.map(v => {
           const voter = players.find(p => p.id === v.voter_id);
+          const isSpectator = v.voter_role === 'spectator';
           return (
             <div
               key={v.id}
               className="w-8 h-8 rounded-full bg-[#1a2940] flex items-center justify-center text-sm animate-[fadeIn_0.3s_ease]"
               title={voter?.name}
             >
-              {voter ? (
+              {isSpectator ? (
+                <span className="text-purple-300" title="Зритель">👀</span>
+              ) : voter ? (
                 <img src={avatarSrc(voter.avatar)} alt={voter.name} className="w-8 h-8 rounded-full object-cover" />
               ) : '👤'}
             </div>
