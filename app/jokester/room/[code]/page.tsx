@@ -52,6 +52,7 @@ export default function JokesterPlayerPage() {
   const [showCategoryScroll, setShowCategoryScroll] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [duelAnswers, setDuelAnswers] = useState<JokesterAnswer[]>([]);
+  const [myRoundAnswers, setMyRoundAnswers] = useState<JokesterAnswer[]>([]);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const session = jokesterStorage.get();
@@ -132,11 +133,24 @@ export default function JokesterPlayerPage() {
 
   /* ─── Computed ─── */
   const me = players.find(p => p.id === myId);
-  const gamePlayers = players.filter(p => p.role === 'player');
+  const gamePlayers = players.filter(p => p.role === 'player' && !p.is_host);
   const sortedByPoints = [...gamePlayers].sort((a, b) => b.total_points - a.total_points);
   const myRank = sortedByPoints.findIndex(p => p.id === myId) + 1;
   const currentDuel = duels.find(d => d.duel_index === room?.current_duel_index && d.round === room?.current_round);
   const amInDuel = currentDuel && (currentDuel.player1_id === myId || currentDuel.player2_id === myId);
+  const myRoundDuels = duels
+    .filter(d => d.round === room?.current_round && (d.player1_id === myId || d.player2_id === myId))
+    .sort((a, b) => a.duel_index - b.duel_index);
+
+  const pendingTargets = myRoundDuels.flatMap(d => {
+    const t: Array<{ duel: JokesterDuel; qIndex: 0 | 1; text: string | null; cat: string | null }> = [];
+    const hasQ1 = myRoundAnswers.some(a => a.duel_id === d.id && a.player_id === myId && a.question_index === 0);
+    const hasQ2 = myRoundAnswers.some(a => a.duel_id === d.id && a.player_id === myId && a.question_index === 1);
+    if (!hasQ1) t.push({ duel: d, qIndex: 0, text: d.question1_text, cat: d.question1_cat });
+    if (!hasQ2) t.push({ duel: d, qIndex: 1, text: d.question2_text, cat: d.question2_cat });
+    return t;
+  });
+  const currentTarget = pendingTargets[0] || null;
 
   /* ─── Category vote handler ─── */
   const handleCategoryVote = async (catId: string) => {
@@ -149,13 +163,33 @@ export default function JokesterPlayerPage() {
 
   /* ─── Answer submit ─── */
   const handleSubmitAnswer = async (qIndex: number) => {
-    if (!currentDuel) return;
+    if (!currentTarget) return;
     const text = qIndex === 0 ? answer1 : answer2;
     if (!text.trim()) return;
-    await submitAnswer(currentDuel.id, myId, qIndex, text.trim());
-    if (qIndex === 0) setSubmitted1(true);
-    else setSubmitted2(true);
+    await submitAnswer(currentTarget.duel.id, myId, qIndex, text.trim());
+    const updated = await fetchDuelAnswers(currentTarget.duel.id);
+    const others = myRoundAnswers.filter(a => a.duel_id !== currentTarget.duel.id);
+    setMyRoundAnswers([...others, ...updated]);
+    if (qIndex === 0) {
+      setSubmitted1(true);
+      setAnswer1('');
+    } else {
+      setSubmitted2(true);
+      setAnswer2('');
+    }
   };
+
+  useEffect(() => {
+    if (!room || room.voting_phase !== 'answering') return;
+    let cancelled = false;
+    (async () => {
+      const answers = await Promise.all(myRoundDuels.map(d => fetchDuelAnswers(d.id)));
+      if (!cancelled) setMyRoundAnswers(answers.flat());
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [room?.id, room?.current_round, room?.voting_phase, myRoundDuels.length]);
 
   /* ─── Live answers subscription during voting ─── */
   useEffect(() => {
@@ -167,12 +201,6 @@ export default function JokesterPlayerPage() {
     return unsub;
   }, [currentDuel?.id, room?.voting_phase]);
 
-  /* ─── Load duel answers when voting starts ─── */
-  useEffect(() => {
-    if (!currentDuel || room?.voting_phase !== 'voting') return;
-    fetchDuelAnswers(currentDuel.id).then(setDuelAnswers);
-  }, [currentDuel?.id, room?.voting_phase]);
-
   /* ─── Vote handler ─── */
   const handleVote = async (votedForId: string) => {
     if (!currentDuel || myVote) return;
@@ -182,15 +210,15 @@ export default function JokesterPlayerPage() {
 
   /* ─── Category scroll animation ─── */
   useEffect(() => {
-    if (room?.status === 'round_playing' && room.voting_phase === 'answering' && currentDuel && amInDuel) {
+    if ((room?.status === 'round_playing' || room?.status === 'final_playing') && room.voting_phase === 'answering' && currentTarget) {
       // Показать анимацию скрола категорий
       setShowCategoryScroll(true);
-      const cat = room.current_question === 0 ? currentDuel.question1_cat : currentDuel.question2_cat;
+      const cat = currentTarget.cat;
       setSelectedCategory(cat || '');
       const t = setTimeout(() => setShowCategoryScroll(false), 3000);
       return () => clearTimeout(t);
     }
-  }, [room?.status, room?.voting_phase, room?.current_duel_index, room?.current_question]);
+  }, [room?.status, room?.voting_phase, room?.current_duel_index, currentTarget?.duel.id, currentTarget?.qIndex]);
 
   /* ═══════════════════ Render ═══════════════════ */
 
@@ -319,67 +347,36 @@ export default function JokesterPlayerPage() {
             {/* Timer */}
             <PlayerTimerBar seconds={timer} total={ANSWER_TIME_SEC} />
 
-            {amInDuel && currentDuel ? (
+            {currentTarget ? (
               <>
-                {/* Question 1 */}
-                {!submitted1 && (
-                  <div className="bg-[#111d33] border-2 border-[#1f6ac6]/50 rounded-2xl p-4 space-y-3">
-                    <p className="text-xs text-[#ffd700] tracking-wider">
-                      {currentDuel.question1_cat?.toUpperCase()} · вопрос 1
-                    </p>
-                    <p className="text-lg font-bold">{currentDuel.question1_text}</p>
-                    <textarea
-                      placeholder="Твой смешной ответ..."
-                      value={answer1}
-                      onChange={e => setAnswer1(e.target.value)}
-                      maxLength={200}
-                      rows={3}
-                      className="w-full px-3 py-2 rounded-xl bg-[#0d1a30] border border-gray-600 text-white placeholder-gray-500 focus:border-[#ffd700] focus:outline-none resize-none"
-                    />
-                    <button
-                      onClick={() => handleSubmitAnswer(0)}
-                      disabled={!answer1.trim()}
-                      className="w-full py-3 rounded-xl font-bold bg-[#1f6ac6] text-white hover:bg-[#2a7ad6] active:scale-95 transition disabled:opacity-40"
-                    >
-                      ✅ Отправить ответ 1
-                    </button>
-                  </div>
-                )}
-                {submitted1 && !submitted2 && (
-                  <div className="bg-[#111d33] border-2 border-[#ffd700]/50 rounded-2xl p-4 space-y-3">
-                    <p className="text-xs text-[#ffd700] tracking-wider">
-                      {currentDuel.question2_cat?.toUpperCase()} · вопрос 2
-                    </p>
-                    <p className="text-lg font-bold">{currentDuel.question2_text}</p>
-                    <textarea
-                      placeholder="Твой смешной ответ..."
-                      value={answer2}
-                      onChange={e => setAnswer2(e.target.value)}
-                      maxLength={200}
-                      rows={3}
-                      className="w-full px-3 py-2 rounded-xl bg-[#0d1a30] border border-gray-600 text-white placeholder-gray-500 focus:border-[#ffd700] focus:outline-none resize-none"
-                    />
-                    <button
-                      onClick={() => handleSubmitAnswer(1)}
-                      disabled={!answer2.trim()}
-                      className="w-full py-3 rounded-xl font-bold bg-[#ffd700] text-[#0a1628] hover:bg-[#ffe44d] active:scale-95 transition disabled:opacity-40"
-                    >
-                      ✅ Отправить ответ 2
-                    </button>
-                  </div>
-                )}
-                {submitted1 && submitted2 && (
-                  <div className="text-center py-12 space-y-4">
-                    <div className="text-5xl">✅</div>
-                    <p className="text-xl font-bold text-[#ffd700]">Ответы отправлены!</p>
-                    <p className="text-gray-400">Ждём других игроков...</p>
-                  </div>
-                )}
+                <div className="bg-[#111d33] border-2 border-[#1f6ac6]/50 rounded-2xl p-4 space-y-3">
+                  <p className="text-xs text-[#ffd700] tracking-wider">
+                    {currentTarget.cat?.toUpperCase()} · дуэль {currentTarget.duel.duel_index + 1} · вопрос {currentTarget.qIndex + 1}
+                  </p>
+                  <p className="text-lg font-bold">{currentTarget.text}</p>
+                  <textarea
+                    placeholder="Твой смешной ответ..."
+                    value={currentTarget.qIndex === 0 ? answer1 : answer2}
+                    onChange={e => currentTarget.qIndex === 0 ? setAnswer1(e.target.value) : setAnswer2(e.target.value)}
+                    maxLength={200}
+                    rows={3}
+                    className="w-full px-3 py-2 rounded-xl bg-[#0d1a30] border border-gray-600 text-white placeholder-gray-500 focus:border-[#ffd700] focus:outline-none resize-none"
+                  />
+                  <button
+                    onClick={() => handleSubmitAnswer(currentTarget.qIndex)}
+                    disabled={!(currentTarget.qIndex === 0 ? answer1.trim() : answer2.trim())}
+                    className="w-full py-3 rounded-xl font-bold bg-[#1f6ac6] text-white hover:bg-[#2a7ad6] active:scale-95 transition disabled:opacity-40"
+                  >
+                    ✅ Отправить ответ
+                  </button>
+                  <p className="text-xs text-gray-400 text-right">Осталось ответов: {pendingTargets.length}</p>
+                </div>
               </>
             ) : (
               <div className="text-center py-12 space-y-4">
-                <div className="text-5xl animate-[bounce_2s_infinite]">⏳</div>
-                <p className="text-lg text-gray-400">Дуэль идёт... Скоро голосование!</p>
+                <div className="text-5xl">✅</div>
+                <p className="text-lg text-[#ffd700] font-bold">Ответы отправлены!</p>
+                <p className="text-gray-400">Ждём окончания таймера и начала голосования...</p>
               </div>
             )}
           </div>

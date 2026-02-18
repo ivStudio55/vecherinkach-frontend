@@ -16,6 +16,7 @@ export default function JokesterEntryPage() {
   const [tab, setTab] = useState<'create' | 'join'>('create');
   const [joinName, setJoinName] = useState('');
   const [joinCode, setJoinCode] = useState('');
+  const [joinRole, setJoinRole] = useState<JokesterRole>('player');
   const [avatar, setAvatar] = useState(AVATARS[0]);
   const [takenAvatars, setTakenAvatars] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -52,16 +53,28 @@ export default function JokesterEntryPage() {
   };
 
   const handleJoin = async () => {
-    if (!joinName.trim()) { setError('Введите имя'); return; }
+    if (joinRole === 'player' && !joinName.trim()) { setError('Введите имя'); return; }
     if (!joinCode.trim()) { setError('Введите код комнаты'); return; }
-    if (takenAvatars.includes(avatar)) { setError('Эта аватарка уже занята, выбери другую'); return; }
+    if (joinRole === 'player' && takenAvatars.includes(avatar)) { setError('Эта аватарка уже занята, выбери другую'); return; }
     setLoading(true); setError('');
     try {
-      const { room } = await joinJokesterRoom(joinCode.trim(), joinName.trim(), avatar, 'player');
-      router.push(`/jokester/room/${room.code}`);
+      const { room } = await joinJokesterRoom(
+        joinCode.trim(),
+        joinRole === 'player' ? joinName.trim() : '',
+        joinRole === 'player' ? avatar : 'ava1.png',
+        joinRole,
+      );
+      if (joinRole === 'spectator') {
+        router.push(`/jokester/spectator/${room.code}`);
+      } else {
+        router.push(`/jokester/room/${room.code}`);
+      }
     } catch (e: unknown) {
       if (e instanceof Error && e.message === 'MAX_PLAYERS') {
-        setError('Набрано максимальное количество игроков (12)!');
+        setError('Набрано максимальное количество игроков (12). Войдите как зритель и голосуйте за лучших!');
+        setJoinRole('spectator');
+      } else if (e instanceof Error && e.message === 'AVATAR_TAKEN') {
+        setError('Эта аватарка уже занята, выбери другую');
       } else {
         setError(e instanceof Error ? e.message : 'Ошибка подключения');
       }
@@ -142,6 +155,29 @@ export default function JokesterEntryPage() {
           <div className="bg-[#111d33]/80 border-2 border-[#1f6ac6]/30 rounded-3xl p-6 space-y-5 backdrop-blur-sm animate-[fadeIn_0.3s_ease]">
             <h2 className="text-xl font-black text-[#1f6ac6]">Подключение</h2>
 
+            <div className="flex gap-3">
+              <button
+                onClick={() => setJoinRole('player')}
+                className={`flex-1 py-3 rounded-xl font-bold border-2 transition-all ${
+                  joinRole === 'player'
+                    ? 'bg-[#1f6ac6] border-[#1f6ac6] text-white'
+                    : 'bg-transparent border-gray-600 text-gray-400'
+                }`}
+              >
+                🎮 Игрок
+              </button>
+              <button
+                onClick={() => setJoinRole('spectator')}
+                className={`flex-1 py-3 rounded-xl font-bold border-2 transition-all ${
+                  joinRole === 'spectator'
+                    ? 'bg-purple-600 border-purple-600 text-white'
+                    : 'bg-transparent border-gray-600 text-gray-400'
+                }`}
+              >
+                👀 Зритель
+              </button>
+            </div>
+
             <input
               type="text"
               placeholder="Код комнаты"
@@ -150,57 +186,61 @@ export default function JokesterEntryPage() {
               maxLength={4}
               className="w-full px-4 py-3 rounded-xl bg-[#0d1a30] border-2 border-[#1f6ac6]/40 text-white text-center text-2xl font-mono tracking-[0.5em] placeholder-gray-500 focus:border-[#1f6ac6] focus:outline-none transition"
             />
-            <input
-              type="text"
-              placeholder="Твой никнейм"
-              value={joinName}
-              onChange={e => setJoinName(e.target.value)}
-              maxLength={20}
-              className="w-full px-4 py-3 rounded-xl bg-[#0d1a30] border-2 border-[#1f6ac6]/40 text-white placeholder-gray-500 focus:border-[#1f6ac6] focus:outline-none transition"
-            />
+            {joinRole === 'player' && (
+              <input
+                type="text"
+                placeholder="Твой никнейм"
+                value={joinName}
+                onChange={e => setJoinName(e.target.value)}
+                maxLength={20}
+                className="w-full px-4 py-3 rounded-xl bg-[#0d1a30] border-2 border-[#1f6ac6]/40 text-white placeholder-gray-500 focus:border-[#1f6ac6] focus:outline-none transition"
+              />
+            )}
 
             {/* Аватарки */}
-            <div>
-              <p className="text-xs text-gray-400 mb-2 tracking-wider">ВЫБЕРИ АВАТАРКУ</p>
-              <div className="grid grid-cols-6 gap-2">
-                {AVATARS.map(a => {
-                  const taken = takenAvatars.includes(a);
-                  const selected = avatar === a;
-                  return (
-                    <button
-                      key={a}
-                      onClick={() => !taken && setAvatar(a)}
-                      disabled={taken}
-                      title={taken ? 'Занята' : a}
-                      className={`aspect-square rounded-xl border-2 transition-all overflow-hidden relative ${
-                        selected
-                          ? 'border-[#ffd700] scale-110 shadow-lg shadow-[#ffd700]/30'
-                          : taken
-                          ? 'border-gray-700 opacity-40 cursor-not-allowed'
-                          : 'border-gray-600 hover:border-gray-400'
-                      }`}
-                    >
-                      <img
-                        src={`${AVATAR_BASE}${a}`}
-                        alt={a}
-                        className="w-full h-full object-cover"
-                        onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                      />
-                      {taken && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/60 text-lg">🔒</div>
-                      )}
-                    </button>
-                  );
-                })}
+            {joinRole === 'player' && (
+              <div>
+                <p className="text-xs text-gray-400 mb-2 tracking-wider">ВЫБЕРИ АВАТАРКУ</p>
+                <div className="grid grid-cols-6 gap-2">
+                  {AVATARS.map(a => {
+                    const taken = takenAvatars.includes(a);
+                    const selected = avatar === a;
+                    return (
+                      <button
+                        key={a}
+                        onClick={() => !taken && setAvatar(a)}
+                        disabled={taken}
+                        title={taken ? 'Занята' : a}
+                        className={`aspect-square rounded-xl border-2 transition-all overflow-hidden relative ${
+                          selected
+                            ? 'border-[#ffd700] scale-110 shadow-lg shadow-[#ffd700]/30'
+                            : taken
+                            ? 'border-gray-700 opacity-40 cursor-not-allowed'
+                            : 'border-gray-600 hover:border-gray-400'
+                        }`}
+                      >
+                        <img
+                          src={`${AVATAR_BASE}${a}`}
+                          alt={a}
+                          className="w-full h-full object-cover"
+                          onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                        {taken && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/60 text-lg">🔒</div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
 
             <button
               onClick={handleJoin}
               disabled={loading}
               className="w-full py-4 rounded-xl font-black text-lg bg-[#1f6ac6] text-white hover:bg-[#2a7ad6] active:scale-95 transition-all disabled:opacity-50"
             >
-              {loading ? '⏳ Подключаюсь...' : '🎮 Войти как игрок'}
+              {loading ? '⏳ Подключаюсь...' : joinRole === 'spectator' ? '👀 Войти как зритель' : '🎮 Войти как игрок'}
             </button>
           </div>
         )}

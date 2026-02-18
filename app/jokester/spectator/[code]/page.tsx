@@ -12,6 +12,7 @@ import {
   subscribeJokesterRoom,
   subscribeJokesterPlayers,
   subscribeJokesterDuels,
+  subscribeJokesterAnswers,
   subscribeJokesterCategoryVotes,
   submitCategoryVote,
   submitDuelVote,
@@ -111,9 +112,11 @@ export default function JokesterSpectatorPage() {
   useEffect(() => {
     if (!currentDuel || room?.voting_phase !== 'voting') return;
     fetchDuelAnswers(currentDuel.id).then(setCurrentAnswers);
+    const unsub = subscribeJokesterAnswers(currentDuel.id, setCurrentAnswers);
+    return unsub;
   }, [currentDuel?.id, room?.voting_phase]);
 
-  const gamePlayers = players.filter(p => p.role === 'player');
+  const gamePlayers = players.filter(p => p.role === 'player' && !p.is_host);
   const sortedByPoints = [...gamePlayers].sort((a, b) => b.total_points - a.total_points);
 
   const handleCategoryVote = async (catId: string) => {
@@ -219,7 +222,7 @@ export default function JokesterSpectatorPage() {
                 <>
                   <VoteButton
                     label="Дуэлянт 1"
-                    answer={currentAnswers.find(a => a.player_id === currentDuel.player1_id && a.question_index === (room.current_question || 0))?.answer_text || '...'}
+                    answers={currentAnswers.filter(a => a.player_id === currentDuel.player1_id).map(a => a.answer_text)}
                     isSelected={myVote === currentDuel.player1_id}
                     disabled={!!myVote}
                     color="#1f6ac6"
@@ -227,7 +230,7 @@ export default function JokesterSpectatorPage() {
                   />
                   <VoteButton
                     label="Дуэлянт 2"
-                    answer={currentAnswers.find(a => a.player_id === currentDuel.player2_id && a.question_index === (room.current_question || 0))?.answer_text || '...'}
+                    answers={currentAnswers.filter(a => a.player_id === currentDuel.player2_id).map(a => a.answer_text)}
                     isSelected={myVote === currentDuel.player2_id}
                     disabled={!!myVote}
                     color="#f1532f"
@@ -334,14 +337,14 @@ function SpectatorTimerBar({ seconds, total }: { seconds: number; total: number 
 
 function VoteButton({
   label,
-  answer,
+  answers,
   isSelected,
   disabled,
   color,
   onClick,
 }: {
   label: string;
-  answer: string;
+  answers: string[];
   isSelected: boolean;
   disabled: boolean;
   color: string;
@@ -362,7 +365,13 @@ function VoteButton({
       }}
     >
       <p className="text-xs font-bold mb-1" style={{ color }}>{label}</p>
-      <p className="text-lg font-bold text-white">« {answer} »</p>
+      {answers.length > 0 ? (
+        answers.map((a, idx) => (
+          <p key={`${label}-${idx}`} className="text-lg font-bold text-white">« {a} »</p>
+        ))
+      ) : (
+        <p className="text-lg font-bold text-white">...</p>
+      )}
     </button>
   );
 }

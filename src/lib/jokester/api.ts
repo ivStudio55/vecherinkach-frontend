@@ -134,7 +134,21 @@ export async function joinJokesterRoom(
   const room = roomData as JokesterRoom;
   if (room.status !== 'lobby') throw new Error('Игра уже началась');
 
+  let resolvedName = playerName?.trim() || '';
+  let resolvedAvatar = avatar || 'ava1.png';
+
+  if (role === 'spectator') {
+    if (!resolvedName) {
+      resolvedName = `Зритель-${Math.floor(1000 + Math.random() * 9000)}`;
+    }
+    resolvedAvatar = 'ava1.png';
+  }
+
   if (role === 'player') {
+    if (!resolvedName) {
+      throw new Error('Введите имя');
+    }
+
     // Проверяем лимит
     const { count } = await supabase
       .from('jokester_players')
@@ -144,6 +158,18 @@ export async function joinJokesterRoom(
 
     if ((count || 0) >= MAX_PLAYERS) {
       throw new Error('MAX_PLAYERS');
+    }
+
+    // Проверка занятой аватарки среди игроков
+    const { data: occupied } = await supabase
+      .from('jokester_players')
+      .select('avatar')
+      .eq('room_id', room.id)
+      .eq('role', 'player')
+      .eq('avatar', resolvedAvatar)
+      .limit(1);
+    if (occupied && occupied.length > 0) {
+      throw new Error('AVATAR_TAKEN');
     }
   }
 
@@ -157,8 +183,8 @@ export async function joinJokesterRoom(
     .from('jokester_players')
     .insert({
       room_id: room.id,
-      name: playerName,
-      avatar,
+      name: resolvedName,
+      avatar: resolvedAvatar,
       role,
       is_host: false,
       seat: (totalCount || 0) + 1,

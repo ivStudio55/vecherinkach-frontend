@@ -17,7 +17,8 @@ export const JOKESTER_AUDIO = {
   rulesMusic: '/audio/sound/Jokester/soundTrack/rules.mp3',
   categoryMusic: '/audio/sound/Jokester/soundTrack/category.mp3',
   timerMusic120: '/audio/sound/Jokester/soundTrack/120sec.mp3',
-  voteMusic30: '/audio/sound/30_sec.mp3',
+  voteMusic30: '/audio/sound/Jokester/soundTrack/vote30sec.mp3',
+  betweenMusic: '/audio/sound/Jokester/soundTrack/beetween.mp3',
   finalMusic: '/audio/sound/Jokester/soundTrack/final.mp3',
 
   // Голос ведущего — пути к папкам

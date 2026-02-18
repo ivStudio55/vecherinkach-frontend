@@ -66,6 +66,9 @@ export default function JokesterHostPage() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioRef = useRef<JokesterAudioPlayer | null>(null);
   const prevPlayerCountRef = useRef(0);
+  const autoStartingDuelsRef = useRef(false);
+  const prevVoteCountRef = useRef(0);
+  const currentDuel = duels.find(d => d.duel_index === room?.current_duel_index && d.round === room?.current_round);
 
   /* ─── Audio init ─── */
   useEffect(() => {
@@ -115,6 +118,41 @@ export default function JokesterHostPage() {
     return () => unsubs.forEach(fn => fn());
   }, [room?.id]);
 
+  useEffect(() => {
+    if (!room || room.voting_phase !== 'voting' || !currentDuel) return;
+    prevVoteCountRef.current = 0;
+    const unsub = subscribeJokesterVotes(currentDuel.id, votes => {
+      if (votes.length > prevVoteCountRef.current) {
+        audioRef.current?.playRandomDuckVote(0.35);
+      }
+      prevVoteCountRef.current = votes.length;
+      setCurrentVotes(votes);
+    });
+    return unsub;
+  }, [room?.id, room?.voting_phase, currentDuel?.id]);
+
+  useEffect(() => {
+    if (!room || room.status !== 'category_vote') return;
+    fetchCategoryVotes(room.id, room.current_round).then(setCategoryVotes);
+    return subscribeJokesterCategoryVotes(room.id, room.current_round, setCategoryVotes);
+  }, [room?.id, room?.status, room?.current_round]);
+
+  useEffect(() => {
+    if (!room || room.voting_phase !== 'answering') return;
+    let cancelled = false;
+    const tick = async () => {
+      const roundDuels = duels.filter(d => d.round === room.current_round);
+      const all = await Promise.all(roundDuels.map(d => fetchDuelAnswers(d.id)));
+      if (!cancelled) setCurrentAnswers(all.flat());
+    };
+    void tick();
+    const iv = setInterval(() => { void tick(); }, 2000);
+    return () => {
+      cancelled = true;
+      clearInterval(iv);
+    };
+  }, [room?.id, room?.voting_phase, room?.current_round, duels]);
+
   /* ─── Lobby music ─── */
   useEffect(() => {
     if (room?.status === 'lobby') {
@@ -153,7 +191,6 @@ export default function JokesterHostPage() {
   const spectators = players.filter(p => p.role === 'spectator');
   const allGamePlayers = players.filter(p => p.role === 'player');
   const sortedByPoints = [...allGamePlayers].sort((a, b) => b.total_points - a.total_points);
-  const currentDuel = duels.find(d => d.duel_index === room?.current_duel_index && d.round === room?.current_round);
 
   /* ─── Category vote ranking ─── */
   const categoryRanking = categories
@@ -166,6 +203,17 @@ export default function JokesterHostPage() {
   /* ─── Spectator hall seats ─── */
   const spectatorCount = spectators.length;
   const hallSize = spectatorCount <= 50 ? 50 : spectatorCount <= 100 ? 100 : Math.ceil(spectatorCount / 50) * 50;
+
+  useEffect(() => {
+    if (!room || room.status !== 'category_vote') return;
+    if (autoStartingDuelsRef.current) return;
+    const voterIds = new Set(categoryVotes.map(v => v.voter_id));
+    const expectedVoters = players.filter(p => !p.is_host).length;
+    if (expectedVoters > 0 && voterIds.size >= expectedVoters) {
+      autoStartingDuelsRef.current = true;
+      void handleStartDuels();
+    }
+  }, [room?.status, categoryVotes, players]);
 
   /* ══════════════════════════════════════════════
      Actions
@@ -185,8 +233,9 @@ export default function JokesterHostPage() {
 
     // Переход к голосованию за категории
     await updateJokesterRoom(room.id, {
-      status: 'category_vote',
+      status: 'round_rules',
       current_round: 1,
+      voting_phase: 'idle',
       state_version: room.state_version + 2,
     });
   };
@@ -206,11 +255,18 @@ export default function JokesterHostPage() {
     await audioRef.current?.playVoiceRandom(JOKESTER_AUDIO.choosingCategoryFolder, 3);
     await updateJokesterRoom(room.id, { status: 'category_vote', state_version: room.state_version + 2 });
 
-    startTimer(CATEGORY_VOTE_TIME_SEC);
+    startTimer(CATEGORY_VOTE_TIME_SEC, () => {
+      if (!autoStartingDuelsRef.current) {
+        autoStartingDuelsRef.current = true;
+        void handleStartDuels();
+      }
+    });
   };
 
   const handleStartDuels = async () => {
     if (!room) return;
+    if (autoStartingDuelsRef.current && room.voting_phase === 'answering') return;
+    autoStartingDuelsRef.current = true;
     stopTimer();
     audioRef.current?.stopBgm();
 
@@ -266,7 +322,8 @@ export default function JokesterHostPage() {
     audioRef.current?.stopBgm();
 
     // Рефетч ответов текущей дуэли для отображения на экране
-    const duelList = duels.filter(d => d.round === room.current_round);
+    const duelList = await fetchJokesterDuels(room.id, room.current_round);
+    setDuels(duelList);
     const duel = duelList[duelIndex];
     if (duel) {
       const answers = await fetchDuelAnswers(duel.id);
@@ -362,7 +419,10 @@ export default function JokesterHostPage() {
       const afterFolder = room.current_round <= 3
         ? JOKESTER_AUDIO.afterRound(room.current_round)
         : JOKESTER_AUDIO.afterFinal;
+      audioRef.current?.playBgm(JOKESTER_AUDIO.betweenMusic, 0.28);
       await audioRef.current?.playVoiceRandom(afterFolder, 3);
+      audioRef.current?.stopBgm();
+      autoStartingDuelsRef.current = false;
     }
   };
 
@@ -468,7 +528,6 @@ export default function JokesterHostPage() {
           >
             Пошути-кач
           </h1>
-          <span className="text-xs text-gray-500 font-mono">Пошути-кач</span>
         </div>
         <div className="flex items-center gap-3">
           <span className="px-3 py-1 rounded-full text-sm font-bold bg-[#ffd700] text-[#0a1628]">
@@ -625,12 +684,12 @@ export default function JokesterHostPage() {
         )}
 
         {/* ══════════════════ ROUND PLAYING ══════════════════ */}
-        {(room.status === 'round_playing' || room.status === 'final_playing') && currentDuel && (
+        {(room.status === 'round_playing' || room.status === 'final_playing') && (
           <div className="space-y-6 animate-[fadeIn_0.5s_ease]">
             <div className="text-center">
               <h2 className="text-2xl font-black text-[#ffd700]">
                 {room.status === 'final_playing' ? '🏆 ФИНАЛ' : `Раунд ${room.current_round}`}
-                {' '}· Дуэль {room.current_duel_index + 1}
+                {room.voting_phase === 'voting' && currentDuel ? ` · Дуэль ${room.current_duel_index + 1}` : ''}
               </h2>
               <p className="text-sm text-gray-400">
                 {room.voting_phase === 'answering' ? 'Игроки отвечают...' : room.voting_phase === 'voting' ? 'Голосование!' : 'Результаты'}
@@ -639,18 +698,51 @@ export default function JokesterHostPage() {
 
             <TimerCircle seconds={timer} total={room.voting_phase === 'voting' ? VOTE_TIME_SEC : ANSWER_TIME_SEC} />
 
-            {/* Вопрос */}
-            <div className="bg-[#111d33] border-2 border-[#ffd700]/40 rounded-3xl p-6 text-center">
-              <p className="text-xs text-gray-400 mb-2 tracking-wider">
-                {currentDuel.question1_cat?.toUpperCase()}
-              </p>
-              <p className="text-2xl sm:text-3xl font-black">
-                {room.current_question === 0 ? currentDuel.question1_text : currentDuel.question2_text}
-              </p>
-            </div>
+            {room.voting_phase === 'answering' && (
+              <div className="bg-[#111d33] border-2 border-[#ffd700]/30 rounded-3xl p-6 space-y-4">
+                <p className="text-center text-lg font-black text-[#ffd700]">Все игроки отвечают одновременно</p>
+                <p className="text-center text-sm text-gray-400">120 секунд на 2 ответа в каждой своей дуэли</p>
+                <div className="grid md:grid-cols-2 gap-3">
+                  {duels
+                    .filter(d => d.round === room.current_round)
+                    .sort((a, b) => a.duel_index - b.duel_index)
+                    .map(d => {
+                      const p1 = players.find(p => p.id === d.player1_id);
+                      const p2 = players.find(p => p.id === d.player2_id);
+                      const p1a1 = currentAnswers.some(a => a.duel_id === d.id && a.player_id === d.player1_id && a.question_index === 0);
+                      const p1a2 = currentAnswers.some(a => a.duel_id === d.id && a.player_id === d.player1_id && a.question_index === 1);
+                      const p2a1 = currentAnswers.some(a => a.duel_id === d.id && a.player_id === d.player2_id && a.question_index === 0);
+                      const p2a2 = currentAnswers.some(a => a.duel_id === d.id && a.player_id === d.player2_id && a.question_index === 1);
+                      return (
+                        <div key={d.id} className="bg-[#0d1a30] rounded-2xl p-3 border border-gray-700">
+                          <p className="text-xs text-gray-400 mb-2">Дуэль {d.duel_index + 1}</p>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="font-bold">{p1?.name || 'Игрок 1'}</span>
+                            <span className="text-[#ffd700]">{p1a1 ? '✅1' : '⬜1'} {p1a2 ? '✅2' : '⬜2'}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-sm mt-1">
+                            <span className="font-bold">{p2?.name || 'Игрок 2'}</span>
+                            <span className="text-[#ffd700]">{p2a1 ? '✅1' : '⬜1'} {p2a2 ? '✅2' : '⬜2'}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
+
+            {room.voting_phase === 'voting' && currentDuel && (
+              <div className="bg-[#111d33] border-2 border-[#ffd700]/40 rounded-3xl p-6 text-center">
+                <p className="text-xs text-gray-400 mb-2 tracking-wider">
+                  {currentDuel.question1_cat?.toUpperCase()}
+                </p>
+                <p className="text-2xl sm:text-3xl font-black">{currentDuel.question1_text}</p>
+                <p className="text-2xl sm:text-3xl font-black mt-2">{currentDuel.question2_text}</p>
+              </div>
+            )}
 
             {/* Answers during voting */}
-            {room.voting_phase === 'voting' && (
+            {room.voting_phase === 'voting' && currentDuel && (
               <div className="grid sm:grid-cols-2 gap-6">
                 <DuelAnswerCard
                   label={showDeAnon ? (players.find(p => p.id === currentDuel.player1_id)?.name || 'Дуэлянт 1') : 'Дуэлянт 1'}
