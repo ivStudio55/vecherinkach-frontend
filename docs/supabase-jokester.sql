@@ -123,20 +123,90 @@ ALTER TABLE jokester_answers         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE jokester_votes           ENABLE ROW LEVEL SECURITY;
 ALTER TABLE jokester_used_questions  ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "jokester_rooms_all"           ON jokester_rooms          FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "jokester_players_all"         ON jokester_players        FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "jokester_category_votes_all"  ON jokester_category_votes FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "jokester_duels_all"           ON jokester_duels          FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "jokester_answers_all"         ON jokester_answers        FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "jokester_votes_all"           ON jokester_votes          FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "jokester_used_questions_all"  ON jokester_used_questions FOR ALL USING (true) WITH CHECK (true);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'jokester_rooms' AND policyname = 'jokester_rooms_all'
+  ) THEN
+    CREATE POLICY "jokester_rooms_all" ON jokester_rooms FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'jokester_players' AND policyname = 'jokester_players_all'
+  ) THEN
+    CREATE POLICY "jokester_players_all" ON jokester_players FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'jokester_category_votes' AND policyname = 'jokester_category_votes_all'
+  ) THEN
+    CREATE POLICY "jokester_category_votes_all" ON jokester_category_votes FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'jokester_duels' AND policyname = 'jokester_duels_all'
+  ) THEN
+    CREATE POLICY "jokester_duels_all" ON jokester_duels FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'jokester_answers' AND policyname = 'jokester_answers_all'
+  ) THEN
+    CREATE POLICY "jokester_answers_all" ON jokester_answers FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'jokester_votes' AND policyname = 'jokester_votes_all'
+  ) THEN
+    CREATE POLICY "jokester_votes_all" ON jokester_votes FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'jokester_used_questions' AND policyname = 'jokester_used_questions_all'
+  ) THEN
+    CREATE POLICY "jokester_used_questions_all" ON jokester_used_questions FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
 
 -- ========================================================
 -- Realtime
 -- ========================================================
-ALTER PUBLICATION supabase_realtime ADD TABLE jokester_rooms;
-ALTER PUBLICATION supabase_realtime ADD TABLE jokester_players;
-ALTER PUBLICATION supabase_realtime ADD TABLE jokester_duels;
-ALTER PUBLICATION supabase_realtime ADD TABLE jokester_answers;
-ALTER PUBLICATION supabase_realtime ADD TABLE jokester_votes;
-ALTER PUBLICATION supabase_realtime ADD TABLE jokester_category_votes;
+DO $$
+BEGIN
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE jokester_rooms;
+  EXCEPTION WHEN duplicate_object THEN NULL;
+  END;
+
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE jokester_players;
+  EXCEPTION WHEN duplicate_object THEN NULL;
+  END;
+
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE jokester_duels;
+  EXCEPTION WHEN duplicate_object THEN NULL;
+  END;
+
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE jokester_answers;
+  EXCEPTION WHEN duplicate_object THEN NULL;
+  END;
+
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE jokester_votes;
+  EXCEPTION WHEN duplicate_object THEN NULL;
+  END;
+
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE jokester_category_votes;
+  EXCEPTION WHEN duplicate_object THEN NULL;
+  END;
+END $$;

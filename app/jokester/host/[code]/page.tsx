@@ -277,10 +277,10 @@ export default function JokesterHostPage() {
     const n = playerIds.length;
     const topCats = categoryRanking.slice(0, n).map(c => c.id);
 
-    // Подбираем вопросы — каждому дуэлянту нужно по 2 вопроса, дуэлей n штук (каждый игрок в 2 дуэлях, но вопросы разные)
+    // Подбираем вопросы — 1 вопрос на дуэль (каждый игрок в 2 дуэлях => 2 вопроса на игрока)
     const schedule = generateDuelSchedule(playerIds);
     const usedTexts = await getUsedQuestions(room.id);
-    const questions = selectQuestions(categories, topCats, schedule.length * 2, usedTexts);
+    const questions = selectQuestions(categories, topCats, schedule.length, usedTexts);
     await markQuestionsUsed(room.id, round, questions);
 
     // Создаём все дуэли раунда
@@ -325,14 +325,18 @@ export default function JokesterHostPage() {
     const duelList = await fetchJokesterDuels(room.id, room.current_round);
     setDuels(duelList);
     const duel = duelList[duelIndex];
-    if (duel) {
-      const answers = await fetchDuelAnswers(duel.id);
-      setCurrentAnswers(answers);
-      setCurrentVotes([]);
+    if (!duel) {
+      await updateJokesterRoom(room.id, { status: 'round_results', voting_phase: 'results', state_version: room.state_version + 100 });
+      audioRef.current?.stopBgm();
+      return;
     }
+    const answers = await fetchDuelAnswers(duel.id);
+    setCurrentAnswers(answers);
+    setCurrentVotes([]);
 
     await updateJokesterRoom(room.id, {
       current_duel_index: duelIndex,
+      current_question: 0,
       voting_phase: 'voting',
       timer_started_at: new Date().toISOString(),
       timer_duration_sec: VOTE_TIME_SEC,
@@ -355,7 +359,7 @@ export default function JokesterHostPage() {
     setShowDeAnon(true);
 
     // Подсчёт голосов
-    const votes = await fetchDuelVotes(currentDuel.id);
+    const votes = (await fetchDuelVotes(currentDuel.id)).filter(v => v.question_index === 0);
     setCurrentVotes(votes);
 
     const p1votes = votes.filter(v => v.voted_for_id === currentDuel.player1_id);
@@ -400,7 +404,8 @@ export default function JokesterHostPage() {
 
   const handleNextDuelOrResults = async () => {
     if (!room) return;
-    const roundDuels = duels.filter(d => d.round === room.current_round);
+    const roundDuels = await fetchJokesterDuels(room.id, room.current_round);
+    setDuels(roundDuels);
     const nextIndex = room.current_duel_index + 1;
 
     if (nextIndex < roundDuels.length) {
@@ -467,7 +472,7 @@ export default function JokesterHostPage() {
     // Создать финальную дуэль
     const usedTexts = await getUsedQuestions(room.id);
     const topCats = categoryRanking.slice(0, 3).map(c => c.id);
-    const questions = selectQuestions(categories, topCats, 2, usedTexts);
+    const questions = selectQuestions(categories, topCats, 1, usedTexts);
     await markQuestionsUsed(room.id, 4, questions);
     await createDuels(room.id, 4, [{ player1_id: finalists[0].id, player2_id: finalists[1].id }], questions);
 
@@ -701,7 +706,7 @@ export default function JokesterHostPage() {
             {room.voting_phase === 'answering' && (
               <div className="bg-[#111d33] border-2 border-[#ffd700]/30 rounded-3xl p-6 space-y-4">
                 <p className="text-center text-lg font-black text-[#ffd700]">Все игроки отвечают одновременно</p>
-                <p className="text-center text-sm text-gray-400">120 секунд на 2 ответа в каждой своей дуэли</p>
+                <p className="text-center text-sm text-gray-400">120 секунд. Одна дуэль = один вопрос</p>
                 <div className="grid md:grid-cols-2 gap-3">
                   {duels
                     .filter(d => d.round === room.current_round)
@@ -710,19 +715,17 @@ export default function JokesterHostPage() {
                       const p1 = players.find(p => p.id === d.player1_id);
                       const p2 = players.find(p => p.id === d.player2_id);
                       const p1a1 = currentAnswers.some(a => a.duel_id === d.id && a.player_id === d.player1_id && a.question_index === 0);
-                      const p1a2 = currentAnswers.some(a => a.duel_id === d.id && a.player_id === d.player1_id && a.question_index === 1);
                       const p2a1 = currentAnswers.some(a => a.duel_id === d.id && a.player_id === d.player2_id && a.question_index === 0);
-                      const p2a2 = currentAnswers.some(a => a.duel_id === d.id && a.player_id === d.player2_id && a.question_index === 1);
                       return (
                         <div key={d.id} className="bg-[#0d1a30] rounded-2xl p-3 border border-gray-700">
                           <p className="text-xs text-gray-400 mb-2">Дуэль {d.duel_index + 1}</p>
                           <div className="flex items-center justify-between text-sm">
                             <span className="font-bold">{p1?.name || 'Игрок 1'}</span>
-                            <span className="text-[#ffd700]">{p1a1 ? '✅1' : '⬜1'} {p1a2 ? '✅2' : '⬜2'}</span>
+                            <span className="text-[#ffd700]">{p1a1 ? '✅' : '⬜'}</span>
                           </div>
                           <div className="flex items-center justify-between text-sm mt-1">
                             <span className="font-bold">{p2?.name || 'Игрок 2'}</span>
-                            <span className="text-[#ffd700]">{p2a1 ? '✅1' : '⬜1'} {p2a2 ? '✅2' : '⬜2'}</span>
+                            <span className="text-[#ffd700]">{p2a1 ? '✅' : '⬜'}</span>
                           </div>
                         </div>
                       );
@@ -737,7 +740,6 @@ export default function JokesterHostPage() {
                   {currentDuel.question1_cat?.toUpperCase()}
                 </p>
                 <p className="text-2xl sm:text-3xl font-black">{currentDuel.question1_text}</p>
-                <p className="text-2xl sm:text-3xl font-black mt-2">{currentDuel.question2_text}</p>
               </div>
             )}
 

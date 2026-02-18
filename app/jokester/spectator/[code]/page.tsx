@@ -129,7 +129,7 @@ export default function JokesterSpectatorPage() {
   const handleVote = async (votedForId: string) => {
     if (!currentDuel || myVote) return;
     setMyVote(votedForId);
-    await submitDuelVote(currentDuel.id, myId, room?.current_question || 0, votedForId, 'spectator');
+    await submitDuelVote(currentDuel.id, myId, 0, votedForId, 'spectator');
   };
 
   if (!room) {
@@ -210,9 +210,7 @@ export default function JokesterSpectatorPage() {
             {/* Вопрос */}
             {currentDuel && (
               <div className="bg-[#111d33] border border-gray-700 rounded-2xl p-4 text-center">
-                <p className="font-bold">
-                  {room.current_question === 0 ? currentDuel.question1_text : currentDuel.question2_text}
-                </p>
+                <p className="font-bold">{currentDuel.question1_text}</p>
               </div>
             )}
 

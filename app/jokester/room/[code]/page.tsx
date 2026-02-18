@@ -145,9 +145,7 @@ export default function JokesterPlayerPage() {
   const pendingTargets = myRoundDuels.flatMap(d => {
     const t: Array<{ duel: JokesterDuel; qIndex: 0 | 1; text: string | null; cat: string | null }> = [];
     const hasQ1 = myRoundAnswers.some(a => a.duel_id === d.id && a.player_id === myId && a.question_index === 0);
-    const hasQ2 = myRoundAnswers.some(a => a.duel_id === d.id && a.player_id === myId && a.question_index === 1);
     if (!hasQ1) t.push({ duel: d, qIndex: 0, text: d.question1_text, cat: d.question1_cat });
-    if (!hasQ2) t.push({ duel: d, qIndex: 1, text: d.question2_text, cat: d.question2_cat });
     return t;
   });
   const currentTarget = pendingTargets[0] || null;
@@ -164,19 +162,14 @@ export default function JokesterPlayerPage() {
   /* ─── Answer submit ─── */
   const handleSubmitAnswer = async (qIndex: number) => {
     if (!currentTarget) return;
-    const text = qIndex === 0 ? answer1 : answer2;
+    const text = answer1;
     if (!text.trim()) return;
     await submitAnswer(currentTarget.duel.id, myId, qIndex, text.trim());
     const updated = await fetchDuelAnswers(currentTarget.duel.id);
     const others = myRoundAnswers.filter(a => a.duel_id !== currentTarget.duel.id);
     setMyRoundAnswers([...others, ...updated]);
-    if (qIndex === 0) {
-      setSubmitted1(true);
-      setAnswer1('');
-    } else {
-      setSubmitted2(true);
-      setAnswer2('');
-    }
+    setSubmitted1(true);
+    setAnswer1('');
   };
 
   useEffect(() => {
@@ -205,7 +198,7 @@ export default function JokesterPlayerPage() {
   const handleVote = async (votedForId: string) => {
     if (!currentDuel || myVote) return;
     setMyVote(votedForId);
-    await submitDuelVote(currentDuel.id, myId, room?.current_question || 0, votedForId, me?.role || 'player');
+    await submitDuelVote(currentDuel.id, myId, 0, votedForId, me?.role || 'player');
   };
 
   /* ─── Category scroll animation ─── */
@@ -351,20 +344,20 @@ export default function JokesterPlayerPage() {
               <>
                 <div className="bg-[#111d33] border-2 border-[#1f6ac6]/50 rounded-2xl p-4 space-y-3">
                   <p className="text-xs text-[#ffd700] tracking-wider">
-                    {currentTarget.cat?.toUpperCase()} · дуэль {currentTarget.duel.duel_index + 1} · вопрос {currentTarget.qIndex + 1}
+                    {currentTarget.cat?.toUpperCase()} · дуэль {currentTarget.duel.duel_index + 1}
                   </p>
                   <p className="text-lg font-bold">{currentTarget.text}</p>
                   <textarea
                     placeholder="Твой смешной ответ..."
-                    value={currentTarget.qIndex === 0 ? answer1 : answer2}
-                    onChange={e => currentTarget.qIndex === 0 ? setAnswer1(e.target.value) : setAnswer2(e.target.value)}
+                    value={answer1}
+                    onChange={e => setAnswer1(e.target.value)}
                     maxLength={200}
                     rows={3}
                     className="w-full px-3 py-2 rounded-xl bg-[#0d1a30] border border-gray-600 text-white placeholder-gray-500 focus:border-[#ffd700] focus:outline-none resize-none"
                   />
                   <button
                     onClick={() => handleSubmitAnswer(currentTarget.qIndex)}
-                    disabled={!(currentTarget.qIndex === 0 ? answer1.trim() : answer2.trim())}
+                    disabled={!answer1.trim()}
                     className="w-full py-3 rounded-xl font-bold bg-[#1f6ac6] text-white hover:bg-[#2a7ad6] active:scale-95 transition disabled:opacity-40"
                   >
                     ✅ Отправить ответ
