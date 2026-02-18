@@ -160,7 +160,6 @@ export default function JokesterPlayerPage() {
     return t;
   });
   const currentTarget = pendingTargets[0] || null;
-  const selectedCategoryMeta = categories.find(c => c.id === selectedCategory);
 
   /* ─── Category vote handler ─── */
   const handleCategoryVote = async (catId: string) => {
@@ -330,13 +329,15 @@ export default function JokesterPlayerPage() {
             {/* Category scroll animation */}
             {showCategoryScroll && (
               <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 animate-[fadeIn_0.3s_ease]">
-                <div className="text-center space-y-4">
-                  <p className="text-sm text-gray-400">Категория вопроса</p>
-                  <div className="px-6 py-4 rounded-2xl bg-[#111d33] border-2 border-[#ffd700]/50 animate-[pulse_1.2s_ease-in-out_infinite]">
-                    <p className="text-3xl font-black text-[#ffd700]">
-                      {selectedCategoryMeta ? `${selectedCategoryMeta.emoji} ${selectedCategoryMeta.name}` : '🎭 Категория'}
-                    </p>
-                  </div>
+                <div className="bg-[#111d33] border-2 border-[#ffd700]/50 rounded-3xl p-6 text-center max-w-md w-[90%] animate-[categoryReveal_2.5s_ease-out_forwards]">
+                  <p className="text-xs text-gray-400 mb-2">Категория</p>
+                  <p className="text-3xl font-black text-[#ffd700]">
+                    {categories.find(c => c.id === selectedCategory)?.emoji}{' '}
+                    {categories.find(c => c.id === selectedCategory)?.name || 'Неизвестно'}
+                  </p>
+                  {currentTarget?.text && (
+                    <p className="text-sm text-gray-300 mt-3">{currentTarget.text}</p>
+                  )}
                 </div>
               </div>
             )}
@@ -465,6 +466,15 @@ export default function JokesterPlayerPage() {
         )}
 
       </div>
+
+      <style jsx>{`
+        @keyframes categoryReveal {
+          0% { transform: translateY(12px) scale(0.98); opacity: 0; }
+          20% { transform: translateY(0) scale(1); opacity: 1; }
+          80% { transform: translateY(0) scale(1); opacity: 1; }
+          100% { transform: translateY(-8px) scale(0.98); opacity: 0; }
+        }
+      `}</style>
     </div>
   );
 }

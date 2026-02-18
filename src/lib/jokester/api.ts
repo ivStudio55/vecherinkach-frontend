@@ -488,11 +488,25 @@ export function selectQuestions(
   usedTexts: string[],
 ): Array<{ text: string; category: string }> {
   const pool: Array<{ text: string; category: string }> = [];
+  const seen = new Set<string>();
   for (const catId of topCategoryIds) {
     const cat = categories.find(c => c.id === catId);
     if (cat) {
       for (const q of cat.questions) {
-        if (!usedTexts.includes(q)) {
+        if (!usedTexts.includes(q) && !seen.has(q)) {
+          seen.add(q);
+          pool.push({ text: q, category: cat.id });
+        }
+      }
+    }
+  }
+
+  // If pool is too small, allow reusing previously used questions (fallback)
+  if (pool.length < count) {
+    for (const cat of categories) {
+      for (const q of cat.questions) {
+        if (!seen.has(q)) {
+          seen.add(q);
           pool.push({ text: q, category: cat.id });
         }
       }
