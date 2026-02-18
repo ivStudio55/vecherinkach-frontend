@@ -31,6 +31,17 @@ import type {
 } from '@/lib/jokester/types';
 import { ANSWER_TIME_SEC, VOTE_TIME_SEC, roundMultiplier } from '@/lib/jokester/types';
 
+function normalizeAvatarFile(value?: string | null): string {
+  if (!value) return '1.png';
+  const match = value.match(/^ava(\d+)\.png$/i);
+  if (match) return `${match[1]}.png`;
+  return value;
+}
+
+function avatarSrc(value?: string | null): string {
+  return `/audio/sound/Jokester/ava/${normalizeAvatarFile(value)}`;
+}
+
 /* ════════════════════════════════════════════════════ */
 export default function JokesterPlayerPage() {
   const params = useParams();
@@ -143,9 +154,9 @@ export default function JokesterPlayerPage() {
     .sort((a, b) => a.duel_index - b.duel_index);
 
   const pendingTargets = myRoundDuels.flatMap(d => {
-    const t: Array<{ duel: JokesterDuel; qIndex: 0 | 1; text: string | null; cat: string | null }> = [];
+    const t: Array<{ duel: JokesterDuel; qIndex: 0; text: string; cat: string | null }> = [];
     const hasQ1 = myRoundAnswers.some(a => a.duel_id === d.id && a.player_id === myId && a.question_index === 0);
-    if (!hasQ1) t.push({ duel: d, qIndex: 0, text: d.question1_text, cat: d.question1_cat });
+    if (!hasQ1 && d.question1_text?.trim()) t.push({ duel: d, qIndex: 0, text: d.question1_text.trim(), cat: d.question1_cat });
     return t;
   });
   const currentTarget = pendingTargets[0] || null;
@@ -228,9 +239,7 @@ export default function JokesterPlayerPage() {
       {/* Header */}
       <header className="bg-[#0d1a30] border-b border-[#ffd700]/20 px-4 py-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-xl">
-            {['😎','🤠','🧐','🤡','👻','🦊','🐸','🦄','🎃','🤖','👽','🐧'][me.seat % 12]}
-          </span>
+          <img src={avatarSrc(me.avatar)} alt={me.name} className="w-8 h-8 rounded-full object-cover" />
           <span className="font-bold text-sm">{me.name}</span>
         </div>
         <div className="flex items-center gap-3 text-sm">
@@ -250,7 +259,7 @@ export default function JokesterPlayerPage() {
             <div className="grid grid-cols-4 gap-2">
               {gamePlayers.map(p => (
                 <div key={p.id} className={`bg-[#111d33] rounded-xl p-2 text-center ${p.id === myId ? 'border-2 border-[#ffd700]' : ''}`}>
-                  <div className="text-xl">{['😎','🤠','🧐','🤡','👻','🦊','🐸','🦄','🎃','🤖','👽','🐧'][p.seat % 12]}</div>
+                  <img src={avatarSrc(p.avatar)} alt={p.name} className="w-8 h-8 rounded-full object-cover mx-auto" />
                   <p className="text-xs truncate">{p.name}</p>
                 </div>
               ))}
@@ -385,6 +394,7 @@ export default function JokesterPlayerPage() {
             myVote={myVote}
             timer={timer}
             duelAnswers={duelAnswers}
+            questionText={currentDuel?.question1_text || ''}
             onVote={handleVote}
           />
         )}
@@ -404,9 +414,7 @@ export default function JokesterPlayerPage() {
             {/* My stats */}
             {me && (
               <div className="bg-[#111d33] border-2 border-[#ffd700]/50 rounded-3xl p-6 text-center space-y-3">
-                <div className="text-4xl">
-                  {['😎','🤠','🧐','🤡','👻','🦊','🐸','🦄','🎃','🤖','👽','🐧'][me.seat % 12]}
-                </div>
+                <img src={avatarSrc(me.avatar)} alt={me.name} className="w-14 h-14 rounded-full object-cover mx-auto" />
                 <p className="text-2xl font-black text-[#ffd700]">{me.total_points} очков</p>
                 <p className="text-lg text-white">Место: #{myRank}</p>
                 <div className="flex justify-center gap-6 text-sm text-gray-400">
@@ -428,7 +436,7 @@ export default function JokesterPlayerPage() {
                   <span className="text-lg font-bold w-6 text-center">
                     {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
                   </span>
-                  <span className="text-xl">{['😎','🤠','🧐','🤡','👻','🦊','🐸','🦄','🎃','🤖','👽','🐧'][p.seat % 12]}</span>
+                  <img src={avatarSrc(p.avatar)} alt={p.name} className="w-8 h-8 rounded-full object-cover" />
                   <span className="flex-1 font-bold text-sm truncate">{p.name}</span>
                   <span className="font-black text-[#ffd700]">{p.total_points}</span>
                 </div>
@@ -485,6 +493,7 @@ function VotingPanel({
   myVote,
   timer,
   duelAnswers,
+  questionText,
   onVote,
 }: {
   currentDuel: JokesterDuel | null;
@@ -494,6 +503,7 @@ function VotingPanel({
   myVote: string | null;
   timer: number;
   duelAnswers: JokesterAnswer[];
+  questionText: string;
   onVote: (id: string) => void;
 }) {
   const p1 = players.find(p => p.id === currentDuel?.player1_id);
@@ -501,11 +511,16 @@ function VotingPanel({
   const p1Answers = duelAnswers.filter(a => a.player_id === currentDuel?.player1_id);
   const p2Answers = duelAnswers.filter(a => a.player_id === currentDuel?.player2_id);
 
-  const avatarBase = '/audio/sound/Jokester/ava/';
-
   return (
     <div className="space-y-5 animate-[fadeIn_0.5s_ease]">
       <PlayerTimerBar seconds={timer} total={VOTE_TIME_SEC} />
+
+      {questionText && (
+        <div className="bg-[#111d33] border border-[#ffd700]/40 rounded-2xl p-4 text-center">
+          <p className="text-sm text-gray-400 mb-1">Вопрос дуэли</p>
+          <p className="text-lg font-bold">{questionText}</p>
+        </div>
+      )}
 
       {amInDuel ? (
         <div className="text-center py-10 space-y-4">
@@ -543,7 +558,7 @@ function VotingPanel({
           >
             <div className="flex items-center gap-3 mb-2">
               {p1?.avatar && (
-                <img src={`${avatarBase}${p1.avatar}`} alt="" className="w-8 h-8 rounded-full object-cover" />
+                <img src={avatarSrc(p1.avatar)} alt="" className="w-8 h-8 rounded-full object-cover" />
               )}
               <span className="font-bold text-[#1f6ac6]">🔵 ????? (Дуэлянт 1)</span>
             </div>
@@ -568,7 +583,7 @@ function VotingPanel({
           >
             <div className="flex items-center gap-3 mb-2">
               {p2?.avatar && (
-                <img src={`${avatarBase}${p2.avatar}`} alt="" className="w-8 h-8 rounded-full object-cover" />
+                <img src={avatarSrc(p2.avatar)} alt="" className="w-8 h-8 rounded-full object-cover" />
               )}
               <span className="font-bold text-red-400">🔴 ????? (Дуэлянт 2)</span>
             </div>

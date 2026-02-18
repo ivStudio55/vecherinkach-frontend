@@ -29,6 +29,17 @@ import type {
 } from '@/lib/jokester/types';
 import { VOTE_TIME_SEC, ANSWER_TIME_SEC } from '@/lib/jokester/types';
 
+function normalizeAvatarFile(value?: string | null): string {
+  if (!value) return '1.png';
+  const match = value.match(/^ava(\d+)\.png$/i);
+  if (match) return `${match[1]}.png`;
+  return value;
+}
+
+function avatarSrc(value?: string | null): string {
+  return `/audio/sound/Jokester/ava/${normalizeAvatarFile(value)}`;
+}
+
 export default function JokesterSpectatorPage() {
   const params = useParams();
   const roomCode = params.code as string;
@@ -163,7 +174,7 @@ export default function JokesterSpectatorPage() {
               <h3 className="text-sm font-bold text-gray-400">Рейтинг игроков</h3>
               {gamePlayers.map(p => (
                 <div key={p.id} className="flex items-center gap-2 bg-[#0d1a30] rounded-lg p-2">
-                  <span className="text-lg">{['😎','🤠','🧐','🤡','👻','🦊','🐸','🦄','🎃','🤖','👽','🐧'][p.seat % 12]}</span>
+                  <img src={avatarSrc(p.avatar)} alt={p.name} className="w-7 h-7 rounded-full object-cover" />
                   <span className="text-sm font-bold">{p.name}</span>
                 </div>
               ))}
@@ -265,9 +276,7 @@ export default function JokesterSpectatorPage() {
                   <span className="text-lg font-bold w-6 text-center">
                     {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
                   </span>
-                  <span className="text-xl">
-                    {['😎','🤠','🧐','🤡','👻','🦊','🐸','🦄','🎃','🤖','👽','🐧'][p.seat % 12]}
-                  </span>
+                  <img src={avatarSrc(p.avatar)} alt={p.name} className="w-8 h-8 rounded-full object-cover" />
                   <span className="flex-1 font-bold text-sm">{p.name}</span>
                   <div className="text-right">
                     <span className="font-black text-[#ffd700]">{p.total_points}</span>

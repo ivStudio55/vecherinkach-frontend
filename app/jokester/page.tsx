@@ -7,9 +7,15 @@ import { useRouter } from 'next/navigation';
 import { createJokesterRoom, joinJokesterRoom, fetchJokesterPlayers, fetchJokesterRoom, jokesterStorage } from '@/lib/jokester/api';
 import type { JokesterRole } from '@/lib/jokester/types';
 
-const AVATAR_COUNT = 12;
-const AVATARS = Array.from({ length: AVATAR_COUNT }, (_, i) => `ava${i + 1}.png`);
+const AVATAR_COUNT = 14;
+const AVATARS = Array.from({ length: AVATAR_COUNT }, (_, i) => `${i + 1}.png`);
 const AVATAR_BASE = '/audio/sound/Jokester/ava/';
+
+function normalizeAvatarFile(value: string): string {
+  const match = value.match(/^ava(\d+)\.png$/i);
+  if (match) return `${match[1]}.png`;
+  return value;
+}
 
 export default function JokesterEntryPage() {
   const router = useRouter();
@@ -31,7 +37,7 @@ export default function JokesterEntryPage() {
       const room = await fetchJokesterRoom(code);
       if (!room || cancelled) return;
       const players = await fetchJokesterPlayers(room.id);
-      const taken = players.map(p => p.avatar);
+      const taken = players.map(p => normalizeAvatarFile(p.avatar));
       if (!cancelled) {
         setTakenAvatars(taken);
         // Auto-select first free avatar
@@ -61,7 +67,7 @@ export default function JokesterEntryPage() {
       const { room } = await joinJokesterRoom(
         joinCode.trim(),
         joinRole === 'player' ? joinName.trim() : '',
-        joinRole === 'player' ? avatar : 'ava1.png',
+        joinRole === 'player' ? avatar : '1.png',
         joinRole,
       );
       if (joinRole === 'spectator') {

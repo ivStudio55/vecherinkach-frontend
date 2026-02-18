@@ -68,7 +68,14 @@ export default function JokesterHostPage() {
   const prevPlayerCountRef = useRef(0);
   const autoStartingDuelsRef = useRef(false);
   const prevVoteCountRef = useRef(0);
+  const voteEndLockRef = useRef(false);
   const currentDuel = duels.find(d => d.duel_index === room?.current_duel_index && d.round === room?.current_round);
+
+  const avatarSrc = useCallback((avatar?: string | null) => {
+    if (!avatar) return '/audio/sound/Jokester/ava/1.png';
+    const normalized = avatar.replace(/^ava(\d+)\.png$/i, '$1.png');
+    return `/audio/sound/Jokester/ava/${normalized}`;
+  }, []);
 
   /* ─── Audio init ─── */
   useEffect(() => {
@@ -164,11 +171,18 @@ export default function JokesterHostPage() {
   }, [room?.status]);
 
   /* ─── Timer logic ─── */
-  const startTimer = useCallback((seconds: number, onEnd?: () => void) => {
+  const startTimer = useCallback((
+    seconds: number,
+    onEnd?: () => void,
+    options?: { preEndSfxAtSec?: number; preEndSfxSrc?: string; preEndSfxVolume?: number },
+  ) => {
     if (timerRef.current) clearInterval(timerRef.current);
     setTimer(seconds);
     timerRef.current = setInterval(() => {
       setTimer(prev => {
+        if (options?.preEndSfxAtSec && options?.preEndSfxSrc && prev === options.preEndSfxAtSec) {
+          audioRef.current?.playSfx(options.preEndSfxSrc, options.preEndSfxVolume ?? 0.65);
+        }
         if (prev <= 1) {
           if (timerRef.current) clearInterval(timerRef.current);
           timerRef.current = null;
@@ -347,66 +361,88 @@ export default function JokesterHostPage() {
     audioRef.current?.playVoiceRandom(JOKESTER_AUDIO.voteFolder, 3);
     setShowDeAnon(false);
 
-    startTimer(VOTE_TIME_SEC, () => handleVoteEnd());
+    startTimer(VOTE_TIME_SEC, () => {
+      void handleVoteEnd();
+    }, {
+      preEndSfxAtSec: 3,
+      preEndSfxSrc: '/audio/skip/skip2.mp3',
+      preEndSfxVolume: 0.7,
+    });
   };
 
   // Оставляем для совместимости — теперь не используется напрямую
   const handleDuelAnswerTimeout = handleAnswerPhaseEnd;
 
   const handleVoteEnd = async () => {
-    if (!room || !currentDuel) return;
     audioRef.current?.stopBgm();
+    if (!room || voteEndLockRef.current) return;
+    voteEndLockRef.current = true;
     setShowDeAnon(true);
 
-    // Подсчёт голосов
-    const votes = (await fetchDuelVotes(currentDuel.id)).filter(v => v.question_index === 0);
-    setCurrentVotes(votes);
+    try {
+      const freshRoom = await fetchJokesterRoom(room.code);
+      const roomSnapshot = freshRoom || room;
+      const roundDuels = await fetchJokesterDuels(roomSnapshot.id, roomSnapshot.current_round);
+      const duel = roundDuels.find(d => d.duel_index === roomSnapshot.current_duel_index);
 
-    const p1votes = votes.filter(v => v.voted_for_id === currentDuel.player1_id);
-    const p2votes = votes.filter(v => v.voted_for_id === currentDuel.player2_id);
+      if (!duel) {
+        await updateJokesterRoom(roomSnapshot.id, { status: 'round_results', voting_phase: 'results', state_version: roomSnapshot.state_version + 500 });
+        return;
+      }
+
+      // Подсчёт голосов
+      const votes = (await fetchDuelVotes(duel.id)).filter(v => v.question_index === 0);
+      setCurrentVotes(votes);
+
+      const p1votes = votes.filter(v => v.voted_for_id === duel.player1_id);
+      const p2votes = votes.filter(v => v.voted_for_id === duel.player2_id);
 
     const p1playerVotes = p1votes.filter(v => v.voter_role === 'player').length;
     const p1spectatorVotes = p1votes.filter(v => v.voter_role === 'spectator').length;
     const p2playerVotes = p2votes.filter(v => v.voter_role === 'player').length;
     const p2spectatorVotes = p2votes.filter(v => v.voter_role === 'spectator').length;
 
-    const mult = roundMultiplier(room.current_round);
-    const totalVotes = votes.length;
-    const winnerPercent = totalVotes > 0
-      ? Math.round((Math.max(p1votes.length, p2votes.length) / totalVotes) * 100)
-      : 50;
+      const mult = roundMultiplier(roomSnapshot.current_round);
+      const totalVotes = votes.length;
+      const winnerPercent = totalVotes > 0
+        ? Math.round((Math.max(p1votes.length, p2votes.length) / totalVotes) * 100)
+        : 50;
 
     // Начислить очки
-    let winnerId: string | null = null;
-    if (p1votes.length > p2votes.length) {
-      winnerId = currentDuel.player1_id;
-      await updatePlayerPoints(currentDuel.player1_id, POINTS.DUEL_WIN * mult, 0, 0);
-    } else if (p2votes.length > p1votes.length) {
-      winnerId = currentDuel.player2_id;
-      await updatePlayerPoints(currentDuel.player2_id, POINTS.DUEL_WIN * mult, 0, 0);
-    }
-    // Голоса (для обоих)
-    await updatePlayerPoints(currentDuel.player1_id, 0, p1playerVotes * POINTS.PLAYER_VOTE * mult, p1spectatorVotes * POINTS.SPECTATOR_VOTE * mult);
-    await updatePlayerPoints(currentDuel.player2_id, 0, p2playerVotes * POINTS.PLAYER_VOTE * mult, p2spectatorVotes * POINTS.SPECTATOR_VOTE * mult);
+      let winnerId: string | null = null;
+      if (p1votes.length > p2votes.length) {
+        winnerId = duel.player1_id;
+        await updatePlayerPoints(duel.player1_id, POINTS.DUEL_WIN * mult, 0, 0);
+      } else if (p2votes.length > p1votes.length) {
+        winnerId = duel.player2_id;
+        await updatePlayerPoints(duel.player2_id, POINTS.DUEL_WIN * mult, 0, 0);
+      }
+      // Голоса (для обоих)
+      await updatePlayerPoints(duel.player1_id, 0, p1playerVotes * POINTS.PLAYER_VOTE * mult, p1spectatorVotes * POINTS.SPECTATOR_VOTE * mult);
+      await updatePlayerPoints(duel.player2_id, 0, p2playerVotes * POINTS.PLAYER_VOTE * mult, p2spectatorVotes * POINTS.SPECTATOR_VOTE * mult);
 
     // Обновить дуэль
-    const { supabase } = await import('@/lib/supabase');
-    await supabase.from('jokester_duels').update({ winner_id: winnerId, status: 'done' }).eq('id', currentDuel.id);
+      const { supabase } = await import('@/lib/supabase');
+      await supabase.from('jokester_duels').update({ winner_id: winnerId, status: 'done' }).eq('id', duel.id);
 
-    await updateJokesterRoom(room.id, { voting_phase: 'results', state_version: room.state_version + 5 });
+      await updateJokesterRoom(roomSnapshot.id, { voting_phase: 'results', state_version: roomSnapshot.state_version + 5 });
 
     // Озвучка комментария
-    await audioRef.current?.playVoteComment(winnerPercent, 3);
+      await audioRef.current?.playVoteComment(winnerPercent, 3);
 
-    // Автопереход к следующей дуэли или результатам раунда
-    await handleNextDuelOrResults();
+      // Автопереход к следующей дуэли или результатам раунда
+      await handleNextDuelOrResults(roomSnapshot);
+    } finally {
+      voteEndLockRef.current = false;
+    }
   };
 
-  const handleNextDuelOrResults = async () => {
-    if (!room) return;
-    const roundDuels = await fetchJokesterDuels(room.id, room.current_round);
+  const handleNextDuelOrResults = async (roomSnapshot?: JokesterRoom) => {
+    const effectiveRoom = roomSnapshot || room;
+    if (!effectiveRoom) return;
+    const roundDuels = await fetchJokesterDuels(effectiveRoom.id, effectiveRoom.current_round);
     setDuels(roundDuels);
-    const nextIndex = room.current_duel_index + 1;
+    const nextIndex = effectiveRoom.current_duel_index + 1;
 
     if (nextIndex < roundDuels.length) {
       // Следующая дуэль — сразу голосование (ответы уже были даны)
@@ -414,15 +450,15 @@ export default function JokesterHostPage() {
     } else {
       // Результаты раунда
       audioRef.current?.stopBgm();
-      await updateJokesterRoom(room.id, { status: 'round_results', state_version: room.state_version + 7 });
+      await updateJokesterRoom(effectiveRoom.id, { status: 'round_results', state_version: effectiveRoom.state_version + 7 });
 
       // Рефетч игроков для рейтинга
-      const freshPlayers = await fetchJokesterPlayers(room.id);
+      const freshPlayers = await fetchJokesterPlayers(effectiveRoom.id);
       setPlayers(freshPlayers);
 
       // Голос после раунда
-      const afterFolder = room.current_round <= 3
-        ? JOKESTER_AUDIO.afterRound(room.current_round)
+      const afterFolder = effectiveRoom.current_round <= 3
+        ? JOKESTER_AUDIO.afterRound(effectiveRoom.current_round)
         : JOKESTER_AUDIO.afterFinal;
       audioRef.current?.playBgm(JOKESTER_AUDIO.betweenMusic, 0.28);
       await audioRef.current?.playVoiceRandom(afterFolder, 3);
@@ -588,9 +624,7 @@ export default function JokesterHostPage() {
                   <div className="grid grid-cols-3 gap-2">
                     {gamePlayers.map(p => (
                       <div key={p.id} className="bg-[#0d1a30] rounded-xl p-2 text-center animate-[fadeIn_0.3s_ease]">
-                        <div className="text-2xl mb-1">
-                          {['😎','🤠','🧐','🤡','👻','🦊','🐸','🦄','🎃','🤖','👽','🐧'][p.seat % 12]}
-                        </div>
+                        <img src={avatarSrc(p.avatar)} alt={p.name} className="w-10 h-10 rounded-full object-cover mx-auto mb-1" />
                         <p className="text-xs font-bold truncate">{p.name}</p>
                       </div>
                     ))}
@@ -639,10 +673,10 @@ export default function JokesterHostPage() {
               {gamePlayers.map((p, i) => (
                 <div
                   key={p.id}
-                  className="text-3xl animate-[bounce_0.6s_infinite]"
+                  className="animate-[bounce_0.6s_infinite]"
                   style={{ animationDelay: `${i * 0.1}s` }}
                 >
-                  {['😎','🤠','🧐','🤡','👻','🦊','🐸','🦄','🎃','🤖','👽','🐧'][p.seat % 12]}
+                  <img src={avatarSrc(p.avatar)} alt={p.name} className="w-12 h-12 rounded-full object-cover border border-white/20" />
                 </div>
               ))}
             </div>
@@ -799,9 +833,7 @@ export default function JokesterHostPage() {
                   <span className="text-2xl font-black text-[#ffd700] w-8 text-center">
                     {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
                   </span>
-                  <span className="text-2xl">
-                    {['😎','🤠','🧐','🤡','👻','🦊','🐸','🦄','🎃','🤖','👽','🐧'][p.seat % 12]}
-                  </span>
+                  <img src={avatarSrc(p.avatar)} alt={p.name} className="w-10 h-10 rounded-full object-cover" />
                   <div className="flex-1">
                     <p className="font-bold">{p.name}</p>
                     <p className="text-xs text-gray-400">
@@ -866,9 +898,7 @@ export default function JokesterHostPage() {
               </h2>
               {sortedByPoints[0] && (
                 <div className="space-y-4">
-                  <div className="text-7xl">
-                    {['😎','🤠','🧐','🤡','👻','🦊','🐸','🦄','🎃','🤖','👽','🐧'][sortedByPoints[0].seat % 12]}
-                  </div>
+                  <img src={avatarSrc(sortedByPoints[0].avatar)} alt={sortedByPoints[0].name} className="w-28 h-28 rounded-full object-cover mx-auto border-4 border-[#ffd700]/70" />
                   <p className="text-4xl font-black text-[#ffd700]">{sortedByPoints[0].name}</p>
                   <p className="text-2xl text-white">{sortedByPoints[0].total_points} очков</p>
                 </div>
@@ -910,7 +940,7 @@ export default function JokesterHostPage() {
             </h2>
             <div className="bg-[#111d33] border-2 border-[#ffd700]/30 rounded-3xl p-6 max-w-lg text-center space-y-3">
               <p className="text-gray-300">Каждый игрок проведёт 2 дуэли</p>
-              <p className="text-gray-300">120 секунд на 2 ответа</p>
+              <p className="text-gray-300">120 секунд на 1 ответ</p>
               <p className="text-gray-300">Зрители и игроки голосуют за лучший ответ</p>
               {room.current_round > 1 && (
                 <p className="text-[#ffd700] font-bold text-xl">
@@ -987,6 +1017,12 @@ function DuelAnswerCard({
   color: string;
   showNames: boolean;
 }) {
+  const avatarSrc = (avatar?: string | null) => {
+    if (!avatar) return '/audio/sound/Jokester/ava/1.png';
+    const normalized = avatar.replace(/^ava(\d+)\.png$/i, '$1.png');
+    return `/audio/sound/Jokester/ava/${normalized}`;
+  };
+
   return (
     <div
       className="bg-[#111d33] border-2 rounded-3xl p-6 space-y-3"
@@ -1007,7 +1043,9 @@ function DuelAnswerCard({
               className="w-8 h-8 rounded-full bg-[#1a2940] flex items-center justify-center text-sm animate-[fadeIn_0.3s_ease]"
               title={voter?.name}
             >
-              {voter ? ['😎','🤠','🧐','🤡','👻','🦊','🐸','🦄','🎃','🤖','👽','🐧'][voter.seat % 12] : '👤'}
+              {voter ? (
+                <img src={avatarSrc(voter.avatar)} alt={voter.name} className="w-8 h-8 rounded-full object-cover" />
+              ) : '👤'}
             </div>
           );
         })}

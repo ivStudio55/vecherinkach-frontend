@@ -63,6 +63,12 @@ function generateCode(): string {
   return String(Math.floor(1000 + Math.random() * 9000));
 }
 
+function normalizeAvatarFile(value: string): string {
+  const match = value.match(/^ava(\d+)\.png$/i);
+  if (match) return `${match[1]}.png`;
+  return value;
+}
+
 export async function createJokesterRoom(hostName: string): Promise<{
   room: JokesterRoom;
   player: JokesterPlayer;
@@ -94,7 +100,7 @@ export async function createJokesterRoom(hostName: string): Promise<{
       role: 'player',
       is_host: true,
       seat: 0,
-      avatar: 'ava1.png',
+      avatar: '1.png',
     })
     .select()
     .single();
@@ -135,13 +141,13 @@ export async function joinJokesterRoom(
   if (room.status !== 'lobby') throw new Error('Игра уже началась');
 
   let resolvedName = playerName?.trim() || '';
-  let resolvedAvatar = avatar || 'ava1.png';
+  let resolvedAvatar = normalizeAvatarFile(avatar || '1.png');
 
   if (role === 'spectator') {
     if (!resolvedName) {
       resolvedName = `Зритель-${Math.floor(1000 + Math.random() * 9000)}`;
     }
-    resolvedAvatar = 'ava1.png';
+    resolvedAvatar = '1.png';
   }
 
   if (role === 'player') {
@@ -166,9 +172,9 @@ export async function joinJokesterRoom(
       .select('avatar')
       .eq('room_id', room.id)
       .eq('role', 'player')
-      .eq('avatar', resolvedAvatar)
-      .limit(1);
-    if (occupied && occupied.length > 0) {
+      .limit(50);
+    const avatarTaken = (occupied || []).some((p: { avatar: string }) => normalizeAvatarFile(p.avatar) === resolvedAvatar);
+    if (avatarTaken) {
       throw new Error('AVATAR_TAKEN');
     }
   }
@@ -357,10 +363,10 @@ export async function createDuels(
     duel_index: idx,
     player1_id: pair.player1_id,
     player2_id: pair.player2_id,
-    question1_text: questions[idx * 2]?.text || null,
-    question1_cat: questions[idx * 2]?.category || null,
-    question2_text: questions[idx * 2 + 1]?.text || null,
-    question2_cat: questions[idx * 2 + 1]?.category || null,
+    question1_text: questions[idx]?.text || null,
+    question1_cat: questions[idx]?.category || null,
+    question2_text: null,
+    question2_cat: null,
     status: 'pending',
   }));
 

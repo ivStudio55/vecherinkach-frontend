@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS jokester_players (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   room_id    UUID NOT NULL REFERENCES jokester_rooms(id) ON DELETE CASCADE,
   name       TEXT NOT NULL,
-  avatar     TEXT NOT NULL DEFAULT 'ava1.png',
+  avatar     TEXT NOT NULL DEFAULT '1.png',
   role       TEXT NOT NULL DEFAULT 'player'
              CHECK (role IN ('player','spectator')),
   is_host    BOOLEAN NOT NULL DEFAULT false,

@@ -56,3 +56,11 @@ BEGIN
       UNIQUE (room_id, round, duel_index);
   END IF;
 END $$;
+
+-- 5) Нормализация аватаров под файлы public/audio/sound/Jokester/ava (1.png..14.png)
+ALTER TABLE jokester_players
+  ALTER COLUMN avatar SET DEFAULT '1.png';
+
+UPDATE jokester_players
+SET avatar = regexp_replace(avatar, '^ava([0-9]+)\\.png$', '\\1.png', 'i')
+WHERE avatar ~* '^ava[0-9]+\\.png$';
