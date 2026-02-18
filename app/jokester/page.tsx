@@ -37,7 +37,9 @@ export default function JokesterEntryPage() {
       const room = await fetchJokesterRoom(code);
       if (!room || cancelled) return;
       const players = await fetchJokesterPlayers(room.id);
-      const taken = players.map(p => normalizeAvatarFile(p.avatar));
+      const taken = players
+        .filter(p => p.role === 'player' && !p.is_host)
+        .map(p => normalizeAvatarFile(p.avatar));
       if (!cancelled) {
         setTakenAvatars(taken);
         // Auto-select first free avatar

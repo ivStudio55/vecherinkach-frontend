@@ -160,7 +160,8 @@ export async function joinJokesterRoom(
       .from('jokester_players')
       .select('*', { count: 'exact', head: true })
       .eq('room_id', room.id)
-      .eq('role', 'player');
+      .eq('role', 'player')
+      .eq('is_host', false);
 
     if ((count || 0) >= MAX_PLAYERS) {
       throw new Error('MAX_PLAYERS');
@@ -172,6 +173,7 @@ export async function joinJokesterRoom(
       .select('avatar')
       .eq('room_id', room.id)
       .eq('role', 'player')
+      .eq('is_host', false)
       .limit(50);
     const avatarTaken = (occupied || []).some((p: { avatar: string }) => normalizeAvatarFile(p.avatar) === resolvedAvatar);
     if (avatarTaken) {
