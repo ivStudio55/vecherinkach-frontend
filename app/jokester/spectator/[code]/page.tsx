@@ -9,6 +9,7 @@ import {
   fetchJokesterPlayers,
   fetchJokesterDuels,
   fetchDuelAnswers,
+  fetchDuelVotes,
   subscribeJokesterRoom,
   subscribeJokesterPlayers,
   subscribeJokesterDuels,
@@ -53,6 +54,7 @@ export default function JokesterSpectatorPage() {
   const [timer, setTimer] = useState(0);
   const [myVote, setMyVote] = useState<string | null>(null);
   const [myCatVotes, setMyCatVotes] = useState<Set<string>>(new Set());
+  const [duelReveal, setDuelReveal] = useState<{ winnerName: string; winnerAnswer: string; question: string } | null>(null);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const session = jokesterStorage.get();
@@ -88,6 +90,7 @@ export default function JokesterSpectatorPage() {
       subscribeJokesterDuels(room.id, d => {
         setDuels(d);
         setMyVote(null);
+        setDuelReveal(null);
       }),
     ];
     return () => unsubs.forEach(fn => fn());
@@ -127,8 +130,38 @@ export default function JokesterSpectatorPage() {
     return unsub;
   }, [currentDuel?.id, room?.voting_phase]);
 
+  useEffect(() => {
+    if (!currentDuel || room?.voting_phase !== 'results') return;
+    let cancelled = false;
+    (async () => {
+      const [answers, votes] = await Promise.all([
+        fetchDuelAnswers(currentDuel.id),
+        fetchDuelVotes(currentDuel.id),
+      ]);
+      const p1 = votes.filter(v => v.voted_for_id === currentDuel.player1_id).length;
+      const p2 = votes.filter(v => v.voted_for_id === currentDuel.player2_id).length;
+      const winnerId = p1 === p2 ? null : p1 > p2 ? currentDuel.player1_id : currentDuel.player2_id;
+      const winnerPlayer = players.find(p => p.id === winnerId);
+      const winnerAnswer = winnerId
+        ? answers.find(a => a.player_id === winnerId && !!a.answer_text?.trim())?.answer_text || ''
+        : '';
+      if (!cancelled) {
+        setDuelReveal({
+          winnerName: winnerPlayer?.name || 'Ничья',
+          winnerAnswer,
+          question: currentDuel.question1_text || '',
+        });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentDuel?.id, room?.voting_phase, players]);
+
   const gamePlayers = players.filter(p => p.role === 'player' && !p.is_host);
   const sortedByPoints = [...gamePlayers].sort((a, b) => b.total_points - a.total_points);
+  const p1 = players.find(p => p.id === currentDuel?.player1_id);
+  const p2 = players.find(p => p.id === currentDuel?.player2_id);
 
   const handleCategoryVote = async (catId: string) => {
     if (!room || myCatVotes.has(catId)) return;
@@ -174,7 +207,7 @@ export default function JokesterSpectatorPage() {
               <h3 className="text-sm font-bold text-gray-400">Рейтинг игроков</h3>
               {gamePlayers.map(p => (
                 <div key={p.id} className="flex items-center gap-2 bg-[#0d1a30] rounded-lg p-2">
-                  <img src={avatarSrc(p.avatar)} alt={p.name} className="w-7 h-7 rounded-full object-cover" />
+                  <img src={avatarSrc(p.avatar)} alt={p.name} className="w-14 h-14 rounded-full object-cover jokester-avatar-pop" />
                   <span className="text-sm font-bold">{p.name}</span>
                 </div>
               ))}
@@ -231,6 +264,8 @@ export default function JokesterSpectatorPage() {
                 <>
                   <VoteButton
                     label="Дуэлянт 1"
+                    avatar={p1?.avatar}
+                    playerName={p1?.name}
                     answers={currentAnswers.filter(a => a.player_id === currentDuel.player1_id).map(a => a.answer_text)}
                     isSelected={myVote === currentDuel.player1_id}
                     disabled={!!myVote}
@@ -239,6 +274,8 @@ export default function JokesterSpectatorPage() {
                   />
                   <VoteButton
                     label="Дуэлянт 2"
+                    avatar={p2?.avatar}
+                    playerName={p2?.name}
                     answers={currentAnswers.filter(a => a.player_id === currentDuel.player2_id).map(a => a.answer_text)}
                     isSelected={myVote === currentDuel.player2_id}
                     disabled={!!myVote}
@@ -250,6 +287,21 @@ export default function JokesterSpectatorPage() {
             </div>
             {myVote && (
               <p className="text-center text-purple-400 font-bold animate-[fadeIn_0.3s_ease]">✅ Голос принят!</p>
+            )}
+          </div>
+        )}
+
+        {/* ═══ VOTE RESULTS ═══ */}
+        {(room.status === 'round_playing' || room.status === 'final_playing') && room.voting_phase === 'results' && (
+          <div className="text-center py-8 space-y-4 animate-[fadeIn_0.5s_ease]">
+            <div className="text-5xl">🏆</div>
+            <p className="text-xl font-bold text-[#ffd700]">Победитель дуэли</p>
+            {duelReveal?.question && <p className="text-sm text-gray-400">{duelReveal.question}</p>}
+            <p className="text-2xl font-black text-white">{duelReveal?.winnerName || 'Ничья'}</p>
+            {duelReveal?.winnerAnswer && (
+              <div className="bg-[#111d33] border border-[#ffd700]/40 rounded-2xl p-4">
+                <p className="text-4xl font-black jokester-answer-font">« {duelReveal.winnerAnswer} »</p>
+              </div>
             )}
           </div>
         )}
@@ -276,10 +328,10 @@ export default function JokesterSpectatorPage() {
                   <span className="text-lg font-bold w-6 text-center">
                     {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
                   </span>
-                  <img src={avatarSrc(p.avatar)} alt={p.name} className="w-8 h-8 rounded-full object-cover" />
+                  <img src={avatarSrc(p.avatar)} alt={p.name} className="w-16 h-16 rounded-full object-cover jokester-avatar-pop" />
                   <span className="flex-1 font-bold text-sm">{p.name}</span>
                   <div className="text-right">
-                    <span className="font-black text-[#ffd700]">{p.total_points}</span>
+                    <span className="font-black text-[#ffd700] jokester-score-font">{p.total_points}</span>
                     <p className="text-xs text-gray-500">👥{p.player_votes} 👀{p.spectator_votes}</p>
                   </div>
                 </div>
@@ -344,6 +396,8 @@ function SpectatorTimerBar({ seconds, total }: { seconds: number; total: number 
 
 function VoteButton({
   label,
+  avatar,
+  playerName,
   answers,
   isSelected,
   disabled,
@@ -351,6 +405,8 @@ function VoteButton({
   onClick,
 }: {
   label: string;
+  avatar?: string | null;
+  playerName?: string;
   answers: string[];
   isSelected: boolean;
   disabled: boolean;
@@ -371,13 +427,18 @@ function VoteButton({
         backgroundColor: isSelected ? `${color}22` : '#111d33',
       }}
     >
-      <p className="text-xs font-bold mb-1" style={{ color }}>{label}</p>
+      <div className="flex items-center gap-3 mb-2">
+        {avatar && (
+          <img src={avatarSrc(avatar)} alt={playerName || label} className="w-16 h-16 rounded-full object-cover jokester-avatar-pop" />
+        )}
+        <p className="text-xs font-bold" style={{ color }}>{label}</p>
+      </div>
       {answers.length > 0 ? (
         answers.map((a, idx) => (
-          <p key={`${label}-${idx}`} className="text-lg font-bold text-white">« {a} »</p>
+          <p key={`${label}-${idx}`} className="text-4xl font-bold text-white jokester-answer-font">« {a} »</p>
         ))
       ) : (
-        <p className="text-lg font-bold text-white">...</p>
+        <p className="text-4xl font-bold text-white jokester-answer-font">...</p>
       )}
     </button>
   );

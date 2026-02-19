@@ -9,6 +9,7 @@ import {
   fetchJokesterPlayers,
   fetchJokesterDuels,
   fetchDuelAnswers,
+  fetchDuelVotes,
   fetchCategoryVotes,
   subscribeJokesterRoom,
   subscribeJokesterPlayers,
@@ -64,6 +65,7 @@ export default function JokesterPlayerPage() {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [duelAnswers, setDuelAnswers] = useState<JokesterAnswer[]>([]);
   const [myRoundAnswers, setMyRoundAnswers] = useState<JokesterAnswer[]>([]);
+  const [duelReveal, setDuelReveal] = useState<{ winnerName: string; winnerAnswer: string; question: string } | null>(null);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const session = jokesterStorage.get();
@@ -205,6 +207,34 @@ export default function JokesterPlayerPage() {
     return unsub;
   }, [currentDuel?.id, room?.voting_phase]);
 
+  useEffect(() => {
+    if (!currentDuel || room?.voting_phase !== 'results') return;
+    let cancelled = false;
+    (async () => {
+      const [answers, votes] = await Promise.all([
+        fetchDuelAnswers(currentDuel.id),
+        fetchDuelVotes(currentDuel.id),
+      ]);
+      const p1 = votes.filter(v => v.voted_for_id === currentDuel.player1_id).length;
+      const p2 = votes.filter(v => v.voted_for_id === currentDuel.player2_id).length;
+      const winnerId = p1 === p2 ? null : p1 > p2 ? currentDuel.player1_id : currentDuel.player2_id;
+      const winnerPlayer = players.find(p => p.id === winnerId);
+      const winnerAnswer = winnerId
+        ? answers.find(a => a.player_id === winnerId && !!a.answer_text?.trim())?.answer_text || ''
+        : '';
+      if (!cancelled) {
+        setDuelReveal({
+          winnerName: winnerPlayer?.name || 'Ничья',
+          winnerAnswer,
+          question: currentDuel.question1_text || '',
+        });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentDuel?.id, room?.voting_phase, players]);
+
   /* ─── Vote handler ─── */
   const handleVote = async (votedForId: string) => {
     if (!currentDuel || myVote) return;
@@ -239,7 +269,7 @@ export default function JokesterPlayerPage() {
       {/* Header */}
       <header className="bg-[#0d1a30] border-b border-[#ffd700]/20 px-4 py-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <img src={avatarSrc(me.avatar)} alt={me.name} className="w-8 h-8 rounded-full object-cover" />
+          <img src={avatarSrc(me.avatar)} alt={me.name} className="w-16 h-16 rounded-full object-cover jokester-avatar-pop" />
           <span className="font-bold text-sm">{me.name}</span>
         </div>
         <div className="flex items-center gap-3 text-sm">
@@ -259,7 +289,7 @@ export default function JokesterPlayerPage() {
             <div className="grid grid-cols-4 gap-2">
               {gamePlayers.map(p => (
                 <div key={p.id} className={`bg-[#111d33] rounded-xl p-2 text-center ${p.id === myId ? 'border-2 border-[#ffd700]' : ''}`}>
-                  <img src={avatarSrc(p.avatar)} alt={p.name} className="w-8 h-8 rounded-full object-cover mx-auto" />
+                  <img src={avatarSrc(p.avatar)} alt={p.name} className="w-16 h-16 rounded-full object-cover mx-auto jokester-avatar-pop" />
                   <p className="text-xs truncate">{p.name}</p>
                 </div>
               ))}
@@ -310,11 +340,11 @@ export default function JokesterPlayerPage() {
         {/* ═══ ROUND RULES ═══ */}
         {(room.status === 'round_rules' || room.status === 'final_rules') && (
           <div className="text-center space-y-6 animate-[fadeIn_0.5s_ease]">
-            <div className="text-6xl animate-[bounce_2s_infinite]">
+            <div className="text-6xl animate-round-emoji-flip">
               {room.current_round <= 3 ? `${room.current_round}️⃣` : '🏆'}
             </div>
             <h2 className="text-3xl font-black text-[#ffd700]">
-              {room.status === 'final_rules' ? 'ФИНАЛ' : `Раунд ${room.current_round}`}
+              {room.status === 'final_rules' ? 'ФИНАЛ' : <span className="jokester-answer-font">Раунд {room.current_round}</span>}
             </h2>
             {room.current_round > 1 && (
               <p className="text-xl text-[#ffd700] font-bold">Множитель: ×{roundMultiplier(room.current_round)}</p>
@@ -397,10 +427,16 @@ export default function JokesterPlayerPage() {
 
         {/* ═══ VOTE RESULTS ═══ */}
         {(room.status === 'round_playing' || room.status === 'final_playing') && room.voting_phase === 'results' && (
-          <div className="text-center py-12 space-y-4 animate-[fadeIn_0.5s_ease]">
-            <div className="text-5xl">📊</div>
-            <p className="text-xl font-bold text-[#ffd700]">Результаты голосования</p>
-            <p className="text-gray-400">Смотри на экран ведущего!</p>
+          <div className="text-center py-8 space-y-4 animate-[fadeIn_0.5s_ease]">
+            <div className="text-5xl">🏆</div>
+            <p className="text-xl font-bold text-[#ffd700]">Победитель дуэли</p>
+            {duelReveal?.question && <p className="text-sm text-gray-400">{duelReveal.question}</p>}
+            <p className="text-2xl font-black text-white">{duelReveal?.winnerName || 'Ничья'}</p>
+            {duelReveal?.winnerAnswer && (
+              <div className="bg-[#111d33] border border-[#ffd700]/40 rounded-2xl p-4">
+                <p className="text-4xl font-black jokester-answer-font">« {duelReveal.winnerAnswer} »</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -410,7 +446,7 @@ export default function JokesterPlayerPage() {
             {/* My stats */}
             {me && (
               <div className="bg-[#111d33] border-2 border-[#ffd700]/50 rounded-3xl p-6 text-center space-y-3">
-                <img src={avatarSrc(me.avatar)} alt={me.name} className="w-14 h-14 rounded-full object-cover mx-auto" />
+                <img src={avatarSrc(me.avatar)} alt={me.name} className="w-28 h-28 rounded-full object-cover mx-auto jokester-avatar-pop" />
                 <p className="text-2xl font-black text-[#ffd700]">{me.total_points} очков</p>
                 <p className="text-lg text-white">Место: #{myRank}</p>
                 <div className="flex justify-center gap-6 text-sm text-gray-400">
@@ -432,7 +468,7 @@ export default function JokesterPlayerPage() {
                   <span className="text-lg font-bold w-6 text-center">
                     {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
                   </span>
-                  <img src={avatarSrc(p.avatar)} alt={p.name} className="w-8 h-8 rounded-full object-cover" />
+                  <img src={avatarSrc(p.avatar)} alt={p.name} className="w-16 h-16 rounded-full object-cover jokester-avatar-pop" />
                   <span className="flex-1 font-bold text-sm truncate">{p.name}</span>
                   <span className="font-black text-[#ffd700]">{p.total_points}</span>
                 </div>
@@ -555,13 +591,13 @@ function VotingPanel({
           >
             <div className="flex items-center gap-3 mb-2">
               {p1?.avatar && (
-                <img src={avatarSrc(p1.avatar)} alt="" className="w-8 h-8 rounded-full object-cover" />
+                <img src={avatarSrc(p1.avatar)} alt="" className="w-16 h-16 rounded-full object-cover jokester-avatar-pop" />
               )}
-              <span className="font-bold text-[#1f6ac6]">🔵 ????? (Дуэлянт 1)</span>
+              <span className="font-bold text-[#1f6ac6]">🔵 Дуэлянт 1</span>
             </div>
             {p1Answers.length > 0 ? (
               p1Answers.map(a => (
-                <p key={a.id} className="text-white text-sm mt-1 italic">« {a.answer_text} »</p>
+                <p key={a.id} className="text-white text-4xl mt-1 italic jokester-answer-font">« {a.answer_text} »</p>
               ))
             ) : (
               <p className="text-gray-500 text-sm italic">Ответ ещё не подан...</p>
@@ -580,13 +616,13 @@ function VotingPanel({
           >
             <div className="flex items-center gap-3 mb-2">
               {p2?.avatar && (
-                <img src={avatarSrc(p2.avatar)} alt="" className="w-8 h-8 rounded-full object-cover" />
+                <img src={avatarSrc(p2.avatar)} alt="" className="w-16 h-16 rounded-full object-cover jokester-avatar-pop" />
               )}
-              <span className="font-bold text-red-400">🔴 ????? (Дуэлянт 2)</span>
+              <span className="font-bold text-red-400">🔴 Дуэлянт 2</span>
             </div>
             {p2Answers.length > 0 ? (
               p2Answers.map(a => (
-                <p key={a.id} className="text-white text-sm mt-1 italic">« {a.answer_text} »</p>
+                <p key={a.id} className="text-white text-4xl mt-1 italic jokester-answer-font">« {a.answer_text} »</p>
               ))
             ) : (
               <p className="text-gray-500 text-sm italic">Ответ ещё не подан...</p>

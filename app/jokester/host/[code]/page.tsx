@@ -86,6 +86,7 @@ export default function JokesterHostPage() {
   const [creditsData, setCreditsData] = useState<{ winnerAnswers: CreditsAnswer[]; playerRanks: CreditsPlayerBest[] } | null>(null);
   const [isBgmMuted, setIsBgmMuted] = useState(false);
   const [isVoiceMuted, setIsVoiceMuted] = useState(false);
+  const [timerTickKey, setTimerTickKey] = useState(0);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioRef = useRef<JokesterAudioPlayer | null>(null);
@@ -177,6 +178,10 @@ export default function JokesterHostPage() {
   }, [room?.id, room?.status, room?.current_round]);
 
   useEffect(() => {
+    setTimerTickKey(prev => prev + 1);
+  }, [timer]);
+
+  useEffect(() => {
     if (!room || room.voting_phase !== 'answering') return;
     let cancelled = false;
     prevAnswerCountRef.current = 0;
@@ -260,17 +265,6 @@ export default function JokesterHostPage() {
   const spectatorCount = spectators.length;
   const hallSize = spectatorCount <= 50 ? 50 : spectatorCount <= 100 ? 100 : Math.ceil(spectatorCount / 50) * 50;
 
-  useEffect(() => {
-    if (!room || room.status !== 'category_vote') return;
-    if (autoStartingDuelsRef.current) return;
-    const voterIds = new Set(categoryVotes.map(v => v.voter_id));
-    const expectedVoters = players.filter(p => !p.is_host).length;
-    if (expectedVoters > 0 && voterIds.size >= expectedVoters) {
-      autoStartingDuelsRef.current = true;
-      void handleStartDuels();
-    }
-  }, [room?.status, categoryVotes, players]);
-
   /* ══════════════════════════════════════════════
      Actions
      ══════════════════════════════════════════════ */
@@ -309,9 +303,10 @@ export default function JokesterHostPage() {
 
     if (round === 1) {
       // Голосование за категории только перед первым раундом
-      audioRef.current?.playBgm('/audio/sound/Jokester/soundTrack/category.mp3', 0.4);
-      await audioRef.current?.playVoiceRandom(JOKESTER_AUDIO.choosingCategoryFolder, 3);
       await updateJokesterRoom(effectiveRoom.id, { status: 'category_vote', state_version: effectiveRoom.state_version + 2 });
+
+      audioRef.current?.playBgm('/audio/sound/Jokester/soundTrack/category.mp3', 0.4);
+      void audioRef.current?.playVoiceRandom(JOKESTER_AUDIO.choosingCategoryFolder, 3);
 
       startTimer(CATEGORY_VOTE_TIME_SEC, () => {
         if (!autoStartingDuelsRef.current) {
@@ -500,7 +495,9 @@ export default function JokesterHostPage() {
 
       if (winnerId) {
         const winnerPlayer = players.find(p => p.id === winnerId);
-        const winnerAnswer = duelAnswers.find(a => a.player_id === winnerId)?.answer_text || '';
+        const winnerAnswer = duelAnswers.find(a => a.player_id === winnerId && !!a.answer_text?.trim())?.answer_text
+          || duelAnswers.find(a => a.player_id === winnerId)?.answer_text
+          || '';
         setVoteReveal({
           answer: winnerAnswer,
           playerName: winnerPlayer?.name || 'Победитель',
@@ -545,9 +542,7 @@ export default function JokesterHostPage() {
       setPlayers(freshPlayers);
 
       // Голос после раунда
-      const afterFolder = effectiveRoom.current_round <= 3
-        ? JOKESTER_AUDIO.afterRound(effectiveRoom.current_round)
-        : JOKESTER_AUDIO.afterFinal;
+      const afterFolder = JOKESTER_AUDIO.afterRound(1);
       audioRef.current?.playBgm(JOKESTER_AUDIO.afterRoundMusic, 0.28);
       await audioRef.current?.playVoiceRandom(afterFolder, 3);
       audioRef.current?.stopBgm();
@@ -680,10 +675,14 @@ export default function JokesterHostPage() {
     });
 
     setCreditsData({ winnerAnswers, playerRanks });
-    audioRef.current?.playBgm(JOKESTER_AUDIO.finalMusic, 0.35);
-    await audioRef.current?.playVoiceRandom(JOKESTER_AUDIO.afterFinal, 3);
     await updateJokesterRoom(room.id, { status: 'credits', state_version: room.state_version + 11 });
   };
+
+  useEffect(() => {
+    if (room?.status !== 'credits') return;
+    audioRef.current?.playBgm(JOKESTER_AUDIO.finalMusic, 0.35);
+    void audioRef.current?.playVoiceRandom(JOKESTER_AUDIO.afterFinal, 3);
+  }, [room?.status]);
 
   const handleCloseRoom = async () => {
     if (!room) return;
@@ -786,7 +785,7 @@ export default function JokesterHostPage() {
                   <div className="grid grid-cols-3 gap-2">
                     {gamePlayers.map(p => (
                       <div key={p.id} className="bg-[#0d1a30] rounded-xl p-2 text-center animate-[fadeIn_0.3s_ease]">
-                        <img src={avatarSrc(p.avatar)} alt={p.name} className="w-10 h-10 rounded-full object-cover mx-auto mb-1" />
+                        <img src={avatarSrc(p.avatar)} alt={p.name} className="w-20 h-20 rounded-full object-cover mx-auto mb-1 jokester-avatar-pop" />
                         <p className="text-xs font-bold truncate">{p.name}</p>
                       </div>
                     ))}
@@ -838,7 +837,7 @@ export default function JokesterHostPage() {
                   className="animate-[bounce_0.6s_infinite]"
                   style={{ animationDelay: `${i * 0.1}s` }}
                 >
-                  <img src={avatarSrc(p.avatar)} alt={p.name} className="w-12 h-12 rounded-full object-cover border border-white/20" />
+                  <img src={avatarSrc(p.avatar)} alt={p.name} className="w-24 h-24 rounded-full object-cover border border-white/20 jokester-avatar-pop" />
                 </div>
               ))}
             </div>
@@ -851,7 +850,7 @@ export default function JokesterHostPage() {
             <div className="text-center">
               <h2 className="text-3xl font-black text-[#ffd700] mb-2">Голосование за категории</h2>
               <p className="text-gray-400">Игроки и зрители выбирают категории вопросов</p>
-              {timer > 0 && <TimerCircle seconds={timer} total={CATEGORY_VOTE_TIME_SEC} />}
+              {timer > 0 && <TimerCircle seconds={timer} total={CATEGORY_VOTE_TIME_SEC} tickKey={timerTickKey} />}
             </div>
             <div className="grid sm:grid-cols-2 gap-4">
               {categoryRanking.map((cat, i) => (
@@ -889,7 +888,7 @@ export default function JokesterHostPage() {
           <div className="space-y-6 animate-[fadeIn_0.5s_ease]">
             <div className="text-center">
               <h2 className="text-2xl font-black text-[#ffd700]">
-                {room.status === 'final_playing' ? '🏆 ФИНАЛ' : `Раунд ${room.current_round}`}
+                {room.status === 'final_playing' ? '🏆 ФИНАЛ' : <DancingWord text={`Раунд ${room.current_round}`} />}
                 {room.voting_phase === 'voting' && currentDuel ? ` · Дуэль ${room.current_duel_index + 1}` : ''}
               </h2>
               <p className="text-sm text-gray-400">
@@ -898,7 +897,7 @@ export default function JokesterHostPage() {
             </div>
 
             {room.voting_phase !== 'results' && (
-              <TimerCircle seconds={timer} total={room.voting_phase === 'voting' ? VOTE_TIME_SEC : ANSWER_TIME_SEC} />
+              <TimerCircle seconds={timer} total={room.voting_phase === 'voting' ? VOTE_TIME_SEC : ANSWER_TIME_SEC} tickKey={timerTickKey} />
             )}
 
             {room.voting_phase === 'answering' && (
@@ -937,7 +936,7 @@ export default function JokesterHostPage() {
                 <p className="text-xs text-gray-400 mb-2 tracking-wider">
                   {currentDuel.question1_cat?.toUpperCase()}
                 </p>
-                <p className="text-2xl sm:text-3xl font-black">{currentDuel.question1_text}</p>
+                <AnimatedQuestionText text={currentDuel.question1_text || ''} />
               </div>
             )}
 
@@ -979,7 +978,7 @@ export default function JokesterHostPage() {
                       <img
                         src={avatarSrc(voteReveal.playerAvatar)}
                         alt={voteReveal.playerName}
-                        className="w-10 h-10 rounded-full object-cover"
+                        className="w-20 h-20 rounded-full object-cover jokester-avatar-pop"
                       />
                       <span className="text-sm text-[#ffd700] font-bold">{voteReveal.playerName}</span>
                     </div>
@@ -1024,14 +1023,14 @@ export default function JokesterHostPage() {
                   <span className="text-2xl font-black text-[#ffd700] w-8 text-center">
                     {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
                   </span>
-                  <img src={avatarSrc(p.avatar)} alt={p.name} className="w-10 h-10 rounded-full object-cover" />
+                  <img src={avatarSrc(p.avatar)} alt={p.name} className="w-20 h-20 rounded-full object-cover jokester-avatar-pop" />
                   <div className="flex-1">
                     <p className="font-bold">{p.name}</p>
                     <p className="text-xs text-gray-400">
                       👥 {p.player_votes} голосов игроков · 👀 {p.spectator_votes} голосов зрителей
                     </p>
                   </div>
-                  <span className="text-2xl font-black text-[#ffd700]">{p.total_points}</span>
+                  <AnimatedScore value={p.total_points} className="text-2xl font-black text-[#ffd700]" />
                 </div>
               ))}
             </div>
@@ -1089,7 +1088,7 @@ export default function JokesterHostPage() {
               </h2>
               {creditsWinner && (
                 <div className="space-y-4">
-                  <img src={avatarSrc(creditsWinner.avatar)} alt={creditsWinner.name} className="w-28 h-28 rounded-full object-cover mx-auto border-4 border-[#ffd700]/70" />
+                  <img src={avatarSrc(creditsWinner.avatar)} alt={creditsWinner.name} className="w-40 h-40 rounded-full object-cover mx-auto border-4 border-[#ffd700]/70 jokester-avatar-pop" />
                   <p className="text-4xl font-black text-[#ffd700]">{creditsWinner.name}</p>
                   <p className="text-2xl text-white">{creditsWinner.total_points} очков</p>
                 </div>
@@ -1116,7 +1115,7 @@ export default function JokesterHostPage() {
                 <div key={row.player.id} className="bg-[#111d33] border border-gray-700 rounded-2xl p-4 text-left max-w-3xl mx-auto">
                   <div className="flex items-center gap-3">
                     <span className="text-xl font-black text-[#ffd700] w-8 text-center">{i + 1}</span>
-                    <img src={avatarSrc(row.player.avatar)} alt={row.player.name} className="w-10 h-10 rounded-full object-cover" />
+                    <img src={avatarSrc(row.player.avatar)} alt={row.player.name} className="w-20 h-20 rounded-full object-cover jokester-avatar-pop" />
                     <div className="flex-1">
                       <p className="font-bold">{row.player.name}</p>
                       <p className="text-xs text-gray-400">{row.player.total_points} очков</p>
@@ -1149,11 +1148,11 @@ export default function JokesterHostPage() {
         {/* ══════════════════ ROUND RULES ══════════════════ */}
         {(room.status === 'round_rules' || room.status === 'final_rules') && (
           <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8 animate-[fadeIn_0.5s_ease]">
-            <div className="text-6xl animate-[bounce_2s_infinite]">
+            <div className="text-6xl animate-round-emoji-flip">
               {room.current_round === 1 ? '1️⃣' : room.current_round === 2 ? '2️⃣' : room.current_round === 3 ? '3️⃣' : '🏆'}
             </div>
             <h2 className="text-4xl font-black text-[#ffd700] text-center">
-              {room.status === 'final_rules' ? 'ФИНАЛ' : `Раунд ${room.current_round}`}
+              {room.status === 'final_rules' ? 'ФИНАЛ' : <DancingWord text={`Раунд ${room.current_round}`} />}
             </h2>
             <div className="bg-[#111d33] border-2 border-[#ffd700]/30 rounded-3xl p-6 max-w-lg text-center space-y-3">
               <p className="text-gray-300">Каждый игрок проведёт 2 дуэли</p>
@@ -1191,7 +1190,7 @@ export default function JokesterHostPage() {
    Sub-components
    ══════════════════════════════════════════════ */
 
-function TimerCircle({ seconds, total }: { seconds: number; total: number }) {
+function TimerCircle({ seconds, total, tickKey }: { seconds: number; total: number; tickKey: number }) {
   const pct = total > 0 ? (seconds / total) * 100 : 0;
   const radius = 50;
   const circumference = 2 * Math.PI * radius;
@@ -1212,7 +1211,17 @@ function TimerCircle({ seconds, total }: { seconds: number; total: number }) {
           />
         </svg>
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-3xl font-black" style={{ color }}>{seconds}</span>
+          <div className="flex items-end gap-0.5">
+            {String(seconds).split('').map((ch, idx) => (
+              <span
+                key={`${tickKey}-${idx}-${ch}`}
+                className="text-3xl font-black jokester-timer-number animate-digit-pop"
+                style={{ color, animationDelay: `${idx * 40}ms` }}
+              >
+                {ch}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -1248,7 +1257,7 @@ function DuelAnswerCard({
       <h3 className="text-xl font-black" style={{ color }}>{label}</h3>
       {answers.map(a => (
         <div key={a.id} className="bg-[#0d1a30] rounded-2xl p-4">
-          <p className="text-xl font-bold text-white jokester-answer-font">« {a.answer_text} »</p>
+          <p className="text-6xl font-bold text-white jokester-answer-font">« {a.answer_text} »</p>
         </div>
       ))}
       <div className="flex flex-wrap gap-2">
@@ -1258,7 +1267,7 @@ function DuelAnswerCard({
           return (
             <div
               key={v.id}
-              className="w-8 h-8 rounded-full bg-[#1a2940] flex items-center justify-center text-sm animate-[fadeIn_0.3s_ease]"
+              className="w-16 h-16 rounded-full bg-[#1a2940] flex items-center justify-center text-sm animate-[fadeIn_0.3s_ease]"
               title={voter?.name}
             >
               {isSpectator ? (
@@ -1267,7 +1276,7 @@ function DuelAnswerCard({
                   title="Зритель"
                 />
               ) : voter ? (
-                <img src={avatarSrc(voter.avatar)} alt={voter.name} className="w-8 h-8 rounded-full object-cover" />
+                <img src={avatarSrc(voter.avatar)} alt={voter.name} className="w-16 h-16 rounded-full object-cover jokester-avatar-pop" />
               ) : '👤'}
             </div>
           );
@@ -1277,6 +1286,54 @@ function DuelAnswerCard({
         {votes.length} голосов
       </p>
     </div>
+  );
+}
+
+function AnimatedQuestionText({ text }: { text: string }) {
+  return (
+    <p className="text-2xl sm:text-3xl font-black jokester-question-font leading-relaxed">
+      {text.split('').map((ch, idx) => (
+        <span
+          key={`${ch}-${idx}`}
+          className="inline-block animate-question-char"
+          style={{ animationDelay: `${idx * 20}ms` }}
+        >
+          {ch === ' ' ? '\u00A0' : ch}
+        </span>
+      ))}
+    </p>
+  );
+}
+
+function AnimatedScore({ value, className }: { value: number; className?: string }) {
+  return (
+    <span className={className}>
+      {String(value).split('').map((ch, idx) => (
+        <span
+          key={`${value}-${idx}-${ch}`}
+          className="inline-block animate-score-digit jokester-score-font"
+          style={{ animationDelay: `${(idx * 70) % 300}ms` }}
+        >
+          {ch}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function DancingWord({ text }: { text: string }) {
+  return (
+    <span className="jokester-answer-font">
+      {text.split('').map((ch, idx) => (
+        <span
+          key={`${text}-${idx}-${ch}`}
+          className="inline-block animate-dancing-letter"
+          style={{ animationDelay: `${idx * 60}ms` }}
+        >
+          {ch === ' ' ? '\u00A0' : ch}
+        </span>
+      ))}
+    </span>
   );
 }
 
