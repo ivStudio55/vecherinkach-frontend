@@ -925,6 +925,10 @@ export default function JokesterHostPage() {
   return (
     <div className="min-h-screen bg-[#0a1628] text-white overflow-hidden">
       <FeatherBurstCanvas registerEmitter={registerFeatherEmitter} />
+      <div className="sunrays-host-layer" aria-hidden="true">
+        <div className="sunrays-host-rotor sunrays-host-rotor-main" />
+        <div className="sunrays-host-rotor sunrays-host-rotor-soft" />
+      </div>
       {/* ─── Header ─── */}
       <header className="bg-[#0d1a30] border-b border-[#ffd700]/20 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">

@@ -286,6 +286,44 @@ body {
   animation: sunraysRotate 68s ease-in-out infinite reverse;
 }
 
+.sunrays-host-layer {
+  position: fixed;
+  inset: -10vmax;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.55;
+  mix-blend-mode: screen;
+}
+
+.sunrays-host-rotor {
+  position: absolute;
+  inset: -50vmax;
+  border-radius: 50%;
+  animation: sunraysRotate 60s ease-in-out infinite;
+}
+
+.sunrays-host-rotor-main {
+  background: repeating-conic-gradient(
+    from 0deg,
+    rgba(74, 144, 226, 0.26) 0deg 18deg,
+    rgba(47, 168, 168, 0.22) 18deg 36deg
+  );
+  opacity: 0.9;
+}
+
+.sunrays-host-rotor-soft {
+  background: conic-gradient(
+    from 14deg,
+    rgba(74, 144, 226, 0.2),
+    rgba(47, 168, 168, 0.18),
+    rgba(74, 144, 226, 0.2)
+  );
+  filter: blur(30px);
+  opacity: 0.8;
+  animation-duration: 78s;
+  animation-direction: reverse;
+}
+
 .sunrays-timer-rays {
   position: absolute;
   inset: -24%;
