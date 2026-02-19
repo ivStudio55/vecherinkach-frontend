@@ -127,6 +127,7 @@ export default function JokesterHostPage() {
   const prevPlayerCountRef = useRef(0);
   const audioUnlockedRef = useRef(false);
   const pendingConnectSoundsRef = useRef(0);
+  const pendingConnectVoicesRef = useRef(0);
   const autoStartingDuelsRef = useRef(false);
   const prevVoteCountRef = useRef(0);
   const prevAnswerCountRef = useRef(0);
@@ -135,6 +136,7 @@ export default function JokesterHostPage() {
   const featherEmitterRef = useRef<((spawn: FeatherSpawn) => void) | null>(null);
   const answeredDoneRef = useRef<Set<string>>(new Set());
   const winnerPanelRef = useRef<HTMLDivElement | null>(null);
+  const roomIntroPlayedRef = useRef(false);
   const currentDuel = duels.find(d => d.duel_index === room?.current_duel_index && d.round === room?.current_round);
 
   const avatarSrc = useCallback((avatar?: string | null) => {
@@ -165,16 +167,25 @@ export default function JokesterHostPage() {
     }
   }, [playRandomSound]);
 
+  const playConnectVoice = useCallback(() => {
+    audioRef.current?.playVoiceRandom(JOKESTER_AUDIO.meetFolder);
+  }, []);
+
   const unlockAudio = useCallback(() => {
     if (audioUnlockedRef.current) return;
     audioUnlockedRef.current = true;
     const pending = pendingConnectSoundsRef.current;
+    const pendingVoices = pendingConnectVoicesRef.current;
     pendingConnectSoundsRef.current = 0;
+    pendingConnectVoicesRef.current = 0;
     if (pending <= 0) return;
     for (let i = 0; i < Math.min(3, pending); i++) {
       setTimeout(() => playConnectQuack(), i * 180);
     }
-  }, [playConnectQuack]);
+    if (pendingVoices > 0) {
+      setTimeout(() => playConnectVoice(), Math.min(3, pending) * 180);
+    }
+  }, [playConnectQuack, playConnectVoice]);
 
   const registerFeatherEmitter = useCallback((emit: (spawn: FeatherSpawn) => void) => {
     featherEmitterRef.current = emit;
@@ -226,6 +237,19 @@ export default function JokesterHostPage() {
     })();
   }, [roomCode]);
 
+  /* ─── Room creation cue ─── */
+  useEffect(() => {
+    if (!room?.id || roomIntroPlayedRef.current) return;
+    roomIntroPlayedRef.current = true;
+    if (audioUnlockedRef.current) {
+      playConnectQuack();
+      playConnectVoice();
+    } else {
+      pendingConnectSoundsRef.current += 1;
+      pendingConnectVoicesRef.current += 1;
+    }
+  }, [room?.id, playConnectQuack, playConnectVoice]);
+
   /* ─── Realtime subscriptions ─── */
   useEffect(() => {
     if (!room) return;
@@ -239,8 +263,10 @@ export default function JokesterHostPage() {
             for (let i = 0; i < Math.min(3, diff); i++) {
               setTimeout(() => playConnectQuack(), i * 160);
             }
+            playConnectVoice();
           } else {
             pendingConnectSoundsRef.current += diff;
+            pendingConnectVoicesRef.current += 1;
           }
         }
         prevPlayerCountRef.current = nextPlayerCount;
@@ -249,7 +275,7 @@ export default function JokesterHostPage() {
       subscribeJokesterDuels(room.id, d => setDuels(d)),
     ];
     return () => unsubs.forEach(fn => fn());
-  }, [room?.id, playConnectQuack]);
+  }, [room?.id, playConnectQuack, playConnectVoice]);
 
   useEffect(() => {
     const handleUnlock = () => unlockAudio();
@@ -949,6 +975,14 @@ export default function JokesterHostPage() {
           <span className="px-3 py-1 rounded-full text-sm font-bold bg-[#ffd700] text-[#0a1628]">
             {roomCode}
           </span>
+          <a
+            href="https://donatty.com/aleksandri"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-3 py-1 rounded-lg text-xs font-bold border border-[#ffd700]/50 bg-[#ffd700]/15 text-[#ffd700] hover:bg-[#ffd700]/25 transition"
+          >
+            💛 Поддержать проект
+          </a>
           <button
             onClick={() => setIsBgmMuted(audioRef.current?.toggleBgmMute() ?? false)}
             className={`px-3 py-1 rounded-lg text-xs border transition ${

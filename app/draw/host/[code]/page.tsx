@@ -436,6 +436,14 @@ export default function DrawHostPage() {
             <p className="uppercase text-xs tracking-[0.5em] text-white/60">🎨 Рисункач</p>
             <h1 className="text-4xl font-black">Комната: {code}</h1>
             <p className="text-xs text-white/40 mt-1">{modeLabel}</p>
+            <a
+              href="https://donatty.com/aleksandri"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 inline-flex rounded-xl border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-bold tracking-[0.14em] text-white/80 transition hover:bg-white/20"
+            >
+              💛 Поддержать проект
+            </a>
           </div>
           <div className="flex items-center gap-4">
             {/* Audio controls */}

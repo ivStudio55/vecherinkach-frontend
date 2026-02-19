@@ -236,6 +236,14 @@ export default function UnoRoomPage() {
                 UNO
                 <span className="text-sm font-mono bg-white/10 rounded-lg px-2 py-0.5 tracking-widest">{code}</span>
               </h1>
+              <a
+                href="https://donatty.com/aleksandri"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1 inline-flex rounded-lg border border-white/20 bg-white/10 px-2.5 py-1 text-[11px] font-bold tracking-[0.14em] text-white/80 transition hover:bg-white/20"
+              >
+                💛 Поддержать проект
+              </a>
             </div>
           </div>
           <div className="flex items-center gap-2 text-xs text-white/60">
