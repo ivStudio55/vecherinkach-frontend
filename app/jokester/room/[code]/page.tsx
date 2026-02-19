@@ -295,8 +295,12 @@ export default function JokesterPlayerPage() {
             <h2 className="text-2xl font-black text-[#ffd700]">Ожидание игроков...</h2>
             <p className="text-gray-400">Код комнаты: <span className="text-white font-mono font-bold">{roomCode}</span></p>
             <div className="grid grid-cols-4 gap-2">
-              {gamePlayers.map(p => (
-                <div key={p.id} className={`bg-[#111d33] rounded-xl p-2 text-center ${p.id === myId ? 'border-2 border-[#ffd700]' : ''}`}>
+              {gamePlayers.map((p, idx) => (
+                <div
+                  key={p.id}
+                  className={`bg-[#111d33] rounded-xl p-2 text-center panel-pulse ${p.id === myId ? 'border-2 border-[#ffd700]' : ''}`}
+                  style={{ ['--panel-delay' as '--panel-delay']: `${idx * 0.08}s` }}
+                >
                   <img src={avatarSrc(p.avatar)} alt={p.name} className="w-16 h-16 rounded-full object-cover mx-auto jokester-avatar-pop" />
                   <p className="text-xs truncate">{p.name}</p>
                 </div>
@@ -367,7 +371,10 @@ export default function JokesterPlayerPage() {
             {/* Category scroll animation */}
             {showCategoryScroll && (
               <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 animate-[fadeIn_0.3s_ease]">
-                <div className="bg-[#111d33] border-2 border-[#ffd700]/50 rounded-3xl p-6 text-center max-w-md w-[90%] animate-[categoryReveal_2.5s_ease-out_forwards]">
+                <div
+                  className="bg-[#111d33] border-2 border-[#ffd700]/50 rounded-3xl p-6 text-center max-w-md w-[90%] animate-[categoryReveal_2.5s_ease-out_forwards] panel-pulse"
+                  style={{ ['--panel-delay' as '--panel-delay']: '0.1s' }}
+                >
                   <p className="text-xs text-gray-400 mb-2">Категория</p>
                   <p className="text-3xl font-black text-[#ffd700]">
                     {categories.find(c => c.id === selectedCategory)?.emoji}{' '}
@@ -385,7 +392,10 @@ export default function JokesterPlayerPage() {
 
             {currentTarget ? (
               <>
-                <div className="bg-[#111d33] border-2 border-[#1f6ac6]/50 rounded-2xl p-4 space-y-3">
+                <div
+                  className="bg-[#111d33] border-2 border-[#1f6ac6]/50 rounded-2xl p-4 space-y-3 panel-pulse"
+                  style={{ ['--panel-delay' as '--panel-delay']: '0.14s' }}
+                >
                   <p className="text-lg text-[#ffd700] font-black tracking-wide">
                     {categoryLabel(currentTarget.cat, categories)} · дуэль {currentTarget.duel.duel_index + 1}
                   </p>
@@ -441,7 +451,10 @@ export default function JokesterPlayerPage() {
             {duelReveal?.question && <p className="text-sm text-gray-400">{duelReveal.question}</p>}
             <p className="text-2xl font-black text-white">{duelReveal?.winnerName || 'Ничья'}</p>
             {duelReveal?.winnerAnswer && (
-              <div className="bg-[#111d33] border border-[#ffd700]/40 rounded-2xl p-4">
+              <div
+                className="bg-[#111d33] border border-[#ffd700]/40 rounded-2xl p-4 panel-pulse"
+                style={{ ['--panel-delay' as '--panel-delay']: '0.18s' }}
+              >
                 <p className="text-4xl font-black jokester-answer-font">« {duelReveal.winnerAnswer} »</p>
               </div>
             )}
@@ -453,7 +466,10 @@ export default function JokesterPlayerPage() {
           <div className="space-y-6 animate-[fadeIn_0.5s_ease]">
             {/* My stats */}
             {me && (
-              <div className="bg-[#111d33] border-2 border-[#ffd700]/50 rounded-3xl p-6 text-center space-y-3">
+              <div
+                className="bg-[#111d33] border-2 border-[#ffd700]/50 rounded-3xl p-6 text-center space-y-3 panel-pulse"
+                style={{ ['--panel-delay' as '--panel-delay']: '0.12s' }}
+              >
                 <img src={avatarSrc(me.avatar)} alt={me.name} className="w-28 h-28 rounded-full object-cover mx-auto jokester-avatar-pop" />
                 <p className="text-2xl font-black text-[#ffd700]">{me.total_points} очков</p>
                 <p className="text-lg text-white">Место: #{myRank}</p>
@@ -469,9 +485,10 @@ export default function JokesterPlayerPage() {
               {sortedByPoints.filter(p => !p.is_host).map((p, i) => (
                 <div
                   key={p.id}
-                  className={`bg-[#111d33] rounded-xl p-3 flex items-center gap-3 ${
+                  className={`bg-[#111d33] rounded-xl p-3 flex items-center gap-3 panel-pulse ${
                     p.id === myId ? 'border-2 border-[#ffd700]' : ''
                   }`}
+                  style={{ ['--panel-delay' as '--panel-delay']: `${0.05 + i * 0.06}s` }}
                 >
                   <span className="text-lg font-bold w-6 text-center">
                     {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
@@ -557,7 +574,10 @@ function VotingPanel({
       <PlayerTimerBar seconds={timer} total={VOTE_TIME_SEC} />
 
       {questionText && (
-        <div className="bg-[#111d33] border border-[#ffd700]/40 rounded-2xl p-4 text-center">
+        <div
+          className="bg-[#111d33] border border-[#ffd700]/40 rounded-2xl p-4 text-center panel-pulse"
+          style={{ ['--panel-delay' as '--panel-delay']: '0.1s' }}
+        >
           <p className="text-sm text-gray-400 mb-1">Вопрос дуэли</p>
           <p className="text-lg font-bold">{questionText}</p>
         </div>
@@ -591,11 +611,12 @@ function VotingPanel({
           <button
             onClick={() => currentDuel && onVote(currentDuel.player1_id)}
             disabled={!!myVote}
-            className={`w-full rounded-2xl border-2 p-4 text-left transition-all active:scale-95 ${
+            className={`w-full rounded-2xl border-2 p-4 text-left transition-all active:scale-95 panel-pulse ${
               myVote === currentDuel?.player1_id
                 ? 'bg-[#1f6ac6]/30 border-[#1f6ac6] scale-[1.02]'
                 : myVote ? 'opacity-40 border-gray-700' : 'bg-[#111d33] border-[#1f6ac6] hover:bg-[#1f6ac6]/20'
             }`}
+            style={{ ['--panel-delay' as '--panel-delay']: '0.16s' }}
           >
             <div className="flex items-center gap-3 mb-2">
               {p1?.avatar && (
@@ -616,11 +637,12 @@ function VotingPanel({
           <button
             onClick={() => currentDuel && onVote(currentDuel.player2_id)}
             disabled={!!myVote}
-            className={`w-full rounded-2xl border-2 p-4 text-left transition-all active:scale-95 ${
+            className={`w-full rounded-2xl border-2 p-4 text-left transition-all active:scale-95 panel-pulse ${
               myVote === currentDuel?.player2_id
                 ? 'bg-red-600/30 border-red-600 scale-[1.02]'
                 : myVote ? 'opacity-40 border-gray-700' : 'bg-[#111d33] border-red-600 hover:bg-red-600/20'
             }`}
+            style={{ ['--panel-delay' as '--panel-delay']: '0.22s' }}
           >
             <div className="flex items-center gap-3 mb-2">
               {p2?.avatar && (

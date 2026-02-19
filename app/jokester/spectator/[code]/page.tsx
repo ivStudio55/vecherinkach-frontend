@@ -205,10 +205,14 @@ export default function JokesterSpectatorPage() {
             <div className="text-5xl">👀</div>
             <h2 className="text-xl font-black text-purple-400">Зрительский зал</h2>
             <p className="text-gray-400">Ожидание начала игры...</p>
-            <div className="bg-[#111d33] rounded-2xl p-4 space-y-2">
+            <div className="bg-[#111d33] rounded-2xl p-4 space-y-2 panel-pulse" style={{ ['--panel-delay' as '--panel-delay']: '0.1s' }}>
               <h3 className="text-sm font-bold text-gray-400">Рейтинг игроков</h3>
-              {gamePlayers.map(p => (
-                <div key={p.id} className="flex items-center gap-2 bg-[#0d1a30] rounded-lg p-2">
+              {gamePlayers.map((p, idx) => (
+                <div
+                  key={p.id}
+                  className="flex items-center gap-2 bg-[#0d1a30] rounded-lg p-2 panel-pulse"
+                  style={{ ['--panel-delay' as '--panel-delay']: `${0.05 + idx * 0.06}s` }}
+                >
                   <img src={avatarSrc(p.avatar)} alt={p.name} className="w-14 h-14 rounded-full object-cover jokester-avatar-pop" />
                   <span className="text-sm font-bold">{p.name}</span>
                 </div>
@@ -232,11 +236,12 @@ export default function JokesterSpectatorPage() {
                     key={cat.id}
                     onClick={() => handleCategoryVote(cat.id)}
                     disabled={voted || myCatVotes.size >= gamePlayers.length}
-                    className={`rounded-xl border-2 p-3 text-left transition-all active:scale-95 ${
+                    className={`rounded-xl border-2 p-3 text-left transition-all active:scale-95 panel-pulse ${
                       voted
                         ? 'bg-purple-600/20 border-purple-600 text-purple-300'
                         : 'bg-[#111d33] border-gray-700 hover:border-purple-500'
                     } disabled:opacity-50`}
+                    style={{ ['--panel-delay' as '--panel-delay']: '0.08s' }}
                   >
                     <span className="text-xl">{cat.emoji}</span>
                     <span className="text-lg font-black ml-1">{cat.name}</span>
@@ -255,7 +260,10 @@ export default function JokesterSpectatorPage() {
 
             {/* Вопрос */}
             {currentDuel && (
-              <div className="bg-[#111d33] border border-gray-700 rounded-2xl p-4 text-center">
+              <div
+                className="bg-[#111d33] border border-gray-700 rounded-2xl p-4 text-center panel-pulse"
+                style={{ ['--panel-delay' as '--panel-delay']: '0.12s' }}
+              >
                 <p className="font-bold">{currentDuel.question1_text}</p>
               </div>
             )}
@@ -273,6 +281,7 @@ export default function JokesterSpectatorPage() {
                     disabled={!!myVote}
                     color="#1f6ac6"
                     onClick={() => handleVote(currentDuel.player1_id)}
+                    panelDelay="0.18s"
                   />
                   <VoteButton
                     label="Дуэлянт 2"
@@ -283,6 +292,7 @@ export default function JokesterSpectatorPage() {
                     disabled={!!myVote}
                     color="#f1532f"
                     onClick={() => handleVote(currentDuel.player2_id)}
+                    panelDelay="0.26s"
                   />
                 </>
               )}
@@ -301,7 +311,10 @@ export default function JokesterSpectatorPage() {
             {duelReveal?.question && <p className="text-sm text-gray-400">{duelReveal.question}</p>}
             <p className="text-2xl font-black text-white">{duelReveal?.winnerName || 'Ничья'}</p>
             {duelReveal?.winnerAnswer && (
-              <div className="bg-[#111d33] border border-[#ffd700]/40 rounded-2xl p-4">
+              <div
+                className="bg-[#111d33] border border-[#ffd700]/40 rounded-2xl p-4 panel-pulse"
+                style={{ ['--panel-delay' as '--panel-delay']: '0.14s' }}
+              >
                 <p className="text-4xl font-black jokester-answer-font">« {duelReveal.winnerAnswer} »</p>
               </div>
             )}
@@ -326,7 +339,11 @@ export default function JokesterSpectatorPage() {
             </h2>
             <div className="space-y-2">
               {sortedByPoints.filter(p => !p.is_host).map((p, i) => (
-                <div key={p.id} className="bg-[#111d33] rounded-xl p-3 flex items-center gap-3">
+                <div
+                  key={p.id}
+                  className="bg-[#111d33] rounded-xl p-3 flex items-center gap-3 panel-pulse"
+                  style={{ ['--panel-delay' as '--panel-delay']: `${0.05 + i * 0.06}s` }}
+                >
                   <span className="text-lg font-bold w-6 text-center">
                     {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
                   </span>
@@ -405,6 +422,7 @@ function VoteButton({
   disabled,
   color,
   onClick,
+  panelDelay,
 }: {
   label: string;
   avatar?: string | null;
@@ -414,12 +432,13 @@ function VoteButton({
   disabled: boolean;
   color: string;
   onClick: () => void;
+  panelDelay?: string;
 }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`rounded-2xl border-2 p-4 text-left transition-all active:scale-95 ${
+      className={`rounded-2xl border-2 p-4 text-left transition-all active:scale-95 panel-pulse ${
         isSelected
           ? 'scale-[1.02] shadow-lg'
           : disabled ? 'opacity-40' : 'hover:scale-[1.01]'
@@ -427,6 +446,7 @@ function VoteButton({
       style={{
         borderColor: color,
         backgroundColor: isSelected ? `${color}22` : '#111d33',
+        ['--panel-delay' as '--panel-delay']: panelDelay || '0s',
       }}
     >
       <div className="flex items-center gap-3 mb-2">

@@ -229,6 +229,18 @@ body {
   animation: answerCardPulse 3.6s ease-in-out infinite;
 }
 
+@keyframes panelPulse {
+  0%, 100% { transform: scale(1); }
+  40% { transform: scale(1.012); }
+  65% { transform: scale(0.994); }
+}
+
+.panel-pulse {
+  animation: panelPulse 4.8s ease-in-out infinite;
+  animation-delay: var(--panel-delay, 0s);
+  transform-origin: center;
+}
+
 @keyframes roundEmojiFlip {
   0%, 100% { transform: translateY(0) scale(1); }
   25% { transform: translateY(-8px) scale(1.08, 0.94); }

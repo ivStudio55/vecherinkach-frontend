@@ -1144,7 +1144,10 @@ export default function JokesterHostPage() {
             )}
 
             {room.voting_phase === 'answering' && (
-              <div className="bg-[#111d33] border-2 border-[#ffd700]/30 rounded-3xl p-6 space-y-4">
+              <div
+                className="bg-[#111d33] border-2 border-[#ffd700]/30 rounded-3xl p-6 space-y-4 panel-pulse"
+                style={{ ['--panel-delay' as '--panel-delay']: '0.12s' }}
+              >
                 <p className="text-center text-lg font-black text-[#ffd700]">Все игроки отвечают одновременно</p>
                 <p className="text-center text-sm text-gray-400">120 секунд. Одна дуэль = один вопрос</p>
                 <div className="grid md:grid-cols-2 gap-3">
@@ -1186,7 +1189,10 @@ export default function JokesterHostPage() {
             )}
 
             {room.voting_phase === 'voting' && currentDuel && (
-              <div className="relative bg-[#111d33] border-2 border-[#ffd700]/40 rounded-3xl p-6 text-center overflow-hidden">
+              <div
+                className="relative bg-[#111d33] border-2 border-[#ffd700]/40 rounded-3xl p-6 text-center overflow-hidden panel-pulse"
+                style={{ ['--panel-delay' as '--panel-delay']: '0.2s' }}
+              >
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-80">
                   <div className="scale-125 drop-shadow-[0_0_12px_rgba(0,0,0,0.25)]">
                     <TimerCircle seconds={timer} total={VOTE_TIME_SEC} tickKey={timerTickKey} />
@@ -1242,7 +1248,11 @@ export default function JokesterHostPage() {
             )}
 
             {room.voting_phase === 'results' && (
-              <div ref={winnerPanelRef} className="bg-[#111d33] border-2 border-[#ffd700]/40 rounded-3xl p-6 text-center animate-[fadeIn_0.4s_ease]">
+              <div
+                ref={winnerPanelRef}
+                className="bg-[#111d33] border-2 border-[#ffd700]/40 rounded-3xl p-6 text-center animate-[fadeIn_0.4s_ease] panel-pulse"
+                style={{ ['--panel-delay' as '--panel-delay']: '0.25s' }}
+              >
                 {voteReveal ? (
                   <>
                     <p className="text-xs text-gray-400 mb-2">Правильный ответ</p>
@@ -1306,12 +1316,12 @@ export default function JokesterHostPage() {
               {sortedByPoints.filter(p => !p.is_host).map((p, i) => (
                 <div
                   key={p.id}
-                  className={`bg-[#111d33] border-2 rounded-2xl p-4 flex items-center gap-4 transition-all ${
+                  className={`bg-[#111d33] border-2 rounded-2xl p-4 flex items-center gap-4 transition-all panel-pulse ${
                     i === 0 ? 'border-[#ffd700] shadow-lg shadow-[#ffd700]/20' :
                     i === 1 ? 'border-gray-400' :
                     i === 2 ? 'border-amber-700' : 'border-gray-700'
                   }`}
-                  style={{ animationDelay: `${i * 0.1}s` }}
+                  style={{ animationDelay: `${i * 0.1}s`, ['--panel-delay' as '--panel-delay']: `${0.05 + i * 0.06}s` }}
                 >
                   <span className="text-2xl font-black text-[#ffd700] w-8 text-center">
                     {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
@@ -1593,8 +1603,12 @@ function DuelAnswerCard({
 
   return (
     <div
-      className="relative bg-[#111d33] border-2 rounded-3xl p-6 space-y-3 overflow-hidden answer-card-anim"
-      style={{ borderColor: color, animationDelay: `${animDelay}s` }}
+      className="relative bg-[#111d33] border-2 rounded-3xl p-6 space-y-3 overflow-hidden answer-card-anim panel-pulse"
+      style={{
+        borderColor: color,
+        animationDelay: `${animDelay}s`,
+        ['--panel-delay' as '--panel-delay']: `${animDelay}s`,
+      }}
     >
       {duelist && (
         <div className="absolute inset-0 flex items-center justify-center opacity-15 pointer-events-none scale-125" aria-hidden="true">
@@ -1602,18 +1616,7 @@ function DuelAnswerCard({
         </div>
       )}
       <div className="relative z-10 space-y-3">
-        <div className="flex items-center gap-3">
-          {duelist && (
-            <FeatherAvatar
-              src={avatarSrc(duelist.avatar)}
-              alt={duelist.name}
-              className="w-28 h-28 rounded-full object-cover jokester-avatar-pop shadow-[0_0_20px_rgba(0,0,0,0.45)]"
-              emitFeathers={emitFeathers}
-              burstCount={24}
-            />
-          )}
-          <h3 className="text-xl font-black" style={{ color }}>{label}</h3>
-        </div>
+        <h3 className="text-xl font-black" style={{ color }}>{label}</h3>
         {answers.map(a => (
           <div key={a.id} className="bg-[#0d1a30]/90 rounded-2xl p-4 shadow-inner shadow-black/30">
             <p className="text-5xl sm:text-6xl font-bold text-white jokester-answer-font">« {a.answer_text} »</p>
