@@ -10,6 +10,28 @@ function randomFile(basePath: string, count: number, ext = 'mp3'): string {
   return `${basePath}/${randomIndex(count)}.${ext}`;
 }
 
+// Non-repeating queue per folder for voice files
+const voiceQueues = new Map<string, number[]>();
+
+function shuffledRange(count: number): number[] {
+  const arr = Array.from({ length: count }, (_, i) => i + 1);
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function nextVoiceIndex(folder: string, count: number): number {
+  if (count <= 1) return 1;
+  let queue = voiceQueues.get(folder);
+  if (!queue || queue.length === 0) {
+    queue = shuffledRange(count);
+    voiceQueues.set(folder, queue);
+  }
+  return queue.pop() || 1;
+}
+
 /* ─── Пути к аудио ─── */
 export const JOKESTER_AUDIO = {
   // Саундтреки
@@ -140,7 +162,7 @@ export class JokesterAudioPlayer {
    * If count==0, tries to play 1.mp3 only.
    */
   playVoiceRandom(folderPath: string, count = 4, volume = 0.7): Promise<void> {
-    const idx = count > 0 ? randomIndex(count) : 1;
+    const idx = count > 0 ? nextVoiceIndex(folderPath, count) : 1;
     return this.playVoice(`${folderPath}/${idx}.mp3`, volume);
   }
 

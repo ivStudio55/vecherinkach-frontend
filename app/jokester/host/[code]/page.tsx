@@ -946,9 +946,6 @@ export default function JokesterHostPage() {
           <span className="px-3 py-1 rounded-full text-sm font-bold bg-[#ffd700] text-[#0a1628]">
             {roomCode}
           </span>
-          <span className="text-xs text-gray-400">
-            R{room.current_round} · {room.status}
-          </span>
           <button
             onClick={() => setIsBgmMuted(audioRef.current?.toggleBgmMute() ?? false)}
             className={`px-3 py-1 rounded-lg text-xs border transition ${

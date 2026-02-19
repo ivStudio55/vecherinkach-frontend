@@ -194,7 +194,7 @@ export default function JokesterSpectatorPage() {
           <span className="text-lg">👀</span>
           <span className="font-bold text-sm text-purple-400">Зритель</span>
         </div>
-        <span className="text-xs text-gray-400">{roomCode} · R{room.current_round}</span>
+        <span className="text-xs text-gray-400">{roomCode}</span>
       </header>
 
       <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
