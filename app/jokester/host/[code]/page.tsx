@@ -1282,7 +1282,7 @@ export default function JokesterHostPage() {
             )}
             {room.status === 'final_results' && (
               <button
-                onClick={handleShowCredits}
+                onClick={() => { void handleShowCredits(); }}
                 className="w-full py-4 rounded-2xl font-black text-xl bg-[#ffd700] text-[#0a1628] hover:bg-[#ffe44d] transition-all"
               >
                 🎬 Титры
