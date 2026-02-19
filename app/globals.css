@@ -219,6 +219,16 @@ body {
   animation: questionCharPop 480ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+@keyframes answerCardPulse {
+  0%, 100% { transform: scale(1); }
+  45% { transform: scale(1.02); }
+  65% { transform: scale(0.995); }
+}
+
+.answer-card-anim {
+  animation: answerCardPulse 3.6s ease-in-out infinite;
+}
+
 @keyframes roundEmojiFlip {
   0%, 100% { transform: translateY(0) scale(1); }
   25% { transform: translateY(-8px) scale(1.08, 0.94); }
@@ -322,91 +332,6 @@ body {
   opacity: 0.8;
   animation-duration: 78s;
   animation-direction: reverse;
-}
-
-/* Duel layout styling */
-.duel-question-banner {
-  position: relative;
-  background: linear-gradient(135deg, #123055, #0d2038 45%, #153b63 100%);
-  border: 2px solid rgba(255, 215, 0, 0.35);
-  border-radius: 22px;
-  padding: 18px 18px 18px 110px;
-  clip-path: polygon(2% 12%, 98% 6%, 96% 88%, 4% 94%);
-  animation: duelQuestionMorph 6s ease-in-out infinite alternate;
-  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.35), inset 0 0 18px rgba(255, 215, 0, 0.08);
-  overflow: hidden;
-}
-
-.duel-question-timer {
-  position: absolute;
-  left: 18px;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-.duel-answer-grid {
-  position: relative;
-  display: grid;
-  gap: 18px;
-}
-
-.duel-blob-card {
-  position: relative;
-  padding: 18px 18px 22px;
-  border: 2px solid rgba(255, 215, 0, 0.2);
-  background: linear-gradient(160deg, rgba(13, 26, 48, 0.92), rgba(10, 21, 39, 0.9));
-  overflow: hidden;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
-  animation: duelAnswerMorph 7s ease-in-out infinite alternate;
-}
-
-.duel-blob-left {
-  clip-path: polygon(4% 10%, 96% 4%, 90% 94%, 6% 90%);
-}
-
-.duel-blob-right {
-  clip-path: polygon(6% 6%, 94% 12%, 92% 92%, 10% 96%);
-}
-
-.duel-blob-accent {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: radial-gradient(circle at 20% 20%, rgba(255, 215, 0, 0.08), transparent 40%),
-    radial-gradient(circle at 80% 40%, rgba(79, 141, 226, 0.08), transparent 42%);
-}
-
-.duel-avatar-badge {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.avatar-soft-pulse {
-  animation: avatarSoftPulse 2.8s ease-in-out infinite;
-}
-
-@keyframes avatarSoftPulse {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.05);
-  }
-}
-
-@keyframes duelQuestionMorph {
-  0% { clip-path: polygon(2% 12%, 98% 6%, 96% 88%, 4% 94%); }
-  50% { clip-path: polygon(3% 10%, 97% 8%, 95% 90%, 5% 92%); }
-  100% { clip-path: polygon(2% 14%, 98% 5%, 96% 86%, 4% 96%); }
-}
-
-@keyframes duelAnswerMorph {
-  0% { transform: translateY(0); }
-  50% { transform: translateY(-3px); }
-  100% { transform: translateY(0); }
 }
 
 .sunrays-timer-rays {
