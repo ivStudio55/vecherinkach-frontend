@@ -319,7 +319,7 @@ export default function JokesterHostPage() {
     if (room?.status === 'lobby') {
       audioRef.current?.playBgm(JOKESTER_AUDIO.lobbyMusic, 0.3);
       // Голос ведущего на лобби
-      audioRef.current?.playVoiceRandom(JOKESTER_AUDIO.meetFolder, 4);
+      audioRef.current?.playVoiceRandom(JOKESTER_AUDIO.meetFolder);
     }
     return () => {};
   }, [room?.status]);
@@ -424,7 +424,7 @@ export default function JokesterHostPage() {
     // Голос по количеству игроков
     const count = gamePlayers.length;
     const folder = JOKESTER_AUDIO.connectFolder(Math.min(Math.max(count, 4), 10));
-    await audioRef.current?.playVoiceRandom(folder, 3);
+    await audioRef.current?.playVoiceRandom(folder);
 
     // Переход к голосованию за категории
     await updateJokesterRoom(room.id, {
@@ -451,7 +451,7 @@ export default function JokesterHostPage() {
       await updateJokesterRoom(effectiveRoom.id, { status: 'category_vote', state_version: effectiveRoom.state_version + 2 });
 
       audioRef.current?.playBgm('/audio/sound/Jokester/soundTrack/category.mp3', 0.4);
-      void audioRef.current?.playVoiceRandom(JOKESTER_AUDIO.choosingCategoryFolder, 3);
+      void audioRef.current?.playVoiceRandom(JOKESTER_AUDIO.choosingCategoryFolder);
 
       startTimer(CATEGORY_VOTE_TIME_SEC, () => {
         if (!autoStartingDuelsRef.current) {
@@ -504,7 +504,7 @@ export default function JokesterHostPage() {
 
     // Фаза 1: все игроки отвечают одновременно (120 сек)
     audioRef.current?.playBgm('/audio/sound/Jokester/soundTrack/120sec.mp3', 0.35);
-    audioRef.current?.playVoiceRandom(JOKESTER_AUDIO.roundFolder, 4);
+    audioRef.current?.playVoiceRandom(JOKESTER_AUDIO.roundFolder);
 
     await updateJokesterRoom(effectiveRoom.id, {
       status: 'round_playing',
@@ -564,7 +564,7 @@ export default function JokesterHostPage() {
     });
 
     audioRef.current?.playBgm('/audio/sound/Jokester/soundTrack/vote30sec.mp3', 0.4);
-    audioRef.current?.playVoiceRandom(JOKESTER_AUDIO.voteFolder, 3);
+    audioRef.current?.playVoiceRandom(JOKESTER_AUDIO.voteFolder);
     setShowDeAnon(false);
 
     startTimer(VOTE_TIME_SEC, () => {
@@ -669,7 +669,7 @@ export default function JokesterHostPage() {
 
       audioRef.current?.playBgm(JOKESTER_AUDIO.betweenMusic, 0.28);
       // Озвучка комментария
-      await audioRef.current?.playVoteComment(winnerPercent, 3);
+      await audioRef.current?.playVoteComment(winnerPercent);
       audioRef.current?.stopBgm();
 
       // Автопереход к следующей дуэли или результатам раунда
@@ -709,7 +709,7 @@ export default function JokesterHostPage() {
       // Голос после раунда
       const afterFolder = JOKESTER_AUDIO.afterRound(1);
       audioRef.current?.playBgm(JOKESTER_AUDIO.afterRoundMusic, 0.28);
-      await audioRef.current?.playVoiceRandom(afterFolder, 3);
+      await audioRef.current?.playVoiceRandom(afterFolder);
       audioRef.current?.stopBgm();
       autoStartingDuelsRef.current = false;
     }
@@ -849,7 +849,7 @@ export default function JokesterHostPage() {
   useEffect(() => {
     if (room?.status !== 'credits') return;
     audioRef.current?.playBgm(JOKESTER_AUDIO.finalMusic, 0.35);
-    void audioRef.current?.playVoiceRandom(JOKESTER_AUDIO.afterFinal, 3);
+    void audioRef.current?.playVoiceRandom(JOKESTER_AUDIO.afterFinal);
   }, [room?.status]);
 
   useEffect(() => {

@@ -10,6 +10,32 @@ function randomFile(basePath: string, count: number, ext = 'mp3'): string {
   return `${basePath}/${randomIndex(count)}.${ext}`;
 }
 
+// Настроенные размеры папок с озвучкой (чтобы не повторять файлы чаще чем нужно)
+const VOICE_COUNTS: Record<string, number> = {
+  '/audio/sound/Jokester/meet': 9,
+  '/audio/sound/Jokester/round': 10,
+  '/audio/sound/Jokester/round1': 5,
+  '/audio/sound/Jokester/round2': 5,
+  '/audio/sound/Jokester/round3': 5,
+  '/audio/sound/Jokester/round4': 5,
+  '/audio/sound/Jokester/choosing_category': 7,
+  '/audio/sound/Jokester/vote': 12,
+  '/audio/sound/Jokester/stop_timer': 10,
+  '/audio/sound/Jokester/stop_vote_timer': 8,
+  '/audio/sound/Jokester/after_1': 3,
+  '/audio/sound/Jokester/after_f': 10,
+  '/audio/sound/Jokester/vote_comment/50': 5,
+  '/audio/sound/Jokester/vote_comment/51-69': 5,
+  '/audio/sound/Jokester/vote_comment/70-99': 5,
+  '/audio/sound/Jokester/vote_comment/100': 5,
+};
+
+function getVoiceCount(folder: string, fallback = 1): number {
+  if (VOICE_COUNTS[folder]) return VOICE_COUNTS[folder];
+  if (folder.startsWith('/audio/sound/Jokester/connect/')) return 1; // по одному файлу на каждый размер комнаты
+  return fallback;
+}
+
 // Non-repeating queue per folder for voice files
 const voiceQueues = new Map<string, number[]>();
 
@@ -161,8 +187,9 @@ export class JokesterAudioPlayer {
    * Assumes files are named 1.mp3, 2.mp3, ... up to `count`.
    * If count==0, tries to play 1.mp3 only.
    */
-  playVoiceRandom(folderPath: string, count = 4, volume = 0.7): Promise<void> {
-    const idx = count > 0 ? nextVoiceIndex(folderPath, count) : 1;
+  playVoiceRandom(folderPath: string, count?: number, volume = 0.7): Promise<void> {
+    const resolvedCount = count && count > 0 ? count : getVoiceCount(folderPath);
+    const idx = resolvedCount > 0 ? nextVoiceIndex(folderPath, resolvedCount) : 1;
     return this.playVoice(`${folderPath}/${idx}.mp3`, volume);
   }
 
@@ -217,7 +244,7 @@ export class JokesterAudioPlayer {
 
   /* ─── Convenience: vote comment by percentage ─── */
 
-  playVoteComment(winnerPercent: number, count = 3): Promise<void> {
+  playVoteComment(winnerPercent: number): Promise<void> {
     let folder: string;
     if (winnerPercent <= 50) {
       folder = JOKESTER_AUDIO.voteComment50;
@@ -228,12 +255,12 @@ export class JokesterAudioPlayer {
     } else {
       folder = JOKESTER_AUDIO.voteComment100;
     }
-    return this.playVoiceRandom(folder, count);
+    return this.playVoiceRandom(folder);
   }
 
   /* ─── Round rules voice ─── */
 
-  playRoundRules(round: number, count = 3): Promise<void> {
+  playRoundRules(round: number): Promise<void> {
     const folders: Record<number, string> = {
       1: JOKESTER_AUDIO.round1Folder,
       2: JOKESTER_AUDIO.round2Folder,
@@ -241,6 +268,6 @@ export class JokesterAudioPlayer {
       4: JOKESTER_AUDIO.round4Folder,
     };
     const folder = folders[round] || JOKESTER_AUDIO.round1Folder;
-    return this.playVoiceRandom(folder, count);
+    return this.playVoiceRandom(folder);
   }
 }
