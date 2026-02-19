@@ -337,7 +337,7 @@ export default function JokesterPlayerPage() {
                     } disabled:opacity-50`}
                   >
                     <span className="text-2xl block mb-1">{cat.emoji}</span>
-                    <span className="text-sm font-bold">{cat.name}</span>
+                    <span className="text-xl font-black leading-tight">{cat.name}</span>
                   </button>
                 );
               })}
@@ -386,7 +386,7 @@ export default function JokesterPlayerPage() {
             {currentTarget ? (
               <>
                 <div className="bg-[#111d33] border-2 border-[#1f6ac6]/50 rounded-2xl p-4 space-y-3">
-                  <p className="text-xs text-[#ffd700] tracking-wider">
+                  <p className="text-lg text-[#ffd700] font-black tracking-wide">
                     {categoryLabel(currentTarget.cat, categories)} · дуэль {currentTarget.duel.duel_index + 1}
                   </p>
                   <p className="text-lg font-bold">{currentTarget.text}</p>

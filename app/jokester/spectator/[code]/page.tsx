@@ -239,7 +239,7 @@ export default function JokesterSpectatorPage() {
                     } disabled:opacity-50`}
                   >
                     <span className="text-xl">{cat.emoji}</span>
-                    <span className="text-xs font-bold ml-1">{cat.name}</span>
+                    <span className="text-lg font-black ml-1">{cat.name}</span>
                   </button>
                 );
               })}

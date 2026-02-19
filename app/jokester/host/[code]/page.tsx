@@ -154,6 +154,14 @@ export default function JokesterHostPage() {
     void audio.play().catch(() => {});
   }, []);
 
+  const playConnectQuack = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.playRandomDuck(0.9);
+    } else {
+      playRandomSound(CONNECT_QUACK_SOUNDS, 0.9);
+    }
+  }, [playRandomSound]);
+
   const unlockAudio = useCallback(() => {
     if (audioUnlockedRef.current) return;
     audioUnlockedRef.current = true;
@@ -161,9 +169,9 @@ export default function JokesterHostPage() {
     pendingConnectSoundsRef.current = 0;
     if (pending <= 0) return;
     for (let i = 0; i < Math.min(3, pending); i++) {
-      setTimeout(() => playRandomSound(CONNECT_QUACK_SOUNDS, 0.9), i * 180);
+      setTimeout(() => playConnectQuack(), i * 180);
     }
-  }, [playRandomSound]);
+  }, [playConnectQuack]);
 
   const registerFeatherEmitter = useCallback((emit: (spawn: FeatherSpawn) => void) => {
     featherEmitterRef.current = emit;
@@ -222,11 +230,14 @@ export default function JokesterHostPage() {
       subscribeJokesterRoom(room.id, r => setRoom(r)),
       subscribeJokesterPlayers(room.id, p => {
         const nextPlayerCount = p.filter(player => player.role === 'player' && !player.is_host).length;
-        if (nextPlayerCount > prevPlayerCountRef.current) {
+        const diff = nextPlayerCount - prevPlayerCountRef.current;
+        if (diff > 0) {
           if (audioUnlockedRef.current) {
-            playRandomSound(CONNECT_QUACK_SOUNDS, 0.9);
+            for (let i = 0; i < Math.min(3, diff); i++) {
+              setTimeout(() => playConnectQuack(), i * 160);
+            }
           } else {
-            pendingConnectSoundsRef.current += nextPlayerCount - prevPlayerCountRef.current;
+            pendingConnectSoundsRef.current += diff;
           }
         }
         prevPlayerCountRef.current = nextPlayerCount;
@@ -235,7 +246,7 @@ export default function JokesterHostPage() {
       subscribeJokesterDuels(room.id, d => setDuels(d)),
     ];
     return () => unsubs.forEach(fn => fn());
-  }, [room?.id, playRandomSound]);
+  }, [room?.id, playConnectQuack]);
 
   useEffect(() => {
     const handleUnlock = () => unlockAudio();
@@ -843,6 +854,41 @@ export default function JokesterHostPage() {
     await updateJokesterRoom(room.id, { status: 'finished', state_version: room.state_version + 12 });
   };
 
+  const handleForceAdvance = async () => {
+    if (!room) return;
+    unlockAudio();
+
+    if (room.status === 'round_playing' || room.status === 'final_playing') {
+      if (room.voting_phase === 'voting') {
+        await handleVoteEnd();
+        return;
+      }
+      if (room.voting_phase === 'results') {
+        await handleNextDuelOrResults(room);
+        return;
+      }
+      if (room.voting_phase === 'answering') {
+        await handleAnswerPhaseEnd();
+        return;
+      }
+    }
+
+    if (room.status === 'round_results') {
+      if (room.current_round < 3) {
+        await handleNextRound();
+        return;
+      }
+      if (room.current_round === 3) {
+        await handleStartFinal();
+        return;
+      }
+    }
+
+    if (room.status === 'final_results') {
+      await handleShowCredits();
+    }
+  };
+
   /* ══════════════════════════════════════════════
      Render
      ══════════════════════════════════════════════ */
@@ -903,6 +949,13 @@ export default function JokesterHostPage() {
             }`}
           >
             🎤
+          </button>
+          <button
+            onClick={() => { void handleForceAdvance(); }}
+            className="px-3 py-1 rounded-lg text-xs bg-amber-500 hover:bg-amber-400 text-[#0a1628] font-bold transition"
+            title="Ручной переход к следующему шагу"
+          >
+            → Дальше
           </button>
           <button
             onClick={handleCloseRoom}
@@ -1032,7 +1085,7 @@ export default function JokesterHostPage() {
                 >
                   <span className="text-3xl">{cat.emoji}</span>
                   <div className="flex-1">
-                    <p className="font-bold">{cat.name}</p>
+                    <p className="font-black text-2xl">{cat.name}</p>
                     <div className="h-2 bg-gray-700 rounded-full mt-1 overflow-hidden">
                       <div
                         className="h-full bg-[#ffd700] rounded-full transition-all duration-500"
@@ -1121,7 +1174,7 @@ export default function JokesterHostPage() {
 
             {room.voting_phase === 'voting' && currentDuel && (
               <div className="bg-[#111d33] border-2 border-[#ffd700]/40 rounded-3xl p-6 text-center">
-                <p className="text-xs text-gray-400 mb-2 tracking-wider">
+                <p className="text-lg font-black text-gray-100 mb-3 tracking-wide">
                   {categoryLabel(currentDuel.question1_cat)}
                 </p>
                 <AnimatedQuestionText text={currentDuel.question1_text || ''} />
@@ -1439,7 +1492,7 @@ function TimerCircle({ seconds, total, tickKey }: { seconds: number; total: numb
           <div className="sunrays-timer-rays sunrays-timer-rays-soft" />
           <div className="sunrays-timer-core" />
         </div>
-        <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
+        <svg className="relative z-10 w-full h-full -rotate-90" viewBox="0 0 120 120">
           <circle cx="60" cy="60" r={radius} fill="none" stroke="#1a2940" strokeWidth="8" />
           <circle
             cx="60" cy="60" r={radius} fill="none"
@@ -1449,7 +1502,7 @@ function TimerCircle({ seconds, total, tickKey }: { seconds: number; total: numb
             className="transition-all duration-1000"
           />
         </svg>
-        <div className="absolute inset-0 flex items-center justify-center">
+        <div className="absolute inset-0 flex items-center justify-center z-20">
           <div className="flex items-end gap-0.5">
             {String(seconds).split('').map((ch, idx) => (
               <span
@@ -1550,7 +1603,7 @@ function DuelAnswerCard({
 
 function AnimatedQuestionText({ text }: { text: string }) {
   return (
-    <p className="text-2xl sm:text-3xl font-black jokester-question-font leading-relaxed">
+    <p className="text-4xl sm:text-5xl font-black jokester-question-font leading-snug">
       {text.split('').map((ch, idx) => (
         <span
           key={`${ch}-${idx}`}
