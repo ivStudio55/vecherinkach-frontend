@@ -3,6 +3,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import type { CSSProperties } from 'react';
 import { useParams } from 'next/navigation';
 import {
   fetchJokesterRoom,
@@ -38,6 +39,8 @@ function normalizeAvatarFile(value?: string | null): string {
   if (match) return `${match[1]}.png`;
   return value;
 }
+
+const panelDelayStyle = (value: string): CSSProperties => ({ '--panel-delay': value } as CSSProperties);
 
 function avatarSrc(value?: string | null): string {
   return `/audio/sound/Jokester/ava/${normalizeAvatarFile(value)}`;
@@ -299,7 +302,7 @@ export default function JokesterPlayerPage() {
                 <div
                   key={p.id}
                   className={`bg-[#111d33] rounded-xl p-2 text-center panel-pulse ${p.id === myId ? 'border-2 border-[#ffd700]' : ''}`}
-                  style={{ ['--panel-delay' as '--panel-delay']: `${idx * 0.08}s` }}
+                  style={panelDelayStyle(`${idx * 0.08}s`)}
                 >
                   <img src={avatarSrc(p.avatar)} alt={p.name} className="w-16 h-16 rounded-full object-cover mx-auto jokester-avatar-pop" />
                   <p className="text-xs truncate">{p.name}</p>
@@ -373,7 +376,7 @@ export default function JokesterPlayerPage() {
               <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 animate-[fadeIn_0.3s_ease]">
                 <div
                   className="bg-[#111d33] border-2 border-[#ffd700]/50 rounded-3xl p-6 text-center max-w-md w-[90%] animate-[categoryReveal_2.5s_ease-out_forwards] panel-pulse"
-                  style={{ ['--panel-delay' as '--panel-delay']: '0.1s' }}
+                  style={panelDelayStyle('0.1s')}
                 >
                   <p className="text-xs text-gray-400 mb-2">Категория</p>
                   <p className="text-3xl font-black text-[#ffd700]">
@@ -394,7 +397,7 @@ export default function JokesterPlayerPage() {
               <>
                 <div
                   className="bg-[#111d33] border-2 border-[#1f6ac6]/50 rounded-2xl p-4 space-y-3 panel-pulse"
-                  style={{ ['--panel-delay' as '--panel-delay']: '0.14s' }}
+                  style={panelDelayStyle('0.14s')}
                 >
                   <p className="text-lg text-[#ffd700] font-black tracking-wide">
                     {categoryLabel(currentTarget.cat, categories)} · дуэль {currentTarget.duel.duel_index + 1}
@@ -453,7 +456,7 @@ export default function JokesterPlayerPage() {
             {duelReveal?.winnerAnswer && (
               <div
                 className="bg-[#111d33] border border-[#ffd700]/40 rounded-2xl p-4 panel-pulse"
-                style={{ ['--panel-delay' as '--panel-delay']: '0.18s' }}
+                style={panelDelayStyle('0.18s')}
               >
                 <p className="text-4xl font-black jokester-answer-font">« {duelReveal.winnerAnswer} »</p>
               </div>
@@ -468,7 +471,7 @@ export default function JokesterPlayerPage() {
             {me && (
               <div
                 className="bg-[#111d33] border-2 border-[#ffd700]/50 rounded-3xl p-6 text-center space-y-3 panel-pulse"
-                style={{ ['--panel-delay' as '--panel-delay']: '0.12s' }}
+                style={panelDelayStyle('0.12s')}
               >
                 <img src={avatarSrc(me.avatar)} alt={me.name} className="w-28 h-28 rounded-full object-cover mx-auto jokester-avatar-pop" />
                 <p className="text-2xl font-black text-[#ffd700]">{me.total_points} очков</p>
@@ -488,7 +491,7 @@ export default function JokesterPlayerPage() {
                   className={`bg-[#111d33] rounded-xl p-3 flex items-center gap-3 panel-pulse ${
                     p.id === myId ? 'border-2 border-[#ffd700]' : ''
                   }`}
-                  style={{ ['--panel-delay' as '--panel-delay']: `${0.05 + i * 0.06}s` }}
+                  style={panelDelayStyle(`${0.05 + i * 0.06}s`)}
                 >
                   <span className="text-lg font-bold w-6 text-center">
                     {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
@@ -576,7 +579,7 @@ function VotingPanel({
       {questionText && (
         <div
           className="bg-[#111d33] border border-[#ffd700]/40 rounded-2xl p-4 text-center panel-pulse"
-          style={{ ['--panel-delay' as '--panel-delay']: '0.1s' }}
+          style={panelDelayStyle('0.1s')}
         >
           <p className="text-sm text-gray-400 mb-1">Вопрос дуэли</p>
           <p className="text-lg font-bold">{questionText}</p>
@@ -616,7 +619,7 @@ function VotingPanel({
                 ? 'bg-[#1f6ac6]/30 border-[#1f6ac6] scale-[1.02]'
                 : myVote ? 'opacity-40 border-gray-700' : 'bg-[#111d33] border-[#1f6ac6] hover:bg-[#1f6ac6]/20'
             }`}
-            style={{ ['--panel-delay' as '--panel-delay']: '0.16s' }}
+            style={panelDelayStyle('0.16s')}
           >
             <div className="flex items-center gap-3 mb-2">
               {p1?.avatar && (
@@ -642,7 +645,7 @@ function VotingPanel({
                 ? 'bg-red-600/30 border-red-600 scale-[1.02]'
                 : myVote ? 'opacity-40 border-gray-700' : 'bg-[#111d33] border-red-600 hover:bg-red-600/20'
             }`}
-            style={{ ['--panel-delay' as '--panel-delay']: '0.22s' }}
+            style={panelDelayStyle('0.22s')}
           >
             <div className="flex items-center gap-3 mb-2">
               {p2?.avatar && (

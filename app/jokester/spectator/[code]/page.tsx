@@ -3,6 +3,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
 import { useParams } from 'next/navigation';
 import {
   fetchJokesterRoom,
@@ -40,6 +41,8 @@ function normalizeAvatarFile(value?: string | null): string {
 function avatarSrc(value?: string | null): string {
   return `/audio/sound/Jokester/ava/${normalizeAvatarFile(value)}`;
 }
+
+const panelDelayStyle = (value: string): CSSProperties => ({ '--panel-delay': value } as CSSProperties);
 
 export default function JokesterSpectatorPage() {
   const params = useParams();
@@ -205,13 +208,13 @@ export default function JokesterSpectatorPage() {
             <div className="text-5xl">👀</div>
             <h2 className="text-xl font-black text-purple-400">Зрительский зал</h2>
             <p className="text-gray-400">Ожидание начала игры...</p>
-            <div className="bg-[#111d33] rounded-2xl p-4 space-y-2 panel-pulse" style={{ ['--panel-delay' as '--panel-delay']: '0.1s' }}>
+            <div className="bg-[#111d33] rounded-2xl p-4 space-y-2 panel-pulse" style={panelDelayStyle('0.1s')}>
               <h3 className="text-sm font-bold text-gray-400">Рейтинг игроков</h3>
               {gamePlayers.map((p, idx) => (
                 <div
                   key={p.id}
                   className="flex items-center gap-2 bg-[#0d1a30] rounded-lg p-2 panel-pulse"
-                  style={{ ['--panel-delay' as '--panel-delay']: `${0.05 + idx * 0.06}s` }}
+                  style={panelDelayStyle(`${0.05 + idx * 0.06}s`)}
                 >
                   <img src={avatarSrc(p.avatar)} alt={p.name} className="w-14 h-14 rounded-full object-cover jokester-avatar-pop" />
                   <span className="text-sm font-bold">{p.name}</span>
@@ -241,7 +244,7 @@ export default function JokesterSpectatorPage() {
                         ? 'bg-purple-600/20 border-purple-600 text-purple-300'
                         : 'bg-[#111d33] border-gray-700 hover:border-purple-500'
                     } disabled:opacity-50`}
-                    style={{ ['--panel-delay' as '--panel-delay']: '0.08s' }}
+                    style={panelDelayStyle('0.08s')}
                   >
                     <span className="text-xl">{cat.emoji}</span>
                     <span className="text-lg font-black ml-1">{cat.name}</span>
@@ -262,7 +265,7 @@ export default function JokesterSpectatorPage() {
             {currentDuel && (
               <div
                 className="bg-[#111d33] border border-gray-700 rounded-2xl p-4 text-center panel-pulse"
-                style={{ ['--panel-delay' as '--panel-delay']: '0.12s' }}
+                style={panelDelayStyle('0.12s')}
               >
                 <p className="font-bold">{currentDuel.question1_text}</p>
               </div>
@@ -313,7 +316,7 @@ export default function JokesterSpectatorPage() {
             {duelReveal?.winnerAnswer && (
               <div
                 className="bg-[#111d33] border border-[#ffd700]/40 rounded-2xl p-4 panel-pulse"
-                style={{ ['--panel-delay' as '--panel-delay']: '0.14s' }}
+                style={panelDelayStyle('0.14s')}
               >
                 <p className="text-4xl font-black jokester-answer-font">« {duelReveal.winnerAnswer} »</p>
               </div>
@@ -342,7 +345,7 @@ export default function JokesterSpectatorPage() {
                 <div
                   key={p.id}
                   className="bg-[#111d33] rounded-xl p-3 flex items-center gap-3 panel-pulse"
-                  style={{ ['--panel-delay' as '--panel-delay']: `${0.05 + i * 0.06}s` }}
+                    style={panelDelayStyle(`${0.05 + i * 0.06}s`)}
                 >
                   <span className="text-lg font-bold w-6 text-center">
                     {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
@@ -446,7 +449,7 @@ function VoteButton({
       style={{
         borderColor: color,
         backgroundColor: isSelected ? `${color}22` : '#111d33',
-        ['--panel-delay' as '--panel-delay']: panelDelay || '0s',
+        ...panelDelayStyle(panelDelay || '0s'),
       }}
     >
       <div className="flex items-center gap-3 mb-2">

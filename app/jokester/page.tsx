@@ -3,6 +3,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import type { CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { createJokesterRoom, joinJokesterRoom, fetchJokesterPlayers, fetchJokesterRoom, jokesterStorage } from '@/lib/jokester/api';
 import type { JokesterRole } from '@/lib/jokester/types';
@@ -16,6 +17,8 @@ function normalizeAvatarFile(value: string): string {
   if (match) return `${match[1]}.png`;
   return value;
 }
+
+const panelDelayStyle = (value: string): CSSProperties => ({ '--panel-delay': value } as CSSProperties);
 
 export default function JokesterEntryPage() {
   const router = useRouter();
@@ -147,7 +150,7 @@ export default function JokesterEntryPage() {
         {tab === 'create' && (
           <div
             className="bg-[#111d33]/80 border-2 border-[#ffd700]/30 rounded-3xl p-6 space-y-5 backdrop-blur-sm animate-[fadeIn_0.3s_ease] panel-pulse"
-            style={{ ['--panel-delay' as '--panel-delay']: '0.08s' }}
+            style={panelDelayStyle('0.08s')}
           >
             <h2 className="text-xl font-black text-[#ffd700]">Создание комнаты</h2>
             <p className="text-sm text-gray-400">Вы станете ведущим этой весёлой битвы шуток! Имя ведущего не требуется.</p>
@@ -165,7 +168,7 @@ export default function JokesterEntryPage() {
         {tab === 'join' && (
           <div
             className="bg-[#111d33]/80 border-2 border-[#1f6ac6]/30 rounded-3xl p-6 space-y-5 backdrop-blur-sm animate-[fadeIn_0.3s_ease] panel-pulse"
-            style={{ ['--panel-delay' as '--panel-delay']: '0.12s' }}
+            style={panelDelayStyle('0.12s')}
           >
             <h2 className="text-xl font-black text-[#1f6ac6]">Подключение</h2>
 

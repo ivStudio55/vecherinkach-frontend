@@ -3,6 +3,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import type { CSSProperties } from 'react';
 import { useParams } from 'next/navigation';
 import { QRCodeCanvas } from 'qrcode.react';
 import {
@@ -96,6 +97,8 @@ const START_DUCK_SOUNDS = [
   '/audio/duck/6.mp3',
   '/audio/duck/7.mp3',
 ];
+
+const panelDelayStyle = (value: string): CSSProperties => ({ '--panel-delay': value } as CSSProperties);
 
 /* ══════════════════════════════════════════════ */
 export default function JokesterHostPage() {
@@ -1146,7 +1149,7 @@ export default function JokesterHostPage() {
             {room.voting_phase === 'answering' && (
               <div
                 className="bg-[#111d33] border-2 border-[#ffd700]/30 rounded-3xl p-6 space-y-4 panel-pulse"
-                style={{ ['--panel-delay' as '--panel-delay']: '0.12s' }}
+                style={panelDelayStyle('0.12s')}
               >
                 <p className="text-center text-lg font-black text-[#ffd700]">Все игроки отвечают одновременно</p>
                 <p className="text-center text-sm text-gray-400">120 секунд. Одна дуэль = один вопрос</p>
@@ -1191,7 +1194,7 @@ export default function JokesterHostPage() {
             {room.voting_phase === 'voting' && currentDuel && (
               <div
                 className="relative bg-[#111d33] border-2 border-[#ffd700]/40 rounded-3xl p-6 text-center overflow-hidden panel-pulse"
-                style={{ ['--panel-delay' as '--panel-delay']: '0.2s' }}
+                style={panelDelayStyle('0.2s')}
               >
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-80">
                   <div className="scale-125 drop-shadow-[0_0_12px_rgba(0,0,0,0.25)]">
@@ -1251,7 +1254,7 @@ export default function JokesterHostPage() {
               <div
                 ref={winnerPanelRef}
                 className="bg-[#111d33] border-2 border-[#ffd700]/40 rounded-3xl p-6 text-center animate-[fadeIn_0.4s_ease] panel-pulse"
-                style={{ ['--panel-delay' as '--panel-delay']: '0.25s' }}
+                style={panelDelayStyle('0.25s')}
               >
                 {voteReveal ? (
                   <>
@@ -1321,7 +1324,7 @@ export default function JokesterHostPage() {
                     i === 1 ? 'border-gray-400' :
                     i === 2 ? 'border-amber-700' : 'border-gray-700'
                   }`}
-                  style={{ animationDelay: `${i * 0.1}s`, ['--panel-delay' as '--panel-delay']: `${0.05 + i * 0.06}s` }}
+                  style={{ animationDelay: `${i * 0.1}s`, ...panelDelayStyle(`${0.05 + i * 0.06}s`) }}
                 >
                   <span className="text-2xl font-black text-[#ffd700] w-8 text-center">
                     {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
@@ -1607,7 +1610,7 @@ function DuelAnswerCard({
       style={{
         borderColor: color,
         animationDelay: `${animDelay}s`,
-        ['--panel-delay' as '--panel-delay']: `${animDelay}s`,
+        ...panelDelayStyle(`${animDelay}s`),
       }}
     >
       {duelist && (
