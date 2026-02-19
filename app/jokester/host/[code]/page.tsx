@@ -1139,8 +1139,8 @@ export default function JokesterHostPage() {
               </p>
             </div>
 
-            {room.voting_phase !== 'results' && (
-              <TimerCircle seconds={timer} total={room.voting_phase === 'voting' ? VOTE_TIME_SEC : ANSWER_TIME_SEC} tickKey={timerTickKey} />
+            {room.voting_phase === 'answering' && (
+              <TimerCircle seconds={timer} total={ANSWER_TIME_SEC} tickKey={timerTickKey} />
             )}
 
             {room.voting_phase === 'answering' && (
@@ -1186,44 +1186,60 @@ export default function JokesterHostPage() {
             )}
 
             {room.voting_phase === 'voting' && currentDuel && (
-              <div className="bg-[#111d33] border-2 border-[#ffd700]/40 rounded-3xl p-6 text-center">
-                <p className="text-lg font-black text-gray-100 mb-3 tracking-wide">
-                  {categoryLabel(currentDuel.question1_cat)}
-                </p>
-                <AnimatedQuestionText text={currentDuel.question1_text || ''} />
-              </div>
-            )}
+              <div className="space-y-6">
+                <div className="duel-question-banner">
+                  <div className="duel-question-timer">
+                    <TimerCircle
+                      seconds={timer}
+                      total={VOTE_TIME_SEC}
+                      tickKey={timerTickKey}
+                      size={110}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-gray-300 uppercase tracking-[0.2em]">{categoryLabel(currentDuel.question1_cat)}</p>
+                    <AnimatedQuestionText text={currentDuel.question1_text || ''} />
+                  </div>
+                </div>
 
-            {/* Answers during voting */}
-            {room.voting_phase === 'voting' && currentDuel && (
-              <div className="relative">
-                <div className="sunrays-panel sunrays-panel-left" aria-hidden="true">
-                  <div className="sunrays-panel-rotor sunrays-panel-rotor-main" />
-                  <div className="sunrays-panel-rotor sunrays-panel-rotor-soft" />
+                <div className="duel-answer-grid">
+                  <div className="sunrays-panel sunrays-panel-left" aria-hidden="true">
+                    <div className="sunrays-panel-rotor sunrays-panel-rotor-main" />
+                    <div className="sunrays-panel-rotor sunrays-panel-rotor-soft" />
+                  </div>
+                  <div className="sunrays-panel sunrays-panel-right" aria-hidden="true">
+                    <div className="sunrays-panel-rotor sunrays-panel-rotor-main" />
+                    <div className="sunrays-panel-rotor sunrays-panel-rotor-soft" />
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-6 relative z-10">
+                    <DuelAnswerCard
+                      side="left"
+                      label={showDeAnon ? (players.find(p => p.id === currentDuel.player1_id)?.name || 'Дуэлянт 1') : 'Дуэлянт 1'}
+                      answers={currentAnswers.filter(a => a.player_id === currentDuel.player1_id)}
+                      votes={currentVotes.filter(v => v.voted_for_id === currentDuel.player1_id)}
+                      players={players}
+                      color="#1f6ac6"
+                      showNames={showDeAnon}
+                      emitFeathers={emitFeathers}
+                    />
+                    <DuelAnswerCard
+                      side="right"
+                      label={showDeAnon ? (players.find(p => p.id === currentDuel.player2_id)?.name || 'Дуэлянт 2') : 'Дуэлянт 2'}
+                      answers={currentAnswers.filter(a => a.player_id === currentDuel.player2_id)}
+                      votes={currentVotes.filter(v => v.voted_for_id === currentDuel.player2_id)}
+                      players={players}
+                      color="#f1532f"
+                      showNames={showDeAnon}
+                      emitFeathers={emitFeathers}
+                    />
+                  </div>
                 </div>
-                <div className="sunrays-panel sunrays-panel-right" aria-hidden="true">
-                  <div className="sunrays-panel-rotor sunrays-panel-rotor-main" />
-                  <div className="sunrays-panel-rotor sunrays-panel-rotor-soft" />
-                </div>
-                <div className="grid sm:grid-cols-2 gap-6 relative z-10">
-                  <DuelAnswerCard
-                    label={showDeAnon ? (players.find(p => p.id === currentDuel.player1_id)?.name || 'Дуэлянт 1') : 'Дуэлянт 1'}
-                    answers={currentAnswers.filter(a => a.player_id === currentDuel.player1_id)}
-                    votes={currentVotes.filter(v => v.voted_for_id === currentDuel.player1_id)}
-                    players={players}
-                    color="#1f6ac6"
-                    showNames={showDeAnon}
-                    emitFeathers={emitFeathers}
-                  />
-                  <DuelAnswerCard
-                    label={showDeAnon ? (players.find(p => p.id === currentDuel.player2_id)?.name || 'Дуэлянт 2') : 'Дуэлянт 2'}
-                    answers={currentAnswers.filter(a => a.player_id === currentDuel.player2_id)}
-                    votes={currentVotes.filter(v => v.voted_for_id === currentDuel.player2_id)}
-                    players={players}
-                    color="#f1532f"
-                    showNames={showDeAnon}
-                    emitFeathers={emitFeathers}
-                  />
+
+                <div className="text-center">
+                  <SpectatorHall count={spectatorCount - currentVotes.filter(v => v.voter_role === 'spectator').length} total={hallSize} />
+                  <p className="text-sm text-gray-400 mt-2">
+                    Голосов: {currentVotes.length} (игроки: {currentVotes.filter(v => v.voter_role === 'player').length}, зрители: {currentVotes.filter(v => v.voter_role === 'spectator').length})
+                  </p>
                 </div>
               </div>
             )}
@@ -1269,15 +1285,6 @@ export default function JokesterHostPage() {
               </div>
             )}
 
-            {/* Spectator votes central */}
-            {room.voting_phase === 'voting' && (
-              <div className="text-center">
-                <SpectatorHall count={spectatorCount - currentVotes.filter(v => v.voter_role === 'spectator').length} total={hallSize} />
-                <p className="text-sm text-gray-400 mt-2">
-                  Голосов: {currentVotes.length} (игроки: {currentVotes.filter(v => v.voter_role === 'player').length}, зрители: {currentVotes.filter(v => v.voter_role === 'spectator').length})
-                </p>
-              </div>
-            )}
           </div>
         )}
 
@@ -1369,51 +1376,48 @@ export default function JokesterHostPage() {
 
         {/* ══════════════════ CREDITS ══════════════════ */}
         {room.status === 'credits' && (
-          <div className="min-h-[80vh] flex flex-col items-center justify-end overflow-hidden relative">
-            <div className="animate-[creditsScroll_70s_linear_forwards] space-y-10 text-center pb-[120vh]">
-              <h2
-                className="text-5xl font-black mb-8"
-                style={{
-                  color: '#fff',
-                  textShadow: '2px 2px 0 #c8a835, 4px 4px 8px rgba(0,0,0,0.4)',
-                }}
-              >
-                🏆 Победитель
-              </h2>
-              {creditsWinner && (
-                <div className="space-y-4">
+          <div className="space-y-6 animate-[fadeIn_0.6s_ease]">
+            <div className="text-center space-y-2">
+              <p className="text-sm text-gray-400">Лучший игрок</p>
+              {creditsWinner ? (
+                <div className="flex items-center justify-center gap-3">
                   <FeatherAvatar
                     src={avatarSrc(creditsWinner.avatar)}
                     alt={creditsWinner.name}
-                    className="w-40 h-40 rounded-full object-cover mx-auto border-4 border-[#ffd700]/70 jokester-avatar-pop"
+                    className="w-20 h-20 rounded-full object-cover jokester-avatar-pop"
                     emitFeathers={emitFeathers}
-                    burstCount={36}
+                    burstCount={22}
                   />
-                  <p className="text-4xl font-black text-[#ffd700]">{creditsWinner.name}</p>
-                  <p className="text-2xl text-white">{creditsWinner.total_points} очков</p>
+                  <div className="text-left">
+                    <p className="text-xl font-black text-[#ffd700]">{creditsWinner.name}</p>
+                    <p className="text-xs text-gray-400">{creditsWinner.total_points} очков</p>
+                  </div>
                 </div>
+              ) : (
+                <p className="text-gray-400">Игра завершена</p>
               )}
+            </div>
 
-              <div className="h-10" />
+            {creditsWinnerAnswers.length > 0 && (
+              <div className="grid md:grid-cols-2 gap-4">
+                {creditsWinnerAnswers.map((ans, idx) => (
+                  <div key={`${ans.question}-${idx}`} className="bg-[#0d1a30] rounded-2xl p-4 border border-[#ffd700]/20">
+                    <p className="text-xs text-gray-400 mb-1">Вопрос</p>
+                    <p className="text-sm text-gray-300 mb-2">{ans.question}</p>
+                    <p className="text-xl font-black text-white mb-1">« {ans.answer} »</p>
+                    <p className="text-xs text-gray-500">Раунд {ans.round}</p>
+                  </div>
+                ))}
+              </div>
+            )}
 
-              <h3 className="text-2xl font-black text-[#ffd700]">История победителя</h3>
-              {creditsWinnerAnswers.length === 0 && (
-                <p className="text-gray-400">Ответы не найдены</p>
-              )}
-              {creditsWinnerAnswers.map((entry, i) => (
-                <div key={`${entry.question}-${i}`} className="bg-[#111d33] border border-[#ffd700]/30 rounded-2xl p-4 text-left max-w-3xl mx-auto">
-                  <p className="text-xs text-gray-400 mb-2">Раунд {entry.round}</p>
-                  <p className="text-sm text-gray-300 mb-2">{entry.question}</p>
-                  <p className="text-xl font-black">« {entry.answer} »</p>
-                </div>
-              ))}
-
-              <div className="h-10" />
-
-              <h3 className="text-2xl font-black text-[#ffd700]">Все участники</h3>
+            <div className="space-y-3">
               {creditsRanks.map((row, i) => (
-                <div key={row.player.id} className="bg-[#111d33] border border-gray-700 rounded-2xl p-4 text-left max-w-3xl mx-auto">
-                  <div className="flex items-center gap-3">
+                <div
+                  key={row.player.id}
+                  className="bg-[#111d33] border-2 border-gray-700 rounded-2xl p-4"
+                >
+                  <div className="flex items-center gap-4">
                     <span className="text-xl font-black text-[#ffd700] w-8 text-center">{i + 1}</span>
                     <FeatherAvatar
                       src={avatarSrc(row.player.avatar)}
@@ -1436,11 +1440,11 @@ export default function JokesterHostPage() {
                   )}
                 </div>
               ))}
-
-              <div className="h-10" />
-              <p className="text-lg text-gray-400">Спасибо за игру! 🎭</p>
-              <p className="text-sm text-gray-500">Пошути-кач · Вечеринкач</p>
             </div>
+
+            <div className="h-10" />
+            <p className="text-lg text-gray-400">Спасибо за игру! 🎭</p>
+            <p className="text-sm text-gray-500">Пошути-кач · Вечеринкач</p>
 
             <div className="fixed inset-0 flex items-end justify-center pb-16 pointer-events-none">
               <button
@@ -1509,16 +1513,17 @@ export default function JokesterHostPage() {
    Sub-components
    ══════════════════════════════════════════════ */
 
-function TimerCircle({ seconds, total, tickKey }: { seconds: number; total: number; tickKey: number }) {
+function TimerCircle({ seconds, total, tickKey, size }: { seconds: number; total: number; tickKey: number; size?: number }) {
   const pct = total > 0 ? (seconds / total) * 100 : 0;
   const radius = 50;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference * (1 - pct / 100);
   const color = pct > 50 ? '#ffd700' : pct > 25 ? '#f97316' : '#ef4444';
+  const sizePx = size ?? 128;
 
   return (
     <div className="flex justify-center">
-      <div className="relative w-32 h-32">
+      <div className="relative" style={{ width: sizePx, height: sizePx }}>
         <div className="sunrays-timer-backdrop" aria-hidden="true">
           <div className="sunrays-timer-rays sunrays-timer-rays-main" />
           <div className="sunrays-timer-rays sunrays-timer-rays-soft" />
@@ -1553,6 +1558,7 @@ function TimerCircle({ seconds, total, tickKey }: { seconds: number; total: numb
 }
 
 function DuelAnswerCard({
+  side = 'left',
   label,
   answers,
   votes,
@@ -1561,6 +1567,7 @@ function DuelAnswerCard({
   showNames,
   emitFeathers,
 }: {
+  side?: 'left' | 'right';
   label: string;
   answers: JokesterAnswer[];
   votes: JokesterVote[];
@@ -1575,60 +1582,76 @@ function DuelAnswerCard({
     return `/audio/sound/Jokester/ava/${normalized}`;
   };
   const duelist = answers.length > 0 ? players.find(p => p.id === answers[0].player_id) : null;
+  const sideClass = side === 'right' ? 'duel-blob-right' : 'duel-blob-left';
+  const badgeColor = `${color}33`;
+  const displayLabel = showNames ? label : 'Дуэлянт';
 
   return (
-    <div
-      className="bg-[#111d33] border-2 rounded-3xl p-6 space-y-3"
-      style={{ borderColor: color }}
-    >
-      <div className="flex items-center gap-3">
-        {duelist && (
-          <FeatherAvatar
-            src={avatarSrc(duelist.avatar)}
-            alt={duelist.name}
-            className="w-32 h-32 rounded-full object-cover jokester-avatar-pop"
-            emitFeathers={emitFeathers}
-            burstCount={24}
-          />
-        )}
-        <h3 className="text-xl font-black" style={{ color }}>{label}</h3>
-      </div>
-      {answers.map(a => (
-        <div key={a.id} className="bg-[#0d1a30] rounded-2xl p-4">
-          <p className="text-6xl font-bold text-white jokester-answer-font">« {a.answer_text} »</p>
+    <div className={`duel-blob-card ${sideClass}`} style={{ borderColor: color }}>
+      <div className="duel-blob-accent" />
+      <div className="relative space-y-3">
+        <div className="duel-avatar-badge">
+          {duelist && (
+            <FeatherAvatar
+              src={avatarSrc(duelist.avatar)}
+              alt={duelist.name}
+              className="w-16 h-16 rounded-full object-cover avatar-soft-pulse"
+              emitFeathers={emitFeathers}
+              burstCount={18}
+            />
+          )}
+          <div className="flex flex-col">
+            <span className="text-[10px] uppercase tracking-[0.22em] text-gray-400">Дуэлянт</span>
+            <span className="text-xl font-black" style={{ color }}>{displayLabel}</span>
+          </div>
+          <span
+            className="ml-auto px-3 py-1 rounded-full text-xs font-black text-white/90 shadow-inner"
+            style={{ backgroundColor: badgeColor, border: `1px solid ${color}66` }}
+          >
+            {votes.length} голосов
+          </span>
         </div>
-      ))}
-      <div className="flex flex-wrap gap-2">
-        {votes.map(v => {
-          const voter = players.find(p => p.id === v.voter_id);
-          const isSpectator = v.voter_role === 'spectator';
-          return (
-            <div
-              key={v.id}
-              className="w-16 h-16 rounded-full bg-[#1a2940] flex items-center justify-center text-sm animate-[fadeIn_0.3s_ease]"
-              title={voter?.name}
-            >
-              {isSpectator ? (
-                <div
-                  className="w-5 h-6 rounded-t-full bg-purple-500/80 shadow-sm shadow-purple-500/50"
-                  title="Зритель"
-                />
-              ) : voter ? (
-                <FeatherAvatar
-                  src={avatarSrc(voter.avatar)}
-                  alt={voter.name}
-                  className="w-16 h-16 rounded-full object-cover jokester-avatar-pop"
-                  emitFeathers={emitFeathers}
-                  burstCount={8}
-                />
-              ) : '👤'}
-            </div>
-          );
-        })}
+
+        {answers.map(a => (
+          <div key={a.id} className="relative bg-[#0d1a30]/85 rounded-2xl p-4 border border-white/5 overflow-hidden">
+            <div className="absolute inset-0 opacity-40 pointer-events-none" style={{
+              background: `radial-gradient(circle at 10% 10%, ${color}22, transparent 40%), radial-gradient(circle at 90% 20%, ${color}18, transparent 38%)`,
+            }} />
+            <p className="relative text-5xl sm:text-6xl font-bold text-white jokester-answer-font leading-none">
+              « {a.answer_text} »
+            </p>
+          </div>
+        ))}
+
+        <div className="flex flex-wrap gap-2">
+          {votes.map(v => {
+            const voter = players.find(p => p.id === v.voter_id);
+            const isSpectator = v.voter_role === 'spectator';
+            return (
+              <div
+                key={v.id}
+                className="w-12 h-12 rounded-full bg-[#1a2940] flex items-center justify-center text-sm animate-[fadeIn_0.3s_ease]"
+                title={voter?.name}
+              >
+                {isSpectator ? (
+                  <div
+                    className="w-4 h-5 rounded-t-full bg-purple-500/80 shadow-sm shadow-purple-500/50"
+                    title="Зритель"
+                  />
+                ) : voter ? (
+                  <FeatherAvatar
+                    src={avatarSrc(voter.avatar)}
+                    alt={voter.name}
+                    className="w-12 h-12 rounded-full object-cover"
+                    emitFeathers={emitFeathers}
+                    burstCount={8}
+                  />
+                ) : '👤'}
+              </div>
+            );
+          })}
+        </div>
       </div>
-      <p className="text-lg font-black" style={{ color }}>
-        {votes.length} голосов
-      </p>
     </div>
   );
 }
