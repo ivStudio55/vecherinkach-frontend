@@ -228,8 +228,8 @@ export default function JokesterPlayerPage() {
       const winnerAnswer = winnerId
         ? answers.find(a => a.player_id === winnerId && !!a.answer_text?.trim())?.answer_text
           || answers.find(a => a.player_id === winnerId)?.answer_text
-          || ''
-        : '';
+          || 'Ответ не найден'
+        : 'Ответ не найден';
       if (!cancelled) {
         setDuelReveal({
           winnerName: winnerPlayer?.name || 'Ничья',

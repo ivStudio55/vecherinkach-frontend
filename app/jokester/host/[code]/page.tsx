@@ -358,9 +358,15 @@ export default function JokesterHostPage() {
   const spectators = players.filter(p => p.role === 'spectator');
   const allGamePlayers = players.filter(p => p.role === 'player');
   const sortedByPoints = [...allGamePlayers].sort((a, b) => b.total_points - a.total_points);
+  const finalists = sortedByPoints.slice(0, 2);
+  const inFinalPhase = room?.status === 'final_rules'
+    || room?.status === 'final_playing'
+    || room?.status === 'final_results'
+    || room?.status === 'credits';
+  const activePlayers = inFinalPhase ? finalists : gamePlayers;
   const roundDuels = duels.filter(d => d.round === room?.current_round);
 
-  const answerProgress = gamePlayers.map(player => {
+  const answerProgress = activePlayers.map(player => {
     const expected = roundDuels.filter(d => d.player1_id === player.id || d.player2_id === player.id).length;
     const answered = currentAnswers.filter(
       a => a.player_id === player.id && a.question_index === 0 && roundDuels.some(d => d.id === a.duel_id),
@@ -638,12 +644,13 @@ export default function JokesterHostPage() {
       const duelAnswers = currentAnswers.length > 0
         ? currentAnswers.filter(a => a.duel_id === duel.id)
         : await fetchDuelAnswers(duel.id);
+      setCurrentAnswers(duelAnswers);
 
       if (winnerId) {
         const winnerPlayer = players.find(p => p.id === winnerId);
         const winnerAnswer = duelAnswers.find(a => a.player_id === winnerId && !!a.answer_text?.trim())?.answer_text
           || duelAnswers.find(a => a.player_id === winnerId)?.answer_text
-          || '';
+          || 'Ответ не найден';
         setVoteReveal({
           answer: winnerAnswer,
           playerName: winnerPlayer?.name || 'Победитель',
@@ -852,6 +859,11 @@ export default function JokesterHostPage() {
     if (!room) return;
     audioRef.current?.destroy();
     await updateJokesterRoom(room.id, { status: 'finished', state_version: room.state_version + 12 });
+  };
+
+  const handleRestartGame = async () => {
+    await handleCloseRoom();
+    window.location.href = '/jokester';
   };
 
   const handleForceAdvance = async () => {
@@ -1347,7 +1359,7 @@ export default function JokesterHostPage() {
         {/* ══════════════════ CREDITS ══════════════════ */}
         {room.status === 'credits' && (
           <div className="min-h-[80vh] flex flex-col items-center justify-end overflow-hidden relative">
-            <div className="animate-[creditsScroll_45s_linear_forwards] space-y-10 text-center pb-[120vh]">
+            <div className="animate-[creditsScroll_70s_linear_forwards] space-y-10 text-center pb-[120vh]">
               <h2
                 className="text-5xl font-black mb-8"
                 style={{
@@ -1417,6 +1429,15 @@ export default function JokesterHostPage() {
               <div className="h-10" />
               <p className="text-lg text-gray-400">Спасибо за игру! 🎭</p>
               <p className="text-sm text-gray-500">Пошути-кач · Вечеринкач</p>
+            </div>
+
+            <div className="fixed inset-0 flex items-end justify-center pb-16 pointer-events-none">
+              <button
+                onClick={() => { void handleRestartGame(); }}
+                className="pointer-events-auto px-8 py-4 rounded-2xl font-black text-lg bg-[#ffd700] text-[#0a1628] hover:bg-[#ffe44d] transition-all shadow-lg shadow-[#ffd700]/30"
+              >
+                Играть заново
+              </button>
             </div>
 
             <button
