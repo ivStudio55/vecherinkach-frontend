@@ -859,6 +859,9 @@ export default function JokesterHostPage() {
     if (!room) return;
     audioRef.current?.destroy();
     await updateJokesterRoom(room.id, { status: 'finished', state_version: room.state_version + 12 });
+    setTimeout(() => {
+      window.location.href = '/host';
+    }, 200);
   };
 
   const handleRestartGame = async () => {
@@ -1175,9 +1178,6 @@ export default function JokesterHostPage() {
                           style={{ width: `${progress.expected > 0 ? Math.min(100, (progress.answered / progress.expected) * 100) : 0}%` }}
                         />
                       </div>
-                      <p className="text-xs text-gray-400 mt-1">
-                        Ответов: {progress.expected === 0 ? '—' : `${Math.min(progress.answered, progress.expected)}/${progress.expected}`}
-                      </p>
                     </div>
                   ))}
                 </div>
@@ -1195,25 +1195,35 @@ export default function JokesterHostPage() {
 
             {/* Answers during voting */}
             {room.voting_phase === 'voting' && currentDuel && (
-              <div className="grid sm:grid-cols-2 gap-6">
-                <DuelAnswerCard
-                  label={showDeAnon ? (players.find(p => p.id === currentDuel.player1_id)?.name || 'Дуэлянт 1') : 'Дуэлянт 1'}
-                  answers={currentAnswers.filter(a => a.player_id === currentDuel.player1_id)}
-                  votes={currentVotes.filter(v => v.voted_for_id === currentDuel.player1_id)}
-                  players={players}
-                  color="#1f6ac6"
-                  showNames={showDeAnon}
-                  emitFeathers={emitFeathers}
-                />
-                <DuelAnswerCard
-                  label={showDeAnon ? (players.find(p => p.id === currentDuel.player2_id)?.name || 'Дуэлянт 2') : 'Дуэлянт 2'}
-                  answers={currentAnswers.filter(a => a.player_id === currentDuel.player2_id)}
-                  votes={currentVotes.filter(v => v.voted_for_id === currentDuel.player2_id)}
-                  players={players}
-                  color="#f1532f"
-                  showNames={showDeAnon}
-                  emitFeathers={emitFeathers}
-                />
+              <div className="relative">
+                <div className="sunrays-panel sunrays-panel-left" aria-hidden="true">
+                  <div className="sunrays-panel-rotor sunrays-panel-rotor-main" />
+                  <div className="sunrays-panel-rotor sunrays-panel-rotor-soft" />
+                </div>
+                <div className="sunrays-panel sunrays-panel-right" aria-hidden="true">
+                  <div className="sunrays-panel-rotor sunrays-panel-rotor-main" />
+                  <div className="sunrays-panel-rotor sunrays-panel-rotor-soft" />
+                </div>
+                <div className="grid sm:grid-cols-2 gap-6 relative z-10">
+                  <DuelAnswerCard
+                    label={showDeAnon ? (players.find(p => p.id === currentDuel.player1_id)?.name || 'Дуэлянт 1') : 'Дуэлянт 1'}
+                    answers={currentAnswers.filter(a => a.player_id === currentDuel.player1_id)}
+                    votes={currentVotes.filter(v => v.voted_for_id === currentDuel.player1_id)}
+                    players={players}
+                    color="#1f6ac6"
+                    showNames={showDeAnon}
+                    emitFeathers={emitFeathers}
+                  />
+                  <DuelAnswerCard
+                    label={showDeAnon ? (players.find(p => p.id === currentDuel.player2_id)?.name || 'Дуэлянт 2') : 'Дуэлянт 2'}
+                    answers={currentAnswers.filter(a => a.player_id === currentDuel.player2_id)}
+                    votes={currentVotes.filter(v => v.voted_for_id === currentDuel.player2_id)}
+                    players={players}
+                    color="#f1532f"
+                    showNames={showDeAnon}
+                    emitFeathers={emitFeathers}
+                  />
+                </div>
               </div>
             )}
 
