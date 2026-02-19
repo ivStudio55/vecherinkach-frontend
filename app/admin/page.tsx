@@ -108,6 +108,17 @@ export default function AdminPage() {
   const [logsPage, setLogsPage] = useState(1);
   const [logSearch, setLogSearch] = useState('');
 
+  // Панель управления отдельной комнатой
+  const [controlRoomId, setControlRoomId] = useState('');
+  const [controlLoading, setControlLoading] = useState(false);
+  const [controlError, setControlError] = useState<string | null>(null);
+  const [controlSummary, setControlSummary] = useState<null | {
+    room?: Record<string, unknown> | null;
+    counts?: { answers?: number; round2Answers?: number; round3Answers?: number; round3Votes?: number; round4Answers?: number; round5Answers?: number; likes?: number; logs?: number };
+    topLikes?: Array<{ questionId: number; likes: number }>;
+    errorLogs?: Array<{ id: string; created_at: string; level: string; message: string; event_name: string | null }>;
+  }>(null);
+
   const [roomFilter, setRoomFilter] = useState('');
   const [playerFilter, setPlayerFilter] = useState('');
   const [eventFilter, setEventFilter] = useState('');
@@ -153,6 +164,202 @@ export default function AdminPage() {
     setStartDate(`${yyyy}-${mm}-${dd}`);
     setEndDate(today);
   }, [today]);
+
+  const loadControlSummary = useCallback(async () => {
+    const roomId = controlRoomId.trim();
+    if (!roomId) {
+      setControlError('Введите roomId');
+      return;
+    }
+    setControlLoading(true);
+    setControlError(null);
+    setActionMessage(null);
+    try {
+      const res = await fetch(`/api/admin/room/summary?roomId=${encodeURIComponent(roomId)}`, {
+        cache: 'no-store',
+        credentials: 'include',
+      });
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(payload?.error ?? 'Не удалось загрузить комнату');
+      setControlSummary(payload ?? null);
+    } catch (err) {
+      setControlError(err instanceof Error ? err.message : 'Ошибка загрузки комнаты');
+      setControlSummary(null);
+    } finally {
+      setControlLoading(false);
+    }
+  }, [controlRoomId]);
+
+  const controlCode = useMemo(() => {
+    const code = (controlSummary?.room as { code?: unknown } | undefined)?.code;
+    return typeof code === 'string' ? code : '';
+  }, [controlSummary?.room]);
+
+  const ensureControlCode = () => {
+    if (!/^[0-9]{4}$/.test(controlCode)) {
+      setControlError('В summary нет валидного кода комнаты');
+      return null;
+    }
+    return controlCode;
+  };
+
+  const ensureRoomId = () => {
+    const value = controlRoomId.trim();
+    if (!value) {
+      setControlError('Введите roomId');
+      return null;
+    }
+    return value;
+  };
+
+  const controlCloseRoom = useCallback(async () => {
+    const code = ensureControlCode();
+    if (!code) return;
+    if (!confirm(`Закрыть комнату ${code}?`)) return;
+    setControlLoading(true);
+    setControlError(null);
+    setActionMessage(null);
+    try {
+      const res = await fetch('/api/admin/room/close', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ code }),
+      });
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(payload?.error ?? 'Не удалось закрыть комнату');
+      setActionMessage(`Комната ${code} закрыта`);
+      await loadControlSummary();
+    } catch (err) {
+      setControlError(err instanceof Error ? err.message : 'Ошибка закрытия комнаты');
+    } finally {
+      setControlLoading(false);
+    }
+  }, [controlCode, loadControlSummary]);
+
+  const controlDeleteRoom = useCallback(async () => {
+    const code = ensureControlCode();
+    if (!code) return;
+    if (!confirm(`Удалить комнату ${code}? Это удалит игроков/ответы/логи.`)) return;
+    setControlLoading(true);
+    setControlError(null);
+    setActionMessage(null);
+    try {
+      const res = await fetch('/api/admin/room/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ code }),
+      });
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(payload?.error ?? 'Не удалось удалить комнату');
+      setActionMessage(`Комната ${code} удалена`);
+      setControlSummary(null);
+    } catch (err) {
+      setControlError(err instanceof Error ? err.message : 'Ошибка удаления комнаты');
+    } finally {
+      setControlLoading(false);
+    }
+  }, [controlCode]);
+
+  const controlRestartRoom = useCallback(async () => {
+    const roomId = ensureRoomId();
+    if (!roomId) return;
+    if (!confirm('Перезапустить комнату?')) return;
+    setControlLoading(true);
+    setControlError(null);
+    setActionMessage(null);
+    try {
+      const res = await fetch('/api/admin/room/restart', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ roomId }),
+      });
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(payload?.error ?? 'Не удалось перезапустить комнату');
+      setActionMessage('Комната перезапущена');
+      await loadControlSummary();
+    } catch (err) {
+      setControlError(err instanceof Error ? err.message : 'Ошибка перезапуска комнаты');
+    } finally {
+      setControlLoading(false);
+    }
+  }, [controlRoomId, loadControlSummary]);
+
+  const controlForceEnd = useCallback(async () => {
+    const roomId = ensureRoomId();
+    if (!roomId) return;
+    if (!confirm('Принудительно завершить текущий раунд?')) return;
+    setControlLoading(true);
+    setControlError(null);
+    setActionMessage(null);
+    try {
+      const res = await fetch('/api/admin/room/force-end', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ roomId }),
+      });
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(payload?.error ?? 'Не удалось завершить раунд');
+      setActionMessage('Раунд завершён принудительно');
+      await loadControlSummary();
+    } catch (err) {
+      setControlError(err instanceof Error ? err.message : 'Ошибка завершения раунда');
+    } finally {
+      setControlLoading(false);
+    }
+  }, [controlRoomId, loadControlSummary]);
+
+  const controlNextQuestion = useCallback(async () => {
+    const roomId = ensureRoomId();
+    if (!roomId) return;
+    setControlLoading(true);
+    setControlError(null);
+    setActionMessage(null);
+    try {
+      const res = await fetch('/api/admin/room/next-question', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ roomId }),
+      });
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(payload?.error ?? 'Не удалось переключить вопрос');
+      setActionMessage('Следующий вопрос запущен');
+      await loadControlSummary();
+    } catch (err) {
+      setControlError(err instanceof Error ? err.message : 'Ошибка переключения вопроса');
+    } finally {
+      setControlLoading(false);
+    }
+  }, [controlRoomId, loadControlSummary]);
+
+  const controlStartRound3 = useCallback(async () => {
+    const roomId = ensureRoomId();
+    if (!roomId) return;
+    if (!confirm('Запустить Round 3 через RPC?')) return;
+    setControlLoading(true);
+    setControlError(null);
+    setActionMessage(null);
+    try {
+      const res = await fetch('/api/admin/room/start-round3', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ roomId }),
+      });
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(payload?.error ?? 'Не удалось запустить Round 3');
+      setActionMessage('Round 3 запущен');
+      await loadControlSummary();
+    } catch (err) {
+      setControlError(err instanceof Error ? err.message : 'Ошибка запуска Round 3');
+    } finally {
+      setControlLoading(false);
+    }
+  }, [controlRoomId, loadControlSummary]);
 
   const buildQuery = useCallback(
     (extra?: Record<string, string | number | undefined>) => {
@@ -486,6 +693,88 @@ export default function AdminPage() {
             Обновляем данные аналитического центра…
           </div>
         ) : null}
+
+        <SectionCard
+          title="Панель управления комнатой"
+          actions={
+            <button
+              type="button"
+              onClick={() => void loadControlSummary()}
+              className="px-4 py-2 rounded-2xl border-[3px] border-[#142a45] bg-white font-black tracking-[0.2em] hover:bg-[#142a45]/5 disabled:opacity-60"
+              disabled={controlLoading}
+            >
+              {controlLoading ? 'Загружаю…' : 'Загрузить'}
+            </button>
+          }
+        >
+          <div className="grid gap-3 md:grid-cols-3">
+            <label className="space-y-1 md:col-span-2">
+              <span className="text-xs font-black tracking-[0.25em] text-[#142a45]/60">ROOM ID (UUID)</span>
+              <input
+                value={controlRoomId}
+                onChange={(e) => setControlRoomId(e.target.value)}
+                placeholder="uuid"
+                className="w-full px-4 py-3 rounded-2xl border-[3px] border-[#142a45] bg-white font-semibold"
+              />
+            </label>
+            <div className="space-y-2">
+              <p className="text-xs font-black tracking-[0.25em] text-[#142a45]/60">Действия</p>
+              <div className="flex flex-wrap gap-2">
+                <button onClick={() => void controlCloseRoom()} className="px-3 py-2 rounded-xl border-[2px] border-[#b68c1d] font-black hover:bg-[#fff2c8]" disabled={controlLoading}>Close</button>
+                <button onClick={() => void controlDeleteRoom()} className="px-3 py-2 rounded-xl border-[2px] border-[#b23324] font-black hover:bg-[#ffd7d0]" disabled={controlLoading}>Delete</button>
+                <button onClick={() => void controlRestartRoom()} className="px-3 py-2 rounded-xl border-[2px] border-[#142a45] font-black hover:bg-[#142a45]/5" disabled={controlLoading}>Restart</button>
+                <button onClick={() => void controlForceEnd()} className="px-3 py-2 rounded-xl border-[2px] border-[#142a45] font-black hover:bg-[#142a45]/5" disabled={controlLoading}>Force end</button>
+                <button onClick={() => void controlNextQuestion()} className="px-3 py-2 rounded-xl border-[2px] border-[#1f6ac6] font-black hover:bg-[#e9f0ff]" disabled={controlLoading}>Next question</button>
+                <button onClick={() => void controlStartRound3()} className="px-3 py-2 rounded-xl border-[2px] border-[#142a45] font-black hover:bg-[#142a45]/5" disabled={controlLoading}>Start R3 RPC</button>
+              </div>
+            </div>
+          </div>
+
+          {controlError ? (
+            <div className="rounded-2xl border-[3px] border-[#b23324] bg-[#ffd7d0] p-3 font-black mt-3">{controlError}</div>
+          ) : null}
+
+          {controlSummary ? (
+            <div className="mt-4 grid gap-3 lg:grid-cols-3">
+              <div className="rounded-2xl border-[2px] border-[#142a45]/20 p-4 space-y-2">
+                <p className="retro-heading text-xs tracking-[0.3em] text-[#142a45]/60">SNAPSHOT</p>
+                <MetricRow label="code" value={String((controlSummary.room as { code?: unknown } | null)?.code ?? '—')} />
+                <MetricRow label="status" value={String((controlSummary.room as { status?: unknown } | null)?.status ?? '—')} />
+                <MetricRow label="active" value={String(Boolean((controlSummary.room as { is_active?: unknown } | null)?.is_active))} />
+                <MetricRow label="stateVersion" value={String((controlSummary.room as { state_version?: unknown } | null)?.state_version ?? '—')} />
+                <MetricRow label="currentQuestion" value={String((controlSummary.room as { current_question_index?: unknown } | null)?.current_question_index ?? '—')} />
+                <MetricRow label="round2Phase" value={String((controlSummary.room as { round2_phase?: unknown } | null)?.round2_phase ?? '—')} />
+                <MetricRow label="transitioning" value={String(Boolean((controlSummary.room as { transitioning_to_next?: unknown } | null)?.transitioning_to_next))} />
+              </div>
+              <div className="rounded-2xl border-[2px] border-[#142a45]/20 p-4 space-y-2">
+                <p className="retro-heading text-xs tracking-[0.3em] text-[#142a45]/60">COUNTS</p>
+                <MetricRow label="R1 answers" value={String(controlSummary.counts?.answers ?? 0)} />
+                <MetricRow label="R2 answers" value={String(controlSummary.counts?.round2Answers ?? 0)} />
+                <MetricRow label="R3 answers" value={String(controlSummary.counts?.round3Answers ?? 0)} />
+                <MetricRow label="R3 votes" value={String(controlSummary.counts?.round3Votes ?? 0)} />
+                <MetricRow label="R4 answers" value={String(controlSummary.counts?.round4Answers ?? 0)} />
+                <MetricRow label="R5 answers" value={String(controlSummary.counts?.round5Answers ?? 0)} />
+                <MetricRow label="Likes" value={String(controlSummary.counts?.likes ?? 0)} />
+              </div>
+              <div className="rounded-2xl border-[2px] border-[#142a45]/20 p-4 space-y-2">
+                <p className="retro-heading text-xs tracking-[0.3em] text-[#142a45]/60">ERROR LOGS</p>
+                <div className="space-y-1 max-h-56 overflow-auto text-xs text-[#142a45]/70">
+                  {(controlSummary.errorLogs ?? []).length === 0 ? <p>Нет ошибок</p> : null}
+                  {(controlSummary.errorLogs ?? []).map((log) => (
+                    <div key={log.id}>
+                      {new Date(log.created_at).toLocaleTimeString()} · {log.event_name ?? log.level}: {log.message}
+                    </div>
+                  ))}
+                </div>
+                {controlSummary.topLikes?.[0] ? (
+                  <p className="text-xs text-[#142a45]/80">Топ лайков: {describeLikeQuestionId(controlSummary.topLikes[0].questionId)} ({controlSummary.topLikes[0].likes})</p>
+                ) : null}
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs text-[#142a45]/60 mt-3">Введите roomId и нажмите «Загрузить», чтобы увидеть срез и управлять комнатой.</p>
+          )}
+        </SectionCard>
 
         <SectionCard
           title="Фильтры"

@@ -84,6 +84,9 @@ export default function JokesterEntryPage() {
       if (e instanceof Error && e.message === 'MAX_PLAYERS') {
         setError('Набрано максимальное количество игроков (12). Войдите как зритель и голосуйте за лучших!');
         setJoinRole('spectator');
+      } else if (e instanceof Error && e.message === 'GAME_RUNNING_SPECTATOR_SUGGEST') {
+        setError('Игра уже идёт. Присоединяйтесь как зритель — сможете смотреть и голосовать.');
+        setJoinRole('spectator');
       } else if (e instanceof Error && e.message === 'AVATAR_TAKEN') {
         setError('Эта аватарка уже занята, выбери другую');
       } else {

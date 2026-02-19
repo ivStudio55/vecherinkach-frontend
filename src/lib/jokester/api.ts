@@ -138,7 +138,10 @@ export async function joinJokesterRoom(
   if (rErr || !roomData) throw new Error('Комната не найдена');
 
   const room = roomData as JokesterRoom;
-  if (room.status !== 'lobby') throw new Error('Игра уже началась');
+  if (room.status !== 'lobby' && role === 'player') {
+    // Игра идёт — предлагаем войти зрителем
+    throw new Error('GAME_RUNNING_SPECTATOR_SUGGEST');
+  }
 
   let resolvedName = playerName?.trim() || '';
   let resolvedAvatar = normalizeAvatarFile(avatar || '1.png');
