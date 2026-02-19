@@ -27,11 +27,11 @@ body {
   inset: 0;
   z-index: 2;
   pointer-events: none;
-  overflow: hidden;
+  overflow: visible;
   display: grid;
   place-items: center;
   mix-blend-mode: screen;
-  opacity: 0.6;
+  opacity: 0.8;
   background:
     radial-gradient(circle at center, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 32%, transparent 64%),
     linear-gradient(180deg, #0b1f38 0%, #09192d 100%);
@@ -39,7 +39,7 @@ body {
 
 .sunrays-rotor {
   position: absolute;
-  inset: -30vmax;
+  inset: -60vmax;
   border-radius: 50%;
   transform-origin: center;
   will-change: transform;
@@ -54,7 +54,7 @@ body {
     #4A90E2 0deg 16deg,
     #2FA8A8 16deg 32deg
   );
-  opacity: 0.6;
+  opacity: 0.7;
   animation-duration: 42s;
 }
 
