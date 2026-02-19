@@ -53,6 +53,16 @@ type VoteReveal = {
   playerAvatar: string | null;
   question: string;
   winnerLabel: string;
+  pointsFrom: number;
+  pointsTo: number;
+};
+
+type FeatherSpawn = {
+  x: number;
+  y: number;
+  count?: number;
+  spread?: number;
+  speed?: number;
 };
 
 type CreditsAnswer = {
@@ -65,6 +75,27 @@ type CreditsPlayerBest = {
   player: JokesterPlayer;
   bestAnswer: { question: string; answer: string; votes: number } | null;
 };
+
+const CONNECT_QUACK_SOUNDS = [
+  '/audio/sound/The_duck_quacked_fun_#1.mp3',
+  '/audio/sound/The_duck_quacked_fun_#2.mp3',
+  '/audio/sound/The_duck_quacked_fun_#3.mp3',
+  '/audio/sound/The_duck_quacked_fun_#4.mp3',
+  '/audio/sound/The_duk_quacked_funn_#1.mp3',
+  '/audio/sound/The_duk_quacked_funn_#2.mp3',
+  '/audio/sound/The_duk_quacked_funn_#3.mp3',
+  '/audio/sound/The_duk_quacked_funn_#4.mp3',
+];
+
+const START_DUCK_SOUNDS = [
+  '/audio/duck/1.mp3',
+  '/audio/duck/2.mp3',
+  '/audio/duck/3.mp3',
+  '/audio/duck/4.mp3',
+  '/audio/duck/5.mp3',
+  '/audio/duck/6.mp3',
+  '/audio/duck/7.mp3',
+];
 
 /* ══════════════════════════════════════════════ */
 export default function JokesterHostPage() {
@@ -96,6 +127,9 @@ export default function JokesterHostPage() {
   const prevAnswerCountRef = useRef(0);
   const voteEndLockRef = useRef(false);
   const selectedTopCategoriesRef = useRef<string[]>([]);
+  const featherEmitterRef = useRef<((spawn: FeatherSpawn) => void) | null>(null);
+  const answeredDoneRef = useRef<Set<string>>(new Set());
+  const winnerPanelRef = useRef<HTMLDivElement | null>(null);
   const currentDuel = duels.find(d => d.duel_index === room?.current_duel_index && d.round === room?.current_round);
 
   const avatarSrc = useCallback((avatar?: string | null) => {
@@ -103,6 +137,34 @@ export default function JokesterHostPage() {
     const normalized = avatar.replace(/^ava(\d+)\.png$/i, '$1.png');
     return `/audio/sound/Jokester/ava/${normalized}`;
   }, []);
+
+  const playRandomSound = useCallback((files: string[], volume = 0.85) => {
+    if (files.length === 0) return;
+    const src = files[Math.floor(Math.random() * files.length)];
+    const audio = new Audio(src);
+    audio.volume = volume;
+    void audio.play().catch(() => {});
+  }, []);
+
+  const registerFeatherEmitter = useCallback((emit: (spawn: FeatherSpawn) => void) => {
+    featherEmitterRef.current = emit;
+  }, []);
+
+  const emitFeathers = useCallback((spawn: FeatherSpawn) => {
+    featherEmitterRef.current?.(spawn);
+  }, []);
+
+  const emitAtElement = useCallback((el: HTMLElement | null, options?: Omit<FeatherSpawn, 'x' | 'y'>) => {
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    emitFeathers({
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+      count: options?.count,
+      spread: options?.spread,
+      speed: options?.speed,
+    });
+  }, [emitFeathers]);
 
   /* ─── Audio init ─── */
   useEffect(() => {
@@ -140,9 +202,8 @@ export default function JokesterHostPage() {
     const unsubs = [
       subscribeJokesterRoom(room.id, r => setRoom(r)),
       subscribeJokesterPlayers(room.id, p => {
-        // Звук утки при подключении нового игрока
         if (p.length > prevPlayerCountRef.current) {
-          audioRef.current?.playRandomDuck();
+          playRandomSound(CONNECT_QUACK_SOUNDS, 0.9);
         }
         prevPlayerCountRef.current = p.length;
         setPlayers(p);
@@ -150,7 +211,7 @@ export default function JokesterHostPage() {
       subscribeJokesterDuels(room.id, d => setDuels(d)),
     ];
     return () => unsubs.forEach(fn => fn());
-  }, [room?.id]);
+  }, [room?.id, playRandomSound]);
 
   useEffect(() => {
     if (!room || room.voting_phase !== 'voting' || !currentDuel) return;
@@ -252,6 +313,35 @@ export default function JokesterHostPage() {
   const spectators = players.filter(p => p.role === 'spectator');
   const allGamePlayers = players.filter(p => p.role === 'player');
   const sortedByPoints = [...allGamePlayers].sort((a, b) => b.total_points - a.total_points);
+  const roundDuels = duels.filter(d => d.round === room?.current_round);
+
+  const answerProgress = gamePlayers.map(player => {
+    const expected = roundDuels.filter(d => d.player1_id === player.id || d.player2_id === player.id).length;
+    const answered = currentAnswers.filter(
+      a => a.player_id === player.id && a.question_index === 0 && roundDuels.some(d => d.id === a.duel_id),
+    ).length;
+    const done = expected > 0 && answered >= expected;
+    return { player, expected, answered, done };
+  });
+
+  useEffect(() => {
+    if (room?.voting_phase !== 'answering') {
+      answeredDoneRef.current.clear();
+      return;
+    }
+    for (const progress of answerProgress) {
+      if (!progress.done || answeredDoneRef.current.has(progress.player.id)) continue;
+      answeredDoneRef.current.add(progress.player.id);
+      const checkEl = document.getElementById(`answer-check-${progress.player.id}`);
+      emitAtElement(checkEl, { count: 24, spread: 90, speed: 4.8 });
+      playRandomSound(START_DUCK_SOUNDS, 0.35);
+    }
+  }, [answerProgress, room?.voting_phase, emitAtElement, playRandomSound]);
+
+  const triggerStartButtonEffects = useCallback((target: HTMLElement | null) => {
+    emitAtElement(target, { count: 42, spread: 160, speed: 6.8 });
+    playRandomSound(START_DUCK_SOUNDS, 0.7);
+  }, [emitAtElement, playRandomSound]);
 
   /* ─── Category vote ranking ─── */
   const categoryRanking = categories
@@ -470,6 +560,9 @@ export default function JokesterHostPage() {
         ? Math.round((Math.max(p1votes.length, p2votes.length) / totalVotes) * 100)
         : 50;
 
+      const p1Before = players.find(p => p.id === duel.player1_id)?.total_points || 0;
+      const p2Before = players.find(p => p.id === duel.player2_id)?.total_points || 0;
+
     // Начислить очки
       let winnerId: string | null = null;
       if (p1votes.length > p2votes.length) {
@@ -482,6 +575,13 @@ export default function JokesterHostPage() {
       // Голоса (для обоих)
       await updatePlayerPoints(duel.player1_id, 0, p1playerVotes * POINTS.PLAYER_VOTE * mult, p1spectatorVotes * POINTS.SPECTATOR_VOTE * mult);
       await updatePlayerPoints(duel.player2_id, 0, p2playerVotes * POINTS.PLAYER_VOTE * mult, p2spectatorVotes * POINTS.SPECTATOR_VOTE * mult);
+
+      const p1Delta = (winnerId === duel.player1_id ? POINTS.DUEL_WIN * mult : 0)
+        + (p1playerVotes * POINTS.PLAYER_VOTE * mult)
+        + (p1spectatorVotes * POINTS.SPECTATOR_VOTE * mult);
+      const p2Delta = (winnerId === duel.player2_id ? POINTS.DUEL_WIN * mult : 0)
+        + (p2playerVotes * POINTS.PLAYER_VOTE * mult)
+        + (p2spectatorVotes * POINTS.SPECTATOR_VOTE * mult);
 
     // Обновить дуэль
       const { supabase } = await import('@/lib/supabase');
@@ -504,6 +604,8 @@ export default function JokesterHostPage() {
           playerAvatar: winnerPlayer?.avatar || null,
           question: duel.question1_text || '',
           winnerLabel: winnerPlayer?.name ? `Побеждает ${winnerPlayer.name}` : 'Победитель дуэли',
+          pointsFrom: winnerId === duel.player1_id ? p1Before : p2Before,
+          pointsTo: winnerId === duel.player1_id ? p1Before + p1Delta : p2Before + p2Delta,
         });
       } else {
         setVoteReveal(null);
@@ -684,6 +786,12 @@ export default function JokesterHostPage() {
     void audioRef.current?.playVoiceRandom(JOKESTER_AUDIO.afterFinal, 3);
   }, [room?.status]);
 
+  useEffect(() => {
+    if (room?.voting_phase !== 'results' || !voteReveal) return;
+    emitAtElement(winnerPanelRef.current, { count: 50, spread: 220, speed: 8 });
+    playRandomSound(START_DUCK_SOUNDS, 0.6);
+  }, [room?.voting_phase, voteReveal, emitAtElement, playRandomSound]);
+
   const handleCloseRoom = async () => {
     if (!room) return;
     audioRef.current?.destroy();
@@ -710,6 +818,7 @@ export default function JokesterHostPage() {
 
   return (
     <div className="min-h-screen bg-[#0a1628] text-white overflow-hidden">
+      <FeatherBurstCanvas registerEmitter={registerFeatherEmitter} />
       {/* ─── Header ─── */}
       <header className="bg-[#0d1a30] border-b border-[#ffd700]/20 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -785,7 +894,13 @@ export default function JokesterHostPage() {
                   <div className="grid grid-cols-3 gap-2">
                     {gamePlayers.map(p => (
                       <div key={p.id} className="bg-[#0d1a30] rounded-xl p-2 text-center animate-[fadeIn_0.3s_ease]">
-                        <img src={avatarSrc(p.avatar)} alt={p.name} className="w-20 h-20 rounded-full object-cover mx-auto mb-1 jokester-avatar-pop" />
+                        <FeatherAvatar
+                          src={avatarSrc(p.avatar)}
+                          alt={p.name}
+                          className="w-20 h-20 rounded-full object-cover mx-auto mb-1 jokester-avatar-pop"
+                          emitFeathers={emitFeathers}
+                          burstCount={20}
+                        />
                         <p className="text-xs font-bold truncate">{p.name}</p>
                       </div>
                     ))}
@@ -802,7 +917,10 @@ export default function JokesterHostPage() {
 
             {gamePlayers.length >= 4 && (
               <button
-                onClick={handleStartGame}
+                onClick={(e) => {
+                  triggerStartButtonEffects(e.currentTarget);
+                  void handleStartGame();
+                }}
                 className="w-full py-5 rounded-2xl font-black text-2xl bg-[#ffd700] text-[#0a1628] hover:bg-[#ffe44d] active:scale-[0.98] transition-all shadow-lg shadow-[#ffd700]/30 animate-[pulse_2s_infinite]"
               >
                 🎬 НАЧАТЬ ИГРУ
@@ -837,7 +955,13 @@ export default function JokesterHostPage() {
                   className="animate-[bounce_0.6s_infinite]"
                   style={{ animationDelay: `${i * 0.1}s` }}
                 >
-                  <img src={avatarSrc(p.avatar)} alt={p.name} className="w-24 h-24 rounded-full object-cover border border-white/20 jokester-avatar-pop" />
+                  <FeatherAvatar
+                    src={avatarSrc(p.avatar)}
+                    alt={p.name}
+                    className="w-24 h-24 rounded-full object-cover border border-white/20 jokester-avatar-pop"
+                    emitFeathers={emitFeathers}
+                    burstCount={22}
+                  />
                 </div>
               ))}
             </div>
@@ -875,7 +999,10 @@ export default function JokesterHostPage() {
               ))}
             </div>
             <button
-              onClick={() => { void handleStartDuels(); }}
+              onClick={(e) => {
+                triggerStartButtonEffects(e.currentTarget);
+                void handleStartDuels();
+              }}
               className="w-full py-4 rounded-2xl font-black text-xl bg-[#1f6ac6] text-white hover:bg-[#2a7ad6] transition-all"
             >
               ▶ Начать дуэли
@@ -905,28 +1032,42 @@ export default function JokesterHostPage() {
                 <p className="text-center text-lg font-black text-[#ffd700]">Все игроки отвечают одновременно</p>
                 <p className="text-center text-sm text-gray-400">120 секунд. Одна дуэль = один вопрос</p>
                 <div className="grid md:grid-cols-2 gap-3">
-                  {duels
-                    .filter(d => d.round === room.current_round)
-                    .sort((a, b) => a.duel_index - b.duel_index)
-                    .map(d => {
-                      const p1 = players.find(p => p.id === d.player1_id);
-                      const p2 = players.find(p => p.id === d.player2_id);
-                      const p1a1 = currentAnswers.some(a => a.duel_id === d.id && a.player_id === d.player1_id && a.question_index === 0);
-                      const p2a1 = currentAnswers.some(a => a.duel_id === d.id && a.player_id === d.player2_id && a.question_index === 0);
-                      return (
-                        <div key={d.id} className="bg-[#0d1a30] rounded-2xl p-3 border border-gray-700">
-                          <p className="text-xs text-gray-400 mb-2">Дуэль {d.duel_index + 1}</p>
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="font-bold">{p1?.name || 'Игрок 1'}</span>
-                            <span className="text-[#ffd700]">{p1a1 ? '✅' : '⬜'}</span>
-                          </div>
-                          <div className="flex items-center justify-between text-sm mt-1">
-                            <span className="font-bold">{p2?.name || 'Игрок 2'}</span>
-                            <span className="text-[#ffd700]">{p2a1 ? '✅' : '⬜'}</span>
-                          </div>
+                  {answerProgress.map(progress => (
+                    <div key={progress.player.id} className="bg-[#0d1a30] rounded-2xl p-3 border border-gray-700">
+                      <div className="flex items-center gap-3">
+                        <FeatherAvatar
+                          src={avatarSrc(progress.player.avatar)}
+                          alt={progress.player.name}
+                          className="w-14 h-14 rounded-full object-cover jokester-avatar-pop"
+                          emitFeathers={emitFeathers}
+                          burstCount={16}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold truncate">{progress.player.name}</p>
+                          <p className="text-xs text-gray-400">{progress.player.total_points} очков</p>
                         </div>
-                      );
-                    })}
+                        <div
+                          id={`answer-check-${progress.player.id}`}
+                          className={`w-8 h-8 rounded-full flex items-center justify-center text-lg font-black transition-all ${
+                            progress.done
+                              ? 'bg-green-500/30 text-green-300 border border-green-300/40'
+                              : 'bg-gray-700/40 text-gray-400 border border-gray-600/40'
+                          }`}
+                        >
+                          {progress.expected === 0 ? '—' : progress.done ? '✓' : '…'}
+                        </div>
+                      </div>
+                      <div className="mt-3 h-2 bg-[#1a2940] rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-[#ffd700] transition-all duration-300"
+                          style={{ width: `${progress.expected > 0 ? Math.min(100, (progress.answered / progress.expected) * 100) : 0}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-gray-400 mt-1">
+                        Ответов: {progress.expected === 0 ? '—' : `${Math.min(progress.answered, progress.expected)}/${progress.expected}`}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -950,6 +1091,7 @@ export default function JokesterHostPage() {
                   players={players}
                   color="#1f6ac6"
                   showNames={showDeAnon}
+                  emitFeathers={emitFeathers}
                 />
                 <DuelAnswerCard
                   label={showDeAnon ? (players.find(p => p.id === currentDuel.player2_id)?.name || 'Дуэлянт 2') : 'Дуэлянт 2'}
@@ -958,12 +1100,13 @@ export default function JokesterHostPage() {
                   players={players}
                   color="#f1532f"
                   showNames={showDeAnon}
+                  emitFeathers={emitFeathers}
                 />
               </div>
             )}
 
             {room.voting_phase === 'results' && (
-              <div className="bg-[#111d33] border-2 border-[#ffd700]/40 rounded-3xl p-6 text-center animate-[fadeIn_0.4s_ease]">
+              <div ref={winnerPanelRef} className="bg-[#111d33] border-2 border-[#ffd700]/40 rounded-3xl p-6 text-center animate-[fadeIn_0.4s_ease]">
                 {voteReveal ? (
                   <>
                     <p className="text-xs text-gray-400 mb-2">Правильный ответ</p>
@@ -974,11 +1117,25 @@ export default function JokesterHostPage() {
                     <div className="bg-[#0d1a30] rounded-2xl p-4 border border-[#ffd700]/30">
                       <p className="text-2xl font-black jokester-answer-font">« {voteReveal.answer} »</p>
                     </div>
+                    <div className="mt-4">
+                      <p className="text-xs text-gray-400 mb-1">Очки победителя</p>
+                      <AnimatedCountUp
+                        from={voteReveal.pointsFrom}
+                        to={voteReveal.pointsTo}
+                        className="text-3xl font-black text-[#ffd700]"
+                        onComplete={() => {
+                          emitAtElement(winnerPanelRef.current, { count: 46, spread: 200, speed: 7.2 });
+                          playRandomSound(START_DUCK_SOUNDS, 0.55);
+                        }}
+                      />
+                    </div>
                     <div className="flex items-center justify-center gap-3 mt-4">
-                      <img
+                      <FeatherAvatar
                         src={avatarSrc(voteReveal.playerAvatar)}
                         alt={voteReveal.playerName}
                         className="w-20 h-20 rounded-full object-cover jokester-avatar-pop"
+                        emitFeathers={emitFeathers}
+                        burstCount={30}
                       />
                       <span className="text-sm text-[#ffd700] font-bold">{voteReveal.playerName}</span>
                     </div>
@@ -1023,7 +1180,13 @@ export default function JokesterHostPage() {
                   <span className="text-2xl font-black text-[#ffd700] w-8 text-center">
                     {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
                   </span>
-                  <img src={avatarSrc(p.avatar)} alt={p.name} className="w-20 h-20 rounded-full object-cover jokester-avatar-pop" />
+                  <FeatherAvatar
+                    src={avatarSrc(p.avatar)}
+                    alt={p.name}
+                    className="w-20 h-20 rounded-full object-cover jokester-avatar-pop"
+                    emitFeathers={emitFeathers}
+                    burstCount={18}
+                  />
                   <div className="flex-1">
                     <p className="font-bold">{p.name}</p>
                     <p className="text-xs text-gray-400">
@@ -1048,7 +1211,10 @@ export default function JokesterHostPage() {
             {/* Actions */}
             {room.status === 'round_results' && room.current_round < 3 && (
               <button
-                onClick={handleNextRound}
+                onClick={(e) => {
+                  triggerStartButtonEffects(e.currentTarget);
+                  void handleNextRound();
+                }}
                 className="w-full py-4 rounded-2xl font-black text-xl bg-[#ffd700] text-[#0a1628] hover:bg-[#ffe44d] transition-all"
               >
                 ▶ {room.current_round + 1} раунд
@@ -1056,7 +1222,10 @@ export default function JokesterHostPage() {
             )}
             {room.status === 'round_results' && room.current_round === 3 && (
               <button
-                onClick={handleStartFinal}
+                onClick={(e) => {
+                  triggerStartButtonEffects(e.currentTarget);
+                  void handleStartFinal();
+                }}
                 className="w-full py-4 rounded-2xl font-black text-xl bg-red-600 text-white hover:bg-red-500 transition-all animate-pulse"
               >
                 🏆 ФИНАЛ
@@ -1088,7 +1257,13 @@ export default function JokesterHostPage() {
               </h2>
               {creditsWinner && (
                 <div className="space-y-4">
-                  <img src={avatarSrc(creditsWinner.avatar)} alt={creditsWinner.name} className="w-40 h-40 rounded-full object-cover mx-auto border-4 border-[#ffd700]/70 jokester-avatar-pop" />
+                  <FeatherAvatar
+                    src={avatarSrc(creditsWinner.avatar)}
+                    alt={creditsWinner.name}
+                    className="w-40 h-40 rounded-full object-cover mx-auto border-4 border-[#ffd700]/70 jokester-avatar-pop"
+                    emitFeathers={emitFeathers}
+                    burstCount={36}
+                  />
                   <p className="text-4xl font-black text-[#ffd700]">{creditsWinner.name}</p>
                   <p className="text-2xl text-white">{creditsWinner.total_points} очков</p>
                 </div>
@@ -1115,7 +1290,13 @@ export default function JokesterHostPage() {
                 <div key={row.player.id} className="bg-[#111d33] border border-gray-700 rounded-2xl p-4 text-left max-w-3xl mx-auto">
                   <div className="flex items-center gap-3">
                     <span className="text-xl font-black text-[#ffd700] w-8 text-center">{i + 1}</span>
-                    <img src={avatarSrc(row.player.avatar)} alt={row.player.name} className="w-20 h-20 rounded-full object-cover jokester-avatar-pop" />
+                    <FeatherAvatar
+                      src={avatarSrc(row.player.avatar)}
+                      alt={row.player.name}
+                      className="w-20 h-20 rounded-full object-cover jokester-avatar-pop"
+                      emitFeathers={emitFeathers}
+                      burstCount={14}
+                    />
                     <div className="flex-1">
                       <p className="font-bold">{row.player.name}</p>
                       <p className="text-xs text-gray-400">{row.player.total_points} очков</p>
@@ -1165,7 +1346,10 @@ export default function JokesterHostPage() {
               )}
             </div>
             <button
-              onClick={() => { void handleStartRound(); }}
+              onClick={(e) => {
+                triggerStartButtonEffects(e.currentTarget);
+                void handleStartRound();
+              }}
               className="px-8 py-4 rounded-2xl font-black text-xl bg-[#ffd700] text-[#0a1628] hover:bg-[#ffe44d] active:scale-95 transition-all"
             >
               ▶ Начать
@@ -1235,6 +1419,7 @@ function DuelAnswerCard({
   players,
   color,
   showNames,
+  emitFeathers,
 }: {
   label: string;
   answers: JokesterAnswer[];
@@ -1242,19 +1427,32 @@ function DuelAnswerCard({
   players: JokesterPlayer[];
   color: string;
   showNames: boolean;
+  emitFeathers: (spawn: FeatherSpawn) => void;
 }) {
   const avatarSrc = (avatar?: string | null) => {
     if (!avatar) return '/audio/sound/Jokester/ava/1.png';
     const normalized = avatar.replace(/^ava(\d+)\.png$/i, '$1.png');
     return `/audio/sound/Jokester/ava/${normalized}`;
   };
+  const duelist = answers.length > 0 ? players.find(p => p.id === answers[0].player_id) : null;
 
   return (
     <div
       className="bg-[#111d33] border-2 rounded-3xl p-6 space-y-3"
       style={{ borderColor: color }}
     >
-      <h3 className="text-xl font-black" style={{ color }}>{label}</h3>
+      <div className="flex items-center gap-3">
+        {duelist && (
+          <FeatherAvatar
+            src={avatarSrc(duelist.avatar)}
+            alt={duelist.name}
+            className="w-16 h-16 rounded-full object-cover jokester-avatar-pop"
+            emitFeathers={emitFeathers}
+            burstCount={24}
+          />
+        )}
+        <h3 className="text-xl font-black" style={{ color }}>{label}</h3>
+      </div>
       {answers.map(a => (
         <div key={a.id} className="bg-[#0d1a30] rounded-2xl p-4">
           <p className="text-6xl font-bold text-white jokester-answer-font">« {a.answer_text} »</p>
@@ -1276,7 +1474,13 @@ function DuelAnswerCard({
                   title="Зритель"
                 />
               ) : voter ? (
-                <img src={avatarSrc(voter.avatar)} alt={voter.name} className="w-16 h-16 rounded-full object-cover jokester-avatar-pop" />
+                <FeatherAvatar
+                  src={avatarSrc(voter.avatar)}
+                  alt={voter.name}
+                  className="w-16 h-16 rounded-full object-cover jokester-avatar-pop"
+                  emitFeathers={emitFeathers}
+                  burstCount={8}
+                />
               ) : '👤'}
             </div>
           );
@@ -1359,4 +1563,212 @@ function SpectatorHall({ count, total }: { count: number; total: number }) {
       )}
     </div>
   );
+}
+
+function AnimatedCountUp({
+  from,
+  to,
+  className,
+  onComplete,
+}: {
+  from: number;
+  to: number;
+  className?: string;
+  onComplete?: () => void;
+}) {
+  const [value, setValue] = useState(from);
+  const completedRef = useRef(false);
+
+  useEffect(() => {
+    const start = performance.now();
+    const duration = 900;
+    completedRef.current = false;
+
+    const step = (now: number) => {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      const next = Math.round(from + (to - from) * eased);
+      setValue(next);
+      if (t < 1) {
+        requestAnimationFrame(step);
+      } else if (!completedRef.current) {
+        completedRef.current = true;
+        onComplete?.();
+      }
+    };
+
+    const raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [from, to, onComplete]);
+
+  return <AnimatedScore value={value} className={className} />;
+}
+
+function FeatherAvatar({
+  src,
+  alt,
+  className,
+  emitFeathers,
+  burstCount = 18,
+}: {
+  src: string;
+  alt: string;
+  className?: string;
+  emitFeathers: (spawn: FeatherSpawn) => void;
+  burstCount?: number;
+}) {
+  const ref = useRef<HTMLImageElement | null>(null);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => {
+      if (!ref.current) return;
+      const rect = ref.current.getBoundingClientRect();
+      emitFeathers({
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2,
+        count: burstCount,
+        spread: 92,
+        speed: 5.6,
+      });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [emitFeathers, burstCount]);
+
+  return <img ref={ref} src={src} alt={alt} className={className} />;
+}
+
+function FeatherBurstCanvas({ registerEmitter }: { registerEmitter: (emit: (spawn: FeatherSpawn) => void) => void }) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const particlesRef = useRef<Array<{
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    size: number;
+    length: number;
+    rot: number;
+    rotSpeed: number;
+    alpha: number;
+    fade: number;
+    gravity: number;
+    color: string;
+    bend: number;
+  }>>([]);
+
+  useEffect(() => {
+    const palette = [
+      'rgba(255,255,255,0.92)',
+      'rgba(245,245,255,0.8)',
+      'rgba(255,236,244,0.72)',
+      'rgba(236,250,255,0.72)',
+      'rgba(252,244,226,0.68)',
+    ];
+
+    const emit = ({ x, y, count = 26, spread = 120, speed = 5.5 }: FeatherSpawn) => {
+      const c = Math.max(0, Math.min(50, count));
+      for (let i = 0; i < c; i++) {
+        const angle = (Math.random() * Math.PI * 2);
+        const s = speed * (0.35 + Math.random() * 0.95);
+        particlesRef.current.push({
+          x: x + (Math.random() - 0.5) * 18,
+          y: y + (Math.random() - 0.5) * 10,
+          vx: Math.cos(angle) * s + (Math.random() - 0.5) * (spread / 100),
+          vy: Math.sin(angle) * s - (Math.random() * 1.5),
+          size: 3 + Math.random() * 4.5,
+          length: 9 + Math.random() * 15,
+          rot: Math.random() * Math.PI,
+          rotSpeed: (Math.random() - 0.5) * 0.24,
+          alpha: 0.66 + Math.random() * 0.34,
+          fade: 0.007 + Math.random() * 0.014,
+          gravity: 0.06 + Math.random() * 0.085,
+          color: palette[Math.floor(Math.random() * palette.length)],
+          bend: (Math.random() - 0.5) * 0.35,
+        });
+      }
+    };
+
+    registerEmitter(emit);
+  }, [registerEmitter]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let rafId = 0;
+    const resize = () => {
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.floor(window.innerWidth * dpr);
+      canvas.height = Math.floor(window.innerHeight * dpr);
+      canvas.style.width = `${window.innerWidth}px`;
+      canvas.style.height = `${window.innerHeight}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+
+    const drawFeather = (p: {
+      x: number;
+      y: number;
+      size: number;
+      length: number;
+      rot: number;
+      color: string;
+      alpha: number;
+      bend: number;
+    }) => {
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.globalAlpha = Math.max(0, Math.min(1, p.alpha));
+      ctx.fillStyle = p.color;
+
+      ctx.beginPath();
+      ctx.moveTo(0, -p.length * 0.5);
+      ctx.bezierCurveTo(p.size * 0.9, -p.length * 0.2, p.size * 1.1, p.length * 0.25, 0, p.length * 0.5);
+      ctx.bezierCurveTo(-p.size * 0.9, p.length * 0.25, -p.size * 0.95, -p.length * 0.2, 0, -p.length * 0.5);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(0, -p.length * 0.45);
+      ctx.quadraticCurveTo(p.bend * p.length, 0, 0, p.length * 0.45);
+      ctx.stroke();
+      ctx.restore();
+    };
+
+    const frame = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const next: typeof particlesRef.current = [];
+      for (const p of particlesRef.current) {
+        p.vy += p.gravity;
+        p.x += p.vx;
+        p.y += p.vy;
+        p.rot += p.rotSpeed;
+        p.alpha -= p.fade;
+
+        if (p.alpha <= 0) continue;
+        if (p.y > window.innerHeight + 80 || p.x < -120 || p.x > window.innerWidth + 120) continue;
+
+        drawFeather(p);
+        next.push(p);
+      }
+      particlesRef.current = next;
+
+      rafId = requestAnimationFrame(frame);
+    };
+
+    resize();
+    frame();
+    window.addEventListener('resize', resize);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      window.removeEventListener('resize', resize);
+    };
+  }, []);
+
+  return <canvas ref={canvasRef} className="fixed inset-0 z-30 pointer-events-none" aria-hidden="true" />;
 }
