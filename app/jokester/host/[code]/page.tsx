@@ -122,6 +122,8 @@ export default function JokesterHostPage() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioRef = useRef<JokesterAudioPlayer | null>(null);
   const prevPlayerCountRef = useRef(0);
+  const audioUnlockedRef = useRef(false);
+  const pendingConnectSoundsRef = useRef(0);
   const autoStartingDuelsRef = useRef(false);
   const prevVoteCountRef = useRef(0);
   const prevAnswerCountRef = useRef(0);
@@ -138,6 +140,12 @@ export default function JokesterHostPage() {
     return `/audio/sound/Jokester/ava/${normalized}`;
   }, []);
 
+  const categoryLabel = useCallback((categoryId?: string | null) => {
+    if (!categoryId) return 'Категория';
+    const found = categories.find(c => c.id === categoryId || c.name === categoryId);
+    return found?.name || categoryId;
+  }, [categories]);
+
   const playRandomSound = useCallback((files: string[], volume = 0.85) => {
     if (files.length === 0) return;
     const src = files[Math.floor(Math.random() * files.length)];
@@ -145,6 +153,17 @@ export default function JokesterHostPage() {
     audio.volume = volume;
     void audio.play().catch(() => {});
   }, []);
+
+  const unlockAudio = useCallback(() => {
+    if (audioUnlockedRef.current) return;
+    audioUnlockedRef.current = true;
+    const pending = pendingConnectSoundsRef.current;
+    pendingConnectSoundsRef.current = 0;
+    if (pending <= 0) return;
+    for (let i = 0; i < Math.min(3, pending); i++) {
+      setTimeout(() => playRandomSound(CONNECT_QUACK_SOUNDS, 0.9), i * 180);
+    }
+  }, [playRandomSound]);
 
   const registerFeatherEmitter = useCallback((emit: (spawn: FeatherSpawn) => void) => {
     featherEmitterRef.current = emit;
@@ -189,7 +208,7 @@ export default function JokesterHostPage() {
         setRoom(r);
         const p = await fetchJokesterPlayers(r.id);
         setPlayers(p);
-        prevPlayerCountRef.current = p.length;
+        prevPlayerCountRef.current = p.filter(player => player.role === 'player' && !player.is_host).length;
         const d = await fetchJokesterDuels(r.id);
         setDuels(d);
       }
@@ -202,16 +221,31 @@ export default function JokesterHostPage() {
     const unsubs = [
       subscribeJokesterRoom(room.id, r => setRoom(r)),
       subscribeJokesterPlayers(room.id, p => {
-        if (p.length > prevPlayerCountRef.current) {
-          playRandomSound(CONNECT_QUACK_SOUNDS, 0.9);
+        const nextPlayerCount = p.filter(player => player.role === 'player' && !player.is_host).length;
+        if (nextPlayerCount > prevPlayerCountRef.current) {
+          if (audioUnlockedRef.current) {
+            playRandomSound(CONNECT_QUACK_SOUNDS, 0.9);
+          } else {
+            pendingConnectSoundsRef.current += nextPlayerCount - prevPlayerCountRef.current;
+          }
         }
-        prevPlayerCountRef.current = p.length;
+        prevPlayerCountRef.current = nextPlayerCount;
         setPlayers(p);
       }),
       subscribeJokesterDuels(room.id, d => setDuels(d)),
     ];
     return () => unsubs.forEach(fn => fn());
   }, [room?.id, playRandomSound]);
+
+  useEffect(() => {
+    const handleUnlock = () => unlockAudio();
+    window.addEventListener('pointerdown', handleUnlock, { once: true });
+    window.addEventListener('keydown', handleUnlock, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', handleUnlock);
+      window.removeEventListener('keydown', handleUnlock);
+    };
+  }, [unlockAudio]);
 
   useEffect(() => {
     if (!room || room.voting_phase !== 'voting' || !currentDuel) return;
@@ -361,6 +395,7 @@ export default function JokesterHostPage() {
 
   const handleStartGame = async () => {
     if (!room) return;
+    unlockAudio();
     audioRef.current?.stopBgm();
 
     // Предыгровой экран
@@ -615,7 +650,6 @@ export default function JokesterHostPage() {
       // Озвучка комментария
       await audioRef.current?.playVoteComment(winnerPercent, 3);
       audioRef.current?.stopBgm();
-      setVoteReveal(null);
 
       // Автопереход к следующей дуэли или результатам раунда
       await handleNextDuelOrResults(roomSnapshot);
@@ -635,13 +669,21 @@ export default function JokesterHostPage() {
       // Следующая дуэль — сразу голосование (ответы уже были даны)
       await startDuelVoting(nextIndex, effectiveRoom);
     } else {
-      // Результаты раунда
+      const isFinal = effectiveRoom.current_round >= 4 || effectiveRoom.status === 'final_playing';
       audioRef.current?.stopBgm();
-      await updateJokesterRoom(effectiveRoom.id, { status: 'round_results', state_version: effectiveRoom.state_version + 7 });
+      await updateJokesterRoom(effectiveRoom.id, {
+        status: isFinal ? 'final_results' : 'round_results',
+        state_version: effectiveRoom.state_version + 7,
+      });
 
       // Рефетч игроков для рейтинга
       const freshPlayers = await fetchJokesterPlayers(effectiveRoom.id);
       setPlayers(freshPlayers);
+
+      if (isFinal) {
+        await handleShowCredits(effectiveRoom);
+        return;
+      }
 
       // Голос после раунда
       const afterFolder = JOKESTER_AUDIO.afterRound(1);
@@ -654,6 +696,7 @@ export default function JokesterHostPage() {
 
   const handleNextRound = async () => {
     if (!room) return;
+    unlockAudio();
     const nextRound = room.current_round + 1;
 
     if (nextRound <= 3) {
@@ -684,6 +727,7 @@ export default function JokesterHostPage() {
 
   const handleStartFinal = async () => {
     if (!room) return;
+    unlockAudio();
     const freshPlayers = await fetchJokesterPlayers(room.id);
     const sorted = freshPlayers.filter(p => p.role === 'player' && !p.is_host).sort((a, b) => b.total_points - a.total_points);
     const finalists = sorted.slice(0, 2);
@@ -725,11 +769,12 @@ export default function JokesterHostPage() {
     startTimer(ANSWER_TIME_SEC, () => handleAnswerPhaseEnd());
   };
 
-  const handleShowCredits = async () => {
-    if (!room) return;
-    const freshPlayers = await fetchJokesterPlayers(room.id);
+  const handleShowCredits = async (roomSnapshot?: JokesterRoom) => {
+    const effectiveRoom = roomSnapshot || room;
+    if (!effectiveRoom) return;
+    const freshPlayers = await fetchJokesterPlayers(effectiveRoom.id);
     const ranked = freshPlayers.filter(p => !p.is_host).sort((a, b) => b.total_points - a.total_points);
-    const duelsAll = await fetchJokesterDuels(room.id);
+    const duelsAll = await fetchJokesterDuels(effectiveRoom.id);
     const answersByDuel = await Promise.all(duelsAll.map(d => fetchDuelAnswers(d.id)));
     const votesByDuel = await Promise.all(duelsAll.map(d => fetchDuelVotes(d.id)));
 
@@ -777,7 +822,7 @@ export default function JokesterHostPage() {
     });
 
     setCreditsData({ winnerAnswers, playerRanks });
-    await updateJokesterRoom(room.id, { status: 'credits', state_version: room.state_version + 11 });
+    await updateJokesterRoom(effectiveRoom.id, { status: 'credits', state_version: effectiveRoom.state_version + 11 });
   };
 
   useEffect(() => {
@@ -918,6 +963,7 @@ export default function JokesterHostPage() {
             {gamePlayers.length >= 4 && (
               <button
                 onClick={(e) => {
+                  unlockAudio();
                   triggerStartButtonEffects(e.currentTarget);
                   void handleStartGame();
                 }}
@@ -999,7 +1045,8 @@ export default function JokesterHostPage() {
               ))}
             </div>
             <button
-              onClick={(e) => {
+                onClick={(e) => {
+                  unlockAudio();
                 triggerStartButtonEffects(e.currentTarget);
                 void handleStartDuels();
               }}
@@ -1075,7 +1122,7 @@ export default function JokesterHostPage() {
             {room.voting_phase === 'voting' && currentDuel && (
               <div className="bg-[#111d33] border-2 border-[#ffd700]/40 rounded-3xl p-6 text-center">
                 <p className="text-xs text-gray-400 mb-2 tracking-wider">
-                  {currentDuel.question1_cat?.toUpperCase()}
+                  {categoryLabel(currentDuel.question1_cat)}
                 </p>
                 <AnimatedQuestionText text={currentDuel.question1_text || ''} />
               </div>
@@ -1212,6 +1259,7 @@ export default function JokesterHostPage() {
             {room.status === 'round_results' && room.current_round < 3 && (
               <button
                 onClick={(e) => {
+                  unlockAudio();
                   triggerStartButtonEffects(e.currentTarget);
                   void handleNextRound();
                 }}
@@ -1223,6 +1271,7 @@ export default function JokesterHostPage() {
             {room.status === 'round_results' && room.current_round === 3 && (
               <button
                 onClick={(e) => {
+                  unlockAudio();
                   triggerStartButtonEffects(e.currentTarget);
                   void handleStartFinal();
                 }}
@@ -1347,6 +1396,7 @@ export default function JokesterHostPage() {
             </div>
             <button
               onClick={(e) => {
+                unlockAudio();
                 triggerStartButtonEffects(e.currentTarget);
                 void handleStartRound();
               }}
@@ -1384,6 +1434,11 @@ function TimerCircle({ seconds, total, tickKey }: { seconds: number; total: numb
   return (
     <div className="flex justify-center">
       <div className="relative w-32 h-32">
+        <div className="sunrays-timer-backdrop" aria-hidden="true">
+          <div className="sunrays-timer-rays sunrays-timer-rays-main" />
+          <div className="sunrays-timer-rays sunrays-timer-rays-soft" />
+          <div className="sunrays-timer-core" />
+        </div>
         <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
           <circle cx="60" cy="60" r={radius} fill="none" stroke="#1a2940" strokeWidth="8" />
           <circle
@@ -1446,7 +1501,7 @@ function DuelAnswerCard({
           <FeatherAvatar
             src={avatarSrc(duelist.avatar)}
             alt={duelist.name}
-            className="w-16 h-16 rounded-full object-cover jokester-avatar-pop"
+            className="w-32 h-32 rounded-full object-cover jokester-avatar-pop"
             emitFeathers={emitFeathers}
             burstCount={24}
           />

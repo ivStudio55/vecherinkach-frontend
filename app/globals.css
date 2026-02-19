@@ -218,13 +218,74 @@ body {
 }
 
 @keyframes roundEmojiFlip {
-  0%, 100% { transform: rotate(0) scale(1); }
-  35% { transform: rotate(120deg) scale(1.15, 0.9); }
-  65% { transform: rotate(260deg) scale(0.92, 1.08); }
+  0%, 100% { transform: translateY(0) scale(1); }
+  25% { transform: translateY(-8px) scale(1.08, 0.94); }
+  45% { transform: translateY(0) scale(0.95, 1.05); }
+  70% { transform: translateY(-3px) scale(1.02); }
 }
 
 .animate-round-emoji-flip {
   animation: roundEmojiFlip 1.8s ease-in-out infinite;
+}
+
+.animate-round-emoji-bounce {
+  animation: roundEmojiFlip 1.8s ease-in-out infinite;
+}
+
+.sunrays-timer-backdrop {
+  position: absolute;
+  inset: 50%;
+  width: 430px;
+  height: 430px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  overflow: hidden;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.sunrays-timer-rays {
+  position: absolute;
+  inset: -24%;
+  border-radius: 50%;
+  animation: sunraysRotate 46s ease-in-out infinite;
+}
+
+.sunrays-timer-rays-main {
+  background: repeating-conic-gradient(
+    from 0deg,
+    rgba(74, 144, 226, 0.48) 0deg 16deg,
+    rgba(47, 168, 168, 0.45) 16deg 32deg
+  );
+}
+
+.sunrays-timer-rays-soft {
+  background: conic-gradient(
+    from 8deg,
+    rgba(74, 144, 226, 0.36),
+    rgba(47, 168, 168, 0.34),
+    rgba(74, 144, 226, 0.36)
+  );
+  filter: blur(14px);
+  animation-duration: 58s;
+  animation-direction: reverse;
+}
+
+.sunrays-timer-core {
+  --pulse-from: 0.82;
+  --pulse-to: 1.18;
+  --pulse-duration: 4.1s;
+  position: absolute;
+  inset: 50%;
+  width: 130px;
+  height: 130px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffffff 0%, #ffffff 55%, rgba(255, 255, 255, 0.6) 100%);
+  box-shadow:
+    0 0 24px rgba(255, 255, 255, 0.85),
+    0 0 86px rgba(255, 255, 255, 0.3);
+  animation: sunCenterPulse var(--pulse-duration) ease-in-out infinite;
 }
 
 @keyframes dancingLetter {

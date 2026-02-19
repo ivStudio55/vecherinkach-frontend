@@ -143,7 +143,9 @@ export default function JokesterSpectatorPage() {
       const winnerId = p1 === p2 ? null : p1 > p2 ? currentDuel.player1_id : currentDuel.player2_id;
       const winnerPlayer = players.find(p => p.id === winnerId);
       const winnerAnswer = winnerId
-        ? answers.find(a => a.player_id === winnerId && !!a.answer_text?.trim())?.answer_text || ''
+        ? answers.find(a => a.player_id === winnerId && !!a.answer_text?.trim())?.answer_text
+          || answers.find(a => a.player_id === winnerId)?.answer_text
+          || ''
         : '';
       if (!cancelled) {
         setDuelReveal({
@@ -156,7 +158,7 @@ export default function JokesterSpectatorPage() {
     return () => {
       cancelled = true;
     };
-  }, [currentDuel?.id, room?.voting_phase, players]);
+  }, [currentDuel?.id, room?.voting_phase, room?.current_round, room?.current_duel_index, players]);
 
   const gamePlayers = players.filter(p => p.role === 'player' && !p.is_host);
   const sortedByPoints = [...gamePlayers].sort((a, b) => b.total_points - a.total_points);

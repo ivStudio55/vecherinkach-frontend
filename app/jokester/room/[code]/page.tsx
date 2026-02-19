@@ -43,6 +43,12 @@ function avatarSrc(value?: string | null): string {
   return `/audio/sound/Jokester/ava/${normalizeAvatarFile(value)}`;
 }
 
+function categoryLabel(categoryId?: string | null, categories: JokesterCategory[] = []): string {
+  if (!categoryId) return 'Категория';
+  const found = categories.find(c => c.id === categoryId || c.name === categoryId);
+  return found?.name || categoryId;
+}
+
 /* ════════════════════════════════════════════════════ */
 export default function JokesterPlayerPage() {
   const params = useParams();
@@ -220,7 +226,9 @@ export default function JokesterPlayerPage() {
       const winnerId = p1 === p2 ? null : p1 > p2 ? currentDuel.player1_id : currentDuel.player2_id;
       const winnerPlayer = players.find(p => p.id === winnerId);
       const winnerAnswer = winnerId
-        ? answers.find(a => a.player_id === winnerId && !!a.answer_text?.trim())?.answer_text || ''
+        ? answers.find(a => a.player_id === winnerId && !!a.answer_text?.trim())?.answer_text
+          || answers.find(a => a.player_id === winnerId)?.answer_text
+          || ''
         : '';
       if (!cancelled) {
         setDuelReveal({
@@ -233,7 +241,7 @@ export default function JokesterPlayerPage() {
     return () => {
       cancelled = true;
     };
-  }, [currentDuel?.id, room?.voting_phase, players]);
+  }, [currentDuel?.id, room?.voting_phase, room?.current_round, room?.current_duel_index, players]);
 
   /* ─── Vote handler ─── */
   const handleVote = async (votedForId: string) => {
@@ -340,7 +348,7 @@ export default function JokesterPlayerPage() {
         {/* ═══ ROUND RULES ═══ */}
         {(room.status === 'round_rules' || room.status === 'final_rules') && (
           <div className="text-center space-y-6 animate-[fadeIn_0.5s_ease]">
-            <div className="text-6xl animate-round-emoji-flip">
+            <div className="text-6xl animate-round-emoji-bounce">
               {room.current_round <= 3 ? `${room.current_round}️⃣` : '🏆'}
             </div>
             <h2 className="text-3xl font-black text-[#ffd700]">
@@ -379,7 +387,7 @@ export default function JokesterPlayerPage() {
               <>
                 <div className="bg-[#111d33] border-2 border-[#1f6ac6]/50 rounded-2xl p-4 space-y-3">
                   <p className="text-xs text-[#ffd700] tracking-wider">
-                    {currentTarget.cat?.toUpperCase()} · дуэль {currentTarget.duel.duel_index + 1}
+                    {categoryLabel(currentTarget.cat, categories)} · дуэль {currentTarget.duel.duel_index + 1}
                   </p>
                   <p className="text-lg font-bold">{currentTarget.text}</p>
                   <textarea
