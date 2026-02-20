@@ -77,17 +77,6 @@ type CreditsPlayerBest = {
   bestAnswer: { question: string; answer: string; votes: number } | null;
 };
 
-const CONNECT_QUACK_SOUNDS = [
-  '/audio/sound/The_duck_quacked_fun_#1.mp3',
-  '/audio/sound/The_duck_quacked_fun_#2.mp3',
-  '/audio/sound/The_duck_quacked_fun_#3.mp3',
-  '/audio/sound/The_duck_quacked_fun_#4.mp3',
-  '/audio/sound/The_duk_quacked_funn_#1.mp3',
-  '/audio/sound/The_duk_quacked_funn_#2.mp3',
-  '/audio/sound/The_duk_quacked_funn_#3.mp3',
-  '/audio/sound/The_duk_quacked_funn_#4.mp3',
-];
-
 const START_DUCK_SOUNDS = [
   '/audio/duck/1.mp3',
   '/audio/duck/2.mp3',
@@ -127,7 +116,7 @@ export default function JokesterHostPage() {
   const prevPlayerCountRef = useRef(0);
   const audioUnlockedRef = useRef(false);
   const pendingConnectSoundsRef = useRef(0);
-  const pendingConnectVoicesRef = useRef(0);
+  const pendingIntroVoiceRef = useRef(false);
   const autoStartingDuelsRef = useRef(false);
   const prevVoteCountRef = useRef(0);
   const prevAnswerCountRef = useRef(0);
@@ -161,13 +150,13 @@ export default function JokesterHostPage() {
 
   const playConnectQuack = useCallback(() => {
     if (audioRef.current) {
-      audioRef.current.playRandomDuck(0.9);
+      audioRef.current.playRandomDuckVote(0.75);
     } else {
-      playRandomSound(CONNECT_QUACK_SOUNDS, 0.9);
+      playRandomSound(START_DUCK_SOUNDS, 0.75);
     }
   }, [playRandomSound]);
 
-  const playConnectVoice = useCallback(() => {
+  const playMeetVoice = useCallback(() => {
     audioRef.current?.playVoiceRandom(JOKESTER_AUDIO.meetFolder);
   }, []);
 
@@ -175,17 +164,15 @@ export default function JokesterHostPage() {
     if (audioUnlockedRef.current) return;
     audioUnlockedRef.current = true;
     const pending = pendingConnectSoundsRef.current;
-    const pendingVoices = pendingConnectVoicesRef.current;
     pendingConnectSoundsRef.current = 0;
-    pendingConnectVoicesRef.current = 0;
-    if (pending <= 0) return;
     for (let i = 0; i < Math.min(3, pending); i++) {
       setTimeout(() => playConnectQuack(), i * 180);
     }
-    if (pendingVoices > 0) {
-      setTimeout(() => playConnectVoice(), Math.min(3, pending) * 180);
+    if (pendingIntroVoiceRef.current) {
+      pendingIntroVoiceRef.current = false;
+      setTimeout(() => playMeetVoice(), Math.min(3, pending) * 180);
     }
-  }, [playConnectQuack, playConnectVoice]);
+  }, [playConnectQuack, playMeetVoice]);
 
   const registerFeatherEmitter = useCallback((emit: (spawn: FeatherSpawn) => void) => {
     featherEmitterRef.current = emit;
@@ -242,13 +229,11 @@ export default function JokesterHostPage() {
     if (!room?.id || roomIntroPlayedRef.current) return;
     roomIntroPlayedRef.current = true;
     if (audioUnlockedRef.current) {
-      playConnectQuack();
-      playConnectVoice();
+      playMeetVoice();
     } else {
-      pendingConnectSoundsRef.current += 1;
-      pendingConnectVoicesRef.current += 1;
+      pendingIntroVoiceRef.current = true;
     }
-  }, [room?.id, playConnectQuack, playConnectVoice]);
+  }, [room?.id, playMeetVoice]);
 
   /* ─── Realtime subscriptions ─── */
   useEffect(() => {
@@ -263,10 +248,8 @@ export default function JokesterHostPage() {
             for (let i = 0; i < Math.min(3, diff); i++) {
               setTimeout(() => playConnectQuack(), i * 160);
             }
-            playConnectVoice();
           } else {
             pendingConnectSoundsRef.current += diff;
-            pendingConnectVoicesRef.current += 1;
           }
         }
         prevPlayerCountRef.current = nextPlayerCount;
@@ -275,7 +258,7 @@ export default function JokesterHostPage() {
       subscribeJokesterDuels(room.id, d => setDuels(d)),
     ];
     return () => unsubs.forEach(fn => fn());
-  }, [room?.id, playConnectQuack, playConnectVoice]);
+  }, [room?.id, playConnectQuack]);
 
   useEffect(() => {
     const handleUnlock = () => unlockAudio();
