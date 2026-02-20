@@ -463,7 +463,7 @@ export default function HomePage() {
                           key={pack.id}
                           type="button"
                           onClick={() => choosePackAndGoHost(normalizePackId(pack.id))}
-                          className={`text-left rounded-3xl border-[3px] border-[#142a45] bg-white/90 p-4 flex flex-col gap-3 transition transform hover:scale-105 ${isLeft ? 'pr-16 sm:pr-20' : 'pl-16 sm:pl-20'} ${isExiting ? 'scale-95 opacity-70' : cardsVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0 translate-y-3'}`}
+                          className={`rounded-3xl border-[3px] border-[#142a45] bg-white/90 p-4 flex flex-col gap-3 transition transform hover:scale-105 ${isLeft ? 'text-right items-end pr-16 sm:pr-20' : 'text-left items-start pl-16 sm:pl-20'} ${isExiting ? 'scale-95 opacity-70' : cardsVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0 translate-y-3'}`}
                           style={{ transitionDelay: `${index * 70}ms` }}
                         >
                           <div className="flex items-center justify-between gap-3">
