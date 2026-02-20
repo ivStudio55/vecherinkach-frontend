@@ -889,7 +889,8 @@ export default function JokesterHostPage() {
     audioRef.current?.destroy();
     await updateJokesterRoom(room.id, { status: 'finished', state_version: room.state_version + 12 });
     setTimeout(() => {
-      window.location.href = '/host';
+      // Redirect hosts to the Jokester landing page after closing the room
+      window.location.href = 'https://vecherinkach.vercel.app/jokester';
     }, 200);
   };
 
