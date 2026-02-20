@@ -520,7 +520,12 @@ export default function HomePage() {
                         </div>
                         <p className="text-sm text-[#142a45]/80 flex-1">{game.description}</p>
                         <div className="flex items-center justify-between text-xs font-semibold text-[#1f6ac6]">
-                          <span>{game.id === 'uno' ? 'два режима: классический и irregular verbs' : 'готовим концепт'}</span>
+                          <span>
+                            {game.id === 'uno' ? 'два режима: классический и irregular verbs'
+                              : game.id === 'risunkach' ? '3 режима'
+                              : game.id === 'jokester' ? 'перейти к тестированию'
+                              : 'готовим концепт'}
+                          </span>
                           <span>{game.isSoon ? '🔒' : '▶'}</span>
                         </div>
                       </button>

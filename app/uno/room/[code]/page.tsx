@@ -209,6 +209,14 @@ export default function UnoRoomPage() {
               {room?.winner_id === me?.id ? 'Ты победил!' : `${winnerName} побеждает!`}
             </h2>
             <div className="flex gap-3 justify-center">
+              <a
+                href="https://donatty.com/aleksandri"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-xl bg-white/10 border border-white/20 px-6 py-3 font-bold text-white hover:bg-white/20 transition"
+              >
+                💛 Поддержать проект
+              </a>
               <Link
                 href="/uno"
                 className="rounded-xl bg-white/10 border border-white/20 px-6 py-3 font-bold hover:bg-white/20 transition"

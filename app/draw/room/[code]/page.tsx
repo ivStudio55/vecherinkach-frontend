@@ -508,6 +508,14 @@ export default function DrawRoomPage() {
               <h2 className="text-xl font-black">
                 {phase === 'finished' ? 'Игра окончена!' : `Результаты раунда ${room.current_round}`}
               </h2>
+              <a
+                href="https://donatty.com/aleksandri"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 inline-flex rounded-xl border border-white/20 bg-white/10 px-3.5 py-2 text-xs font-bold tracking-[0.12em] text-white/80 transition hover:bg-white/20"
+              >
+                💛 Поддержать проект
+              </a>
             </div>
 
             <div className="space-y-2">

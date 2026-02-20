@@ -36,6 +36,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               >
                 Рисункач
               </Link>
+              <Link
+                href="/admin/jokester"
+                className="px-5 py-3 rounded-2xl border-[3px] border-[#f59e0b] text-[#f59e0b] font-black tracking-[0.2em] hover:bg-[#f59e0b]/10 transition"
+              >
+                Пошутикач
+              </Link>
             </nav>
           </div>
         </header>

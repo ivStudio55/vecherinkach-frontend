@@ -502,6 +502,17 @@ export default function JokesterPlayerPage() {
                 </div>
               ))}
             </div>
+
+            <div className="text-center">
+              <a
+                href="https://donatty.com/aleksandri"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex rounded-xl border border-[#ffd700]/40 bg-[#0d1a30] px-4 py-2 text-xs font-bold tracking-[0.14em] text-[#ffd700] hover:bg-[#1a2940] transition"
+              >
+                💛 Поддержать проект
+              </a>
+            </div>
           </div>
         )}
 
@@ -517,6 +528,14 @@ export default function JokesterPlayerPage() {
                 <p className="text-lg text-[#ffd700]">{me.total_points} очков · #{myRank} место</p>
               </div>
             )}
+            <a
+              href="https://donatty.com/aleksandri"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex rounded-xl border border-[#ffd700]/40 bg-[#0d1a30] px-4 py-2 text-xs font-bold tracking-[0.14em] text-[#ffd700] hover:bg-[#1a2940] transition"
+            >
+              💛 Поддержать проект
+            </a>
           </div>
         )}
 
@@ -526,6 +545,14 @@ export default function JokesterPlayerPage() {
             <div className="text-6xl">🎉</div>
             <p className="text-2xl font-black text-[#ffd700]">Игра окончена!</p>
             {me && <p className="text-lg text-white">{me.total_points} очков · #{myRank} место</p>}
+            <a
+              href="https://donatty.com/aleksandri"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex rounded-xl border border-[#ffd700]/40 bg-[#0d1a30] px-4 py-2 text-xs font-bold tracking-[0.14em] text-[#ffd700] hover:bg-[#1a2940] transition"
+            >
+              💛 Поддержать проект
+            </a>
           </div>
         )}
 
