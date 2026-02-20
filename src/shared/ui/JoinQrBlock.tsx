@@ -58,39 +58,8 @@ export function JoinQrBlock({
           </div>
         </div>
 
-        {qrWindowUrl && (
-          <button
-            type="button"
-            onClick={handleOpenQr}
-            className="hover:scale-105 hover:shadow-lg transition-all duration-200 px-4 py-2 rounded-2xl border-[3px] border-[#142a45] font-semibold bg-[#ffe184]"
-          >
-            Открыть QR
-          </button>
-        )}
-
-        {showInstructions && (
-          <div className="space-y-4 max-w-xl">
-            <p className="text-sm font-semibold text-[#142a45]/90">Чтобы подключиться к комнате:</p>
-            <ol className="space-y-2 text-sm font-semibold text-[#142a45]/80 text-left">
-              <li className="flex gap-3">
-                <span className="w-8 h-8 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">1</span>
-                Наведите камеру на QR-код
-              </li>
-              <li className="flex gap-3">
-                <span className="w-8 h-8 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">2</span>
-                Вы попадёте на экран подключения
-              </li>
-              <li className="flex gap-3">
-                <span className="w-8 h-8 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">3</span>
-                Введите имя и код комнаты
-              </li>
-            </ol>
-            <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-[#fff6da] px-4 py-3 text-xs text-[#142a45]/80">
-              Если QR не работает — откройте{' '}
-              <span className="font-semibold">{resolvedJoinBase}</span> и введите код комнаты: <span className="font-black">{roomCode}</span>
-            </div>
-          </div>
-        )}
+        {/* Instructions and the separate 'Open QR' button were removed per UX update.
+            Fallback link is now shown on the dedicated host QR page under the QR block. */}
       </div>
     </div>
   );
