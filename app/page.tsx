@@ -7,6 +7,7 @@ import backTexture from './img/back.png';
 import { supabase } from '../src/lib/supabase';
 import { normalizePackId, type PackId } from '@/lib/questionPacks';
 import { DuckMascot } from '@/components/DuckMascot';
+import { DuckFace } from '@/components/DuckFace';
 
 export default function HomePage() {
   const router = useRouter();
@@ -453,33 +454,42 @@ export default function HomePage() {
             <div className="space-y-5">
               <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
                 <h2 className="text-2xl font-black text-[#142a45] text-center">перейти к созданию комнаты онлайн квиза Вечеринкач</h2>
-                <div className="grid sm:grid-cols-2 gap-4">
-                  {packCards.map((pack, index) => (
-                    <button
-                      key={pack.id}
-                      type="button"
-                      onClick={() => choosePackAndGoHost(normalizePackId(pack.id))}
-                      className={`text-left rounded-3xl border-[3px] border-[#142a45] bg-white/90 p-4 flex flex-col gap-3 transition transform hover:scale-105 ${isExiting ? 'scale-95 opacity-70' : cardsVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0 translate-y-3'}`}
-                      style={{ transitionDelay: `${index * 70}ms` }}
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Пакет</p>
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-xl font-black text-[#142a45]">{pack.title}</h3>
-                            {pack.badge ? (
-                              <span className="rounded-full border-[2px] border-[#142a45] bg-[#ffe184] px-2 py-0.5 text-xs font-black tracking-[0.12em] text-[#142a45]">
-                                {pack.badge}
-                              </span>
-                            ) : null}
+                <div className="relative">
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    {packCards.map((pack, index) => {
+                      const isLeft = index === 0;
+                      return (
+                        <button
+                          key={pack.id}
+                          type="button"
+                          onClick={() => choosePackAndGoHost(normalizePackId(pack.id))}
+                          className={`text-left rounded-3xl border-[3px] border-[#142a45] bg-white/90 p-4 flex flex-col gap-3 transition transform hover:scale-105 ${isLeft ? 'pr-16 sm:pr-20' : 'pl-16 sm:pl-20'} ${isExiting ? 'scale-95 opacity-70' : cardsVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0 translate-y-3'}`}
+                          style={{ transitionDelay: `${index * 70}ms` }}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Пакет</p>
+                              <div className="flex items-center gap-2">
+                                <h3 className="text-xl font-black text-[#142a45]">{pack.title}</h3>
+                                {pack.badge ? (
+                                  <span className="rounded-full border-[2px] border-[#142a45] bg-[#ffe184] px-2 py-0.5 text-xs font-black tracking-[0.12em] text-[#142a45]">
+                                    {pack.badge}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </div>
+                            <span className="text-3xl">{pack.id === 'classic' ? '📘' : '📦'}</span>
                           </div>
-                        </div>
-                        <span className="text-3xl">{pack.id === 'classic' ? '📘' : '📦'}</span>
-                      </div>
-                      <p className="text-sm text-[#142a45]/80 flex-1">{pack.description}</p>
-                      <div className="text-xs font-semibold text-[#1f6ac6]">выбрать и перейти к созданию</div>
-                    </button>
-                  ))}
+                          <p className="text-sm text-[#142a45]/80 flex-1">{pack.description}</p>
+                          <div className="text-xs font-semibold text-[#1f6ac6]">выбрать и перейти к созданию</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {/* Утка-лицо — абсолютный центр между плашками */}
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-auto drop-shadow-xl">
+                    <DuckFace size={130} />
+                  </div>
                 </div>
               </section>
 
