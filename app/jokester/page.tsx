@@ -151,7 +151,7 @@ export default function JokesterEntryPage() {
             style={panelDelayStyle('0.08s')}
           >
             <h2 className="text-xl font-black text-[#ffd700]">Создание комнаты</h2>
-            <p className="text-sm text-gray-400">Вы станете ведущим этой весёлой битвы шуток! Имя ведущего не требуется.</p>
+            <p className="text-sm text-gray-400">Вы станете ведущим  весёлой битвы шуток! Создайте хаб для игроков и зрителей!</p>
             <button
               onClick={handleCreate}
               disabled={loading}
