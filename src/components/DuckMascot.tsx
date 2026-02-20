@@ -1,18 +1,21 @@
 // src/components/DuckMascot.tsx
-// Интерактивная утка-маскот: голова/глаза следят за курсором, клик — взмах крыльев + кряк
 'use client';
 
 import { useRef, useState, useEffect, useCallback } from 'react';
+import type { CSSProperties } from 'react';
 
-const DUCK_SOUND_COUNT = 7; // /audio/duck/1.mp3 … 7.mp3
+const DUCK_SOUND_COUNT = 7;
 const FLAP_DURATION_MS = 750;
+const BLINK_MIN_MS = 3000;
+const BLINK_MAX_MS = 6000;
 
 export function DuckMascot({ size = 148 }: { size?: number }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [headAngle, setHeadAngle] = useState(0);
-  const [pupil, setPupil] = useState({ x: 0, y: 0 });
+  const [mousePos, setMousePos] = useState({ dx: 0, dy: 0, dist: 0 });
   const [flapping, setFlapping] = useState(false);
+  const [blinking, setBlinking] = useState(false);
   const flapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const blinkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /* ── Mouse tracking ── */
   useEffect(() => {
@@ -24,18 +27,39 @@ export function DuckMascot({ size = 148 }: { size?: number }) {
       const cy = r.top + r.height / 2;
       const dx = e.clientX - cx;
       const dy = e.clientY - cy;
-
-      // Head rotates ±20° toward cursor (horizontal only)
-      setHeadAngle(Math.max(-20, Math.min(20, dx * 0.13)));
-
-      // Pupils follow cursor, clamped to 4px radius
-      const dist = Math.hypot(dx, dy) || 1;
-      const scale = Math.min(4, dist * 0.06);
-      setPupil({ x: (dx / dist) * scale, y: (dy / dist) * scale });
+      const dist = Math.hypot(dx, dy);
+      setMousePos({ dx, dy, dist });
     };
     window.addEventListener('mousemove', onMove);
     return () => window.removeEventListener('mousemove', onMove);
   }, []);
+
+  /* ── Blink loop ── */
+  const scheduleBlink = useCallback(() => {
+    const delay = BLINK_MIN_MS + Math.random() * (BLINK_MAX_MS - BLINK_MIN_MS);
+    blinkTimerRef.current = setTimeout(() => {
+      setBlinking(true);
+      setTimeout(() => {
+        setBlinking(false);
+        if (Math.random() > 0.7) {
+          setTimeout(() => {
+            setBlinking(true);
+            setTimeout(() => {
+              setBlinking(false);
+              scheduleBlink();
+            }, 120);
+          }, 100);
+        } else {
+          scheduleBlink();
+        }
+      }, 120);
+    }, delay);
+  }, []);
+
+  useEffect(() => {
+    scheduleBlink();
+    return () => { if (blinkTimerRef.current) clearTimeout(blinkTimerRef.current); };
+  }, [scheduleBlink]);
 
   /* ── Click: flap + quack ── */
   const handleClick = useCallback(() => {
@@ -50,12 +74,39 @@ export function DuckMascot({ size = 148 }: { size?: number }) {
     audio.play().catch(() => {});
   }, [flapping]);
 
+  /* ── Derived values ── */
+  const { dx, dy, dist } = mousePos;
+  
+  // Head rotation and parallax
+  const headAngle = Math.max(-25, Math.min(25, dx * 0.15));
+  const headX = dist > 0 ? (dx / dist) * Math.min(4, dist * 0.01) : 0;
+  const headY = dist > 0 ? (dy / dist) * Math.min(4, dist * 0.01) : 0;
+
+  // Smooth pupil movement
+  const maxShift = 6;
+  const pupilScale = Math.min(maxShift, dist * 0.05);
+  const px = dist > 0 ? (dx / dist) * pupilScale : 0;
+  const py = dist > 0 ? (dx / dist) * pupilScale : 0;
+
+  const blinkScaleY = blinking ? 0.1 : 1;
+
+  const [hovered, setHovered] = useState(false);
+  const tFast = '0.15s cubic-bezier(0.4, 0, 0.2, 1)';
+  const tSmooth = '0.4s cubic-bezier(0.25, 1, 0.5, 1)';
+
+  const ringStyle: CSSProperties = {
+    boxShadow: hovered
+      ? '0 0 0 6px #142a4522, 0 12px 36px -6px #142a4544'
+      : '0 0 0 0px transparent',
+    transition: 'box-shadow 0.3s ease, transform 0.2s ease',
+    transform: hovered ? 'scale(1.02)' : 'scale(1)',
+  };
+
   return (
     <>
-      {/* CSS keyframes injected once */}
       <style>{`
         @keyframes _duckWIngL {
-          0%   { transform: rotate(8deg); }
+          0%   { transform: rotate)8deg); }
           22%  { transform: rotate(-58deg) translateX(-3px); }
           50%  { transform: rotate(22deg); }
           75%  { transform: rotate(-32deg) translateX(-2px); }
@@ -68,102 +119,133 @@ export function DuckMascot({ size = 148 }: { size?: number }) {
           75%  { transform: rotate(32deg) translateX(2px); }
           100% { transform: rotate(-8deg); }
         }
+        @keyframes _duckBodyBop {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-4px); }
+        }
         ._dwL { transform-box: fill-box; transform-origin: 90% 40%; }
         ._dwR { transform-box: fill-box; transform-origin: 10% 40%; }
-        ._dwL._flap { animation: _duckWIngL ${FLAP_DURATION_MS}ms ease-in-out forwards; }
-        ._dwR._flap { animation: _duckWIngR ${FLAP_DURATION_MS}ms ease-in-out forwards; }
-        ._duckCircle { transition: box-shadow 0.15s ease; }
-        ._duckCircle:hover { box-shadow: 0 0 0 5px #ffd70066, 0 8px 32px #ffd70055; }
-        ._duckCircle:active { transform: scale(0.94); }
+        ._dwL._flap { animation: _duckWIngL ${FLAP_DURATION_MS}ms cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+        ._dwR._flap { animation: _duckWIngR ${FLAP_DURATION_MS}ms cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+        ._dBody._flap { animation: _duckBodyBop ${FLAP_DURATION_MS}ms cubic-bezier(0.4, 0, 0.2, 1) forwards; }
       `}</style>
 
       <div
         ref={containerRef}
         onClick={handleClick}
-        title="Кликни на утку! 🦆"
+        title="Кликни на утку! 🦄"
         className="relative mx-auto cursor-pointer select-none"
         style={{ width: size, height: size }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
       >
         <div
-          className="_duckCircle absolute inset-0 rounded-full border-[4px] border-[#142a45] overflow-hidden"
-          style={{ background: '#ffffff' }}
+          className="absolute inset-0 rounded-full border-[4px] border-[#142a45] overflow-hidden bg-white"
+          style={ringStyle}
         >
-          <svg viewBox="0 0 172 172" width={size} height={size} xmlns="http://www.w3.org/2000/svg">
+          <svg viewBox="0 0 172 172" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
             {/* ── Water ripple (decoration) ── */}
-            <ellipse cx="86" cy="148" rx="42" ry="8" fill="#4dd0e1" opacity="0.22" />
-            <ellipse cx="86" cy="148" rx="28" ry="5" fill="#00bcd4" opacity="0.18" />
+            <g style={{ transform: hovered ? 'scale(1.05)' : 'scale(1)', transformOrigin: '86px 148px', transition: tSmooth }}>
+              <ellipse cx="86" cy="148" rx="42" ry="8" fill="#4dd0e1" opacity="0.22" />
+              <ellipse cx="86" cy="148" rx="28" ry="5" fill="#00bcd4" opacity="0.18" />
+            </g>
 
-            {/* ── Left wing ── */}
-            <ellipse
-              cx="56" cy="108" rx="28" ry="14"
-              fill="#f9a825"
-              stroke="#e65100" strokeWidth="1.2"
-              className={`_dwL${flapping ? ' _flap' : ''}`}
-            />
-            {/* ── Right wing ── */}
-            <ellipse
-              cx="116" cy="108" rx="28" ry="14"
-              fill="#f9a825"
-              stroke="#e65100" strokeWidth="1.2"
-              className={`_dwR${flapping ? ' _flap' : ''}`}
-            />
+            <g className={`_dBody${flapping ? ' _flap' : ''}`}>
+              {/* ── Left wing ── */}
+              <ellipse
+                cx="56" cy="108" rx="28" ry="14"
+                fill="#FBC02D"
+                stroke="#F57F17" strokeWidth="2"
+                className={`_dwL${flapping ? ' _flap' : ''}`}
+              />
+              {/* ── Right wing ── */}
+              <ellipse
+                cx="116" cy="108" rx="28" ry="14"
+                fill="#FBC02D"
+                stroke="#F57F17" strokeWidth="2"
+                className={`_dwR${flapping ? ' _flap' : ''}`}
+              />
 
-            {/* ── Body ── */}
-            <ellipse cx="86" cy="116" rx="34" ry="29" fill="#fdd835" stroke="#f9a825" strokeWidth="1.5" />
-            {/* Belly */}
-            <ellipse cx="86" cy="120" rx="19" ry="16" fill="#fff9c4" opacity="0.9" />
+              {/* ── Body ── */}
+              <path d="M 52 116 C 52 80, 120 80, 120 116 C 120 145, 52 145, 52 116 Z" fill="#FFD54F" stroke="#FBC02D" strokeWidth="2.5" />
+              {/* Belly */}
+              <path d="M 67 120 C 67 100, 105 100, 105 120 C 105 135, 67 135, 67 120 Z" fill="#FFF9C4" opacity="0.9" />
 
-            {/* ── Feet ── */}
-            <ellipse cx="72" cy="142" rx="14" ry="5.5" fill="#ff8f00" transform="rotate(-14, 72, 142)" />
-            <ellipse cx="100" cy="142" rx="14" ry="5.5" fill="#ff8f00" transform="rotate(14, 100, 142)" />
+              {/* ── Feet ── */}
+              <path d="M 65 138 Q 72 148 60 145 Q 75 150 78 140 Z" fill="#FF8F00" />
+              <path d="M 107 138 Q 100 148 112 145 Q 97 150 94 140 Z" fill="#FF8F00" />
 
-            {/* ── Head (rotates toward cursor) ── */}
-            <g
-              style={{
-                transform: `rotate(${headAngle}deg)`,
-                transformBox: 'fill-box' as React.CSSProperties['transformBox'],
-                transformOrigin: '50% 90%',
-                transition: 'transform 0.12s ease',
-              }}
-            >
-              {/* Head base */}
-              <circle cx="86" cy="72" r="27" fill="#fdd835" stroke="#f9a825" strokeWidth="1.5" />
+              {/* ── Head (rotates toward cursor) ── */}
+              <g
+                style={{
+                  transform: `translate(${headX}px, ${headY}px) rotate(${headAngle}deg)`,
+                  transformOrigin: '86px 95px',
+                  transition: `transform ${tSmooth}`,
+                }}
+              >
+                {/* Head base */}
+                <circle cx="86" cy="72" r="28" fill="#FFD54F" stroke="#FBC02D" strokeWidth="2.5" />
 
-              {/* Cheeks */}
-              <circle cx="70" cy="80" r="8" fill="#f06292" opacity="0.45" />
-              <circle cx="102" cy="80" r="8" fill="#f06292" opacity="0.45" />
+                {/* Hair Tuft */}
+                <g stroke="#FBC02D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M 86 44 Q 80 30 75 35 Q 82 42 86 44 Z" fill="#FFD54F" />
+                  <path d="M 88 42 Q 90 25 95 30 Q 92 40 88 42 Z" fill="#FFD54F" />
+                </g>
 
-              {/* Bill — upper */}
-              <ellipse cx="86" cy="91" rx="14" ry="9" fill="#ff8f00" />
-              {/* Bill — lower (lighter) */}
-              <ellipse cx="86" cy="87" rx="12" ry="6" fill="#ffb300" />
-              {/* Bill line */}
-              <path d="M74 90 Q86 95 98 90" stroke="#e65100" strokeWidth="1.2" fill="none" />
-              {/* Nostrils */}
-              <circle cx="80" cy="84" r="1.6" fill="#bf360c" opacity="0.55" />
-              <circle cx="92" cy="84" r="1.6" fill="#bf360c" opacity="0.55" />
+                {/* Cheeks */}
+                <ellipse cx="68" cy="82" rx="7" ry="4.5" fill="#FF8A65" opacity="0.55" />
+                <ellipse cx="104" cy="82" rx="7" ry="4.5" fill="#FF8A65" opacity="0.55" />
 
-              {/* Eye whites */}
-              <circle cx="73" cy="65" r="10" fill="white" stroke="#e0e0e0" strokeWidth="0.5" />
-              <circle cx="99" cy="65" r="10" fill="white" stroke="#e0e0e0" strokeWidth="0.5" />
+                {/* Bill — upper */}
+                <path d="M 72 91 Q 86 85 100 91 Q 105 98 86 102 Q 67 98 72 91 Z" fill="#FF9800" stroke="#E65100" strokeWidth="1.5" strokeLinejoin="round" />
+                {/* Bill — lower */}
+                <path d="M 76 98 Q 86 108 96 98 Z" fill="#F57C00" />
+                {/* Bill line */}
+                <path d="M 74 94 Q 86 98 98 94" stroke="#FFB74D" strokeWidth="2" strokeLinecap="round" fill="none" />
+                {/* Nostrils */}
+                <ellipse cx="81" cy="89" rx="1.5" ry="2.5" fill="#E65100" opacity="0.7" transform="rotate(-15 81 89)" />
+                <ellipse cx="91" cy="89" rx="1.5" ry="2.5" fill="#E65100" opacity="0.7" transform="rotate(15 91 89)" />
 
-              {/* Pupils (move with cursor) */}
-              <circle cx={73 + pupil.x} cy={65 + pupil.y} r="5.5" fill="#1a237e" />
-              <circle cx={99 + pupil.x} cy={65 + pupil.y} r="5.5" fill="#1a237e" />
+                {/* Left Eye */}
+                <g
+                  style={{
+                    transform: `scaleY(${blinkScaleY})`,
+                    transformOrigin: '73px 65px',
+                    transition: `transform ${blinking ? tFast : tSmooth}`,
+                  }}
+                >
+                  <circle cx="73" cy="65" r="11" fill="#FFFFFF" stroke="#3E2723" strokeWidth="2" />
+                  <g style={{ transform: `translate(${px}px, ${py}px)`, transition: `transform ${tFast}` }}>
+                    <circle cx="73" cy="65" r="6" fill="#3E2723" />
+                    <circle cx="71" cy="62" r="2" fill="#FFFFFF" />
+                    <circle cx="75.5" cy="67.5" r="1" fill="#FFFFFF" />
+                  </g>
+                </g>
 
-              {/* Eye inner gloss */}
-              <circle cx={75.5 + pupil.x} cy={62.5 + pupil.y} r="2" fill="white" />
-              <circle cx={101.5 + pupil.x} cy={62.5 + pupil.y} r="2" fill="white" />
+                {/* Right Eye */}
+                <g
+                  style={{
+                    transform: `scaleY(${blinkScaleY})`,
+                    transformOrigin: '99px 65px',
+                    transition: `transform ${blinking ? tFast : tSmooth}`,
+                  }}
+                >
+                  <circle cx="99" cy="65" r="11" fill="#FFFFFF" stroke="#3E2723" strokeWidth="2" />
+                  <g style={{ transform: `translate(${px}px, ${py}px)`, transition: `transform ${tFast}` }}>
+                    <circle cx="99" cy="65" r="6" fill="#3E2723" />
+                    <circle cx="97" cy="62" r="2" fill="#FFFFFF" />
+                    <circle cx="101.5" cy="67.5" r="1" fill="#FFFFFF" />
+                  </g>
+                </g>
 
-              {/* Eyelash top-left */}
-              <line x1="65" y1="57" x2="62" y2="52" stroke="#142a45" strokeWidth="1.4" strokeLinecap="round" />
-              <line x1="70" y1="55" x2="68" y2="50" stroke="#142a45" strokeWidth="1.4" strokeLinecap="round" />
-              <line x1="75" y1="55" x2="74" y2="49" stroke="#142a45" strokeWidth="1.4" strokeLinecap="round" />
-
-              {/* Eyelash top-right */}
-              <line x1="107" y1="57" x2="110" y2="52" stroke="#142a45" strokeWidth="1.4" strokeLinecap="round" />
-              <line x1="102" y1="55" x2="104" y2="50" stroke="#142a45" strokeWidth="1.4" strokeLinecap="round" />
-              <line x1="97" y1="55" x2="98" y2="49" stroke="#142a45" strokeWidth="1.4" strokeLinecap="round" />
+                {/* Eyelashes */}
+                <g stroke="#3E2723" strokeWidth="2" strokeLinecap="round">
+                  <line x1="64" y1="56" x2="60" y2="50" />
+                  <line x1="69" y1="54" x2="67" y2="48" />
+                  <line x1="108" y1="56" x2="112" y2="50" />
+                  <line x1="103" y1="54" x2="105" y2="48" />
+                </g>
+              </g>
             </g>
 
             {/* Sparkle on click */}
@@ -178,7 +260,7 @@ export function DuckMascot({ size = 148 }: { size?: number }) {
                   <animate attributeName="r" from="4" to="13" dur="0.55s" fill="freeze" />
                 </circle>
                 <text x="86" y="36" textAnchor="middle" fontSize="16" style={{ userSelect: 'none' }}>
-                  ✨
+                  ✄
                   <animate attributeName="y" from="36" to="20" dur="0.65s" fill="freeze" />
                   <animate attributeName="opacity" from="1" to="0" dur="0.65s" fill="freeze" />
                 </text>
