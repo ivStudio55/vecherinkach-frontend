@@ -3,6 +3,7 @@
 'use client';
 
 import { useRef, useState, useEffect, useCallback } from 'react';
+import type { CSSProperties } from 'react';
 
 const DUCK_SOUND_COUNT = 7;
 const BLINK_MIN_MS = 3000;
@@ -81,17 +82,27 @@ export function DuckFace({ size = 140 }: { size?: number }) {
 
   const blinkScaleY = blinking ? 0.08 : 1;
 
+  const [hovered, setHovered] = useState(false);
   const t = '0.22s ease';
+
+  const ringStyle: CSSProperties = {
+    boxShadow: hovered
+      ? '0 0 0 5px #142a4533, 0 0 24px 6px #142a4522'
+      : '0 0 0 0px transparent',
+    transition: 'box-shadow 0.22s ease',
+  };
 
   return (
     <div
       className="relative mx-auto cursor-pointer select-none"
       style={{ width: size, height: size }}
       title="Кликни! 🦆"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
       <div
         className="absolute inset-0 rounded-full border-[4px] border-[#142a45] overflow-hidden"
-        style={{ background: '#00bfa5' }}
+        style={{ background: '#ffffff', ...ringStyle }}
       >
         <svg
           ref={containerRef}

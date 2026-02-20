@@ -463,13 +463,13 @@ export default function HomePage() {
                           key={pack.id}
                           type="button"
                           onClick={() => choosePackAndGoHost(normalizePackId(pack.id))}
-                          className={`rounded-3xl border-[3px] border-[#142a45] bg-white/90 p-4 flex flex-col gap-3 transition transform hover:scale-105 ${isLeft ? 'text-right items-end pr-16 sm:pr-20' : 'text-left items-start pl-16 sm:pl-20'} ${isExiting ? 'scale-95 opacity-70' : cardsVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0 translate-y-3'}`}
+                          className={`rounded-3xl border-[3px] border-[#142a45] bg-white/90 p-4 flex flex-col gap-3 transition transform hover:scale-105 ${isLeft ? 'text-left items-start pr-16 sm:pr-20' : 'text-right items-end pl-16 sm:pl-20'} ${isExiting ? 'scale-95 opacity-70' : cardsVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0 translate-y-3'}`}
                           style={{ transitionDelay: `${index * 70}ms` }}
                         >
-                          <div className="flex items-center justify-between gap-3">
-                            <div>
+                          <div className={`flex items-center gap-3 w-full ${isLeft ? 'flex-row justify-between' : 'flex-row-reverse justify-between'}`}>
+                            <div className={isLeft ? 'text-left' : 'text-right'}>
                               <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Пакет</p>
-                              <div className="flex items-center gap-2">
+                              <div className={`flex items-center gap-2 ${isLeft ? '' : 'flex-row-reverse'}`}>
                                 <h3 className="text-xl font-black text-[#142a45]">{pack.title}</h3>
                                 {pack.badge ? (
                                   <span className="rounded-full border-[2px] border-[#142a45] bg-[#ffe184] px-2 py-0.5 text-xs font-black tracking-[0.12em] text-[#142a45]">
