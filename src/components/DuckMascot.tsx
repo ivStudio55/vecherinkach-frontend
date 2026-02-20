@@ -72,21 +72,21 @@ export function DuckMascot({ size = 148 }: { size?: number }) {
         ._dwR { transform-box: fill-box; transform-origin: 10% 40%; }
         ._dwL._flap { animation: _duckWIngL ${FLAP_DURATION_MS}ms ease-in-out forwards; }
         ._dwR._flap { animation: _duckWIngR ${FLAP_DURATION_MS}ms ease-in-out forwards; }
-        ._duckWrap { transition: box-shadow 0.18s ease, transform 0.15s ease; }
-        ._duckWrap:hover { box-shadow: 0 0 0 5px #00bfa577, 0 8px 32px #00bfa544; }
-        ._duckWrap:active { transform: scale(0.94); }
+        ._duckCircle { transition: box-shadow 0.15s ease; }
+        ._duckCircle:hover { box-shadow: 0 0 0 5px #ffd70066, 0 8px 32px #ffd70055; }
+        ._duckCircle:active { transform: scale(0.94); }
       `}</style>
 
       <div
         ref={containerRef}
         onClick={handleClick}
         title="Кликни на утку! 🦆"
-        className="_duckWrap relative mx-auto cursor-pointer select-none rounded-full"
+        className="relative mx-auto cursor-pointer select-none"
         style={{ width: size, height: size }}
       >
         <div
-          className="absolute inset-0 rounded-full border-[4px] border-[#142a45] overflow-hidden"
-          style={{ background: '#00bfa5' }}
+          className="_duckCircle absolute inset-0 rounded-full border-[4px] border-[#142a45] overflow-hidden"
+          style={{ background: '#ffffff' }}
         >
           <svg viewBox="0 0 172 172" width={size} height={size} xmlns="http://www.w3.org/2000/svg">
             {/* ── Water ripple (decoration) ── */}
