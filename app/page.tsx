@@ -488,54 +488,92 @@ export default function HomePage() {
                   <h2 className="text-2xl font-black text-[#142a45]">Мини-игры</h2>
                   <span className="text-xs font-semibold tracking-[0.3em] text-[#142a45]/70">beta</span>
                 </div>
-                {/* ── Duck mascot ── */}
-                <div className="flex justify-center py-2">
-                  <DuckMascot />
-                </div>
-                <div className="grid sm:grid-cols-2 gap-4">
-                  {miniGames.map((game, index) => {
-                    const isDisabled = Boolean(game.isSoon);
-                    return (
-                      <button
-                        key={game.id}
-                        type="button"
-                        onClick={() => handleMiniGameClick(game.id)}
-                        disabled={isDisabled}
-                        className={`text-left rounded-3xl border-[3px] border-[#142a45] bg-white/95 p-4 flex flex-col gap-3 transition transform hover:scale-105 ${isDisabled ? 'opacity-70 cursor-not-allowed' : ''} ${isExiting ? 'scale-95 opacity-70' : cardsVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0 translate-y-3'}`}
-                        style={{ transitionDelay: `${index * 70}ms` }}
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">{game.subtitle}</p>
-                            <div className="flex items-center gap-2">
-                              <h3 className="text-xl font-black text-[#142a45]">{game.title}</h3>
-                              {game.badge ? (
-                                <span className="rounded-full border-[2px] border-[#142a45] bg-[#ffe184] px-2 py-0.5 text-xs font-black tracking-[0.12em] text-[#142a45]">
-                                  {game.badge}
-                                </span>
-                              ) : null}
-                              {game.isSoon ? (
-                                <span className="rounded-full border-[2px] border-[#142a45] bg-white px-2 py-0.5 text-xs font-black tracking-[0.12em] text-[#142a45]">
-                                  скоро
-                                </span>
-                              ) : null}
-                            </div>
+
+                {/* ── 2×2 grid с уткой в центре ── */}
+                <div className="relative py-2">
+                  <div className="grid grid-cols-2 gap-3">
+                    {miniGames.map((game, index) => {
+                      const isDisabled = Boolean(game.isSoon);
+                      const isLeft   = index % 2 === 0;
+                      const isBottom = index >= 2;
+
+                      // Контент смещается в угол, противоположный центру утки
+                      // 0=top-left  → контент вверху-справа (items-end)
+                      // 1=top-right → контент вверху-слева  (items-start)
+                      // 2=bot-left  → контент внизу-слева   (items-start justify-end)
+                      // 3=bot-right → контент внизу-справа  (items-end   justify-end)
+                      const alignItems  = (index === 0 || index === 3) ? 'items-end'   : 'items-start';
+                      const justifyContent = isBottom ? 'justify-end' : 'justify-start';
+                      const textAlign   = (index === 0 || index === 3) ? 'text-right'  : 'text-left';
+                      // Паддинг от центра (освобождаем место для утки)
+                      const innerPad    = isLeft ? 'pr-10' : 'pl-10';
+                      // Для правых карточек (0, 3) переворачиваем ряд эмодзи+title
+                      const rowReverse  = (index === 0 || index === 3) ? 'flex-row-reverse' : '';
+
+                      const emoji = game.id === 'uno'      ? '🃏'
+                                  : game.id === 'risunkach' ? '🎨'
+                                  : game.id === 'jokester'  ? '🤡'
+                                  : null; // placeholder — без эмодзи
+
+                      return (
+                        <button
+                          key={game.id}
+                          type="button"
+                          onClick={() => handleMiniGameClick(game.id)}
+                          disabled={isDisabled}
+                          className={[
+                            'rounded-3xl border-[3px] border-[#142a45] bg-white/95 p-4',
+                            'flex flex-col gap-2 min-h-[148px]',
+                            alignItems, justifyContent, textAlign, innerPad,
+                            'transition transform hover:scale-105',
+                            isDisabled ? 'opacity-70 cursor-not-allowed' : '',
+                            isExiting ? 'scale-95 opacity-70'
+                              : cardsVisible ? 'scale-100 opacity-100'
+                              : 'scale-95 opacity-0 translate-y-3',
+                          ].join(' ')}
+                          style={{ transitionDelay: `${index * 70}ms` }}
+                        >
+                          {/* Subtitle */}
+                          <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">{game.subtitle}</p>
+
+                          {/* Title + emoji + badges */}
+                          <div className={`flex items-center gap-2 flex-wrap ${rowReverse}`}>
+                            {emoji && <span className="text-2xl" aria-hidden="true">{emoji}</span>}
+                            <h3 className="text-xl font-black text-[#142a45]">{game.title}</h3>
+                            {game.badge && (
+                              <span className="rounded-full border-[2px] border-[#142a45] bg-[#ffe184] px-2 py-0.5 text-xs font-black tracking-[0.12em] text-[#142a45]">
+                                {game.badge}
+                              </span>
+                            )}
+                            {game.isSoon && (
+                              <span className="rounded-full border-[2px] border-[#142a45] bg-white px-2 py-0.5 text-xs font-black tracking-[0.12em] text-[#142a45]">
+                                скоро
+                              </span>
+                            )}
                           </div>
-                          <span className="text-3xl" aria-hidden="true">{game.id === 'uno' ? '🃏' : '🎨'}</span>
-                        </div>
-                        <p className="text-sm text-[#142a45]/80 flex-1">{game.description}</p>
-                        <div className="flex items-center justify-between text-xs font-semibold text-[#1f6ac6]">
-                          <span>
-                            {game.id === 'uno' ? 'два режима: классический и irregular verbs'
-                              : game.id === 'risunkach' ? '3 режима'
-                              : game.id === 'jokester' ? 'перейти к тестированию'
-                              : 'готовим концепт'}
-                          </span>
-                          <span>{game.isSoon ? '🔒' : '▶'}</span>
-                        </div>
-                      </button>
-                    );
-                  })}
+
+                          {/* Description */}
+                          <p className="text-sm text-[#142a45]/80">{game.description}</p>
+
+                          {/* Action label */}
+                          <div className={`flex items-center gap-1 text-xs font-semibold text-[#1f6ac6] ${rowReverse}`}>
+                            <span>
+                              {game.id === 'uno'       ? 'два режима: классический и irregular verbs'
+                                : game.id === 'risunkach' ? '3 режима'
+                                : game.id === 'jokester'  ? 'перейти к тестированию'
+                                : 'готовим концепт'}
+                            </span>
+                            <span>{game.isSoon ? '🔒' : '▶'}</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Утка — абсолютный центр поверх всех плашек */}
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-auto drop-shadow-xl">
+                    <DuckMascot />
+                  </div>
                 </div>
               </section>
             </div>

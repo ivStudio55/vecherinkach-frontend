@@ -7,7 +7,7 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 const DUCK_SOUND_COUNT = 7; // /audio/duck/1.mp3 … 7.mp3
 const FLAP_DURATION_MS = 750;
 
-export function DuckMascot() {
+export function DuckMascot({ size = 148 }: { size?: number }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [headAngle, setHeadAngle] = useState(0);
   const [pupil, setPupil] = useState({ x: 0, y: 0 });
@@ -82,13 +82,13 @@ export function DuckMascot() {
         onClick={handleClick}
         title="Кликни на утку! 🦆"
         className="relative mx-auto cursor-pointer select-none"
-        style={{ width: 172, height: 172 }}
+        style={{ width: size, height: size }}
       >
         <div
           className="_duckCircle absolute inset-0 rounded-full border-[4px] border-[#142a45] overflow-hidden"
           style={{ background: 'radial-gradient(circle at 40% 35%, #e0f7fa 0%, #b2ebf2 100%)' }}
         >
-          <svg viewBox="0 0 172 172" width="172" height="172" xmlns="http://www.w3.org/2000/svg">
+          <svg viewBox="0 0 172 172" width={size} height={size} xmlns="http://www.w3.org/2000/svg">
             {/* ── Water ripple (decoration) ── */}
             <ellipse cx="86" cy="148" rx="42" ry="8" fill="#4dd0e1" opacity="0.22" />
             <ellipse cx="86" cy="148" rx="28" ry="5" fill="#00bcd4" opacity="0.18" />
