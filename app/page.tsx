@@ -498,17 +498,17 @@ export default function HomePage() {
                       const isBottom = index >= 2;
 
                       // Контент смещается в угол, противоположный центру утки
-                      // 0=top-left  → контент вверху-справа (items-end)
-                      // 1=top-right → контент вверху-слева  (items-start)
+                      // 0=top-left  → контент вверху-слева  (items-start)
+                      // 1=top-right → контент вверху-справа (items-end)
                       // 2=bot-left  → контент внизу-слева   (items-start justify-end)
                       // 3=bot-right → контент внизу-справа  (items-end   justify-end)
-                      const alignItems  = (index === 0 || index === 3) ? 'items-end'   : 'items-start';
+                      const alignItems  = (index === 1 || index === 3) ? 'items-end'   : 'items-start';
                       const justifyContent = isBottom ? 'justify-end' : 'justify-start';
-                      const textAlign   = (index === 0 || index === 3) ? 'text-right'  : 'text-left';
+                      const textAlign   = (index === 1 || index === 3) ? 'text-right'  : 'text-left';
                       // Паддинг от центра (освобождаем место для утки)
                       const innerPad    = isLeft ? 'pr-10' : 'pl-10';
-                      // Для правых карточек (0, 3) переворачиваем ряд эмодзи+title
-                      const rowReverse  = (index === 0 || index === 3) ? 'flex-row-reverse' : '';
+                      // Для правых карточек (1, 3) переворачиваем ряд эмодзи+title
+                      const rowReverse  = (index === 1 || index === 3) ? 'flex-row-reverse' : '';
 
                       const emoji = game.id === 'uno'      ? '🃏'
                                   : game.id === 'risunkach' ? '🎨'
