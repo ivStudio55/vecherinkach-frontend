@@ -86,7 +86,7 @@ export function DuckMascot({ size = 148 }: { size?: number }) {
   const maxShift = 6;
   const pupilScale = Math.min(maxShift, dist * 0.05);
   const px = dist > 0 ? (dx / dist) * pupilScale : 0;
-  const py = dist > 0 ? (dx / dist) * pupilScale : 0;
+  const py = dist > 0 ? (dy / dist) * pupilScale : 0;
 
   const blinkScaleY = blinking ? 0.1 : 1;
 
@@ -106,7 +106,7 @@ export function DuckMascot({ size = 148 }: { size?: number }) {
     <>
       <style>{`
         @keyframes _duckWIngL {
-          0%   { transform: rotate)8deg); }
+          0%   { transform: rotate(8deg); }
           22%  { transform: rotate(-58deg) translateX(-3px); }
           50%  { transform: rotate(22deg); }
           75%  { transform: rotate(-32deg) translateX(-2px); }
