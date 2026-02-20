@@ -953,8 +953,13 @@ export default function JokesterHostPage() {
   const creditsWinnerAnswers = creditsData?.winnerAnswers || [];
 
   return (
-    <div className="min-h-screen bg-[#0a1628] text-white overflow-hidden">
+    <div className="min-h-screen bg-[#0a1628] text-white overflow-hidden relative">
       <FeatherBurstCanvas registerEmitter={registerFeatherEmitter} />
+      <div className="jokester-host-bg" aria-hidden="true">
+        <div className="jokester-host-blob host-blob-1" />
+        <div className="jokester-host-blob host-blob-2" />
+        <div className="jokester-host-grid" />
+      </div>
       <div className="sunrays-host-layer" aria-hidden="true">
         <div className="sunrays-host-rotor sunrays-host-rotor-main" />
         <div className="sunrays-host-rotor sunrays-host-rotor-soft" />
@@ -962,14 +967,16 @@ export default function JokesterHostPage() {
       {/* ─── Header ─── */}
       <header className="bg-[#0d1a30] border-b border-[#ffd700]/20 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h1
-            className="text-2xl sm:text-3xl font-black"
-            style={{
-              color: '#fff',
-              textShadow: '1px 1px 0 #c8a835, 2px 2px 0 #b89730, 3px 3px 6px rgba(0,0,0,0.3)',
-            }}
-          >
-            Пошути-кач
+          <h1 className="text-2xl sm:text-3xl font-black flex gap-1">
+            {'Пошути-кач'.split('').map((ch, i) => (
+              <span
+                key={`${ch}-${i}`}
+                className="jokester-letter"
+                style={{ animationDelay: `${i * 0.06}s` }}
+              >
+                {ch}
+              </span>
+            ))}
           </h1>
         </div>
         <div className="flex items-center gap-3">
@@ -980,13 +987,13 @@ export default function JokesterHostPage() {
             href="https://donatty.com/aleksandri"
             target="_blank"
             rel="noopener noreferrer"
-            className="px-3 py-1 rounded-lg text-xs font-bold border border-[#ffd700]/50 bg-[#ffd700]/15 text-[#ffd700] hover:bg-[#ffd700]/25 transition"
+            className="px-3 py-1 rounded-lg text-xs font-bold border border-[#ffd700]/50 bg-[#ffd700]/15 text-[#ffd700] hover:bg-[#ffd700]/25 transition-transform transition hover:scale-105"
           >
             💛 Поддержать проект
           </a>
           <button
             onClick={() => setIsBgmMuted(audioRef.current?.toggleBgmMute() ?? false)}
-            className={`px-3 py-1 rounded-lg text-xs border transition ${
+            className={`px-3 py-1 rounded-lg text-xs border transition-transform transition hover:scale-110 ${
               isBgmMuted
                 ? 'bg-[#ffd700] text-[#0a1628] border-[#ffd700]'
                 : 'border-gray-600 hover:border-[#ffd700]'
@@ -996,7 +1003,7 @@ export default function JokesterHostPage() {
           </button>
           <button
             onClick={() => setIsVoiceMuted(audioRef.current?.toggleVoiceMute() ?? false)}
-            className={`px-3 py-1 rounded-lg text-xs border transition ${
+            className={`px-3 py-1 rounded-lg text-xs border transition-transform transition hover:scale-110 ${
               isVoiceMuted
                 ? 'bg-[#ffd700] text-[#0a1628] border-[#ffd700]'
                 : 'border-gray-600 hover:border-[#ffd700]'
@@ -1006,14 +1013,14 @@ export default function JokesterHostPage() {
           </button>
           <button
             onClick={() => { void handleForceAdvance(); }}
-            className="px-3 py-1 rounded-lg text-xs bg-amber-500 hover:bg-amber-400 text-[#0a1628] font-bold transition"
+            className="px-3 py-1 rounded-lg text-xs bg-amber-500 hover:bg-amber-400 text-[#0a1628] font-bold transition-transform transition hover:scale-105"
             title="Ручной переход к следующему шагу"
           >
             → Дальше
           </button>
           <button
             onClick={handleCloseRoom}
-            className="px-3 py-1 rounded-lg text-xs bg-red-600 hover:bg-red-500 transition font-bold"
+            className="px-3 py-1 rounded-lg text-xs bg-red-600 hover:bg-red-500 transition-transform transition hover:scale-105 font-bold"
           >
             ✕ Закрыть
           </button>
@@ -1555,8 +1562,62 @@ export default function JokesterHostPage() {
 
       </div>
 
-      {/* ─── CSS для credits scroll ─── */}
+      {/* ─── Стили и анимации ─── */}
       <style jsx>{`
+        .jokester-host-bg {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+          pointer-events: none;
+        }
+        .jokester-host-blob {
+          position: absolute;
+          border-radius: 50%;
+          filter: blur(70px);
+          opacity: 0.6;
+          mix-blend-mode: screen;
+          animation: jokester-blob-move 26s ease-in-out infinite alternate;
+        }
+        .host-blob-1 {
+          width: 520px;
+          height: 520px;
+          background: radial-gradient(circle at 30% 30%, rgba(255,215,0,0.28), rgba(255,215,0,0));
+          top: -160px;
+          left: -120px;
+          animation-delay: 0s;
+        }
+        .host-blob-2 {
+          width: 620px;
+          height: 620px;
+          background: radial-gradient(circle at 70% 70%, rgba(31,106,198,0.3), rgba(31,106,198,0));
+          bottom: -200px;
+          right: -140px;
+          animation-delay: 5s;
+        }
+        .jokester-host-grid {
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(circle at center, rgba(255,255,255,0.03), transparent 50%);
+          mask-image: radial-gradient(circle at center, rgba(0,0,0,0.7), transparent 75%);
+        }
+        .jokester-letter {
+          color: #fff;
+          text-shadow: 1px 1px 0 #c8a835, 2px 2px 0 #b89730, 3px 3px 6px rgba(0,0,0,0.3);
+          animation: jokester-letter-bounce 1.4s ease-in-out infinite;
+          transform-origin: center bottom;
+        }
+        @keyframes jokester-letter-bounce {
+          0% { transform: translateY(0) scale(1); }
+          30% { transform: translateY(-10px) scale(1.05, 0.95) rotate(-1deg); }
+          55% { transform: translateY(4px) scale(0.96, 1.06) rotate(1deg); }
+          70% { transform: translateY(0) scale(1.02, 0.98); }
+          100% { transform: translateY(0) scale(1); }
+        }
+        @keyframes jokester-blob-move {
+          0% { transform: translate3d(0,0,0) scale(1); }
+          50% { transform: translate3d(50px, -30px, 0) scale(1.05); }
+          100% { transform: translate3d(-40px, 40px, 0) scale(0.95); }
+        }
         @keyframes creditsScroll {
           0% { transform: translateY(100vh); }
           100% { transform: translateY(-100%); }
