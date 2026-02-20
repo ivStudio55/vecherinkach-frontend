@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import backTexture from './img/back.png';
 import { supabase } from '../src/lib/supabase';
 import { normalizePackId, type PackId } from '@/lib/questionPacks';
+import { DuckMascot } from '@/components/DuckMascot';
 
 export default function HomePage() {
   const router = useRouter();
@@ -486,6 +487,10 @@ export default function HomePage() {
                 <div className="flex items-center justify-between gap-3">
                   <h2 className="text-2xl font-black text-[#142a45]">Мини-игры</h2>
                   <span className="text-xs font-semibold tracking-[0.3em] text-[#142a45]/70">beta</span>
+                </div>
+                {/* ── Duck mascot ── */}
+                <div className="flex justify-center py-2">
+                  <DuckMascot />
                 </div>
                 <div className="grid sm:grid-cols-2 gap-4">
                   {miniGames.map((game, index) => {
