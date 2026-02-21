@@ -2299,8 +2299,8 @@ export default function RoomPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#fef4dc] text-[#142a45] px-4">
-        <div className="rounded-3xl border-[4px] border-[#142a45] bg-white px-6 py-4 text-xl font-black">
+      <div className="min-h-screen flex items-center justify-center comic-bg-dots-yellow text-black px-4">
+        <div className="comic-panel border-[4px] border-[#000] bg-white px-6 py-4 text-xl comic-font">
           Подключаемся к комнате…
         </div>
       </div>
@@ -2382,10 +2382,10 @@ export default function RoomPage() {
     effectiveCorrectness === true ? 'Правильно' : effectiveCorrectness === false ? 'Неправильно' : 'Ответ принят';
   const playerAnswerTone =
     effectiveCorrectness === true
-      ? 'border-[#2f7a3b] bg-[#dff7e3] text-[#2f7a3b]'
+      ? 'border-[#000] bg-[#00ff00] text-black'
       : effectiveCorrectness === false
-        ? 'border-[#b23324] bg-[#ffd7d0] text-[#b23324]'
-        : 'border-[#142a45]/20 bg-[#fff6da] text-[#142a45]';
+        ? 'border-[#000] bg-[#ff2a2a] text-[#ff2a2a]'
+        : 'border-[#000]/20 bg-white text-black';
   const round2CurrentItem = round2ItemIndex !== null ? round2Items[round2ItemIndex] ?? null : null;
   const round2QuestionText = round2CurrentItem
     ? round2ShowingFact
@@ -2417,19 +2417,19 @@ export default function RoomPage() {
     const isWinner = isFinal && playerRank === 1;
 
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#fef4dc] text-[#142a45] px-4 py-10">
+      <div className="min-h-screen flex items-center justify-center comic-bg-dots-yellow text-black px-4 py-10">
         <div
-          className={`rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl max-w-lg w-full p-8 text-center space-y-4 ${
+          className={`comic-panel bg-white max-w-lg w-full p-8 text-center space-y-4 ${
             isFinal ? 'animate-final-panel' : ''
           }`}
         >
-          <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">
+          <p className="comic-font text-xs tracking-[0.4em] text-black/70">
             {isFinal ? 'Игра завершена' : 'Раунд завершён'}
           </p>
-          <h2 className="text-3xl font-black">{isFinal ? 'Финальные результаты' : 'Текущие результаты'}</h2>
+          <h2 className="text-3xl comic-font">{isFinal ? 'Финальные результаты' : 'Текущие результаты'}</h2>
 
           {standingError ? (
-            <p className="text-sm font-semibold text-[#b23324]">{standingError}</p>
+            <p className="text-sm comic-font text-[#ff2a2a]">{standingError}</p>
           ) : (
             <PlayerResultCard
               rank={playerRank}
@@ -2449,7 +2449,7 @@ export default function RoomPage() {
             onClick={() => {
               void loadPlayerStanding();
             }}
-            className="w-full py-3 rounded-2xl border-[3px] border-[#142a45] bg-white font-black"
+            className="w-full py-3 comic-panel border-[#000] bg-white comic-font"
             disabled={isStandingLoading}
           >
             {isStandingLoading ? 'Обновляем…' : 'Обновить данные'}
@@ -2457,16 +2457,16 @@ export default function RoomPage() {
 
           {isFinal && (
             <div
-              className={`rounded-3xl border-[4px] ${
-                isWinner ? 'border-[#1f6ac6] bg-[#e9f0ff]' : 'border-[#142a45]/15 bg-[#f7f7f7]'
+              className={`comic-panel border-[4px] ${
+                isWinner ? 'border-[#000] bg-[#00c3ff]' : 'border-[#000]/15 bg-white'
               } p-6 space-y-2 animate-final-panel`}
               style={{ animationDelay: '240ms' }}
             >
               <div className="text-5xl">{isWinner ? '🏆' : '🎊'}</div>
-              <p className={`text-2xl font-black ${isWinner ? 'text-[#1f6ac6]' : 'text-[#142a45]'}`}>
+              <p className={`text-2xl comic-font ${isWinner ? 'text-[#00c3ff]' : 'text-black'}`}>
                 {isWinner ? 'Поздравляем! Ты победил!' : 'Ждём следующего раунда.'}
               </p>
-              <p className="text-sm text-[#142a45]/70">
+              <p className="text-sm text-black/70">
                 {isWinner
                   ? 'Ведущий сейчас объявит результаты — наслаждайся победой.'
                   : 'Ведущий сейчас объявит результаты и победителя.'}
@@ -2479,7 +2479,7 @@ export default function RoomPage() {
               href="https://donatty.com/aleksandri"
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full inline-flex items-center justify-center py-4 rounded-2xl border-[3px] border-[#142a45] bg-[#ffe184] font-black tracking-[0.08em] hover:scale-[1.02] hover:shadow-lg transition-all duration-200"
+              className="w-full inline-flex items-center justify-center py-4 comic-panel border-[#000] bg-[#ffde00] comic-font tracking-[0.08em] hover:scale-[1.02] hover: transition-all duration-200"
             >
               Поддержать разработчика
             </a>
@@ -2492,14 +2492,14 @@ export default function RoomPage() {
 
   if (error && roomStatus === 'waiting') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#fef4dc] text-[#142a45] px-4 py-10">
-        <div className="rounded-3xl border-[4px] border-[#b23324] bg-white shadow-xl max-w-md w-full p-8 text-center space-y-4">
-          <p className="retro-heading text-xs tracking-[0.4em] text-[#b23324]/70">Ошибка</p>
-          <h1 className="text-2xl font-black text-[#b23324]">❌ Что-то пошло не так</h1>
-          <p className="text-sm text-[#142a45]/80">{error}</p>
+      <div className="min-h-screen flex items-center justify-center comic-bg-dots-yellow text-black px-4 py-10">
+        <div className="comic-panel border-[4px] border-[#000] bg-white  max-w-md w-full p-8 text-center space-y-4">
+          <p className="comic-font text-xs tracking-[0.4em] text-[#ff2a2a]/70">Ошибка</p>
+          <h1 className="text-2xl comic-font text-[#ff2a2a]">❌ Что-то пошло не так</h1>
+          <p className="text-sm text-black/80">{error}</p>
           <button
             onClick={() => router.push('/join')}
-            className="w-full py-3 rounded-2xl border-[3px] border-[#142a45] bg-[#ffe184] font-black"
+            className="w-full py-3 comic-panel border-[#000] bg-[#ffde00] comic-font"
           >
             На экран подключения
           </button>
@@ -2508,20 +2508,29 @@ export default function RoomPage() {
     );
   }
 
+  const getBackgroundClass = () => {
+    if (roomStatus.startsWith('round1')) return 'comic-bg-dots-yellow';
+    if (roomStatus.startsWith('round2')) return 'comic-bg-dots-blue';
+    if (roomStatus.startsWith('round3')) return 'comic-bg-dots-pink';
+    if (roomStatus.startsWith('round4')) return 'comic-bg-dots-red';
+    if (roomStatus.startsWith('round5')) return 'comic-bg-rays-yellow-red';
+    return 'comic-bg-dots-yellow';
+  };
+
   return (
-    <div className="min-h-screen bg-[#fef4dc] text-[#142a45] px-4 py-8">
+    <div className={`min-h-screen text-black px-4 py-8 ${getBackgroundClass()}`}>
       <div className="max-w-3xl mx-auto space-y-6">
-        <header className="retro-panel rounded-3xl bg-[#142a45] text-[#ffeccd] px-6 py-5">
+        <header className="comic-panel bg-[#ff2a2a] text-white px-6 py-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="retro-heading text-xs tracking-[0.5em] text-[#ffeccd]/80">Комната</p>
+              <p className="comic-font text-xs tracking-[0.5em] text-white/80">Комната</p>
               <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-3xl font-black leading-tight">Код {roomCode}</h1>
+                <h1 className="text-3xl comic-font leading-tight">Код {roomCode}</h1>
               </div>
             </div>
             <div className="text-right">
-              <p className="retro-heading text-[10px] tracking-[0.5em] text-[#ffeccd]/60">Ваш ник</p>
-              <p className="text-2xl font-black">{playerName}</p>
+              <p className="comic-font text-[10px] tracking-[0.5em] text-white/60">Ваш ник</p>
+              <p className="text-2xl comic-font">{playerName}</p>
               <div className="mt-2 flex justify-end">
                 <LivePulseBadge />
               </div>
@@ -2533,23 +2542,23 @@ export default function RoomPage() {
 
         <ScalePanel isVisible={roomStatus === 'waiting'}>
           <div className="space-y-4">
-            <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-8 text-center space-y-4">
+            <section className="comic-panel bg-white p-8 text-center space-y-4">
               {isIntermission ? (
                 <>
-                  <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">ПЕРЕРЫВ МЕЖДУ РАУНДАМИ</p>
-                  <h2 className="text-3xl font-black">Ожидаем раунда {nextRoundLabel || '…'}</h2>
-                  <p className="text-sm text-[#142a45]/80">
+                  <p className="comic-font text-xs tracking-[0.4em] text-black/70">ПЕРЕРЫВ МЕЖДУ РАУНДАМИ</p>
+                  <h2 className="text-3xl comic-font">Ожидаем раунда {nextRoundLabel || '…'}</h2>
+                  <p className="text-sm text-black/80 comic-font">
                     Ждём следующий раунд от ведущего. Ничего нажимать не нужно.
                   </p>
                 </>
               ) : (
                 <>
                   <div className="text-5xl">⏳</div>
-                  <h2 className="text-3xl font-black">Ждём старт от ведущего</h2>
-                  <p className="text-sm text-[#142a45]/80">
+                  <h2 className="text-3xl comic-font">Ждём старт от ведущего</h2>
+                  <p className="text-sm text-black/80 comic-font">
                     Вы подключены. Ведущий начнёт раунд, когда все игроки войдут. Ничего нажимать не нужно — просто ждите звукового сигнала.
                   </p>
-                  <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-[#fff6da] px-4 py-3 text-xs text-[#142a45]/70">
+                  <div className="comic-panel border-[#000]/20 bg-white px-4 py-3 text-xs text-black/70">
                     Совет: держите громкость включённой и отвечайте как можно быстрее, чтобы попасть в топ.
                   </div>
                 </>
@@ -2559,7 +2568,7 @@ export default function RoomPage() {
             {isIntermission && (
               <div className="flex justify-start">
                 {standingError ? (
-                  <p className="text-sm font-semibold text-[#b23324]">{standingError}</p>
+                  <p className="text-sm comic-font text-[#ff2a2a]">{standingError}</p>
                 ) : (
                   <ScoreSummary
                     points={playerTotalPoints}
@@ -2578,28 +2587,28 @@ export default function RoomPage() {
         <ScalePanel isVisible={roomStatus === 'round4-running'}>
           <section
             key={`round4-player-${round4PuzzleId ?? 'none'}-${allPlayersAnswered ? 'answered' : 'run'}`}
-            className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6 animate-round4-panel"
+            className="comic-panel bg-white p-6 space-y-6 animate-round4-panel"
           >
             {!allPlayersAnswered && (
               <>
                 <div className="flex flex-col gap-3 text-center">
-                  <span className="mx-auto px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
+                  <span className="mx-auto px-4 py-2 comic-panel border-[4px] border-[#000] text-sm comic-font">
                     Раунд 4 · Дэшифровщик
                   </span>
                   <div className="text-5xl sm:text-6xl leading-none">{round4Puzzle?.emoji ?? '⏳'}</div>
-                  <p className="text-sm text-[#142a45]/70">
+                  <p className="text-sm text-black/70">
                     {round4Puzzle ? `Категория: ${round4Puzzle.category}` : 'Ждём загадку от ведущего'}
                   </p>
                 </div>
 
                 <div>
-                  <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
+                  <div className="flex justify-between text-xs text-black/70 mb-1">
                     <span>Таймер · 30 сек</span>
-                    <span className={`font-black ${allPlayersAnswered ? 'text-[#1f6ac6]' : 'text-[#142a45]'}`}>{timerLabel}</span>
+                    <span className={`comic-font ${allPlayersAnswered ? 'text-[#00c3ff]' : 'text-black'}`}>{timerLabel}</span>
                   </div>
-                  <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
+                  <div className="h-3 comic-panel bg-[#ffde00] overflow-hidden">
                     <div
-                      className={`h-full ${activeTimerSeconds > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
+                      className={`h-full ${activeTimerSeconds > 5 ? 'bg-[#00c3ff]' : 'bg-[#ff007f]'}`}
                       style={{ width: `${progressPercent}%` }}
                     />
                   </div>
@@ -2609,9 +2618,9 @@ export default function RoomPage() {
 
             {allPlayersAnswered ? (
               <div className="space-y-4">
-                <div className="rounded-3xl border-[3px] border-[#2f7a3b] bg-[#e6f7ea] p-4 text-center space-y-2">
-                  <p className="text-xs font-semibold tracking-[0.3em] text-[#2f7a3b]/70">ПРАВИЛЬНЫЙ ОТВЕТ</p>
-                  <p className="text-xl font-black text-[#2f7a3b]">
+                <div className="comic-panel border-[#000] bg-[#00ff00] p-4 text-center space-y-2">
+                  <p className="text-xs comic-font tracking-[0.3em] text-black/70">ПРАВИЛЬНЫЙ ОТВЕТ</p>
+                  <p className="text-xl comic-font text-black">
                     {round4Puzzle?.answers?.[0] ?? '—'}
                   </p>
                 </div>
@@ -2626,19 +2635,19 @@ export default function RoomPage() {
                 />
               </div>
             ) : hasAnswered && round4Puzzle ? (
-              <div className="rounded-3xl border-[3px] border-[#1f6ac6] bg-[#e9f0ff] p-6 text-center space-y-2">
+              <div className="comic-panel border-[#000] bg-[#00c3ff] p-6 text-center space-y-2">
                 <div className="text-5xl">✅</div>
-                <h3 className="text-2xl font-black text-[#1f6ac6]">Ответ отправлен!</h3>
-                <p className="text-sm text-[#142a45]/70">Ждём, пока ведущий озвучит правильный вариант.</p>
+                <h3 className="text-2xl comic-font text-[#00c3ff]">Ответ отправлен!</h3>
+                <p className="text-sm text-black/70">Ждём, пока ведущий озвучит правильный вариант.</p>
               </div>
             ) : (
               <div className="space-y-4">
-                <p className="text-xs font-semibold tracking-[0.3em] text-[#142a45]/60 text-center">ВВЕДИ СВОЙ ОТВЕТ</p>
+                <p className="text-xs comic-font tracking-[0.3em] text-black/60 text-center">ВВЕДИ СВОЙ ОТВЕТ</p>
                 <input
                   value={round4AnswerText}
                   onChange={(e) => setRound4AnswerText(e.target.value)}
                   placeholder={round4Puzzle ? 'Например: Матрица' : 'Ждём загадку…'}
-                  className="w-full rounded-2xl border-[3px] border-[#142a45] bg-white px-4 py-3 text-sm font-semibold outline-none"
+                  className="w-full comic-panel border-[#000] bg-white px-4 py-3 text-sm comic-font outline-none"
                   autoComplete="off"
                   inputMode="text"
                   maxLength={80}
@@ -2661,19 +2670,19 @@ export default function RoomPage() {
                     round4PuzzleId === null ||
                     !round4Puzzle
                   }
-                  className="w-full py-3 rounded-2xl font-black text-lg tracking-[0.18em] bg-[#1f6ac6] text-white border-[3px] border-[#142a45] transition disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="w-full py-3 comic-panel comic-font text-lg tracking-[0.18em] bg-[#00c3ff] text-white border-[4px] border-[#000] transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   Отправить
                 </button>
 
                 {error && (
-                  <div className="rounded-2xl border-[3px] border-[#b23324] bg-[#ffd7d0] px-4 py-3 text-sm font-semibold text-[#7b1d16]">
+                  <div className="comic-panel border-[#000] bg-[#ff2a2a] px-4 py-3 text-sm comic-font text-white">
                     {error}
                   </div>
                 )}
 
                 {activeTimerSeconds <= 0 && (
-                  <p className="text-xs text-center text-[#142a45]/60">⏱ Время истекло. Ответы больше не принимаются.</p>
+                  <p className="text-xs text-center text-black/60">⏱ Время истекло. Ответы больше не принимаются.</p>
                 )}
               </div>
             )}
@@ -2681,13 +2690,13 @@ export default function RoomPage() {
         </ScalePanel>
 
         <ScalePanel isVisible={roomStatus === 'round5-running' || roomStatus === 'round5-explanation'}>
-          <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6 animate-final-panel">
+          <section className="comic-panel bg-white p-6 space-y-6 animate-final-panel">
             {roomStatus === 'round5-running' && (
               <div className="flex flex-col gap-3 text-center">
-                <span className="mx-auto px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
+                <span className="mx-auto px-4 py-2 comic-panel border-[4px] border-[#000] text-sm comic-font">
                   Финал · Цифровая интуиция
                 </span>
-                <h2 className="text-xl sm:text-2xl font-black leading-tight">
+                <h2 className="text-xl sm:text-2xl comic-font leading-tight">
                   {round5CurrentQuestion?.question ? (
                     <AnimatedText
                       key={`r5-q-${round5CurrentBankIndex ?? 'x'}`}
@@ -2701,29 +2710,29 @@ export default function RoomPage() {
             )}
 
             <div>
-              <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
+              <div className="flex justify-between text-xs text-black/70 mb-1">
                 <span>Таймер · 30 сек</span>
-                <span className={`font-black ${allPlayersAnswered ? 'text-[#1f6ac6]' : 'text-[#142a45]'}`}>{timerLabel}</span>
+                <span className={`comic-font ${allPlayersAnswered ? 'text-[#00c3ff]' : 'text-black'}`}>{timerLabel}</span>
               </div>
-              <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
+              <div className="h-3 comic-panel bg-[#ffde00] overflow-hidden">
                 <div
-                  className={`h-full ${effectiveTimeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
+                  className={`h-full ${effectiveTimeLeft > 5 ? 'bg-[#00c3ff]' : 'bg-[#ff007f]'}`}
                   style={{ width: `${progressPercent}%` }}
                 />
               </div>
               {roomStatus === 'round5-explanation' && (
-                <p className="text-xs text-[#1f6ac6] font-semibold mt-2">Слушаем объяснение ведущего.</p>
+                <p className="text-xs text-[#00c3ff] comic-font mt-2">Слушаем объяснение ведущего.</p>
               )}
               {roomStatus === 'round5-running' && effectiveTimeLeft <= 0 && (
-                <p className="text-xs text-center text-[#142a45]/60">⏱ Время истекло. Ждём ответ ведущего.</p>
+                <p className="text-xs text-center text-black/60">⏱ Время истекло. Ждём ответ ведущего.</p>
               )}
             </div>
 
             {roomStatus === 'round5-explanation' ? (
               <div className="space-y-4">
-                <div className="rounded-3xl border-[3px] border-[#2f7a3b] bg-[#e6f7ea] p-4 text-center space-y-2">
-                  <p className="text-xs font-semibold tracking-[0.3em] text-[#2f7a3b]/70">ПРАВИЛЬНЫЙ ОТВЕТ</p>
-                  <p className="text-2xl font-black text-[#2f7a3b]">{round5CorrectAnswer ?? '—'}</p>
+                <div className="comic-panel border-[#000] bg-[#00ff00] p-4 text-center space-y-2">
+                  <p className="text-xs comic-font tracking-[0.3em] text-black/70">ПРАВИЛЬНЫЙ ОТВЕТ</p>
+                  <p className="text-2xl comic-font text-black">{round5CorrectAnswer ?? '—'}</p>
                 </div>
                 <PlayerAnswersList
                   items={round5AnswerResults.map((item) => ({
@@ -2739,19 +2748,19 @@ export default function RoomPage() {
                 />
               </div>
             ) : roomStatus !== 'round5-running' || hasAnswered || allPlayersAnswered ? (
-              <div className="rounded-3xl border-[3px] border-[#1f6ac6] bg-[#e9f0ff] p-6 text-center space-y-2">
+              <div className="comic-panel border-[#000] bg-[#00c3ff] p-6 text-center space-y-2">
                 <div className="text-5xl">✅</div>
-                <h3 className="text-2xl font-black text-[#1f6ac6]">Ответ отправлен!</h3>
-                <p className="text-sm text-[#142a45]/70">Ждём окончания таймера и подсчёта очков.</p>
+                <h3 className="text-2xl comic-font text-[#00c3ff]">Ответ отправлен!</h3>
+                <p className="text-sm text-black/70">Ждём окончания таймера и подсчёта очков.</p>
               </div>
             ) : (
               <div className="space-y-4">
-                <p className="text-xs font-semibold tracking-[0.3em] text-[#142a45]/60 text-center">ВВЕДИ ЧИСЛО</p>
+                <p className="text-xs comic-font tracking-[0.3em] text-black/60 text-center">ВВЕДИ ЧИСЛО</p>
                 <input
                   value={round5AnswerValue}
                   onChange={(e) => setRound5AnswerValue(e.target.value)}
                   placeholder="Например: 42"
-                  className="w-full rounded-2xl border-[3px] border-[#142a45] bg-white px-4 py-3 text-sm font-semibold outline-none"
+                  className="w-full comic-panel border-[#000] bg-white px-4 py-3 text-sm comic-font outline-none"
                   autoComplete="off"
                   inputMode="decimal"
                   disabled={
@@ -2771,13 +2780,13 @@ export default function RoomPage() {
                     roomStatus !== 'round5-running' ||
                     round5CurrentBankIndex === null
                   }
-                  className="w-full py-3 rounded-2xl font-black text-lg tracking-[0.18em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] transition disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="w-full py-3 comic-panel comic-font text-lg tracking-[0.18em] bg-[#ff2a2a] text-white border-[4px] border-[#000] transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   Отправить
                 </button>
 
                 {error && (
-                  <div className="rounded-2xl border-[3px] border-[#b23324] bg-[#ffd7d0] px-4 py-3 text-sm font-semibold text-[#7b1d16]">
+                  <div className="comic-panel border-[#000] bg-[#ff2a2a] px-4 py-3 text-sm comic-font text-white">
                     {error}
                   </div>
                 )}
@@ -2788,13 +2797,13 @@ export default function RoomPage() {
         </ScalePanel>
 
         <ScalePanel isVisible={Boolean(question) && roomStatus === 'running'}>
-          <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6 animate-drop-in">
+          <section className="comic-panel bg-white p-6 space-y-6 animate-drop-in">
             {!hasAnswered && question ? (
               <div className="flex flex-col gap-3 text-center">
-                <span className="mx-auto px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
+                <span className="mx-auto px-4 py-2 comic-panel border-[4px] border-[#000] text-sm comic-font bg-[#ffde00]">
                   Вопрос #{question.order}
                 </span>
-                <h2 className="text-xl sm:text-2xl font-black leading-tight">
+                <h2 className="text-xl sm:text-2xl comic-font leading-tight">
                   <AnimatedText key={`r1-q-${typeof question.id === 'number' ? question.id : question.order}`} text={question.text} />
                 </h2>
               </div>
@@ -2802,27 +2811,27 @@ export default function RoomPage() {
 
             {!hasAnswered && (
               <div>
-                <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
+                <div className="flex justify-between text-xs text-black/70 mb-1">
                   <span>Осталось времени</span>
-                  <span className={`font-black ${allPlayersAnswered ? 'text-[#1f6ac6]' : 'text-[#142a45]'}`}>
+                  <span className={`comic-font ${allPlayersAnswered ? 'text-[#00c3ff]' : 'text-black'}`}>
                     {timerLabel}
                   </span>
                 </div>
-                <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
+                <div className="h-3 comic-panel bg-[#ffde00] overflow-hidden">
                   <div
-                    className={`h-full ${effectiveTimeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
+                    className={`h-full ${effectiveTimeLeft > 5 ? 'bg-[#00c3ff]' : 'bg-[#ff007f]'}`}
                     style={{ width: `${progressPercent}%` }}
                   />
                 </div>
                 {allPlayersAnswered && (
-                  <p className="text-xs text-[#1f6ac6] font-semibold mt-2">Все уже ответили — ждём следующий вопрос.</p>
+                  <p className="text-xs text-[#00c3ff] comic-font mt-2">Все уже ответили — ждём следующий вопрос.</p>
                 )}
               </div>
             )}
 
             {!hasAnswered && question ? (
               <div className="space-y-4">
-                <p className="text-xs font-semibold tracking-[0.3em] text-[#142a45]/60">Выберите ответ</p>
+                <p className="text-xs comic-font tracking-[0.3em] text-black/60">Выберите ответ</p>
                 <div className="space-y-3">
                   {question.options.map((optionText, index) => {
                     const optionKey = getOptionKeyByIndex(index);
@@ -2831,42 +2840,42 @@ export default function RoomPage() {
                         key={optionKey}
                         onClick={() => submitAnswer(optionKey)}
                         disabled={isSubmitting || effectiveTimeLeft <= 0 || roomStatus !== 'running'}
-                        className="w-full flex items-center gap-3 rounded-2xl border-[3px] border-[#142a45] px-4 py-4 text-left font-semibold bg-white hover:bg-[#fff6da] transition disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="comic-button w-full flex items-center gap-3 px-4 py-4 text-left bg-white hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed"
                       >
-                        <span className="w-10 h-10 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black bg-[#ffeccd]">
+                        <span className="w-10 h-10 comic-panel border-[4px] border-[#000] flex items-center justify-center comic-font bg-[#ffde00]">
                           {OPTION_LABELS[optionKey]}
                         </span>
-                        <span className="flex-1 text-sm">{optionText}</span>
+                        <span className="flex-1 text-sm comic-font">{optionText}</span>
                       </button>
                     );
                   })}
                 </div>
 
-                <div className="rounded-2xl border-[3px] border-dashed border-[#142a45]/40 bg-[#fff6da] px-4 py-3 text-sm flex items-center justify-between">
-                  <span className="font-semibold">Награда за точный ответ</span>
-                  <span className="font-black text-[#f1532f]">+{question.points} баллов</span>
+                <div className="comic-panel bg-white px-4 py-3 text-sm flex items-center justify-between">
+                  <span className="comic-font">Награда за точный ответ</span>
+                  <span className="comic-font text-[#ff2a2a]">+{question.points} баллов</span>
                 </div>
 
                 {error && (
-                  <div className="rounded-2xl border-[3px] border-[#b23324] bg-[#ffd7d0] px-4 py-3 text-sm font-semibold text-[#7b1d16]">
+                  <div className="comic-panel border-[#000] bg-[#ff2a2a] px-4 py-3 text-sm comic-font text-white">
                     {error}
                   </div>
                 )}
 
                 {effectiveTimeLeft <= 0 && (
-                  <p className="text-xs text-center text-[#142a45]/60">⏱ Время истекло. Следующий вопрос появится автоматически.</p>
+                  <p className="text-xs text-center text-black/60">⏱ Время истекло. Следующий вопрос появится автоматически.</p>
                 )}
               </div>
             ) : hasAnswered ? (
-              <div className={`rounded-3xl border-[3px] p-6 text-center space-y-2 ${playerAnswerTone}`}>
+              <div className={`comic-panel p-6 text-center space-y-2 ${playerAnswerTone}`}>
                 <div className="text-5xl">
                   {effectiveCorrectness === true ? '✅' : effectiveCorrectness === false ? '❌' : '🕘'}
                 </div>
-                <h3 className="text-2xl font-black">{playerAnswerStatus}</h3>
-                <p className="text-sm text-[#142a45]/80">Ваш ответ: {playerAnswerDisplay}</p>
+                <h3 className="text-2xl comic-font">{playerAnswerStatus}</h3>
+                <p className="text-sm text-black/80 comic-font">Ваш ответ: {playerAnswerDisplay}</p>
                 {shouldShowCorrectAnswer ? (
-                  <p className="text-sm font-semibold text-[#142a45]">
-                    Правильный ответ: <span className="font-black">{correctAnswerDisplay}</span>
+                  <p className="text-sm comic-font text-black">
+                    Правильный ответ: <span className="comic-font">{correctAnswerDisplay}</span>
                   </p>
                 ) : null}
               </div>
@@ -2875,17 +2884,17 @@ export default function RoomPage() {
         </ScalePanel>
 
         <ScalePanel isVisible={roomStatus === 'round2-running'}>
-          <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6 animate-round2-onair">
+          <section className="comic-panel bg-white p-6 space-y-6 animate-round2-onair">
             <div className="flex flex-col gap-3 text-center">
-              <span className="mx-auto px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
+              <span className="mx-auto px-4 py-2 comic-panel border-[4px] border-[#000] text-sm comic-font">
                 Раунд 2 · Фейколов
               </span>
-              <p className="text-sm text-[#142a45]/70">Слушайте ведущего и выбирайте вариант.</p>
+              <p className="text-sm text-black/70">Слушайте ведущего и выбирайте вариант.</p>
             </div>
 
-            <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] px-4 py-3 text-center space-y-2">
-              <p className="text-[10px] font-black tracking-[0.35em] text-[#142a45]/60">ВОПРОС</p>
-              <p className="text-base sm:text-lg font-black leading-tight">
+            <div className="comic-panel border-[#000]/15 bg-white px-4 py-3 text-center space-y-2">
+              <p className="text-[10px] comic-font tracking-[0.35em] text-black/60">ВОПРОС</p>
+              <p className="text-base sm:text-lg comic-font leading-tight">
                 {round2QuestionText ? (
                   <AnimatedText key={`r2-${round2ItemIndex ?? 'x'}-${round2ShowingFact ? 't' : 'f'}`} text={round2QuestionText} />
                 ) : (
@@ -2895,47 +2904,47 @@ export default function RoomPage() {
             </div>
 
             <div>
-              <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
+              <div className="flex justify-between text-xs text-black/70 mb-1">
                 <span>Осталось времени</span>
-                <span className={`font-black ${allPlayersAnswered ? 'text-[#1f6ac6]' : 'text-[#142a45]'}`}>
+                <span className={`comic-font ${allPlayersAnswered ? 'text-[#00c3ff]' : 'text-black'}`}>
                   {timerLabel}
                 </span>
               </div>
-              <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
+              <div className="h-3 comic-panel bg-[#ffde00] overflow-hidden">
                 <div
-                  className={`h-full ${effectiveTimeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
+                  className={`h-full ${effectiveTimeLeft > 5 ? 'bg-[#00c3ff]' : 'bg-[#ff007f]'}`}
                   style={{ width: `${progressPercent}%` }}
                 />
               </div>
               {allPlayersAnswered && (
-                <p className="text-xs text-[#1f6ac6] font-semibold mt-2">Все уже ответили — ждём следующий факт.</p>
+                <p className="text-xs text-[#00c3ff] comic-font mt-2">Все уже ответили — ждём следующий факт.</p>
               )}
             </div>
 
             {round2Phase !== 'fact' ? (
-              <div className="rounded-3xl border-[3px] border-[#1f6ac6] bg-[#e9f0ff] p-6 text-center space-y-2">
-                <p className="text-xs font-semibold tracking-[0.3em] text-[#142a45]/60">ПРАВИЛЬНЫЙ ОТВЕТ</p>
-                <p className="text-2xl font-black text-[#1f6ac6]">{round2CorrectAnswerLabel}</p>
-                <p className="text-sm text-[#142a45]/70">Ответ объявлен ведущим.</p>
+              <div className="comic-panel border-[#000] bg-[#00c3ff] p-6 text-center space-y-2">
+                <p className="text-xs comic-font tracking-[0.3em] text-black/60">ПРАВИЛЬНЫЙ ОТВЕТ</p>
+                <p className="text-2xl comic-font text-[#00c3ff]">{round2CorrectAnswerLabel}</p>
+                <p className="text-sm text-black/70">Ответ объявлен ведущим.</p>
               </div>
             ) : hasAnswered ? (
-              <div className="rounded-3xl border-[3px] border-[#1f6ac6] bg-[#e9f0ff] p-6 text-center space-y-2">
+              <div className="comic-panel border-[#000] bg-[#00c3ff] p-6 text-center space-y-2">
                 <div className="text-5xl">✅</div>
-                <h3 className="text-2xl font-black text-[#1f6ac6]">Ответ отправлен!</h3>
-                <p className="text-sm text-[#142a45]/70">Ждём следующий факт.</p>
+                <h3 className="text-2xl comic-font text-[#00c3ff]">Ответ отправлен!</h3>
+                <p className="text-sm text-black/70">Ждём следующий факт.</p>
               </div>
             ) : (
               <div className="space-y-4">
-                <p className="text-xs font-semibold tracking-[0.3em] text-[#142a45]/60">Это правда или вымысел?</p>
+                <p className="text-xs comic-font tracking-[0.3em] text-black/60">Это правда или вымысел?</p>
                 <div className="space-y-3">
                   <button
                     onClick={() => void submitRound2Answer(true)}
                     disabled={isSubmitting || effectiveTimeLeft <= 0 || roomStatus !== 'round2-running'}
-                    className={`w-full flex items-center gap-3 rounded-2xl border-[3px] px-4 py-4 text-left font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed border-[#2f7a3b] bg-[#e6f7ea] text-[#2f7a3b] ${
+                    className={`w-full flex items-center gap-3 comic-panel px-4 py-4 text-left comic-font transition disabled:opacity-40 disabled:cursor-not-allowed border-[#000] bg-[#00ff00] text-black ${
                       round2PlayerAnswer === true ? 'ring-2 ring-[#2f7a3b]' : 'hover:brightness-95'
                     }`}
                   >
-                    <span className="w-10 h-10 rounded-full border-[3px] border-[#2f7a3b] flex items-center justify-center font-black bg-[#dff7e3] text-[#2f7a3b]">
+                    <span className="w-10 h-10 comic-panel border-[4px] border-[#000] flex items-center justify-center comic-font bg-[#00ff00] text-black">
                       ✅
                     </span>
                     <span className="flex-1 text-sm">Правда</span>
@@ -2943,30 +2952,30 @@ export default function RoomPage() {
                   <button
                     onClick={() => void submitRound2Answer(false)}
                     disabled={isSubmitting || effectiveTimeLeft <= 0 || roomStatus !== 'round2-running'}
-                    className={`w-full flex items-center gap-3 rounded-2xl border-[3px] px-4 py-4 text-left font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed border-[#b23324] bg-[#ffd7d0] text-[#b23324] ${
+                    className={`w-full flex items-center gap-3 comic-panel px-4 py-4 text-left comic-font transition disabled:opacity-40 disabled:cursor-not-allowed border-[#000] bg-[#ff2a2a] text-[#ff2a2a] ${
                       round2PlayerAnswer === false ? 'ring-2 ring-[#b23324]' : 'hover:brightness-95'
                     }`}
                   >
-                    <span className="w-10 h-10 rounded-full border-[3px] border-[#b23324] flex items-center justify-center font-black bg-[#ffd7d0] text-[#b23324]">
+                    <span className="w-10 h-10 comic-panel border-[4px] border-[#000] flex items-center justify-center comic-font bg-[#ff2a2a] text-[#ff2a2a]">
                       ❌
                     </span>
                     <span className="flex-1 text-sm">Вымысел</span>
                   </button>
                 </div>
 
-                <div className="rounded-2xl border-[3px] border-dashed border-[#142a45]/40 bg-[#fff6da] px-4 py-3 text-sm flex items-center justify-between">
-                  <span className="font-semibold">Награда за точный ответ</span>
-                  <span className="font-black text-[#f1532f]">+{ROUND2_POINTS} баллов</span>
+                <div className="comic-panel border-dashed border-[#000]/40 bg-white px-4 py-3 text-sm flex items-center justify-between">
+                  <span className="comic-font">Награда за точный ответ</span>
+                  <span className="comic-font text-[#ff007f]">+{ROUND2_POINTS} баллов</span>
                 </div>
 
                 {error && (
-                  <div className="rounded-2xl border-[3px] border-[#b23324] bg-[#ffd7d0] px-4 py-3 text-sm font-semibold text-[#7b1d16]">
+                  <div className="comic-panel border-[#000] bg-[#ff2a2a] px-4 py-3 text-sm comic-font text-white">
                     {error}
                   </div>
                 )}
 
                 {effectiveTimeLeft <= 0 && (
-                  <p className="text-xs text-center text-[#142a45]/60">⏱ Время истекло. Следующий факт появится автоматически.</p>
+                  <p className="text-xs text-center text-black/60">⏱ Время истекло. Следующий факт появится автоматически.</p>
                 )}
               </div>
             )}
@@ -2974,16 +2983,16 @@ export default function RoomPage() {
         </ScalePanel>
 
         <ScalePanel isVisible={roomStatus === 'round3-running'}>
-          <section className="rounded-3xl border-[4px] border-[#f1532f] bg-white shadow-xl p-6 space-y-6 animate-round3-panel">
+          <section className="comic-panel border-[4px] border-[#000] bg-white  p-6 space-y-6 animate-round3-panel">
             <div className="flex flex-col gap-3 text-center">
-              <span className="mx-auto px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
+              <span className="mx-auto px-4 py-2 comic-panel border-[4px] border-[#000] text-sm comic-font">
                 Раунд 3 · МозгоШтурм
               </span>
-              <div className="mx-auto w-16 h-16 rounded-full border-[4px] border-[#142a45] bg-[#ffeccd] flex items-center justify-center text-3xl">
+              <div className="mx-auto w-16 h-16 comic-panel border-[4px] border-[#000] bg-[#ffde00] flex items-center justify-center text-3xl">
                 🔊
               </div>
-              <h2 className="text-2xl font-black leading-tight">Внимательно слушай ведущего!</h2>
-              <p className="text-sm text-[#142a45]/70">
+              <h2 className="text-2xl comic-font leading-tight">Внимательно слушай ведущего!</h2>
+              <p className="text-sm text-black/70">
                 {round3Phase === 'fact'
                   ? 'Сейчас идёт озвучка факта. Поле для ответа появится во время таймера.'
                   : round3Phase === 'answer'
@@ -2996,9 +3005,9 @@ export default function RoomPage() {
               </p>
             </div>
 
-            <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] px-4 py-3 text-center space-y-2">
-              <p className="text-[10px] font-black tracking-[0.35em] text-[#142a45]/60">ВОПРОС</p>
-              <p className="text-base sm:text-lg font-black leading-tight">
+            <div className="comic-panel border-[#000]/15 bg-white px-4 py-3 text-center space-y-2">
+              <p className="text-[10px] comic-font tracking-[0.35em] text-black/60">ВОПРОС</p>
+              <p className="text-base sm:text-lg comic-font leading-tight">
                 {currentRound3Question?.question ? (
                   <AnimatedText key={`r3-q-${round3QuestionIndex ?? 'x'}`} text={currentRound3Question.question} />
                 ) : (
@@ -3007,13 +3016,13 @@ export default function RoomPage() {
               </p>
             </div>
 
-            <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] px-4 py-3 text-sm font-semibold flex items-center justify-between">
+            <div className="comic-panel border-[#000]/15 bg-white px-4 py-3 text-sm comic-font flex items-center justify-between">
               <span>Сейчас идёт озвучка у ведущего</span>
-              <span className="font-black text-[#f1532f]">#{(round3QuestionIndex ?? 0) + 1}</span>
+              <span className="comic-font text-[#ff007f]">#{(round3QuestionIndex ?? 0) + 1}</span>
             </div>
 
             <div>
-              <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
+              <div className="flex justify-between text-xs text-black/70 mb-1">
                 <span>
                   {round3Phase === 'vote'
                     ? `Голосование · ${ROUND3_VOTE_SECONDS} сек`
@@ -3021,34 +3030,34 @@ export default function RoomPage() {
                       ? 'Голосуем через…'
                       : `Таймер · ${ROUND3_ANSWER_SECONDS} сек`}
                 </span>
-                <span className={`font-black ${allPlayersAnswered ? 'text-[#1f6ac6]' : 'text-[#142a45]'}`}>{timerLabel}</span>
+                <span className={`comic-font ${allPlayersAnswered ? 'text-[#00c3ff]' : 'text-black'}`}>{timerLabel}</span>
               </div>
-              <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
+              <div className="h-3 comic-panel bg-[#ffde00] overflow-hidden">
                 <div
-                  className={`h-full ${activeTimerSeconds > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
+                  className={`h-full ${activeTimerSeconds > 5 ? 'bg-[#00c3ff]' : 'bg-[#ff007f]'}`}
                   style={{ width: `${progressPercent}%` }}
                 />
               </div>
             </div>
 
             {round3Phase === 'vote-countdown' && (
-              <div className="rounded-3xl border-[4px] border-[#142a45] bg-[#ffe184] px-6 py-6 text-center space-y-2">
-                <p className="text-xs tracking-[0.4em] text-[#142a45]/70 font-black">ГОЛОСОВАНИЕ</p>
-                <div className="text-6xl font-black leading-none text-[#142a45]">
+              <div className="comic-panel border-[4px] border-[#000] bg-[#ffde00] px-6 py-6 text-center space-y-2">
+                <p className="text-xs tracking-[0.4em] text-black/70 comic-font">ГОЛОСОВАНИЕ</p>
+                <div className="text-6xl comic-font leading-none text-black">
                   {round3CountdownStep ?? 1}
                 </div>
-                <p className="text-sm font-semibold text-[#142a45]/80">Приготовься выбирать лучший ответ</p>
+                <p className="text-sm comic-font text-black/80">Приготовься выбирать лучший ответ</p>
               </div>
             )}
 
             {round3Phase === 'answer' && timerActive && round3AnswerTimeLeft > 0 && (
               <div className="space-y-2">
-                <p className="text-xs font-semibold tracking-[0.3em] text-[#142a45]/60 text-center">ВВЕДИ ВАРИАНТ ОТВЕТА</p>
+                <p className="text-xs comic-font tracking-[0.3em] text-black/60 text-center">ВВЕДИ ВАРИАНТ ОТВЕТА</p>
                 <input
                   value={round3AnswerText}
                   onChange={(e) => setRound3AnswerText(e.target.value)}
                   placeholder="слова или фраза"
-                  className="w-full rounded-2xl border-[3px] border-[#142a45] bg-white px-4 py-3 text-sm font-semibold outline-none"
+                  className="w-full comic-panel border-[#000] bg-white px-4 py-3 text-sm comic-font outline-none"
                   autoComplete="off"
                   inputMode="text"
                   maxLength={60}
@@ -3061,22 +3070,22 @@ export default function RoomPage() {
                     round3AnswerTimeLeft <= 0 ||
                     round3AnswerText.trim().length === 0
                   }
-                  className="w-full py-3 rounded-2xl font-black text-lg tracking-[0.18em] bg-[#f1532f] text-white border-[3px] border-[#142a45] transition disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="w-full py-3 comic-panel comic-font text-lg tracking-[0.18em] bg-[#ff007f] text-white border-[4px] border-[#000] transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   Отправить
                 </button>
                 {hasAnswered && (
-                  <p className="text-xs text-center text-[#1f6ac6] font-semibold">Ответ отправлен!</p>
+                  <p className="text-xs text-center text-[#00c3ff] comic-font">Ответ отправлен!</p>
                 )}
-                <p className="text-xs text-center text-[#142a45]/60">Поле доступно только пока идёт таймер.</p>
+                <p className="text-xs text-center text-black/60">Поле доступно только пока идёт таймер.</p>
               </div>
             )}
 
             {round3Phase === 'vote' && round3VoteTimeLeft > 0 && (
               <div className="space-y-3">
-                <p className="text-xs font-semibold tracking-[0.3em] text-[#142a45]/60 text-center">ГОЛОСОВАНИЕ</p>
+                <p className="text-xs comic-font tracking-[0.3em] text-black/60 text-center">ГОЛОСОВАНИЕ</p>
                 {round3AnswerOptions.filter((row) => row.player_id !== playerId && (row.text ?? '').trim().length > 0).length === 0 ? (
-                  <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-[#fff6da] px-4 py-3 text-sm font-semibold text-center">
+                  <div className="comic-panel border-[#000]/20 bg-white px-4 py-3 text-sm comic-font text-center">
                     Нет вариантов для голосования.
                   </div>
                 ) : (
@@ -3088,7 +3097,7 @@ export default function RoomPage() {
                           key={row.id}
                           onClick={() => void submitRound3Vote(row.id)}
                           disabled={isSubmitting || round3HasVoted}
-                          className="w-full rounded-2xl border-[3px] border-[#142a45] bg-white px-4 py-3 text-left text-sm font-semibold hover:bg-[#fff6da] transition disabled:opacity-40 disabled:cursor-not-allowed"
+                          className="w-full comic-panel border-[#000] bg-white px-4 py-3 text-left text-sm comic-font hover:bg-white transition disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           {row.text}
                         </button>
@@ -3097,13 +3106,13 @@ export default function RoomPage() {
                 )}
 
                 {round3HasVoted && (
-                  <div className="rounded-2xl border-[3px] border-[#1f6ac6] bg-[#e9f0ff] px-4 py-3 text-sm font-semibold text-center">
+                  <div className="comic-panel border-[#000] bg-[#00c3ff] px-4 py-3 text-sm comic-font text-center">
                     Голос принят!
                   </div>
                 )}
 
                 {error && (
-                  <div className="rounded-2xl border-[3px] border-[#b23324] bg-[#ffd7d0] px-4 py-3 text-sm font-semibold text-[#7b1d16]">
+                  <div className="comic-panel border-[#000] bg-[#ff2a2a] px-4 py-3 text-sm comic-font text-white">
                     {error}
                   </div>
                 )}
@@ -3112,9 +3121,9 @@ export default function RoomPage() {
 
             {round3Phase === 'post' && (
               <div className="space-y-4">
-                <div className="rounded-3xl border-[3px] border-[#2f7a3b] bg-[#e6f7ea] p-4 text-center space-y-2 animate-round3-panel">
-                  <p className="text-xs font-semibold tracking-[0.3em] text-[#2f7a3b]/70">ПРАВИЛЬНЫЙ ОТВЕТ</p>
-                  <p className="text-xl font-black text-[#2f7a3b]">{currentRound3Question?.answer ?? '—'}</p>
+                <div className="comic-panel border-[#000] bg-[#00ff00] p-4 text-center space-y-2 animate-round3-panel">
+                  <p className="text-xs comic-font tracking-[0.3em] text-black/70">ПРАВИЛЬНЫЙ ОТВЕТ</p>
+                  <p className="text-xl comic-font text-black">{currentRound3Question?.answer ?? '—'}</p>
                 </div>
                 <PlayerAnswersList
                   items={round3AnswerResults.map((item) => ({
@@ -3128,7 +3137,7 @@ export default function RoomPage() {
               </div>
             )}
 
-            <p className="text-sm text-[#142a45]/70 text-center">
+            <p className="text-sm text-black/70 text-center">
               Слушайте ведущего: озвучка факта и фоновая музыка звучат у него.
             </p>
           </section>
@@ -3141,7 +3150,7 @@ export default function RoomPage() {
           onLike={() => void likeQuestion()}
         />
 
-        <p className="text-[11px] text-center text-[#142a45]/50">Если возникли проблемы — обновите страницу</p>
+        <p className="text-[11px] text-center text-black/50">Если возникли проблемы — обновите страницу</p>
       </div>
     </div>
   );

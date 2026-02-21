@@ -484,16 +484,16 @@ const HostControls = ({
       onClick={onPrimaryAction}
       className={`${
         compact
-          ? 'px-3 py-2 rounded-xl border-2 text-xs tracking-[0.14em]'
-          : 'px-5 py-3 rounded-2xl border-[3px] text-base tracking-[0.2em]'
-      } border-[#ffeccd] text-[#ffeccd] font-black hover:bg-[#ffeccd]/10 transition`}
+          ? 'px-3 py-2 comic-panel border-[4px] text-xs tracking-[0.14em]'
+          : 'px-5 py-3 comic-panel text-base tracking-[0.2em]'
+      } border-[#000] text-white comic-font hover:bg-[#ffde00]/10 transition`}
     >
       {primaryLabel}
     </button>
     <button
       type="button"
       onClick={onToggleLayout}
-      className={`${compact ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'} rounded-xl border-2 border-[#ffeccd] text-[#ffeccd] font-bold hover:bg-[#ffeccd]/10 transition`}
+      className={`${compact ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'} comic-panel border-[4px] border-[#000] text-white comic-font hover:bg-[#ffde00]/10 transition`}
       title="Не нравится текущий вид? Нажмите, чтобы переключить отображение"
     >
       Вид: {layoutLabel}
@@ -505,7 +505,7 @@ const HostControls = ({
         rel="noopener noreferrer"
         className={`${
           compact ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'
-        } rounded-xl bg-gradient-to-r from-[#f1532f] to-[#ff6b35] text-[#ffeccd] font-bold border-2 border-[#ffeccd] hover:scale-105 transition-all duration-200 text-center`}
+        } comic-panel bg-[#ff2a2a] text-white comic-font border-[4px] border-[#000] hover:scale-105 transition-all duration-200 text-center`}
       >
         Поддержать
       </a>
@@ -522,31 +522,31 @@ const PlayersAccordion = ({
   count: number;
   children: ReactNode;
 }) => (
-  <details className="rounded-3xl border-[3px] border-[#142a45] bg-white shadow-sm">
+  <details className="comic-panel border-[#000] bg-white ">
     <summary className="cursor-pointer list-none px-4 py-3 flex items-center justify-between">
-      <span className="retro-heading text-xs tracking-[0.35em] text-[#142a45]/60">{title}</span>
-      <span className="text-sm font-black">{count}</span>
+      <span className="comic-font text-xs tracking-[0.35em] text-black/60">{title}</span>
+      <span className="text-sm comic-font">{count}</span>
     </summary>
     <div className="px-4 pb-4 pt-1">{children}</div>
   </details>
 );
 
 const QuestionView = ({ children }: { children: ReactNode }) => (
-  <section className="rounded-3xl border-[3px] border-[#142a45] bg-white shadow-xl p-4 space-y-3">
+  <section className="comic-panel border-[#000] bg-white  p-4 space-y-3">
     {children}
   </section>
 );
 
 const AnswersView = ({ children }: { children: ReactNode }) => (
-  <section className="rounded-3xl border-[3px] border-[#142a45]/20 bg-white p-4 space-y-2">
-    <p className="retro-heading text-[10px] tracking-[0.35em] text-[#142a45]/60">ОТВЕТЫ</p>
+  <section className="comic-panel border-[#000]/20 bg-white p-4 space-y-2">
+    <p className="comic-font text-[10px] tracking-[0.35em] text-black/60">ОТВЕТЫ</p>
     {children}
   </section>
 );
 
 const LikesView = ({ children }: { children: ReactNode }) => (
-  <section className="rounded-3xl border-[3px] border-[#142a45]/20 bg-[#fff6da] p-4 space-y-2">
-    <p className="retro-heading text-[10px] tracking-[0.35em] text-[#142a45]/60">ЛАЙКИ</p>
+  <section className="comic-panel border-[#000]/20 bg-white p-4 space-y-2">
+    <p className="comic-font text-[10px] tracking-[0.35em] text-black/60">ЛАЙКИ</p>
     {children}
   </section>
 );
@@ -567,7 +567,7 @@ const HostMobileLayout = ({
   controlsView: ReactNode;
 }) => (
   <div className="flex flex-col gap-3">
-    <div className="rounded-3xl border-[3px] border-[#142a45] bg-[#142a45] text-[#ffeccd] p-3">
+    <div className="comic-panel border-[#000] bg-[#ff2a2a] text-white p-3">
       {controlsView}
     </div>
     {questionView}
@@ -596,7 +596,7 @@ const HostStackedLayout = ({
   playersView: ReactNode;
 }) => (
   <div className="flex flex-col gap-4">
-    <div className="rounded-3xl border-[3px] border-[#142a45] bg-[#142a45] text-[#ffeccd] p-4 shadow-lg">
+    <div className="comic-panel border-[#000] bg-[#ff2a2a] text-white p-4 ">
       {controlsView}
     </div>
     {questionView}
@@ -6652,10 +6652,10 @@ export default function HostRoomPage() {
         : 'Ответ: вымысел';
   const round2TruthClass =
     round2Phase === 'fact'
-      ? 'text-[#142a45]/60'
+      ? 'text-black/60'
       : round2ShowingFact
-        ? 'text-[#1f6ac6]'
-        : 'text-[#b4007f]';
+        ? 'text-[#00c3ff]'
+        : 'text-[#ff007f]';
   const round2AccuracyPercent = Math.max(0, Math.min(100, Math.round(round2LastAccuracy)));
   const round2AccuracyLabel =
     round2Leaderboard.length > 0 ? `${round2AccuracyPercent}% попали в точку` : 'Ждём первую статистику';
@@ -7405,8 +7405,8 @@ export default function HostRoomPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#fef4dc] text-[#142a45]">
-        <div className="rounded-3xl border-[4px] border-[#142a45] bg-white px-6 py-4 text-xl font-black">
+      <div className="min-h-screen flex items-center justify-center comic-bg-dots-yellow text-black">
+        <div className="comic-panel border-[4px] border-[#000] bg-white px-6 py-4 text-xl comic-font">
           Загрузка панели ведущего…
         </div>
       </div>
@@ -7415,14 +7415,14 @@ export default function HostRoomPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#fef4dc] text-[#142a45] px-4">
-        <div className="rounded-3xl border-[4px] border-[#b23324] bg-white shadow-xl max-w-md w-full p-8 text-center space-y-4">
-          <p className="retro-heading text-xs tracking-[0.4em] text-[#b23324]/70">Ошибка</p>
-          <h2 className="text-2xl font-black text-[#b23324]">Комната не найдена</h2>
-          <p className="text-sm text-[#142a45]">{error}</p>
+      <div className="min-h-screen flex items-center justify-center comic-bg-dots-yellow text-black px-4">
+        <div className="comic-panel border-[4px] border-[#000] bg-white  max-w-md w-full p-8 text-center space-y-4">
+          <p className="comic-font text-xs tracking-[0.4em] text-[#ff2a2a]/70">Ошибка</p>
+          <h2 className="text-2xl comic-font text-[#ff2a2a]">Комната не найдена</h2>
+          <p className="text-sm text-black">{error}</p>
           <button
             onClick={() => router.push('/host')}
-            className="w-full py-3 rounded-2xl font-black text-base tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] hover:scale-105 hover:shadow-lg transition-all duration-200"
+            className="w-full py-3 comic-panel comic-font text-base tracking-[0.2em] bg-[#ff2a2a] text-white border-[4px] border-[#000] hover:scale-105 hover: transition-all duration-200"
           >
             ← Вернуться на главную
           </button>
@@ -7433,10 +7433,10 @@ export default function HostRoomPage() {
 
   if (!isRoomOpened) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#fef4dc] text-[#142a45]">
+      <div className="min-h-screen flex items-center justify-center comic-bg-dots-yellow text-black">
         <button
           onClick={handleHostInteraction}
-          className="px-8 py-4 rounded-3xl border-[4px] border-[#142a45] bg-[#ffe184] text-[#142a45] font-black text-2xl tracking-[0.2em] hover:bg-[#142a45] hover:text-[#ffeccd] transition-colors"
+          className="px-8 py-4 comic-panel border-[4px] border-[#000] bg-[#ffde00] text-black comic-font text-2xl tracking-[0.2em] hover:bg-[#ff2a2a] hover:text-white transition-colors"
         >
           ОТКРЫТЬ КОМНАТУ
         </button>
@@ -7481,18 +7481,18 @@ export default function HostRoomPage() {
                     : 'Итоги раунда';
   const statusBadgeClass =
     roomStatus === 'running'
-      ? 'bg-[#f1532f] text-[#ffeccd]'
+      ? 'bg-[#ff007f] text-white'
       : roomStatus === 'round2-running'
-        ? 'bg-[#b4007f] text-white'
+        ? 'bg-[#ff007f] text-white'
         : roomStatus === 'round3-running'
-          ? 'bg-[#f1532f] text-white'
+          ? 'bg-[#ff007f] text-white'
           : roomStatus === 'round4-running'
-            ? 'bg-[#1f6ac6] text-white'
+            ? 'bg-[#00c3ff] text-white'
             : roomStatus === 'round5-running' || roomStatus === 'round5-explanation'
-              ? 'bg-[#142a45] text-[#ffeccd]'
+              ? 'bg-[#ff2a2a] text-white'
         : roomStatus === 'waiting'
-          ? 'bg-[#ffe184] text-[#142a45]'
-          : 'bg-[#1f6ac6] text-white';
+          ? 'bg-[#ffde00] text-black'
+          : 'bg-[#00c3ff] text-white';
 
   const isMobileLayout = layoutMode === 'mobile';
   const isStackedLayout = layoutMode === 'stacked';
@@ -7525,6 +7525,15 @@ export default function HostRoomPage() {
           ? `${timeLeft} c`
           : `${effectiveTimeLeft} c`;
 
+  const getBackgroundClass = () => {
+    if (roomStatus.startsWith('round1')) return 'comic-bg-dots-yellow';
+    if (roomStatus.startsWith('round2')) return 'comic-bg-dots-blue';
+    if (roomStatus.startsWith('round3')) return 'comic-bg-dots-pink';
+    if (roomStatus.startsWith('round4')) return 'comic-bg-dots-red';
+    if (roomStatus.startsWith('round5')) return 'comic-bg-rays-yellow-red';
+    return 'comic-bg-dots-yellow';
+  };
+
   return (
     <Fragment>
       <div
@@ -7535,17 +7544,17 @@ export default function HostRoomPage() {
               ? ({ zoom: forcedLayoutScale } as unknown as CSSProperties)
               : undefined
         }
-        className={`min-h-screen bg-[#fef4dc] text-[#142a45] ${isCompactForcedLayout ? 'px-2 py-3' : 'px-4 py-6'} transition-opacity duration-1000 opacity-100 ${
+        className={`min-h-screen text-black ${isCompactForcedLayout ? 'px-2 py-3' : 'px-4 py-6'} transition-opacity duration-1000 opacity-100 ${
           isMobileLayout ? 'text-[calc(1rem*var(--host-font-scale))]' : ''
-        }`}
+        } ${getBackgroundClass()}`}
       >
         <div className={`${isMobileLayout ? 'max-w-full' : 'max-w-[95vw] mx-auto'} ${isCompactForcedLayout ? 'space-y-3' : 'space-y-6'}`}>
           {!isMobileLayout && !isStackedLayout ? (
-            <header className="retro-panel bg-[#142a45] text-[#ffeccd] px-6 py-5">
+            <header className="comic-panel bg-[#ff2a2a] text-white px-6 py-5">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="retro-heading text-[11px] tracking-[0.5em] text-[#ffeccd]/70">Панель ведущего</p>
-                <h1 className={`${isCompactForcedLayout ? 'text-xl' : 'text-3xl'} font-black leading-tight`}>
+                <p className="comic-font text-[11px] tracking-[0.5em] text-white/70">Панель ведущего</p>
+                <h1 className={`${isCompactForcedLayout ? 'text-xl' : 'text-3xl'} comic-font leading-tight`}>
                   Комната {roomCode || '----'}
                 </h1>
               </div>
@@ -7561,20 +7570,20 @@ export default function HostRoomPage() {
           ) : null}
 
         {showMobilePrompt ? (
-          <div className="rounded-3xl border-[3px] border-[#142a45]/30 bg-white px-4 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm font-semibold text-[#142a45]">Похоже, у вас мобильный экран. Переключиться на Mobile view?</p>
+          <div className="comic-panel border-[#000]/30 bg-white px-4 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm comic-font text-black">Похоже, у вас мобильный экран. Переключиться на Mobile view?</p>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={switchToMobileLayout}
-                className="px-4 py-2 rounded-2xl border-[3px] border-[#142a45] bg-[#142a45] text-[#ffeccd] font-black text-xs tracking-[0.2em]"
+                className="px-4 py-2 comic-panel border-[#000] bg-[#ff2a2a] text-white comic-font text-xs tracking-[0.2em]"
               >
                 Переключить
               </button>
               <button
                 type="button"
                 onClick={dismissMobilePrompt}
-                className="px-4 py-2 rounded-2xl border-[3px] border-[#142a45]/30 bg-white font-semibold text-xs"
+                className="px-4 py-2 comic-panel border-[#000]/30 bg-white comic-font text-xs"
               >
                 Позже
               </button>
@@ -7583,7 +7592,7 @@ export default function HostRoomPage() {
         ) : null}
 
         {error && (
-          <div className="rounded-3xl border-[3px] border-[#b23324] bg-[#ffd7d0] px-4 py-3 text-sm font-semibold text-[#7b1d16]">
+          <div className="comic-panel border-[#000] bg-[#ff2a2a] px-4 py-3 text-sm comic-font text-white">
             {error}
           </div>
         )}
@@ -7593,8 +7602,8 @@ export default function HostRoomPage() {
             controlsView={
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="retro-heading text-[11px] tracking-[0.5em] text-[#ffeccd]/80">Панель ведущего</p>
-                  <h2 className="text-2xl font-black leading-tight text-[#ffeccd]">Комната {roomCode || '----'}</h2>
+                  <p className="comic-font text-[11px] tracking-[0.5em] text-white/80">Панель ведущего</p>
+                  <h2 className="text-2xl comic-font leading-tight text-white">Комната {roomCode || '----'}</h2>
                 </div>
                 <HostControls
                   primaryLabel={headerActionLabel}
@@ -7608,82 +7617,82 @@ export default function HostRoomPage() {
             questionView={(() => {
               if (roomStatus === 'waiting') {
                 return (
-                  <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-4">
+                  <div className="comic-panel bg-white p-6 space-y-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Сцена перед стартом</p>
-                        <h2 className="text-2xl font-black">⌛ Ждём подключений</h2>
-                        <p className="text-sm text-[#142a45]/80 mt-1">Код комнаты: <span className="font-mono font-black text-lg">{roomCode}</span></p>
+                        <p className="comic-font text-xs tracking-[0.4em] text-black/60">Сцена перед стартом</p>
+                        <h2 className="text-2xl comic-font">⌛ Ждём подключений</h2>
+                        <p className="text-sm text-black/80 mt-1 comic-font">Код комнаты: <span className="font-mono comic-font text-lg">{roomCode}</span></p>
                       </div>
-                      <span className="text-sm font-semibold text-[#142a45]/70 whitespace-nowrap">Игроков: {players.length}</span>
+                      <span className="text-sm comic-font text-black/70 whitespace-nowrap">Игроков: {players.length}</span>
                     </div>
-                    <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-4 space-y-2">
-                      <p className="text-sm font-semibold text-[#142a45]/80">Поделитесь кодом или QR, затем жмите старт.</p>
+                    <div className="comic-panel bg-white p-4 space-y-2">
+                      <p className="text-sm comic-font text-black/80">Поделитесь кодом или QR, затем жмите старт.</p>
                       <JoinQrBlock
                         roomCode={roomCode}
                         qrWindowUrl={`/host/${roomId}/qr?code=${encodeURIComponent(roomCode)}`}
-                        className="rounded-2xl border-[3px] border-[#142a45]/10 bg-white"
+                        className="comic-panel bg-white"
                       />
                     </div>
                     <button
                       onClick={handlePrepareRound}
                       disabled={players.length === 0}
-                      className="hover:scale-105 hover:shadow-lg transition-all duration-200 w-full py-3 rounded-2xl font-black text-base tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] disabled:opacity-40 disabled:cursor-not-allowed host-start-blink"
+                      className="comic-button hover:scale-105 hover: transition-all duration-200 w-full py-3 text-base bg-[#ffde00] text-black disabled:opacity-40 disabled:cursor-not-allowed host-start-blink"
                     >
                       Начать игру →
                     </button>
-                    {players.length === 0 && <p className="text-xs text-[#142a45]/60">Нужно как минимум 1 игрок.</p>}
+                    {players.length === 0 && <p className="text-xs text-black/60 comic-font">Нужно как минимум 1 игрок.</p>}
                   </div>
                 );
               }
 
               if (roomStatus === 'running' && question) {
                 return (
-                  <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 flex flex-col gap-5">
+                  <div className="comic-panel bg-white p-6 flex flex-col gap-5">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between min-h-[44px]">
-                      <span className="px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
+                      <span className="px-4 py-2 comic-panel border-[4px] border-[#000] text-sm comic-font">
                         Вопрос {question.order} / {totalQuestions}
                       </span>
-                      <span className="text-sm font-semibold text-[#142a45]/70 whitespace-nowrap">
-                        Ответили: <span className="text-[#1f6ac6] tabular-nums">{answeredCount}/{totalPlayers}</span>
+                      <span className="text-sm comic-font text-black/70 whitespace-nowrap">
+                        Ответили: <span className="text-[#00c3ff] tabular-nums">{answeredCount}/{totalPlayers}</span>
                       </span>
                     </div>
 
                     <div>
-                      <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
+                      <div className="flex justify-between text-xs text-black/70 mb-1">
                         <span>Таймер · 30 сек</span>
-                        <span className="font-black text-[#142a45]">
+                        <span className="comic-font text-black">
                           {allPlayersAnswered ? 'Все ответили' : `${effectiveTimeLeft} c`}
                         </span>
                       </div>
-                      <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
+                      <div className="h-3 comic-panel bg-[#ffde00] overflow-hidden">
                         <div
-                          className={`h-full ${effectiveTimeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
+                          className={`h-full ${effectiveTimeLeft > 5 ? 'bg-[#00c3ff]' : 'bg-[#ff007f]'}`}
                           style={{ width: `${progressPercent}%` }}
                         />
                       </div>
                       <div className="min-h-[20px]">
                         {allPlayersAnswered && (
-                          <p className="text-xs text-[#1f6ac6] font-semibold mt-2">Все игроки уже ответили — можно переходить дальше.</p>
+                          <p className="text-xs text-[#00c3ff] comic-font mt-2">Все игроки уже ответили — можно переходить дальше.</p>
                         )}
                       </div>
                     </div>
 
                     <div className="flex-1 min-h-0 flex flex-col gap-5">
                       <div className="flex-1 min-h-0 flex items-center justify-center">
-                        <h2 className="text-3xl font-black leading-tight text-center max-h-full overflow-y-auto">
+                        <h2 className="text-3xl comic-font leading-tight text-center max-h-full overflow-y-auto">
                           <AnimatedText
                             key={`r1-q-${typeof question.id === 'number' ? question.id : question.order}`}
                             text={question.text}
-                            className="text-4xl sm:text-5xl font-black leading-tight"
+                            className="text-4xl sm:text-5xl comic-font leading-tight"
                           />
                         </h2>
                       </div>
 
-                      <div className="rounded-3xl border-[3px] border-dashed border-[#142a45]/30 bg-[#fff6da] p-4 space-y-3 shrink-0">
+                      <div className="comic-panel border-dashed border-[#000]/30 bg-white p-4 space-y-3 shrink-0">
                         <div className="flex items-center justify-between">
-                          <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/70">Варианты</p>
-                          <span className="text-xs font-semibold text-[#142a45]/60">+{question.points} 💎</span>
+                          <p className="comic-font text-[11px] tracking-[0.4em] text-black/70">Варианты</p>
+                          <span className="text-xs comic-font text-black/60">+{question.points} 💎</span>
                         </div>
                         <Round1VariantsPanel
                           ref={round1VariantsPanelRef}
@@ -7695,7 +7704,7 @@ export default function HostRoomPage() {
                         />
                       </div>
 
-                      <p className="text-xs text-[#142a45]/70 shrink-0">
+                      <p className="text-xs text-black/70 shrink-0">
                         {isRoundEndButtonLocked
                           ? 'Подождите несколько секунд — звучит финальный джингл перед стартом следующего раунда.'
                           : canAdvance
@@ -7711,30 +7720,30 @@ export default function HostRoomPage() {
 
               if (roomStatus === 'round2-running') {
                 return (
-                  <div className="rounded-3xl border-[4px] border-[#b4007f] bg-white shadow-xl p-6 space-y-5">
+                  <div className="comic-panel border-[4px] border-[#000] bg-white  p-6 space-y-5">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <div>
-                        <p className="retro-heading text-xs tracking-[0.4em] text-[#b4007f]/70">Раунд 2 · «Фейколов»</p>
-                        <h2 className="text-3xl font-black">⚡ Охота на фейк</h2>
+                        <p className="comic-font text-xs tracking-[0.4em] text-[#ff007f]/70">Раунд 2 · «Фейколов»</p>
+                        <h2 className="text-3xl comic-font">⚡ Охота на фейк</h2>
                       </div>
                       <div className="flex flex-col items-start sm:items-end gap-2">
-                        <span className="px-4 py-2 rounded-full border-[3px] border-[#b4007f] text-sm font-black text-[#b4007f]">
-                          Факт <span className="text-[#142a45]">{clampedRound2QuestionNumber}</span>/{ROUND2_TOTAL_QUESTIONS}
+                        <span className="px-4 py-2 comic-panel border-[4px] border-[#000] text-sm comic-font text-[#ff007f]">
+                          Факт <span className="text-black">{clampedRound2QuestionNumber}</span>/{ROUND2_TOTAL_QUESTIONS}
                         </span>
-                        <span className="text-xs font-semibold text-[#142a45]/70">
-                          Ответили: <span className="font-black text-[#b4007f]">{answeredCount}/{totalPlayers}</span>
+                        <span className="text-xs comic-font text-black/70">
+                          Ответили: <span className="comic-font text-[#ff007f]">{answeredCount}/{totalPlayers}</span>
                         </span>
                       </div>
                     </div>
 
                     <div
                       key={`round2-onair-${round2CurrentIndex ?? clampedRound2QuestionNumber}-${round2Phase}`}
-                      className="rounded-3xl border-[3px] border-[#b4007f]/20 bg-[#fff0fa] p-5 space-y-2 animate-round2-onair"
+                      className="comic-panel border-[#000]/20 bg-white p-5 space-y-2 animate-round2-onair"
                     >
-                      <p className="text-[11px] tracking-[0.4em] text-[#b4007f]/60">{round2Phase === 'fact' ? 'Сейчас в эфире' : 'Объяснение'}</p>
+                      <p className="text-[11px] tracking-[0.4em] text-[#ff007f]/60">{round2Phase === 'fact' ? 'Сейчас в эфире' : 'Объяснение'}</p>
 
                       {round2Phase === 'fact' ? (
-                        <p className="text-4xl sm:text-5xl font-black leading-tight text-center">
+                        <p className="text-4xl sm:text-5xl comic-font leading-tight text-center">
                           <AnimatedText
                             key={`r2-fact-${round2CurrentIndex ?? clampedRound2QuestionNumber}`}
                             text={round2Statement}
@@ -7742,14 +7751,14 @@ export default function HostRoomPage() {
                         </p>
                       ) : (
                         <div className="space-y-4">
-                          <div className="rounded-2xl border-[3px] border-[#b4007f]/30 bg-white px-4 py-5 text-center">
+                          <div className="comic-panel border-[#000]/30 bg-white px-4 py-5 text-center">
                             <p
-                              className={`text-5xl sm:text-6xl font-black ${round2ShowingFact ? 'text-[#1f6ac6]' : 'text-[#b4007f]'} animate-round2-answer`}
+                              className={`text-5xl sm:text-6xl comic-font ${round2ShowingFact ? 'text-[#00c3ff]' : 'text-[#ff007f]'} animate-round2-answer`}
                             >
                               {round2ShowingFact ? 'ПРАВДА' : 'ВЫМЫСЕЛ'}
                             </p>
                           </div>
-                          <p className="text-3xl sm:text-4xl font-black leading-tight text-center">
+                          <p className="text-3xl sm:text-4xl comic-font leading-tight text-center">
                             <AnimatedText
                               key={`r2-expl-${round2CurrentIndex ?? clampedRound2QuestionNumber}-${round2ShowingFact ? 't' : 'f'}`}
                               text={round2ExplanationText}
@@ -7761,20 +7770,20 @@ export default function HostRoomPage() {
 
                     {round2Phase === 'fact' ? (
                       <div>
-                        <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
+                        <div className="flex justify-between text-xs text-black/70 mb-1">
                           <span>Таймер · 30 сек</span>
-                          <span className={`font-black ${serverAllPlayersAnswered ? 'text-[#b4007f]' : 'text-[#142a45]'}`}>
+                          <span className={`comic-font ${serverAllPlayersAnswered ? 'text-[#ff007f]' : 'text-black'}`}>
                             {serverAllPlayersAnswered ? 'Все проголосовали' : `${effectiveTimeLeft} c`}
                           </span>
                         </div>
-                        <div className="h-3 rounded-full bg-[#ffe0f4] overflow-hidden">
+                        <div className="h-3 comic-panel bg-[#ffde00] overflow-hidden">
                           <div
-                            className={`h-full ${effectiveTimeLeft > 5 ? 'bg-[#b4007f]' : 'bg-[#f1532f]'}`}
+                            className={`h-full ${effectiveTimeLeft > 5 ? 'bg-[#ff007f]' : 'bg-[#ff007f]'}`}
                             style={{ width: `${progressPercent}%` }}
                           />
                         </div>
                         {serverAllPlayersAnswered && (
-                          <p className="text-xs text-[#b4007f] font-semibold mt-2">Можно открывать правду прямо сейчас.</p>
+                          <p className="text-xs text-[#ff007f] comic-font mt-2">Можно открывать правду прямо сейчас.</p>
                         )}
                       </div>
                     ) : null}
@@ -7784,40 +7793,40 @@ export default function HostRoomPage() {
 
               if (roomStatus === 'round3-running') {
                 return (
-                  <div className="rounded-3xl border-[4px] border-[#f1532f] bg-white shadow-xl p-6 space-y-5">
+                  <div className="comic-panel border-[4px] border-[#000] bg-white  p-6 space-y-5">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <div>
-                        <h2 className="text-3xl font-black">🧠 {currentRound3Question?.category ?? 'Категория не указана'}</h2>
+                        <h2 className="text-3xl comic-font">🧠 {currentRound3Question?.category ?? 'Категория не указана'}</h2>
                       </div>
                       <div className="flex flex-col items-start sm:items-end gap-2">
-                        <span className="px-4 py-2 rounded-full border-[3px] border-[#f1532f] text-sm font-black text-[#f1532f]">
-                          Факт <span className="text-[#142a45]">{currentQuestionIndex + 1}</span>/{round3QuestionCount || ROUND3_TOTAL_QUESTIONS}
+                        <span className="px-4 py-2 comic-panel border-[4px] border-[#000] text-sm comic-font text-[#ff007f]">
+                          Факт <span className="text-black">{currentQuestionIndex + 1}</span>/{round3QuestionCount || ROUND3_TOTAL_QUESTIONS}
                         </span>
                       </div>
                     </div>
 
                     {isRound3ResultsPhase && (
-                      <div className="rounded-3xl border-[3px] border-[#f1532f]/20 bg-[#fff6da] p-4 space-y-3 animate-round3-panel">
-                        <p className="text-lg sm:text-xl tracking-[0.35em] text-[#f1532f]/70 font-black">Правильный ответ</p>
-                        <p className="text-2xl sm:text-3xl font-black leading-snug">
+                      <div className="comic-panel border-[#000]/20 bg-white p-4 space-y-3 animate-round3-panel">
+                        <p className="text-lg sm:text-xl tracking-[0.35em] text-[#ff007f]/70 comic-font">Правильный ответ</p>
+                        <p className="text-2xl sm:text-3xl comic-font leading-snug">
                           {renderRound3CorrectAnswerExcerpt(currentRound3Question?.question ?? '', currentRound3Question?.answer ?? '')}
                         </p>
                       </div>
                     )}
 
                     {isRound3ResultsPhase && bestRound3WrongAnswerText && (
-                      <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-white p-4 space-y-3 animate-round3-panel">
-                        <p className="text-base sm:text-lg tracking-[0.25em] text-[#142a45]/65 font-black">Лучший неправильный ответ</p>
-                        <p className="text-2xl sm:text-3xl font-black leading-snug">
+                      <div className="comic-panel border-[#000]/15 bg-white p-4 space-y-3 animate-round3-panel">
+                        <p className="text-base sm:text-lg tracking-[0.25em] text-black/65 comic-font">Лучший неправильный ответ</p>
+                        <p className="text-2xl sm:text-3xl comic-font leading-snug">
                           {renderRound3WrongAnswerExcerpt(currentRound3Question?.question ?? '', bestRound3WrongAnswerText)}
                         </p>
                       </div>
                     )}
 
                     {!isRound3ResultsPhase && (
-                      <div className="rounded-3xl border-[3px] border-[#f1532f]/20 bg-[#fff6da] p-5 space-y-2 animate-round3-panel">
-                        <p className="text-[11px] tracking-[0.4em] text-[#f1532f]/60">Сейчас в эфире</p>
-                        <p className="text-4xl sm:text-5xl font-black leading-tight">
+                      <div className="comic-panel border-[#000]/20 bg-white p-5 space-y-2 animate-round3-panel">
+                        <p className="text-[11px] tracking-[0.4em] text-[#ff007f]/60">Сейчас в эфире</p>
+                        <p className="text-4xl sm:text-5xl comic-font leading-tight">
                           {currentRound3Question?.question ? (
                             <AnimatedText key={`r3-q-${currentQuestionIndex}`} text={currentRound3Question.question} />
                           ) : (
@@ -7828,15 +7837,15 @@ export default function HostRoomPage() {
                     )}
 
                     <div>
-                      <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
+                      <div className="flex justify-between text-xs text-black/70 mb-1">
                         <span>{isRound3ResultsPhase ? 'Итоги' : `Таймер · ${ROUND3_ANSWER_SECONDS} сек`}</span>
-                        <span className={`font-black ${allPlayersAnswered ? 'text-[#1f6ac6]' : 'text-[#142a45]'}`}>
+                        <span className={`comic-font ${allPlayersAnswered ? 'text-[#00c3ff]' : 'text-black'}`}>
                           {isRound3ResultsPhase ? 'Готово' : allPlayersAnswered ? 'Все ответили' : `${round3TimerTimeLeft} c`}
                         </span>
                       </div>
-                      <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
+                      <div className="h-3 comic-panel bg-[#ffde00] overflow-hidden">
                         <div
-                          className={`h-full ${round3TimerTimeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
+                          className={`h-full ${round3TimerTimeLeft > 5 ? 'bg-[#00c3ff]' : 'bg-[#ff007f]'}`}
                           style={{ width: `${round3ProgressPercent}%` }}
                         />
                       </div>
@@ -7847,41 +7856,41 @@ export default function HostRoomPage() {
 
               if (roomStatus === 'round4-running') {
                 return (
-                  <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5 animate-round4-panel">
+                  <div className="comic-panel bg-white p-6 space-y-5 animate-round4-panel">
                     <div className="text-center space-y-3">
                       {round4CurrentPuzzle && (
-                        <p className="text-3xl font-black text-[#1f6ac6] uppercase tracking-wide">{round4CurrentPuzzle.category}</p>
+                        <p className="text-3xl comic-font text-[#00c3ff] uppercase tracking-wide">{round4CurrentPuzzle.category}</p>
                       )}
-                      <h2 className="text-5xl sm:text-6xl font-black leading-tight text-center">{round4CurrentPuzzle ? round4CurrentPuzzle.emoji : '⏳'}</h2>
+                      <h2 className="text-5xl sm:text-6xl comic-font leading-tight text-center">{round4CurrentPuzzle ? round4CurrentPuzzle.emoji : '⏳'}</h2>
                       {!round4CurrentPuzzle && (
-                        <p className="text-sm text-[#142a45]/70">Ждём выдачу первой загадки — нажмите «Раунд 4», если нужно перезапустить.</p>
+                        <p className="text-sm text-black/70">Ждём выдачу первой загадки — нажмите «Раунд 4», если нужно перезапустить.</p>
                       )}
                     </div>
 
                     <div>
-                      <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
+                      <div className="flex justify-between text-xs text-black/70 mb-1">
                         <span>Таймер · 30 сек</span>
-                        <span className={`font-black ${timeLeft <= 0 ? 'text-[#f1532f]' : 'text-[#142a45]'}`}>
+                        <span className={`comic-font ${timeLeft <= 0 ? 'text-[#ff007f]' : 'text-black'}`}>
                           {timeLeft > 0 ? `${timeLeft} c` : 'Время истекло'}
                         </span>
                       </div>
-                      <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
+                      <div className="h-3 comic-panel bg-[#ffde00] overflow-hidden">
                         <div
-                          className={`h-full ${timeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
+                          className={`h-full ${timeLeft > 5 ? 'bg-[#00c3ff]' : 'bg-[#ff007f]'}`}
                           style={{ width: `${round4ProgressPercent}%` }}
                         />
                       </div>
-                      {timeLeft <= 0 && <p className="text-xs text-[#1f6ac6] font-semibold mt-2">Время истекло — озвучиваем ответ.</p>}
+                      {timeLeft <= 0 && <p className="text-xs text-[#00c3ff] comic-font mt-2">Время истекло — озвучиваем ответ.</p>}
                     </div>
 
                     {timeLeft <= 0 && round4CurrentPuzzle && (
-                      <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-5 space-y-2 text-center animate-correct-reveal">
-                        <p className="retro-heading text-[11px] tracking-[0.5em] text-[#142a45]/70">Правильный ответ</p>
-                        <p className="text-4xl font-black text-[#1f6ac6]">{round4CurrentPuzzle.answers?.[0] ?? '—'}</p>
+                      <div className="comic-panel border-[#000]/15 bg-white p-5 space-y-2 text-center animate-correct-reveal">
+                        <p className="comic-font text-[11px] tracking-[0.5em] text-black/70">Правильный ответ</p>
+                        <p className="text-4xl comic-font text-[#00c3ff]">{round4CurrentPuzzle.answers?.[0] ?? '—'}</p>
 
                         {round4AnswerRows.length > 0 && (
                           <div className="pt-2 space-y-2">
-                            <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/60">Ответы игроков</p>
+                            <p className="comic-font text-[11px] tracking-[0.4em] text-black/60">Ответы игроков</p>
                             <div className="flex flex-wrap justify-center gap-2">
                               {round4AnswerRows
                                 .slice()
@@ -7889,10 +7898,10 @@ export default function HostRoomPage() {
                                 .map((row, index) => (
                                   <span
                                     key={row.id}
-                                    className={`px-4 py-3 rounded-2xl border-[3px] font-black text-lg sm:text-xl animate-drop-in ${
+                                    className={`px-4 py-3 comic-panel comic-font text-lg sm:text-xl animate-drop-in ${
                                       row.is_correct
-                                        ? 'border-[#1f6ac6]/30 bg-white text-[#1f6ac6]'
-                                        : 'border-[#142a45]/15 bg-white text-[#142a45]'
+                                        ? 'border-[#000]/30 bg-white text-[#00c3ff]'
+                                        : 'border-[#000]/15 bg-white text-black'
                                     }`}
                                     style={{ animationDelay: `${index * 40}ms` }}
                                   >
@@ -7906,7 +7915,7 @@ export default function HostRoomPage() {
                     )}
 
                     <div className="flex justify-center">
-                      <span className="px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
+                      <span className="px-4 py-2 comic-panel border-[4px] border-[#000] text-sm comic-font">
                         Тур {round4CurrentPuzzle ? Math.min(Math.max(round4AskedIds.length, 1), ROUND4_TOTAL_TOURS) : 0} / {ROUND4_TOTAL_TOURS}
                       </span>
                     </div>
@@ -7916,11 +7925,11 @@ export default function HostRoomPage() {
 
               if (roomStatus === 'round5-running' || roomStatus === 'round5-explanation') {
                 return (
-                  <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
+                  <div className="comic-panel bg-white p-6 space-y-5">
                     <div className="text-center space-y-3">
-                      <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Финал · «Цифровая интуиция»</p>
+                      <p className="comic-font text-xs tracking-[0.4em] text-black/70">Финал · «Цифровая интуиция»</p>
                       {roomStatus === 'round5-running' ? (
-                        <h2 className="text-5xl sm:text-6xl font-black leading-tight text-center text-[#142a45]">
+                        <h2 className="text-5xl sm:text-6xl comic-font leading-tight text-center text-black">
                           {round5CurrentQuestion?.question ? (
                             <AnimatedText
                               key={`r5-q-${round5CurrentBankIndex ?? currentQuestionIndex}`}
@@ -7934,43 +7943,43 @@ export default function HostRoomPage() {
                         <div className="h-[44px] sm:h-[56px]" aria-hidden="true" />
                       )}
                       <div className="flex items-center justify-center gap-3 flex-wrap">
-                        <span className="px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
+                        <span className="px-4 py-2 comic-panel border-[4px] border-[#000] text-sm comic-font">
                           Тур {Math.min(Math.max(currentQuestionIndex + 1, 1), round5TotalCount)} / {round5TotalCount}
                         </span>
-                        <span className="text-sm font-semibold text-[#142a45]/70">
-                          Ответили: <span className="text-[#1f6ac6]">{answerCount}/{totalPlayers}</span>
+                        <span className="text-sm comic-font text-black/70">
+                          Ответили: <span className="text-[#00c3ff]">{answerCount}/{totalPlayers}</span>
                         </span>
                       </div>
                     </div>
 
                     <div>
-                      <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
+                      <div className="flex justify-between text-xs text-black/70 mb-1">
                         <span>Таймер · 30 сек</span>
                         {roomStatus === 'round5-running' ? (
-                          <span className={`font-black ${timeLeft <= 0 ? 'text-[#f1532f]' : 'text-[#142a45]'}`}>
+                          <span className={`comic-font ${timeLeft <= 0 ? 'text-[#ff007f]' : 'text-black'}`}>
                             {timeLeft > 0 ? `${timeLeft} c` : 'Время истекло'}
                           </span>
                         ) : (
-                          <span className="font-black text-[#1f6ac6]">Ответ открыт</span>
+                          <span className="comic-font text-[#00c3ff]">Ответ открыт</span>
                         )}
                       </div>
-                      <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
+                      <div className="h-3 comic-panel bg-[#ffde00] overflow-hidden">
                         <div
-                          className={`h-full ${timeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
+                          className={`h-full ${timeLeft > 5 ? 'bg-[#00c3ff]' : 'bg-[#ff007f]'}`}
                           style={{ width: `${Math.max(0, Math.min(100, (timeLeft / QUESTION_DURATION_SECONDS) * 100))}%` }}
                         />
                       </div>
                       {roomStatus === 'round5-running' && timeLeft <= 0 && (
-                        <p className="text-xs text-[#1f6ac6] font-semibold mt-2">Время истекло — начисляем очки и показываем ответ.</p>
+                        <p className="text-xs text-[#00c3ff] comic-font mt-2">Время истекло — начисляем очки и показываем ответ.</p>
                       )}
                     </div>
 
                     {roomStatus === 'round5-explanation' && round5CurrentQuestion && (
-                      <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-5 space-y-3 text-center animate-correct-reveal">
-                        <p className="retro-heading text-[11px] tracking-[0.5em] text-[#142a45]/70">Правильный ответ</p>
-                        <p className="text-5xl font-black text-[#1f6ac6]">{round5CurrentQuestion.answer}</p>
+                      <div className="comic-panel border-[#000]/15 bg-white p-5 space-y-3 text-center animate-correct-reveal">
+                        <p className="comic-font text-[11px] tracking-[0.5em] text-black/70">Правильный ответ</p>
+                        <p className="text-5xl comic-font text-[#00c3ff]">{round5CurrentQuestion.answer}</p>
                         {round5CurrentQuestion.explanation && (
-                          <p className="text-sm font-semibold text-[#142a45]/80 whitespace-pre-line">{round5CurrentQuestion.explanation}</p>
+                          <p className="text-sm comic-font text-black/80 whitespace-pre-line">{round5CurrentQuestion.explanation}</p>
                         )}
                       </div>
                     )}
@@ -7980,34 +7989,34 @@ export default function HostRoomPage() {
 
               return (
                 <QuestionView>
-                  <p className="retro-heading text-[10px] tracking-[0.35em] text-[#142a45]/60">СЕЙЧАС</p>
-                  <h2 className="text-2xl font-black text-[#142a45] leading-tight">{statusLabel}</h2>
-                  <p className="text-xl font-semibold text-[#142a45] break-words leading-tight">{mobileQuestionText}</p>
-                  <div className="flex items-center justify-between text-sm sm:text-base text-[#142a45]/70">
+                  <p className="comic-font text-[10px] tracking-[0.35em] text-black/60">СЕЙЧАС</p>
+                  <h2 className="text-2xl comic-font text-black leading-tight">{statusLabel}</h2>
+                  <p className="text-xl comic-font text-black break-words leading-tight">{mobileQuestionText}</p>
+                  <div className="flex items-center justify-between text-sm sm:text-base text-black/70">
                     <span>Таймер</span>
-                    <span className="font-black text-xl text-[#142a45]">{mobileTimerLabel}</span>
+                    <span className="comic-font text-xl text-black">{mobileTimerLabel}</span>
                   </div>
                 </QuestionView>
               );
             })()}
             stateView={
-              <section className="rounded-3xl border-[3px] border-[#142a45] bg-white shadow-xl p-4 space-y-4">
+              <section className="comic-panel border-[#000] bg-white  p-4 space-y-4">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Состояние раунда</p>
-                    <p className="text-lg sm:text-xl font-black text-[#142a45] leading-tight whitespace-normal break-words">{statusLabel}</p>
-                    <p className="text-xs font-semibold text-[#142a45]/60">{roomStatus === 'waiting' ? 'Ждём игроков' : 'Игра идёт'}</p>
+                    <p className="comic-font text-xs tracking-[0.4em] text-black/60">Состояние раунда</p>
+                    <p className="text-lg sm:text-xl comic-font text-black leading-tight whitespace-normal break-words">{statusLabel}</p>
+                    <p className="text-xs comic-font text-black/60">{roomStatus === 'waiting' ? 'Ждём игроков' : 'Игра идёт'}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-[11px] text-[#142a45]/60">Игроки</p>
-                    <p className="text-2xl font-black">{players.length || 0}</p>
+                    <p className="text-[11px] text-black/60">Игроки</p>
+                    <p className="text-2xl comic-font">{players.length || 0}</p>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 text-sm font-semibold">
-                  <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-[#fff6da] px-4 py-3">
-                    <p className="text-[11px] text-[#142a45]/60">Вопрос</p>
-                    <p className="text-2xl font-black">
+                <div className="grid grid-cols-2 gap-3 text-sm comic-font">
+                  <div className="comic-panel border-[#000]/20 bg-white px-4 py-3">
+                    <p className="text-[11px] text-black/60">Вопрос</p>
+                    <p className="text-2xl comic-font">
                       {roomStatus === 'round2-running'
                         ? round2Offset + clampedRound2QuestionNumber
                         : isRound3Running
@@ -8025,32 +8034,32 @@ export default function HostRoomPage() {
                                   : 0}
                     </p>
                   </div>
-                  <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-white px-4 py-3">
-                    <p className="text-[11px] text-[#142a45]/60">Ответы</p>
-                    <p className="text-2xl font-black text-[#1f6ac6]">{answeredCount}</p>
+                  <div className="comic-panel border-[#000]/20 bg-white px-4 py-3">
+                    <p className="text-[11px] text-black/60">Ответы</p>
+                    <p className="text-2xl comic-font text-[#00c3ff]">{answeredCount}</p>
                   </div>
                 </div>
               </section>
             }
             answersView={
               <AnswersView>
-                <div className="flex items-center justify-between text-sm font-semibold">
+                <div className="flex items-center justify-between text-sm comic-font">
                   <span>Ответы</span>
-                  <span className="font-black text-[#1f6ac6]">
+                  <span className="comic-font text-[#00c3ff]">
                     {answeredCount}/{totalPlayers}
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-sm font-semibold">
+                <div className="flex items-center justify-between text-sm comic-font">
                   <span>Правильные</span>
-                  <span className="font-black text-[#1f6ac6]">{correctAnswerCount}</span>
+                  <span className="comic-font text-[#00c3ff]">{correctAnswerCount}</span>
                 </div>
               </AnswersView>
             }
             likesView={
               <LikesView>
-                <div className="flex items-center justify-between text-sm font-semibold">
+                <div className="flex items-center justify-between text-sm comic-font">
                   <span>Текущий вопрос</span>
-                  <span className="font-black text-[#f1532f]">{currentQuestionLikes ?? 0}</span>
+                  <span className="comic-font text-[#ff007f]">{currentQuestionLikes ?? 0}</span>
                 </div>
               </LikesView>
             }
@@ -8058,23 +8067,23 @@ export default function HostRoomPage() {
             playersView={
               <PlayersAccordion title="Игроки" count={players.length}>
                 {players.length === 0 ? (
-                  <p className="text-sm text-[#142a45]/70 text-center py-2">Пока никто не присоединился</p>
+                  <p className="text-sm text-black/70 text-center py-2">Пока никто не присоединился</p>
                 ) : (
                   <div className="space-y-2 max-h-[45vh] overflow-y-auto pr-1 no-scrollbar">
                     {players.map((player, index) => (
                       <div
                         key={player.id}
-                        className="rounded-2xl border-[2px] border-[#142a45]/15 bg-white px-3 py-2 flex items-center justify-between"
+                        className="comic-panel border-[2px] border-[#000]/15 bg-white px-3 py-2 flex items-center justify-between"
                       >
                         <div className="flex items-center gap-3 min-w-0">
-                          <span className="w-7 h-7 rounded-full border-[2px] border-[#142a45]/30 flex items-center justify-center font-black text-xs">
+                          <span className="w-7 h-7 comic-panel border-[2px] border-[#000]/30 flex items-center justify-center comic-font text-xs">
                             {index + 1}
                           </span>
-                          <p className="font-semibold text-sm leading-snug whitespace-normal break-words overflow-hidden max-h-[2.8em]">
+                          <p className="comic-font text-sm leading-snug whitespace-normal break-words overflow-hidden max-h-[2.8em]">
                             {player.name}
                           </p>
                         </div>
-                        <p className="font-black text-[#f1532f] text-sm">{player.total_points} 💎</p>
+                        <p className="comic-font text-[#ff007f] text-sm">{player.total_points} 💎</p>
                       </div>
                     ))}
                   </div>
@@ -8086,67 +8095,67 @@ export default function HostRoomPage() {
           <HostMobileLayout
             questionView={
               <QuestionView>
-                <p className="retro-heading text-[10px] tracking-[0.35em] text-[#142a45]/60">СЕЙЧАС</p>
-                <h2 className="text-lg font-black text-[#142a45]">{statusLabel}</h2>
-                <p className="text-base font-semibold text-[#142a45] break-words">{mobileQuestionText}</p>
-                <div className="flex items-center justify-between text-xs text-[#142a45]/70">
+                <p className="comic-font text-[10px] tracking-[0.35em] text-black/60">СЕЙЧАС</p>
+                <h2 className="text-lg comic-font text-black">{statusLabel}</h2>
+                <p className="text-base comic-font text-black break-words">{mobileQuestionText}</p>
+                <div className="flex items-center justify-between text-xs text-black/70">
                   <span>Таймер</span>
-                  <span className="font-black">{mobileTimerLabel}</span>
+                  <span className="comic-font">{mobileTimerLabel}</span>
                 </div>
               </QuestionView>
             }
             answersView={
               <AnswersView>
-                <div className="flex items-center justify-between text-sm font-semibold">
+                <div className="flex items-center justify-between text-sm comic-font">
                   <span>Ответы</span>
-                  <span className="font-black text-[#1f6ac6]">
+                  <span className="comic-font text-[#00c3ff]">
                     {answeredCount}/{totalPlayers}
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-sm font-semibold">
+                <div className="flex items-center justify-between text-sm comic-font">
                   <span>Правильные</span>
-                  <span className="font-black text-[#1f6ac6]">{correctAnswerCount}</span>
+                  <span className="comic-font text-[#00c3ff]">{correctAnswerCount}</span>
                 </div>
               </AnswersView>
             }
             likesView={
               <LikesView>
-                <div className="flex items-center justify-between text-sm font-semibold">
+                <div className="flex items-center justify-between text-sm comic-font">
                   <span>Текущий вопрос</span>
-                  <span className="font-black text-[#f1532f]">{currentQuestionLikes ?? 0}</span>
+                  <span className="comic-font text-[#ff007f]">{currentQuestionLikes ?? 0}</span>
                 </div>
                 {bestQuestion ? (
-                  <div className="text-xs text-[#142a45]/70">Лучший: {bestQuestion.text} ({bestQuestion.likes})</div>
+                  <div className="text-xs text-black/70">Лучший: {bestQuestion.text} ({bestQuestion.likes})</div>
                 ) : (
-                  <div className="text-xs text-[#142a45]/70">Лучший вопрос пока не определён</div>
+                  <div className="text-xs text-black/70">Лучший вопрос пока не определён</div>
                 )}
               </LikesView>
             }
             extraView={
               isWaiting ? (
-                <section className="rounded-3xl border-[3px] border-[#142a45] bg-white shadow-sm p-4 space-y-3">
+                <section className="comic-panel border-[#000] bg-white  p-4 space-y-3">
                   <button
                     type="button"
                     onClick={handlePrepareRound}
                     disabled={players.length === 0}
-                    className="w-full py-3 rounded-2xl font-black text-sm tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="w-full py-3 comic-panel comic-font text-sm tracking-[0.2em] bg-[#ff2a2a] text-white border-[4px] border-[#000] disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Начать игру
                   </button>
                   {players.length === 0 ? (
-                    <p className="text-xs text-[#142a45]/60 text-center">Нужно как минимум 1 игрок.</p>
+                    <p className="text-xs text-black/60 text-center">Нужно как минимум 1 игрок.</p>
                   ) : null}
 
-                  <details className="rounded-2xl border-[2px] border-[#142a45]/20 bg-[#fff6da]">
-                    <summary className="cursor-pointer list-none px-4 py-3 flex items-center justify-between text-xs font-black tracking-[0.25em] text-[#142a45]/60">
+                  <details className="comic-panel border-[2px] border-[#000]/20 bg-white">
+                    <summary className="cursor-pointer list-none px-4 py-3 flex items-center justify-between text-xs comic-font tracking-[0.25em] text-black/60">
                       QR
-                      <span className="text-[#142a45]">Развернуть</span>
+                      <span className="text-black">Развернуть</span>
                     </summary>
                     <div className="px-3 pb-4">
                       <JoinQrBlock
                         roomCode={roomCode}
                         qrWindowUrl={`/host/${roomId}/qr?code=${encodeURIComponent(roomCode)}`}
-                        className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da]"
+                        className="comic-panel border-[#000]/15 bg-white"
                       />
                     </div>
                   </details>
@@ -8156,23 +8165,23 @@ export default function HostRoomPage() {
             playersView={
               <PlayersAccordion title="Игроки" count={players.length}>
                 {players.length === 0 ? (
-                  <p className="text-sm text-[#142a45]/70 text-center py-2">Пока никто не присоединился</p>
+                  <p className="text-sm text-black/70 text-center py-2">Пока никто не присоединился</p>
                 ) : (
                   <div className="space-y-2 max-h-[45vh] overflow-y-auto pr-1 no-scrollbar">
                     {players.map((player, index) => (
                       <div
                         key={player.id}
-                        className="rounded-2xl border-[2px] border-[#142a45]/15 bg-white px-3 py-2 flex items-center justify-between"
+                        className="comic-panel border-[2px] border-[#000]/15 bg-white px-3 py-2 flex items-center justify-between"
                       >
                         <div className="flex items-center gap-3 min-w-0">
-                          <span className="w-7 h-7 rounded-full border-[2px] border-[#142a45]/30 flex items-center justify-center font-black text-xs">
+                          <span className="w-7 h-7 comic-panel border-[2px] border-[#000]/30 flex items-center justify-center comic-font text-xs">
                             {index + 1}
                           </span>
-                          <p className="font-semibold text-sm leading-snug whitespace-normal break-words overflow-hidden max-h-[2.8em]">
+                          <p className="comic-font text-sm leading-snug whitespace-normal break-words overflow-hidden max-h-[2.8em]">
                             {player.name}
                           </p>
                         </div>
-                        <p className="font-black text-[#f1532f] text-sm">{player.total_points} 💎</p>
+                        <p className="comic-font text-[#ff007f] text-sm">{player.total_points} 💎</p>
                       </div>
                     ))}
                   </div>
@@ -8196,36 +8205,36 @@ export default function HostRoomPage() {
             }`}
           >
           <section className={isCompactLayout ? 'col-span-4' : 'lg:col-span-3'}>
-            <div className={`rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl ${isCompactForcedLayout ? 'p-4' : 'p-5'} space-y-4`}>
+            <div className={`comic-panel bg-white ${isCompactForcedLayout ? 'p-4' : 'p-5'} space-y-4`}>
               {isCompactForcedLayout ? (
                 <>
                   <div className="flex items-center justify-between gap-4">
-                    <p className="retro-heading text-sm tracking-[0.25em] text-[#142a45]/60">Игроки и очки</p>
+                    <p className="comic-font text-sm tracking-[0.25em] text-black/60">Игроки и очки</p>
                     <div className="text-right">
-                      <p className="text-xs text-[#142a45]/60">Игроки</p>
-                      <p className="text-3xl font-black">{players.length || 0}</p>
+                      <p className="text-xs text-black/60">Игроки</p>
+                      <p className="text-3xl comic-font">{players.length || 0}</p>
                     </div>
                   </div>
 
                   {players.length === 0 ? (
-                    <p className="text-sm text-[#142a45]/70 text-center py-6">Пока никто не присоединился</p>
+                    <p className="text-sm text-black/70 text-center py-6">Пока никто не присоединился</p>
                   ) : (
                     <div ref={playersListRef} className="space-y-3 max-h-[68vh] overflow-y-auto pr-1 no-scrollbar">
                       {players.map((player, index) => (
                         <div
                           key={player.id}
                           data-flip-id={player.id}
-                          className="rounded-2xl border-[3px] border-[#142a45]/15 bg-white px-3 py-3 flex items-center justify-between"
+                          className="comic-panel border-[#000]/15 bg-white px-3 py-3 flex items-center justify-between"
                         >
                           <div className="flex items-center gap-3 min-w-0">
-                            <span className="w-8 h-8 rounded-full border-[3px] border-[#142a45]/30 flex items-center justify-center font-black">
+                            <span className="w-8 h-8 comic-panel border-[4px] border-[#000]/30 flex items-center justify-center comic-font">
                               {index + 1}
                             </span>
-                            <p className="font-semibold text-sm leading-snug whitespace-normal break-words overflow-hidden max-h-[2.8em]">
+                            <p className="comic-font text-sm leading-snug whitespace-normal break-words overflow-hidden max-h-[2.8em]">
                               {player.name}
                             </p>
                           </div>
-                          <p className="font-black text-[#f1532f] text-base">{player.total_points} 💎</p>
+                          <p className="comic-font text-[#ff007f] text-base">{player.total_points} 💎</p>
                         </div>
                       ))}
                     </div>
@@ -8235,24 +8244,24 @@ export default function HostRoomPage() {
                 <>
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
-                      <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Состояние раунда</p>
-                      <p className="text-base sm:text-lg font-black text-[#142a45] leading-tight whitespace-normal break-words">
+                      <p className="comic-font text-xs tracking-[0.4em] text-black/60">Состояние раунда</p>
+                      <p className="text-base sm:text-lg comic-font text-black leading-tight whitespace-normal break-words">
                         {statusLabel}
                       </p>
-                      <p className="text-xs font-semibold text-[#142a45]/60">
+                      <p className="text-xs comic-font text-black/60">
                         {roomStatus === 'waiting' ? 'Ждём игроков' : 'Игра идёт'}
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-[11px] text-[#142a45]/60">Игроки</p>
-                      <p className="text-2xl font-black">{players.length || 0}</p>
+                      <p className="text-[11px] text-black/60">Игроки</p>
+                      <p className="text-2xl comic-font">{players.length || 0}</p>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 text-sm font-semibold">
-                    <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-[#fff6da] px-4 py-3">
-                      <p className="text-[11px] text-[#142a45]/60">Вопрос</p>
-                      <p className="text-2xl font-black">
+                  <div className="grid grid-cols-2 gap-3 text-sm comic-font">
+                    <div className="comic-panel border-[#000]/20 bg-white px-4 py-3">
+                      <p className="text-[11px] text-black/60">Вопрос</p>
+                      <p className="text-2xl comic-font">
                         {roomStatus === 'round2-running'
                           ? round2Offset + clampedRound2QuestionNumber
                           : isRound3Running
@@ -8270,21 +8279,21 @@ export default function HostRoomPage() {
                                     : 0}
                       </p>
                     </div>
-                    <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-white px-4 py-3">
-                      <p className="text-[11px] text-[#142a45]/60">Ответы</p>
-                      <p className="text-2xl font-black text-[#1f6ac6]">{answeredCount}</p>
+                    <div className="comic-panel border-[#000]/20 bg-white px-4 py-3">
+                      <p className="text-[11px] text-black/60">Ответы</p>
+                      <p className="text-2xl comic-font text-[#00c3ff]">{answeredCount}</p>
                     </div>
                   </div>
 
                   <div>
                     <div className="flex items-center justify-between mb-3">
                       <div>
-                        <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Игроки и очки</p>
+                        <p className="comic-font text-xs tracking-[0.4em] text-black/60">Игроки и очки</p>
                       </div>
                     </div>
 
                     {players.length === 0 ? (
-                      <p className="text-sm text-[#142a45]/70 text-center py-6">Пока никто не присоединился</p>
+                      <p className="text-sm text-black/70 text-center py-6">Пока никто не присоединился</p>
                     ) : (
                       <div ref={playersListRef} className="space-y-3 max-h-[60vh] overflow-y-auto pr-1 no-scrollbar">
                         {players.map((player, index) => {
@@ -8293,32 +8302,32 @@ export default function HostRoomPage() {
                             <div
                               key={player.id}
                               data-flip-id={player.id}
-                              className={`rounded-2xl border-[3px] px-3 py-3 flex items-center justify-between ${
-                                hasAnswered ? 'border-[#1f6ac6]/40 bg-[#e9f0ff]' : 'border-[#142a45]/15 bg-white'
+                              className={`comic-panel px-3 py-3 flex items-center justify-between ${
+                                hasAnswered ? 'border-[#000]/40 bg-[#00c3ff]' : 'border-[#000]/15 bg-white'
                               }`}
                             >
                               <div className="flex items-center gap-3 min-w-0">
-                                <span className="w-8 h-8 rounded-full border-[3px] border-[#142a45]/30 flex items-center justify-center font-black">
+                                <span className="w-8 h-8 comic-panel border-[4px] border-[#000]/30 flex items-center justify-center comic-font">
                                   {index + 1}
                                 </span>
                                 <div className="min-w-0">
-                                  <p className="font-semibold text-sm leading-snug whitespace-normal break-words overflow-hidden max-h-[2.8em]">
+                                  <p className="comic-font text-sm leading-snug whitespace-normal break-words overflow-hidden max-h-[2.8em]">
                                     {player.name}
                                   </p>
                                   {roomStatus === 'running' && question ? (
-                                    <p className={`text-xs font-semibold ${hasAnswered ? 'text-[#1f6ac6]' : 'text-[#142a45]/50'}`}>
+                                    <p className={`text-xs comic-font ${hasAnswered ? 'text-[#00c3ff]' : 'text-black/50'}`}>
                                       {hasAnswered ? 'Ответ получен' : 'Ждём ответ'}
                                     </p>
                                   ) : roomStatus === 'round2-running' ? (
-                                    <p className={`text-xs font-semibold ${hasAnswered ? 'text-[#b4007f]' : 'text-[#142a45]/50'}`}>
+                                    <p className={`text-xs comic-font ${hasAnswered ? 'text-[#ff007f]' : 'text-black/50'}`}>
                                       {hasAnswered ? 'Выбор сделан' : 'Ждём выбор'}
                                     </p>
                                   ) : roomStatus === 'round3-running' ? (
-                                    <p className="text-xs font-semibold text-[#142a45]/50">Раунд 3</p>
+                                    <p className="text-xs comic-font text-black/50">Раунд 3</p>
                                   ) : null}
                                 </div>
                               </div>
-                              <p className="font-black text-[#f1532f]">{player.total_points} 💎</p>
+                              <p className="comic-font text-[#ff007f]">{player.total_points} 💎</p>
                             </div>
                           );
                         })}
@@ -8335,20 +8344,20 @@ export default function HostRoomPage() {
               >
             {isTournamentVisible ? (
               <div
-                className={`rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6 ${
+                className={`comic-panel bg-white p-6 space-y-6 ${
                   roomStatus === 'final-results' ? 'animate-final-panel' : ''
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">
+                    <p className="comic-font text-xs tracking-[0.4em] text-black/60">
                       {roomStatus === 'final-results'
                         ? 'итоги после 5 раунда'
                         : isFinalRoundAvailable
                           ? 'итоги после 4 раунда'
                           : 'итоги после 3 раунда'}
                     </p>
-                    <h2 className="text-3xl font-black">🏁 Турнирная таблица</h2>
+                    <h2 className="text-3xl comic-font">🏁 Турнирная таблица</h2>
                   </div>
                 </div>
 
@@ -8367,7 +8376,7 @@ export default function HostRoomPage() {
                 ) : null}
 
                 {postRoundLeaderboard.length === 0 ? (
-                  <p className="text-sm text-[#142a45]/70">Игроки не подключены, таблица пуста.</p>
+                  <p className="text-sm text-black/70">Игроки не подключены, таблица пуста.</p>
                 ) : (
                   <ol className="space-y-3">
                     {postRoundLeaderboard.map((entry, index) => {
@@ -8375,29 +8384,29 @@ export default function HostRoomPage() {
                       return (
                         <li
                           key={entry.playerId}
-                          className="flex items-center justify-between rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-4 animate-drop-in"
+                          className="flex items-center justify-between comic-panel border-[#000]/15 bg-white p-4 animate-drop-in"
                           style={{ animationDelay: `${delayMs}ms` }}
                         >
                         <div className="flex items-center gap-4 min-w-0">
-                          <span className={`w-10 h-10 rounded-full border-[3px] flex items-center justify-center font-black text-lg ${
+                          <span className={`w-10 h-10 comic-panel border-[4px] flex items-center justify-center comic-font text-lg ${
                             index === 0
-                              ? 'border-[#f1532f] bg-[#f1532f] text-white'
+                              ? 'border-[#000] bg-[#ff007f] text-white'
                               : index === 1
-                                ? 'border-[#b4007f] bg-[#b4007f] text-white'
+                                ? 'border-[#000] bg-[#ff007f] text-white'
                                 : index === 2
-                                  ? 'border-[#1f6ac6] bg-[#1f6ac6] text-white'
-                                  : 'border-[#142a45]/30 bg-white text-[#142a45]'
+                                  ? 'border-[#000] bg-[#00c3ff] text-white'
+                                  : 'border-[#000]/30 bg-white text-black'
                           }`}>
                             {index + 1}
                           </span>
                           <div className="min-w-0">
-                            <p className="font-black text-[#142a45] truncate">{entry.name}</p>
-                            <p className="text-xs text-[#142a45]/60">
+                            <p className="comic-font text-black truncate">{entry.name}</p>
+                            <p className="text-xs text-black/60">
                               Очки за раунд: {entry.points}
                             </p>
                           </div>
                         </div>
-                        <span className="font-black text-2xl text-[#f1532f]">{entry.points} 💎</span>
+                        <span className="comic-font text-2xl text-[#ff007f]">{entry.points} 💎</span>
                         </li>
                       );
                     })}
@@ -8412,7 +8421,7 @@ export default function HostRoomPage() {
                         hasUserInteractedRef.current = true;
                         void endGame();
                       }}
-                      className="w-full py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] hover:scale-105 hover:shadow-lg transition-all duration-200"
+                      className="w-full py-4 comic-panel comic-font text-xl tracking-[0.2em] bg-[#ff2a2a] text-white border-[4px] border-[#000] hover:scale-105 hover: transition-all duration-200"
                     >
                       Закрыть комнату
                     </button>
@@ -8421,7 +8430,7 @@ export default function HostRoomPage() {
                   <button
                     type="button"
                     onClick={handleOpenRound5Rules}
-                    className="w-full py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] hover:scale-105 hover:shadow-lg transition-all duration-200"
+                    className="w-full py-4 comic-panel comic-font text-xl tracking-[0.2em] bg-[#ff2a2a] text-white border-[4px] border-[#000] hover:scale-105 hover: transition-all duration-200"
                   >
                     Финал
                   </button>
@@ -8431,17 +8440,17 @@ export default function HostRoomPage() {
             ) : showResults ? (
               roomStatus === 'finished' ? (
                 round2Leaderboard.length === 0 ? (
-                  <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 text-center space-y-2">
-                    <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Раунд завершён</p>
-                    <h2 className="text-2xl font-black">Очки начислены</h2>
-                    <p className="text-sm text-[#142a45]/70">Смотрите очки игроков в панели слева.</p>
+                  <div className="comic-panel bg-white p-6 text-center space-y-2">
+                    <p className="comic-font text-xs tracking-[0.4em] text-black/60">Раунд завершён</p>
+                    <h2 className="text-2xl comic-font">Очки начислены</h2>
+                    <p className="text-sm text-black/70">Смотрите очки игроков в панели слева.</p>
                   </div>
                 ) : (
-                  <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
+                  <div className="comic-panel bg-white p-6 space-y-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Итоги после 2 раунда</p>
-                        <h2 className="text-3xl font-black">🏆 Рейтинг после 2 раунда</h2>
+                        <p className="comic-font text-xs tracking-[0.4em] text-black/60">Итоги после 2 раунда</p>
+                        <h2 className="text-3xl comic-font">🏆 Рейтинг после 2 раунда</h2>
                       </div>
                     </div>
                     <div className="space-y-4">
@@ -8451,24 +8460,24 @@ export default function HostRoomPage() {
                           return (
                             <li
                               key={entry.playerId}
-                              className="flex items-center justify-between rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-4 animate-drop-in"
+                              className="flex items-center justify-between comic-panel border-[#000]/15 bg-white p-4 animate-drop-in"
                               style={{ animationDelay: `${delayMs}ms` }}
                             >
                             <div className="flex items-center gap-4">
-                              <span className={`w-10 h-10 rounded-full border-[3px] flex items-center justify-center font-black text-lg ${
-                                index === 0 ? 'border-[#f1532f] bg-[#f1532f] text-white' :
-                                index === 1 ? 'border-[#b4007f] bg-[#b4007f] text-white' :
-                                index === 2 ? 'border-[#1f6ac6] bg-[#1f6ac6] text-white' :
-                                'border-[#142a45]/30 bg-white text-[#142a45]'
+                              <span className={`w-10 h-10 comic-panel border-[4px] flex items-center justify-center comic-font text-lg ${
+                                index === 0 ? 'border-[#000] bg-[#ff007f] text-white' :
+                                index === 1 ? 'border-[#000] bg-[#ff007f] text-white' :
+                                index === 2 ? 'border-[#000] bg-[#00c3ff] text-white' :
+                                'border-[#000]/30 bg-white text-black'
                               }`}>
                                 {index + 1}
                               </span>
                               <div>
-                                <p className="font-black text-[#142a45]">{entry.name}</p>
-                                <p className="text-xs text-[#142a45]/70">Очки за 2 раунд: {entry.points}</p>
+                                <p className="comic-font text-black">{entry.name}</p>
+                                <p className="text-xs text-black/70">Очки за 2 раунд: {entry.points}</p>
                               </div>
                             </div>
-                            <span className="font-black text-2xl text-[#f1532f]">{entry.points} 💎</span>
+                            <span className="comic-font text-2xl text-[#ff007f]">{entry.points} 💎</span>
                             </li>
                           );
                         })}
@@ -8477,22 +8486,22 @@ export default function HostRoomPage() {
                   </div>
                 )
               ) : (
-                <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
+                <div className="comic-panel bg-white p-6 space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/60">Итоги раунда</p>
-                    <h2 className="text-3xl font-black">🏆 Результаты</h2>
+                    <p className="comic-font text-xs tracking-[0.4em] text-black/60">Итоги раунда</p>
+                    <h2 className="text-3xl comic-font">🏆 Результаты</h2>
                   </div>
-                  <span className="text-sm font-semibold text-[#1f6ac6]">Очки уже начислены игрокам</span>
+                  <span className="text-sm comic-font text-[#00c3ff]">Очки уже начислены игрокам</span>
                 </div>
                 <div className="flex flex-wrap justify-end gap-3">
                   <button
                     type="button"
                     onClick={() => setIsRatingVisible((prev) => !prev)}
-                    className={`px-4 py-2 rounded-2xl border-[3px] font-semibold transition ${
+                    className={`px-4 py-2 comic-panel comic-font transition ${
                       isRatingVisible
-                        ? 'border-[#1f6ac6] bg-[#1f6ac6] text-white'
-                        : 'border-[#142a45]/40 bg-white text-[#142a45]'
+                        ? 'border-[#000] bg-[#00c3ff] text-white'
+                        : 'border-[#000]/40 bg-white text-black'
                     }`}
                   >
                     {isRatingVisible ? 'Скрыть рейтинг' : 'Рейтинг'}
@@ -8509,36 +8518,36 @@ export default function HostRoomPage() {
                     return (
                       <article
                         key={summaryQuestion.order}
-                        className="rounded-2xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-4 space-y-3"
+                        className="comic-panel border-[#000]/15 bg-white p-4 space-y-3"
                       >
-                        <div className="flex items-center justify-between text-xs text-[#142a45]/70">
-                          <span className="font-semibold tracking-[0.3em]">Вопрос {summaryQuestion.order}</span>
-                          <span className="font-black text-[#f1532f]">+{summaryQuestion.points}💎</span>
+                        <div className="flex items-center justify-between text-xs text-black/70">
+                          <span className="comic-font tracking-[0.3em]">Вопрос {summaryQuestion.order}</span>
+                          <span className="comic-font text-[#ff007f]">+{summaryQuestion.points}💎</span>
                         </div>
-                        <p className="text-lg font-semibold">{summaryQuestion.text}</p>
-                        <p className="text-sm text-[#1f6ac6] font-semibold animate-correct-reveal">
+                        <p className="text-lg comic-font">{summaryQuestion.text}</p>
+                        <p className="text-sm text-[#00c3ff] comic-font animate-correct-reveal">
                           Правильный ответ: {OPTION_LABELS[correctKey]} — {correctText}
                         </p>
                         <div className="space-y-2">
                           {answersForQuestion.length === 0 ? (
-                            <p className="text-xs text-[#142a45]/70">Никто не ответил на этот вопрос</p>
+                            <p className="text-xs text-black/70">Никто не ответил на этот вопрос</p>
                           ) : (
                             answersForQuestion.map((answer) => (
                               <div
                                 key={`${answer.player_id}-${answer.question_index}`}
-                                className={`rounded-2xl border-[3px] px-3 py-2 text-sm flex items-center justify-between ${
+                                className={`comic-panel px-3 py-2 text-sm flex items-center justify-between ${
                                   answer.is_correct
-                                    ? 'border-[#1f6ac6]/40 bg-white'
-                                    : 'border-[#f1532f]/30 bg-white'
+                                    ? 'border-[#000]/40 bg-white'
+                                    : 'border-[#000]/30 bg-white'
                                 }`}
                               >
                                 <div>
-                                  <p className="font-semibold">{getPlayerName(answer.player_id)}</p>
-                                  <p className="text-xs text-[#142a45]/70">
+                                  <p className="comic-font">{getPlayerName(answer.player_id)}</p>
+                                  <p className="text-xs text-black/70">
                                     {formatOptionLabel(answer.text)} — {getOptionText(summaryQuestion, answer.text)}
                                   </p>
                                 </div>
-                                <span className={`font-black ${answer.is_correct ? 'text-[#1f6ac6]' : 'text-[#f1532f]'}`}>
+                                <span className={`comic-font ${answer.is_correct ? 'text-[#00c3ff]' : 'text-[#ff007f]'}`}>
                                   {answer.is_correct ? `+${answer.points_earned}` : '+0'}
                                 </span>
                               </div>
@@ -8549,31 +8558,31 @@ export default function HostRoomPage() {
                     );
                   })}
                   {!questionsForSummary.length && (
-                    <p className="text-sm text-[#142a45]/70">Ответов пока нет — возможно, раунд завершили слишком рано.</p>
+                    <p className="text-sm text-black/70">Ответов пока нет — возможно, раунд завершили слишком рано.</p>
                   )}
                 </div>
                 {isRatingVisible && (
-                  <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-white p-4 space-y-3">
+                  <div className="comic-panel border-[#000]/15 bg-white p-4 space-y-3">
                     <div className="flex items-center justify-between">
-                      <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Рейтинг игроков</p>
-                      <span className="text-xs font-semibold text-[#1f6ac6]">По итогам раунда</span>
+                      <p className="comic-font text-xs tracking-[0.4em] text-black/70">Рейтинг игроков</p>
+                      <span className="text-xs comic-font text-[#00c3ff]">По итогам раунда</span>
                     </div>
                     {playerRatings.length === 0 ? (
-                      <p className="text-sm text-[#142a45]/70">Рейтинг появится после завершения первого раунда.</p>
+                      <p className="text-sm text-black/70">Рейтинг появится после завершения первого раунда.</p>
                     ) : (
                       <ol className="space-y-2">
                         {playerRatings.map((player, index) => (
                           <li
                             key={player.id}
-                            className="flex items-center justify-between rounded-2xl border-[3px] border-[#142a45]/10 bg-[#fff6da] px-3 py-2"
+                            className="flex items-center justify-between comic-panel border-[#000]/10 bg-white px-3 py-2"
                           >
                             <div className="flex items-center gap-3">
-                              <span className="w-8 h-8 rounded-full border-[3px] border-[#142a45]/30 flex items-center justify-center font-black">
+                              <span className="w-8 h-8 comic-panel border-[4px] border-[#000]/30 flex items-center justify-center comic-font">
                                 {index + 1}
                               </span>
-                              <span className="font-semibold text-[#142a45]">{player.name}</span>
+                              <span className="comic-font text-black">{player.name}</span>
                             </div>
-                            <span className="font-black text-[#f1532f]">{player.total_points} 💎</span>
+                            <span className="comic-font text-[#ff007f]">{player.total_points} 💎</span>
                           </li>
                         ))}
                       </ol>
@@ -8583,12 +8592,12 @@ export default function HostRoomPage() {
               </div>
               )
             ) : isWaiting ? (
-              <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-6">
+              <div className="comic-panel bg-white p-6 space-y-6">
                 <div className="flex flex-col gap-2">
-                  <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Сцена перед стартом</p>
-                  <h2 className="text-3xl font-black">⌛ Ждём подключений</h2>
-                  <p className="text-sm text-[#142a45]/80">
-                    Поделитесь кодом <span className="font-mono font-black text-lg">{roomCode}</span> и следите за списком игроков слева.
+                  <p className="comic-font text-xs tracking-[0.4em] text-black/70">Сцена перед стартом</p>
+                  <h2 className="text-3xl comic-font">⌛ Ждём подключений</h2>
+                  <p className="text-sm text-black/80">
+                    Поделитесь кодом <span className="font-mono comic-font text-lg">{roomCode}</span> и следите за списком игроков слева.
                   </p>
                 </div>
 
@@ -8599,8 +8608,8 @@ export default function HostRoomPage() {
                       hasUserInteractedRef.current = true;
                       void (isLobbySoundOn ? stopLobby() : tryPlayLobby());
                     }}
-                    className={`hover:scale-105 hover:shadow-lg transition-all duration-200 px-4 py-2 rounded-2xl border-[3px] font-semibold ${
-                      isLobbySoundOn ? 'border-[#1f6ac6] bg-[#1f6ac6] text-white' : 'border-[#142a45] bg-[#ffe184]'
+                    className={`hover:scale-105 hover: transition-all duration-200 px-4 py-2 comic-panel comic-font ${
+                      isLobbySoundOn ? 'border-[#000] bg-[#00c3ff] text-white' : 'border-[#000] bg-[#ffde00]'
                     }`}
                   >
                     {isLobbySoundOn ? '🔊 Джингл включён' : '🎵 Включить джингл'}
@@ -8611,58 +8620,58 @@ export default function HostRoomPage() {
                       hasUserInteractedRef.current = true;
                       setIsJoinSoundEnabled((prev) => !prev);
                     }}
-                    className={`hover:scale-105 hover:shadow-lg transition-all duration-200 px-4 py-2 rounded-2xl border-[3px] font-semibold ${
-                      isJoinSoundEnabled ? 'border-[#1f6ac6] bg-white text-[#1f6ac6]' : 'border-dashed border-[#142a45] bg-white'
+                    className={`hover:scale-105 hover: transition-all duration-200 px-4 py-2 comic-panel comic-font ${
+                      isJoinSoundEnabled ? 'border-[#000] bg-white text-[#00c3ff]' : 'border-dashed border-[#000] bg-white'
                     }`}
                   >
                     {isJoinSoundEnabled ? '🔔 Звук подключения' : '🔕 Включить звук подключения'}
                   </button>
                 </div>
-                {audioError && <p className="text-xs text-[#b23324] font-semibold">{audioError}</p>}
+                {audioError && <p className="text-xs text-[#ff2a2a] comic-font">{audioError}</p>}
 
                 <JoinQrBlock
                   roomCode={roomCode}
                   qrWindowUrl={`/host/${roomId}/qr?code=${encodeURIComponent(roomCode)}`}
-                  className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da]"
+                  className="comic-panel border-[#000]/15 bg-white"
                 />
 
                 <button
                   onClick={handlePrepareRound}
                   disabled={players.length === 0}
-                  className="hover:scale-105 hover:shadow-lg transition-all duration-200 w-full py-3 rounded-2xl font-black text-base tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] disabled:opacity-40 disabled:cursor-not-allowed host-start-blink"
+                  className="hover:scale-105 hover: transition-all duration-200 w-full py-3 comic-panel comic-font text-base tracking-[0.2em] bg-[#ff2a2a] text-white border-[4px] border-[#000] disabled:opacity-40 disabled:cursor-not-allowed host-start-blink"
                 >
                   Начать игру →
                 </button>
                 {players.length === 0 && (
-                  <p className="text-xs text-[#142a45]/60">Нужно как минимум 1 игрок.</p>
+                  <p className="text-xs text-black/60">Нужно как минимум 1 игрок.</p>
                 )}
               </div>
             ) : isRound2Running ? (
-              <div className="rounded-3xl border-[4px] border-[#b4007f] bg-white shadow-xl p-6 space-y-5">
+              <div className="comic-panel border-[4px] border-[#000] bg-white  p-6 space-y-5">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <p className="retro-heading text-xs tracking-[0.4em] text-[#b4007f]/70">Раунд 2 · «Фейколов»</p>
-                    <h2 className={`${isCompactForcedLayout ? 'text-xl' : 'text-3xl'} font-black`}>⚡ Охота на фейк</h2>
+                    <p className="comic-font text-xs tracking-[0.4em] text-[#ff007f]/70">Раунд 2 · «Фейколов»</p>
+                    <h2 className={`${isCompactForcedLayout ? 'text-xl' : 'text-3xl'} comic-font`}>⚡ Охота на фейк</h2>
                   </div>
                   <div className="flex flex-col items-start sm:items-end gap-2">
                     <span
-                      className={`px-4 py-2 rounded-full border-[3px] border-[#b4007f] ${
+                      className={`px-4 py-2 comic-panel border-[4px] border-[#000] ${
                         isCompactForcedLayout ? 'text-xs' : 'text-sm'
-                      } font-black text-[#b4007f]`}
+                      } comic-font text-[#ff007f]`}
                     >
-                      Факт <span className="text-[#142a45]">{clampedRound2QuestionNumber}</span>/{ROUND2_TOTAL_QUESTIONS}
+                      Факт <span className="text-black">{clampedRound2QuestionNumber}</span>/{ROUND2_TOTAL_QUESTIONS}
                     </span>
-                    <span className="text-xs font-semibold text-[#142a45]/70">
-                      Ответили: <span className="font-black text-[#b4007f]">{answeredCount}/{totalPlayers}</span>
+                    <span className="text-xs comic-font text-black/70">
+                      Ответили: <span className="comic-font text-[#ff007f]">{answeredCount}/{totalPlayers}</span>
                     </span>
                   </div>
                 </div>
 
                 <div
                   key={`round2-onair-${round2CurrentIndex ?? clampedRound2QuestionNumber}-${round2Phase}`}
-                  className="rounded-3xl border-[3px] border-[#b4007f]/20 bg-[#fff0fa] p-5 space-y-2 animate-round2-onair"
+                  className="comic-panel border-[#000]/20 bg-white p-5 space-y-2 animate-round2-onair"
                 >
-                  <p className="text-[11px] tracking-[0.4em] text-[#b4007f]/60">
+                  <p className="text-[11px] tracking-[0.4em] text-[#ff007f]/60">
                     {round2Phase === 'fact' ? 'Сейчас в эфире' : 'Объяснение'}
                   </p>
 
@@ -8670,7 +8679,7 @@ export default function HostRoomPage() {
                     <p
                       className={`${
                         isCompactForcedLayout ? 'text-2xl sm:text-3xl' : 'text-4xl sm:text-5xl'
-                      } font-black leading-tight text-center`}
+                      } comic-font leading-tight text-center`}
                     >
                       <AnimatedText
                         key={`r2-fact-${round2CurrentIndex ?? clampedRound2QuestionNumber}`}
@@ -8679,11 +8688,11 @@ export default function HostRoomPage() {
                     </p>
                   ) : (
                     <div className="space-y-4">
-                      <div className="rounded-2xl border-[3px] border-[#b4007f]/30 bg-white px-4 py-5 text-center">
+                      <div className="comic-panel border-[#000]/30 bg-white px-4 py-5 text-center">
                         <p
                           className={`${
                             isCompactForcedLayout ? 'text-3xl sm:text-4xl' : 'text-5xl sm:text-6xl'
-                          } font-black ${round2ShowingFact ? 'text-[#1f6ac6]' : 'text-[#b4007f]'} animate-round2-answer`}
+                          } comic-font ${round2ShowingFact ? 'text-[#00c3ff]' : 'text-[#ff007f]'} animate-round2-answer`}
                           key={`${round2CurrentIndex ?? 'x'}-${round2Phase}-${round2ShowingFact ? 't' : 'f'}`}
                         >
                           {round2ShowingFact ? 'ПРАВДА' : 'ВЫМЫСЕЛ'}
@@ -8692,7 +8701,7 @@ export default function HostRoomPage() {
                       <p
                         className={`${
                           isCompactForcedLayout ? 'text-xl sm:text-2xl' : 'text-3xl sm:text-4xl'
-                        } font-black leading-tight text-center`}
+                        } comic-font leading-tight text-center`}
                       >
                         <AnimatedText
                           key={`r2-expl-${round2CurrentIndex ?? clampedRound2QuestionNumber}-${round2ShowingFact ? 't' : 'f'}`}
@@ -8705,36 +8714,36 @@ export default function HostRoomPage() {
 
                 {round2Phase === 'fact' ? (
                   <div>
-                    <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
+                    <div className="flex justify-between text-xs text-black/70 mb-1">
                       <span>Таймер · 30 сек</span>
-                      <span className={`font-black ${serverAllPlayersAnswered ? 'text-[#b4007f]' : 'text-[#142a45]'}`}>
+                      <span className={`comic-font ${serverAllPlayersAnswered ? 'text-[#ff007f]' : 'text-black'}`}>
                         {serverAllPlayersAnswered ? 'Все проголосовали' : `${effectiveTimeLeft} c`}
                       </span>
                     </div>
-                    <div className="h-3 rounded-full bg-[#ffe0f4] overflow-hidden">
+                    <div className="h-3 comic-panel bg-[#ffde00] overflow-hidden">
                       <div
-                        className={`h-full ${effectiveTimeLeft > 5 ? 'bg-[#b4007f]' : 'bg-[#f1532f]'}`}
+                        className={`h-full ${effectiveTimeLeft > 5 ? 'bg-[#ff007f]' : 'bg-[#ff007f]'}`}
                         style={{ width: `${progressPercent}%` }}
                       />
                     </div>
                     {serverAllPlayersAnswered && (
-                      <p className="text-xs text-[#b4007f] font-semibold mt-2">Можно открывать правду прямо сейчас.</p>
+                      <p className="text-xs text-[#ff007f] comic-font mt-2">Можно открывать правду прямо сейчас.</p>
                     )}
                   </div>
                 ) : null}
 
               </div>
             ) : isRound3Running ? (
-              <div className="rounded-3xl border-[4px] border-[#f1532f] bg-white shadow-xl p-6 space-y-5">
+              <div className="comic-panel border-[4px] border-[#000] bg-white  p-6 space-y-5">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h2 className={`${isCompactForcedLayout ? 'text-xl' : 'text-3xl'} font-black`}>
+                    <h2 className={`${isCompactForcedLayout ? 'text-xl' : 'text-3xl'} comic-font`}>
                       🧠 {currentRound3Question?.category ?? 'Категория не указана'}
                     </h2>
                   </div>
                   <div className="flex flex-col items-start sm:items-end gap-2">
-                    <span className="px-4 py-2 rounded-full border-[3px] border-[#f1532f] text-sm font-black text-[#f1532f]">
-                      Факт <span className="text-[#142a45]">{currentQuestionIndex + 1}</span>/{round3QuestionCount || ROUND3_TOTAL_QUESTIONS}
+                    <span className="px-4 py-2 comic-panel border-[4px] border-[#000] text-sm comic-font text-[#ff007f]">
+                      Факт <span className="text-black">{currentQuestionIndex + 1}</span>/{round3QuestionCount || ROUND3_TOTAL_QUESTIONS}
                     </span>
                   </div>
                 </div>
@@ -8742,19 +8751,19 @@ export default function HostRoomPage() {
                 {isRound3ResultsPhase && (
                   <div
                     key={`round3-correct-${currentQuestionIndex}`}
-                    className="rounded-3xl border-[3px] border-[#f1532f]/20 bg-[#fff6da] p-4 space-y-3 animate-round3-panel"
+                    className="comic-panel border-[#000]/20 bg-white p-4 space-y-3 animate-round3-panel"
                   >
-                    <p className="text-lg sm:text-xl tracking-[0.35em] text-[#f1532f]/70 font-black">Правильный ответ</p>
-                    <p className={`${isCompactForcedLayout ? 'text-base sm:text-lg' : 'text-2xl sm:text-3xl'} font-black leading-snug`}>
+                    <p className="text-lg sm:text-xl tracking-[0.35em] text-[#ff007f]/70 comic-font">Правильный ответ</p>
+                    <p className={`${isCompactForcedLayout ? 'text-base sm:text-lg' : 'text-2xl sm:text-3xl'} comic-font leading-snug`}>
                       {renderRound3CorrectAnswerExcerpt(currentRound3Question?.question ?? '', currentRound3Question?.answer ?? '')}
                     </p>
                   </div>
                 )}
 
                 {isRound3ResultsPhase && bestRound3WrongAnswerText && (
-                  <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-white p-4 space-y-3 animate-round3-panel">
-                    <p className="text-base sm:text-lg tracking-[0.25em] text-[#142a45]/65 font-black">Лучший неправильный ответ</p>
-                    <p className={`${isCompactForcedLayout ? 'text-base sm:text-lg' : 'text-2xl sm:text-3xl'} font-black leading-snug`}>
+                  <div className="comic-panel border-[#000]/15 bg-white p-4 space-y-3 animate-round3-panel">
+                    <p className="text-base sm:text-lg tracking-[0.25em] text-black/65 comic-font">Лучший неправильный ответ</p>
+                    <p className={`${isCompactForcedLayout ? 'text-base sm:text-lg' : 'text-2xl sm:text-3xl'} comic-font leading-snug`}>
                       {renderRound3WrongAnswerExcerpt(currentRound3Question?.question ?? '', bestRound3WrongAnswerText)}
                     </p>
                   </div>
@@ -8763,10 +8772,10 @@ export default function HostRoomPage() {
                 {!isRound3ResultsPhase && (
                   <div
                     key={`round3-onair-${currentQuestionIndex}`}
-                    className="rounded-3xl border-[3px] border-[#f1532f]/20 bg-[#fff6da] p-5 space-y-2 animate-round3-panel"
+                    className="comic-panel border-[#000]/20 bg-white p-5 space-y-2 animate-round3-panel"
                   >
-                    <p className="text-[11px] tracking-[0.4em] text-[#f1532f]/60">Сейчас в эфире</p>
-                    <p className={`${isCompactForcedLayout ? 'text-2xl sm:text-3xl' : 'text-4xl sm:text-5xl'} font-black leading-tight`}>
+                    <p className="text-[11px] tracking-[0.4em] text-[#ff007f]/60">Сейчас в эфире</p>
+                    <p className={`${isCompactForcedLayout ? 'text-2xl sm:text-3xl' : 'text-4xl sm:text-5xl'} comic-font leading-tight`}>
                       {currentRound3Question?.question ? (
                         <AnimatedText key={`r3-q-${currentQuestionIndex}`} text={currentRound3Question.question} />
                       ) : (
@@ -8777,38 +8786,38 @@ export default function HostRoomPage() {
                 )}
 
                 <div>
-                  <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
+                  <div className="flex justify-between text-xs text-black/70 mb-1">
                     <span>{isRound3ResultsPhase ? 'Итоги' : `Таймер · ${ROUND3_ANSWER_SECONDS} сек`}</span>
-                    <span className={`font-black ${allPlayersAnswered ? 'text-[#1f6ac6]' : 'text-[#142a45]'}`}>
+                    <span className={`comic-font ${allPlayersAnswered ? 'text-[#00c3ff]' : 'text-black'}`}>
                       {isRound3ResultsPhase ? 'Готово' : allPlayersAnswered ? 'Все ответили' : `${round3TimerTimeLeft} c`}
                     </span>
                   </div>
-                  <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
+                  <div className="h-3 comic-panel bg-[#ffde00] overflow-hidden">
                     <div
-                      className={`h-full ${round3TimerTimeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
+                      className={`h-full ${round3TimerTimeLeft > 5 ? 'bg-[#00c3ff]' : 'bg-[#ff007f]'}`}
                       style={{ width: `${round3ProgressPercent}%` }}
                     />
                   </div>
                 </div>
 
                 {isRound3ResultsPhase && (
-                  <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-white p-5 space-y-4 animate-round3-panel">
-                    <p className="retro-heading text-[11px] tracking-[0.5em] text-[#142a45]/70">Итоги факта</p>
+                  <div className="comic-panel border-[#000]/15 bg-white p-5 space-y-4 animate-round3-panel">
+                    <p className="comic-font text-[11px] tracking-[0.5em] text-black/70">Итоги факта</p>
 
-                    <div className="rounded-3xl border-[3px] border-dashed border-[#142a45]/30 bg-[#fff6da] p-4 space-y-3">
+                    <div className="comic-panel border-dashed border-[#000]/30 bg-white p-4 space-y-3">
                       <div className="flex items-center justify-between">
-                        <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/70">Ответы игроков</p>
-                        <span className="text-xs font-semibold text-[#1f6ac6]">
+                        <p className="comic-font text-[11px] tracking-[0.4em] text-black/70">Ответы игроков</p>
+                        <span className="text-xs comic-font text-[#00c3ff]">
                           +{ROUND3_POINTS} за точный ответ · +{ROUND3_VOTE_LIKE_POINTS} за лайк · -{ROUND3_VOTE_SKIP_PENALTY} за пропуск голосования
                         </span>
                       </div>
                       {isRound3VoteAnswersLoading ? (
-                        <p className="text-sm text-[#142a45]/70">Ответы загружаются…</p>
+                        <p className="text-sm text-black/70">Ответы загружаются…</p>
                       ) : round3ScoredAnswers.length > 0 ? (
                         <>
-                          <div className="text-xs text-[#142a45]/70">
-                            Голосовали: <span className="font-semibold text-[#1f6ac6]">{round3VotersCount}</span>
-                            /{players.length}. Не проголосовали: <span className="font-semibold text-[#f1532f]">{round3SkippedVoterIds.length}</span>
+                          <div className="text-xs text-black/70">
+                            Голосовали: <span className="comic-font text-[#00c3ff]">{round3VotersCount}</span>
+                            /{players.length}. Не проголосовали: <span className="comic-font text-[#ff007f]">{round3SkippedVoterIds.length}</span>
                             {round3SkippedVoterIds.length > 0 ? ` (−${ROUND3_VOTE_SKIP_PENALTY} каждому)` : ''}.
                           </div>
                           <div className="grid grid-cols-3 gap-2">
@@ -8818,25 +8827,25 @@ export default function HostRoomPage() {
                               .map((row, index) => (
                                 <div
                                   key={row.playerId}
-                                  className={`rounded-2xl border-[3px] px-3 py-3 flex flex-col gap-2 animate-drop-in ${
-                                    row.isCorrect ? 'border-[#1f6ac6]/30 bg-white' : 'border-[#f1532f]/30 bg-white'
+                                  className={`comic-panel px-3 py-3 flex flex-col gap-2 animate-drop-in ${
+                                    row.isCorrect ? 'border-[#000]/30 bg-white' : 'border-[#000]/30 bg-white'
                                   }`}
                                   style={{ animationDelay: `${index * 35}ms` }}
                                 >
                                   <div className="flex items-start justify-between gap-2">
-                                    <p className="font-semibold text-xs truncate min-w-0">{getPlayerName(row.playerId)}</p>
-                                    <span className={`shrink-0 font-black text-xs ${row.pointsEarned > 0 ? 'text-[#1f6ac6]' : 'text-[#f1532f]'}`}>
+                                    <p className="comic-font text-xs truncate min-w-0">{getPlayerName(row.playerId)}</p>
+                                    <span className={`shrink-0 comic-font text-xs ${row.pointsEarned > 0 ? 'text-[#00c3ff]' : 'text-[#ff007f]'}`}>
                                       {row.pointsEarned >= 0 ? `+${row.pointsEarned}` : row.pointsEarned}
                                     </span>
                                   </div>
                                   <p
                                     className={`${
                                       isCompactForcedLayout ? 'text-sm sm:text-base' : 'text-xl sm:text-2xl'
-                                    } font-black leading-tight text-[#142a45] break-words`}
+                                    } comic-font leading-tight text-black break-words`}
                                   >
                                     {row.text?.trim() ? row.text : '(пусто)'}
                                   </p>
-                                  <p className="text-[11px] text-[#142a45]/60">
+                                  <p className="text-[11px] text-black/60">
                                     Лайков: {row.votes} (+{row.votePoints})
                                     {row.basePoints > 0 ? ` · Точный ответ: +${row.basePoints}` : ''}
                                   </p>
@@ -8845,7 +8854,7 @@ export default function HostRoomPage() {
                           </div>
                         </>
                       ) : (
-                        <p className="text-sm text-[#142a45]/70">Пока нет ответов.</p>
+                        <p className="text-sm text-black/70">Пока нет ответов.</p>
                       )}
                     </div>
                   </div>
@@ -8855,7 +8864,7 @@ export default function HostRoomPage() {
                   <button
                     type="button"
                     onClick={() => playRound3Audio(currentQuestionIndex)}
-                    className="w-full py-3 rounded-2xl font-black text-base tracking-[0.16em] bg-[#ffeccd] text-[#142a45] border-[3px] border-[#142a45]"
+                    className="w-full py-3 comic-panel comic-font text-base tracking-[0.16em] bg-[#ffde00] text-black border-[4px] border-[#000]"
                   >
                     Включить музыку
                   </button>
@@ -8865,53 +8874,53 @@ export default function HostRoomPage() {
             ) : roomStatus === 'round4-running' ? (
               <div
                 key={`round4-panel-${round4CurrentPuzzle?.id ?? 'none'}-${timeLeft <= 0 ? 'reveal' : 'run'}`}
-                className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5 animate-round4-panel"
+                className="comic-panel bg-white p-6 space-y-5 animate-round4-panel"
               >
                 <div className="text-center space-y-3">
                   {round4CurrentPuzzle && (
-                    <p className="text-3xl font-black text-[#1f6ac6] uppercase tracking-wide">
+                    <p className="text-3xl comic-font text-[#00c3ff] uppercase tracking-wide">
                       {round4CurrentPuzzle.category}
                     </p>
                   )}
-                  <h2 className={`${isCompactForcedLayout ? 'text-3xl sm:text-4xl' : 'text-5xl sm:text-6xl'} font-black leading-tight text-center`}>
+                  <h2 className={`${isCompactForcedLayout ? 'text-3xl sm:text-4xl' : 'text-5xl sm:text-6xl'} comic-font leading-tight text-center`}>
                     {round4CurrentPuzzle ? round4CurrentPuzzle.emoji : '⏳'}
                   </h2>
                   {!round4CurrentPuzzle && (
-                    <p className="text-sm text-[#142a45]/70">
+                    <p className="text-sm text-black/70">
                       Ждём выдачу первой загадки — нажмите «Раунд 4», если нужно перезапустить.
                     </p>
                   )}
                 </div>
 
                 <div>
-                  <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
+                  <div className="flex justify-between text-xs text-black/70 mb-1">
                     <span>Таймер · 30 сек</span>
-                    <span className={`font-black ${timeLeft <= 0 ? 'text-[#f1532f]' : 'text-[#142a45]'}`}>
+                    <span className={`comic-font ${timeLeft <= 0 ? 'text-[#ff007f]' : 'text-black'}`}>
                       {timeLeft > 0 ? `${timeLeft} c` : 'Время истекло'}
                     </span>
                   </div>
-                  <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
+                  <div className="h-3 comic-panel bg-[#ffde00] overflow-hidden">
                     <div
-                      className={`h-full ${timeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
+                      className={`h-full ${timeLeft > 5 ? 'bg-[#00c3ff]' : 'bg-[#ff007f]'}`}
                       style={{ width: `${round4ProgressPercent}%` }}
                     />
                   </div>
                   {timeLeft <= 0 && (
-                    <p className="text-xs text-[#1f6ac6] font-semibold mt-2">Время истекло — озвучиваем ответ.</p>
+                    <p className="text-xs text-[#00c3ff] comic-font mt-2">Время истекло — озвучиваем ответ.</p>
                   )}
                 </div>
 
                 {timeLeft <= 0 && round4CurrentPuzzle && (
                   <div
                     key={`round4-correct-${round4CurrentPuzzle.id}`}
-                    className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-5 space-y-2 text-center animate-correct-reveal"
+                    className="comic-panel border-[#000]/15 bg-white p-5 space-y-2 text-center animate-correct-reveal"
                   >
-                    <p className="retro-heading text-[11px] tracking-[0.5em] text-[#142a45]/70">Правильный ответ</p>
-                    <p className="text-4xl font-black text-[#1f6ac6]">{round4CurrentPuzzle.answers?.[0] ?? '—'}</p>
+                    <p className="comic-font text-[11px] tracking-[0.5em] text-black/70">Правильный ответ</p>
+                    <p className="text-4xl comic-font text-[#00c3ff]">{round4CurrentPuzzle.answers?.[0] ?? '—'}</p>
 
                     {round4AnswerRows.length > 0 && (
                       <div className="pt-2 space-y-2">
-                        <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/60">Ответы игроков</p>
+                        <p className="comic-font text-[11px] tracking-[0.4em] text-black/60">Ответы игроков</p>
                         <div className="flex flex-wrap justify-center gap-2">
                           {round4AnswerRows
                             .slice()
@@ -8919,10 +8928,10 @@ export default function HostRoomPage() {
                             .map((row, index) => (
                               <span
                                 key={row.id}
-                                className={`px-4 py-3 rounded-2xl border-[3px] font-black text-lg sm:text-xl animate-drop-in ${
+                                className={`px-4 py-3 comic-panel comic-font text-lg sm:text-xl animate-drop-in ${
                                   row.is_correct
-                                    ? 'border-[#1f6ac6]/30 bg-white text-[#1f6ac6]'
-                                    : 'border-[#142a45]/15 bg-white text-[#142a45]'
+                                    ? 'border-[#000]/30 bg-white text-[#00c3ff]'
+                                    : 'border-[#000]/15 bg-white text-black'
                                 }`}
                                 style={{ animationDelay: `${index * 40}ms` }}
                               >
@@ -8936,20 +8945,20 @@ export default function HostRoomPage() {
                 )}
 
                 <div className="flex justify-center">
-                  <span className="px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
+                  <span className="px-4 py-2 comic-panel border-[4px] border-[#000] text-sm comic-font">
                     Тур {round4CurrentPuzzle ? Math.min(Math.max(round4AskedIds.length, 1), ROUND4_TOTAL_TOURS) : 0} / {ROUND4_TOTAL_TOURS}
                   </span>
                 </div>
               </div>
             ) : roomStatus === 'round5-running' || roomStatus === 'round5-explanation' ? (
-              <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
+              <div className="comic-panel bg-white p-6 space-y-5">
                 <div className="text-center space-y-3">
-                  <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Финал · «Цифровая интуиция»</p>
+                  <p className="comic-font text-xs tracking-[0.4em] text-black/70">Финал · «Цифровая интуиция»</p>
                   {roomStatus === 'round5-running' ? (
                     <h2
                       className={`${
                         isCompactForcedLayout ? 'text-2xl sm:text-3xl' : 'text-5xl sm:text-6xl'
-                      } font-black leading-tight text-center text-[#142a45]`}
+                      } comic-font leading-tight text-center text-black`}
                     >
                       {round5CurrentQuestion?.question ? (
                         <AnimatedText
@@ -8964,34 +8973,34 @@ export default function HostRoomPage() {
                     <div className="h-[44px] sm:h-[56px]" aria-hidden="true" />
                   )}
                   <div className="flex items-center justify-center gap-3 flex-wrap">
-                    <span className="px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
+                    <span className="px-4 py-2 comic-panel border-[4px] border-[#000] text-sm comic-font">
                       Тур {Math.min(Math.max(currentQuestionIndex + 1, 1), round5TotalCount)} / {round5TotalCount}
                     </span>
-                    <span className="text-sm font-semibold text-[#142a45]/70">
-                      Ответили: <span className="text-[#1f6ac6]">{answerCount}/{totalPlayers}</span>
+                    <span className="text-sm comic-font text-black/70">
+                      Ответили: <span className="text-[#00c3ff]">{answerCount}/{totalPlayers}</span>
                     </span>
                   </div>
                 </div>
 
                 <div>
-                  <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
+                  <div className="flex justify-between text-xs text-black/70 mb-1">
                     <span>Таймер · 30 сек</span>
                     {roomStatus === 'round5-running' ? (
-                      <span className={`font-black ${timeLeft <= 0 ? 'text-[#f1532f]' : 'text-[#142a45]'}`}>
+                      <span className={`comic-font ${timeLeft <= 0 ? 'text-[#ff007f]' : 'text-black'}`}>
                         {timeLeft > 0 ? `${timeLeft} c` : 'Время истекло'}
                       </span>
                     ) : (
-                      <span className="font-black text-[#1f6ac6]">Ответ открыт</span>
+                      <span className="comic-font text-[#00c3ff]">Ответ открыт</span>
                     )}
                   </div>
-                  <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
+                  <div className="h-3 comic-panel bg-[#ffde00] overflow-hidden">
                     <div
-                      className={`h-full ${timeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
+                      className={`h-full ${timeLeft > 5 ? 'bg-[#00c3ff]' : 'bg-[#ff007f]'}`}
                       style={{ width: `${Math.max(0, Math.min(100, (timeLeft / QUESTION_DURATION_SECONDS) * 100))}%` }}
                     />
                   </div>
                   {roomStatus === 'round5-running' && timeLeft <= 0 && (
-                    <p className="text-xs text-[#1f6ac6] font-semibold mt-2">Время истекло — начисляем очки и показываем ответ.</p>
+                    <p className="text-xs text-[#00c3ff] comic-font mt-2">Время истекло — начисляем очки и показываем ответ.</p>
                   )}
                 </div>
 
@@ -8999,20 +9008,20 @@ export default function HostRoomPage() {
                   <>
                     <div
                       key={`round5-correct-${round5CurrentBankIndex ?? currentQuestionIndex}`}
-                      className="rounded-3xl border-[3px] border-[#142a45]/15 bg-[#fff6da] p-5 space-y-3 text-center animate-correct-reveal"
+                      className="comic-panel border-[#000]/15 bg-white p-5 space-y-3 text-center animate-correct-reveal"
                     >
-                      <p className="retro-heading text-[11px] tracking-[0.5em] text-[#142a45]/70">Правильный ответ</p>
-                      <p className="text-5xl font-black text-[#1f6ac6]">{round5CurrentQuestion.answer}</p>
+                      <p className="comic-font text-[11px] tracking-[0.5em] text-black/70">Правильный ответ</p>
+                      <p className="text-5xl comic-font text-[#00c3ff]">{round5CurrentQuestion.answer}</p>
                       {round5CurrentQuestion.explanation && (
-                        <p className="text-sm font-semibold text-[#142a45]/80 whitespace-pre-line">
+                        <p className="text-sm comic-font text-black/80 whitespace-pre-line">
                           {round5CurrentQuestion.explanation}
                         </p>
                       )}
                     </div>
 
                     {round5AnswerRows.length > 0 && (
-                      <div className="rounded-3xl border-[3px] border-[#142a45]/15 bg-white p-5 space-y-3">
-                        <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/60 text-center">Ответы игроков</p>
+                      <div className="comic-panel border-[#000]/15 bg-white p-5 space-y-3">
+                        <p className="comic-font text-[11px] tracking-[0.4em] text-black/60 text-center">Ответы игроков</p>
                         {(() => {
                           const correct = round5CurrentQuestion.answer;
                           const clampedCorrect = Number.isFinite(correct) ? correct : 0;
@@ -9088,13 +9097,13 @@ export default function HostRoomPage() {
 
                           return (
                             <>
-                              <div className="rounded-2xl border-[3px] border-dashed border-[#142a45]/25 bg-[#fff6da] p-4 overflow-hidden">
+                              <div className="comic-panel border-dashed border-[#000]/25 bg-white p-4 overflow-hidden">
                                 <div className="relative h-[160px]">
-                                  <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 border-t-[3px] border-[#142a45]/20" />
+                                  <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 border-t-[3px] border-[#000]/20" />
                                   <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-                                    <div className="rounded-2xl border-[3px] border-[#1f6ac6]/40 bg-white px-4 py-2 text-center shadow-sm">
-                                      <p className="text-[11px] tracking-[0.3em] text-[#142a45]/60 font-semibold">правильный</p>
-                                      <p className="text-3xl font-black text-[#1f6ac6] tabular-nums">{Math.round(clampedCorrect)}</p>
+                                    <div className="comic-panel border-[#000]/40 bg-white px-4 py-2 text-center ">
+                                      <p className="text-[11px] tracking-[0.3em] text-black/60 comic-font">правильный</p>
+                                      <p className="text-3xl comic-font text-[#00c3ff] tabular-nums">{Math.round(clampedCorrect)}</p>
                                     </div>
                                   </div>
 
@@ -9113,11 +9122,11 @@ export default function HostRoomPage() {
                                           } as PillAnimationStyle
                                         }
                                       >
-                                        <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-white px-3 py-2 text-center min-w-[84px]">
-                                          <p className="text-[11px] font-semibold text-[#142a45]/70 truncate max-w-[120px]">
+                                        <div className="comic-panel border-[#000]/15 bg-white px-3 py-2 text-center min-w-[84px]">
+                                          <p className="text-[11px] comic-font text-black/70 truncate max-w-[120px]">
                                             {getPlayerName(item.row.player_id)}
                                           </p>
-                                          <p className="text-xl font-black tabular-nums" style={{ color: item.tone }}>
+                                          <p className="text-xl comic-font tabular-nums" style={{ color: item.tone }}>
                                             <TweenedInteger
                                               from={clampedCorrect}
                                               to={item.row.answer_value}
@@ -9146,11 +9155,11 @@ export default function HostRoomPage() {
                                         }
                                       >
                                         <div style={{ transform: `rotate(${item.rotate}deg)` }}>
-                                          <div className="rounded-2xl border-[3px] border-[#142a45]/15 bg-white px-3 py-2 text-center min-w-[84px] max-w-[220px]">
-                                            <p className="text-[11px] font-semibold text-[#142a45]/70 truncate">
+                                          <div className="comic-panel border-[#000]/15 bg-white px-3 py-2 text-center min-w-[84px] max-w-[220px]">
+                                            <p className="text-[11px] comic-font text-black/70 truncate">
                                               {getPlayerName(item.row.player_id)}
                                             </p>
-                                            <p className="text-lg font-black tabular-nums text-[#f1532f] truncate">
+                                            <p className="text-lg comic-font tabular-nums text-[#ff007f] truncate">
                                               <TweenedInteger
                                                 from={clampedCorrect}
                                                 to={Number.isFinite(item.row.answer_value) ? item.row.answer_value : clampedCorrect}
@@ -9165,14 +9174,14 @@ export default function HostRoomPage() {
                                   })}
                                 </div>
 
-                                <div className="mt-2 flex items-center justify-between text-[11px] font-semibold text-[#142a45]/60">
+                                <div className="mt-2 flex items-center justify-between text-[11px] comic-font text-black/60">
                                   <span>0</span>
                                   <span>{maxAllowed > 0 ? Math.round(maxAllowed) : '—'}</span>
                                 </div>
                               </div>
 
                               {maxAllowed > 0 && outOfRange.length > 0 && (
-                                <p className="mt-3 text-[11px] font-semibold text-[#142a45]/60 text-center">
+                                <p className="mt-3 text-[11px] comic-font text-black/60 text-center">
                                   Очки начисляются только за ответы в диапазоне (0…{Math.round(maxAllowed)})
                                 </p>
                               )}
@@ -9185,51 +9194,51 @@ export default function HostRoomPage() {
                 )}
               </div>
             ) : question ? (
-              <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 flex flex-col gap-5 h-[78vh] max-h-[860px]">
+              <div className="comic-panel bg-white p-6 flex flex-col gap-5 h-[78vh] max-h-[860px]">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between min-h-[44px]">
-                  <span className="px-4 py-2 rounded-full border-[3px] border-[#142a45] text-sm font-black">
+                  <span className="px-4 py-2 comic-panel border-[4px] border-[#000] text-sm comic-font">
                     Вопрос {question.order} / {totalQuestions}
                   </span>
-                  <span className="text-sm font-semibold text-[#142a45]/70 whitespace-nowrap">
-                    Ответили: <span className="text-[#1f6ac6] tabular-nums">{answeredCount}/{totalPlayers}</span>
+                  <span className="text-sm comic-font text-black/70 whitespace-nowrap">
+                    Ответили: <span className="text-[#00c3ff] tabular-nums">{answeredCount}/{totalPlayers}</span>
                   </span>
                 </div>
 
                 <div>
-                  <div className="flex justify-between text-xs text-[#142a45]/70 mb-1">
+                  <div className="flex justify-between text-xs text-black/70 mb-1">
                     <span>Таймер · 30 сек</span>
-                    <span className="font-black text-[#142a45]">
+                    <span className="comic-font text-black">
                       {allPlayersAnswered ? 'Все ответили' : `${effectiveTimeLeft} c`}
                     </span>
                   </div>
-                  <div className="h-3 rounded-full bg-[#ffeccd] overflow-hidden">
+                  <div className="h-3 comic-panel bg-[#ffde00] overflow-hidden">
                     <div
-                      className={`h-full ${effectiveTimeLeft > 5 ? 'bg-[#1f6ac6]' : 'bg-[#f1532f]'}`}
+                      className={`h-full ${effectiveTimeLeft > 5 ? 'bg-[#00c3ff]' : 'bg-[#ff007f]'}`}
                       style={{ width: `${progressPercent}%` }}
                     />
                   </div>
                   <div className="min-h-[20px]">
                     {allPlayersAnswered && (
-                      <p className="text-xs text-[#1f6ac6] font-semibold mt-2">Все игроки уже ответили — можно переходить дальше.</p>
+                      <p className="text-xs text-[#00c3ff] comic-font mt-2">Все игроки уже ответили — можно переходить дальше.</p>
                     )}
                   </div>
                 </div>
 
                 <div className="flex-1 min-h-0 flex flex-col gap-5">
                   <div className="flex-1 min-h-0 flex items-center justify-center">
-                    <h2 className="text-3xl font-black leading-tight text-center max-h-full overflow-y-auto">
+                    <h2 className="text-3xl comic-font leading-tight text-center max-h-full overflow-y-auto">
                       <AnimatedText
                         key={`r1-q-${typeof question.id === 'number' ? question.id : question.order}`}
                         text={question.text}
-                        className="text-4xl sm:text-5xl font-black leading-tight"
+                        className="text-4xl sm:text-5xl comic-font leading-tight"
                       />
                     </h2>
                   </div>
 
-                  <div className="rounded-3xl border-[3px] border-dashed border-[#142a45]/30 bg-[#fff6da] p-4 space-y-3 shrink-0">
+                  <div className="comic-panel border-dashed border-[#000]/30 bg-white p-4 space-y-3 shrink-0">
                     <div className="flex items-center justify-between">
-                      <p className="retro-heading text-[11px] tracking-[0.4em] text-[#142a45]/70">Варианты</p>
-                      <span className="text-xs font-semibold text-[#142a45]/60">+{question.points} 💎</span>
+                      <p className="comic-font text-[11px] tracking-[0.4em] text-black/70">Варианты</p>
+                      <span className="text-xs comic-font text-black/60">+{question.points} 💎</span>
                     </div>
                     <Round1VariantsPanel
                       ref={round1VariantsPanelRef}
@@ -9241,7 +9250,7 @@ export default function HostRoomPage() {
                     />
                   </div>
 
-                  <p className="text-xs text-[#142a45]/70 shrink-0">
+                  <p className="text-xs text-black/70 shrink-0">
                     {isRoundEndButtonLocked
                       ? 'Подождите несколько секунд — звучит финальный джингл перед стартом следующего раунда.'
                       : canAdvance
@@ -9253,9 +9262,9 @@ export default function HostRoomPage() {
                 </div>
               </div>
             ) : (
-              <div className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 text-center space-y-3">
-                <h2 className="text-2xl font-black">🎉 Раунд завершён</h2>
-                <p className="text-sm text-[#142a45]/70">Все вопросы уже прозвучали. Нажмите «Итоги», чтобы подвести результаты.</p>
+              <div className="comic-panel bg-white p-6 text-center space-y-3">
+                <h2 className="text-2xl comic-font">🎉 Раунд завершён</h2>
+                <p className="text-sm text-black/70">Все вопросы уже прозвучали. Нажмите «Итоги», чтобы подвести результаты.</p>
               </div>
             )}
 
@@ -9266,67 +9275,67 @@ export default function HostRoomPage() {
     </div>
 
       {isWaiting && isPrestartVisible && (
-        <div className="fixed inset-0 z-40 bg-[#142a45]/70 backdrop-blur-sm flex items-center justify-center px-4">
-          <div className="max-w-lg w-full rounded-3xl border-[4px] border-[#142a45] bg-[#fff6da] p-6 space-y-4 shadow-2xl">
+        <div className="fixed inset-0 z-40 bg-[#ff2a2a]/70 backdrop-blur-sm flex items-center justify-center px-4">
+          <div className="max-w-lg w-full comic-panel border-[4px] border-[#000] bg-white p-6 space-y-4 ">
             <div>
-              <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Подключённые игроки</p>
-              <h3 className="text-2xl font-black text-[#142a45]">Перед стартом игры</h3>
+              <p className="comic-font text-xs tracking-[0.4em] text-black/70">Подключённые игроки</p>
+              <h3 className="text-2xl comic-font text-black">Перед стартом игры</h3>
             </div>
             <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
               {players.length === 0 ? (
-                <p className="text-sm text-[#142a45]/60">Игроки ещё не подключились.</p>
+                <p className="text-sm text-black/60">Игроки ещё не подключились.</p>
               ) : (
                 players.map((player, index) => (
-                  <div key={player.id} className="flex items-center justify-between rounded-2xl border-[3px] border-[#142a45]/15 bg-white px-3 py-2 text-sm">
+                  <div key={player.id} className="flex items-center justify-between comic-panel border-[#000]/15 bg-white px-3 py-2 text-sm">
                     <div className="flex items-center gap-3">
-                      <span className="w-8 h-8 rounded-full border-[3px] border-[#142a45]/30 flex items-center justify-center font-black">
+                      <span className="w-8 h-8 comic-panel border-[4px] border-[#000]/30 flex items-center justify-center comic-font">
                         {index + 1}
                       </span>
-                      <span className="font-semibold text-[#142a45]">{player.name}</span>
+                      <span className="comic-font text-black">{player.name}</span>
                     </div>
-                    <span className="text-xs text-[#142a45]/60">{player.total_points} 💎</span>
+                    <span className="text-xs text-black/60">{player.total_points} 💎</span>
                   </div>
                 ))
               )}
             </div>
             {isPlayerLimitReached && (
-              <p className="text-xs font-semibold text-[#b23324]">Предел — 10 игроков. Лишние участники не смогут войти.</p>
+              <p className="text-xs comic-font text-[#ff2a2a]">Предел — 10 игроков. Лишние участники не смогут войти.</p>
             )}
-            <p className="text-xs text-[#142a45]/70">Убедитесь, что все готовы. После продолжения прозвучат правила раунда.</p>
+            <p className="text-xs text-black/70">Убедитесь, что все готовы. После продолжения прозвучат правила раунда.</p>
             <div className="flex gap-3 flex-col sm:flex-row">
               <button
                 type="button"
                 onClick={handlePrestartNext}
                 disabled={!isPrestartNextEnabled}
-                className="flex-1 py-3 rounded-2xl font-black text-lg tracking-[0.25em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] transition disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex-1 py-3 comic-panel comic-font text-lg tracking-[0.25em] bg-[#ff2a2a] text-white border-[4px] border-[#000] transition disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Далее →
               </button>
               <button
                 type="button"
                 onClick={handlePrestartCancel}
-                className="flex-1 py-3 rounded-2xl border-[3px] border-dashed border-[#142a45] bg-white font-semibold text-[#142a45]"
+                className="flex-1 py-3 comic-panel border-dashed border-[#000] bg-white comic-font text-black"
               >
                 Отмена
               </button>
             </div>
             {!isPrestartNextEnabled && (
-              <p className="text-xs text-[#142a45]/60">Кнопка активируется через несколько секунд после сигнала подключения.</p>
+              <p className="text-xs text-black/60">Кнопка активируется через несколько секунд после сигнала подключения.</p>
             )}
           </div>
         </div>
       )}
 
       {shouldShowRulesModal && (
-        <div className="fixed inset-0 z-40 bg-[#142a45]/70 backdrop-blur-sm flex items-center justify-center px-4 transition-opacity duration-300">
-          <div className="max-w-md w-full rounded-3xl border-[4px] border-[#142a45] bg-[#fff6da] p-6 space-y-4 shadow-2xl transform transition-all duration-300 scale-100 opacity-100">
+        <div className="fixed inset-0 z-40 bg-[#ff2a2a]/70 backdrop-blur-sm flex items-center justify-center px-4 transition-opacity duration-300">
+          <div className="max-w-md w-full comic-panel border-[4px] border-[#000] bg-white p-6 space-y-4  transform transition-all duration-300 scale-100 opacity-100">
             {!isCompactForcedLayout && (
               <>
                 <div>
-                  <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Правила раунда</p>
-                  <h3 className="text-2xl font-black text-[#142a45]">Разогрев!</h3>
+                  <p className="comic-font text-xs tracking-[0.4em] text-black/70">Правила раунда</p>
+                  <h3 className="text-2xl comic-font text-black">Разогрев!</h3>
                 </div>
-                <ul className="text-sm text-[#142a45]/80 space-y-2">
+                <ul className="text-sm text-black/80 space-y-2">
                   <li>6 вопросов на всё подряд. К каждому — 4 варианта ответа среди которых надо выбрать правильный.</li>
                   <li>За правильный ответ получаете очки. 30 секунд на вопрос!</li>
                   <li>Подсчитываем очки. Погнали!</li>
@@ -9337,14 +9346,14 @@ export default function HostRoomPage() {
               <button
                 type="button"
                 onClick={() => handleCountdownStart()}
-                className="hover:scale-105 hover:shadow-lg transition-all duration-200 w-full py-3 rounded-2xl font-black text-lg tracking-[0.3em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45]"
+                className="hover:scale-105 hover: transition-all duration-200 w-full py-3 comic-panel comic-font text-lg tracking-[0.3em] bg-[#ff2a2a] text-white border-[4px] border-[#000]"
               >
                 Старт
               </button>
               <button
                 type="button"
                 onClick={handleRulesCancel}
-                className="hover:scale-105 hover:shadow-lg transition-all duration-200 w-full py-3 rounded-2xl border-[3px] border-dashed border-[#142a45] bg-white font-semibold text-[#142a45]"
+                className="hover:scale-105 hover: transition-all duration-200 w-full py-3 comic-panel border-dashed border-[#000] bg-white comic-font text-black"
               >
                 Отмена
               </button>
@@ -9354,8 +9363,8 @@ export default function HostRoomPage() {
       )}
 
       {shouldShowCountdownOverlay && (
-        <div className="fixed inset-0 z-50 bg-[#142a45]/90 flex flex-col items-center justify-center text-center text-[#ffeccd] px-4">
-          <p className="text-sm uppercase tracking-[0.5em] text-[#ffeccd]/70 mb-4">
+        <div className="fixed inset-0 z-50 bg-[#ff2a2a]/90 flex flex-col items-center justify-center text-center text-white px-4">
+          <p className="text-sm uppercase tracking-[0.5em] text-white/70 mb-4">
             {countdownContext === 'round2'
               ? 'Запуск Раунда 2'
               : countdownContext === 'round3'
@@ -9366,10 +9375,10 @@ export default function HostRoomPage() {
                     ? 'Запуск Финала'
                     : 'Запуск раунда'}
           </p>
-          <div className="text-7xl sm:text-8xl font-black drop-shadow-lg">
+          <div className="text-7xl sm:text-8xl comic-font drop-">
             {countdownValue.toUpperCase()}
           </div>
-          <p className="mt-6 text-sm text-[#ffeccd]/80">
+          <p className="mt-6 text-sm text-white/80">
             {countdownContext === 'round2'
               ? 'Фейколов уже на подходе — готовим новое утверждение для игроков.'
               : countdownContext === 'round3'
@@ -9384,29 +9393,29 @@ export default function HostRoomPage() {
       )}
 
       {isRound3RulesVisible && (
-        <div className="fixed inset-0 z-50 bg-[#142a45]/70 backdrop-blur-sm flex items-center justify-center px-4 transition-opacity duration-300">
-          <div className="max-w-lg w-full rounded-3xl border-[4px] border-[#142a45] bg-[#fff6da] p-6 space-y-4 shadow-2xl transform transition-all duration-300 scale-100 opacity-100">
+        <div className="fixed inset-0 z-50 bg-[#ff2a2a]/70 backdrop-blur-sm flex items-center justify-center px-4 transition-opacity duration-300">
+          <div className="max-w-lg w-full comic-panel border-[4px] border-[#000] bg-white p-6 space-y-4  transform transition-all duration-300 scale-100 opacity-100">
             {!isCompactForcedLayout && (
               <>
                 <div>
-                  <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Раунд 3 · «МозгоШтурм»</p>
-                  <h3 className="text-2xl font-black text-[#142a45]">Правила</h3>
+                  <p className="comic-font text-xs tracking-[0.4em] text-black/70">Раунд 3 · «МозгоШтурм»</p>
+                  <h3 className="text-2xl comic-font text-black">Правила</h3>
                 </div>
-                <div className="text-sm text-[#142a45]/80 whitespace-pre-line leading-relaxed">{ROUND3_RULES_TEXT}</div>
+                <div className="text-sm text-black/80 whitespace-pre-line leading-relaxed">{ROUND3_RULES_TEXT}</div>
               </>
             )}
             <div className="space-y-3">
               <button
                 type="button"
                 onClick={() => void startRound3Countdown()}
-                className="w-full py-3 rounded-2xl font-black text-lg tracking-[0.3em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] hover:scale-105 hover:shadow-lg transition-all duration-200"
+                className="w-full py-3 comic-panel comic-font text-lg tracking-[0.3em] bg-[#ff2a2a] text-white border-[4px] border-[#000] hover:scale-105 hover: transition-all duration-200"
               >
                 Старт
               </button>
               <button
                 type="button"
                 onClick={() => setIsRound3RulesVisible(false)}
-                className="w-full py-3 rounded-2xl border-[3px] border-dashed border-[#142a45] bg-white font-semibold text-[#142a45] hover:scale-105 hover:shadow-lg transition-all duration-200"
+                className="w-full py-3 comic-panel border-dashed border-[#000] bg-white comic-font text-black hover:scale-105 hover: transition-all duration-200"
               >
                 Отмена
               </button>
@@ -9416,19 +9425,19 @@ export default function HostRoomPage() {
       )}
 
       {isRound2RulesVisible && (
-        <div className="fixed inset-0 z-50 bg-[#142a45]/70 backdrop-blur-sm flex items-center justify-center px-4 transition-opacity duration-300">
-          <div className="max-w-lg w-full rounded-3xl border-[4px] border-[#142a45] bg-[#fff6da] p-6 space-y-4 shadow-2xl transform transition-all duration-300 scale-100 opacity-100">
+        <div className="fixed inset-0 z-50 bg-[#ff2a2a]/70 backdrop-blur-sm flex items-center justify-center px-4 transition-opacity duration-300">
+          <div className="max-w-lg w-full comic-panel border-[4px] border-[#000] bg-white p-6 space-y-4  transform transition-all duration-300 scale-100 opacity-100">
             {!isCompactForcedLayout && (
               <>
                 <div>
-                  <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Раунд 2 · «Фейколов»</p>
-                  <h3 className="text-2xl font-black text-[#142a45]">Правда или выдумка</h3>
+                  <p className="comic-font text-xs tracking-[0.4em] text-black/70">Раунд 2 · «Фейколов»</p>
+                  <h3 className="text-2xl comic-font text-black">Правда или выдумка</h3>
                 </div>
-                <ul className="text-sm text-[#142a45]/80 space-y-2">
+                <ul className="text-sm text-black/80 space-y-2">
                   <li>• На экранах игроков появляется утверждение. Нужно выбрать «Правда» или «Вымысел».</li>
                   <li>• На каждое утверждение даём 30 секунд. После сигнала открываем объяснение.</li>
                   <li>
-                    • Точное попадание приносит <span className="font-black text-[#b4007f]">+{ROUND2_POINTS}💎</span>. Неверный ответ — 0.
+                    • Точное попадание приносит <span className="comic-font text-[#ff007f]">+{ROUND2_POINTS}💎</span>. Неверный ответ — 0.
                   </li>
                 </ul>
               </>
@@ -9438,50 +9447,50 @@ export default function HostRoomPage() {
                 type="button"
                 onClick={startRound2}
                 disabled={round2Items.length === 0}
-                className="w-full py-3 rounded-2xl font-black text-lg tracking-[0.3em] bg-[#b4007f] text-white border-[3px] border-[#142a45] transition hover:scale-105 hover:shadow-lg transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="w-full py-3 comic-panel comic-font text-lg tracking-[0.3em] bg-[#ff007f] text-white border-[4px] border-[#000] transition hover:scale-105 hover: transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Запустить Раунд 2
               </button>
               <button
                 type="button"
                 onClick={() => setIsRound2RulesVisible(false)}
-                className="w-full py-3 rounded-2xl border-[3px] border-dashed border-[#142a45] bg-white font-semibold text-[#142a45] hover:scale-105 hover:shadow-lg transition-all duration-200"
+                className="w-full py-3 comic-panel border-dashed border-[#000] bg-white comic-font text-black hover:scale-105 hover: transition-all duration-200"
               >
                 Отмена
               </button>
             </div>
             {!isCompactForcedLayout &&
               round2Items.length === 0 && (
-                <p className="text-xs text-[#b23324] font-semibold">Факты ещё загружаются — подождите пару секунд.</p>
+                <p className="text-xs text-[#ff2a2a] comic-font">Факты ещё загружаются — подождите пару секунд.</p>
               )}
           </div>
         </div>
       )}
 
       {isRound4RulesVisible && (
-        <div className="fixed inset-0 z-50 bg-[#142a45]/70 backdrop-blur-sm flex items-center justify-center px-4 transition-opacity duration-300">
-          <div className="max-w-lg w-full rounded-3xl border-[4px] border-[#142a45] bg-[#fff6da] p-6 space-y-4 shadow-2xl transform transition-all duration-300 scale-100 opacity-100">
+        <div className="fixed inset-0 z-50 bg-[#ff2a2a]/70 backdrop-blur-sm flex items-center justify-center px-4 transition-opacity duration-300">
+          <div className="max-w-lg w-full comic-panel border-[4px] border-[#000] bg-white p-6 space-y-4  transform transition-all duration-300 scale-100 opacity-100">
             {!isCompactForcedLayout && (
               <>
                 <div>
-                  <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Раунд 4 · «Дэшифровщик»</p>
-                  <h3 className="text-2xl font-black text-[#142a45]">Эмодзи-загадки</h3>
+                  <p className="comic-font text-xs tracking-[0.4em] text-black/70">Раунд 4 · «Дэшифровщик»</p>
+                  <h3 className="text-2xl comic-font text-black">Эмодзи-загадки</h3>
                 </div>
-                <div className="text-sm text-[#142a45]/80 whitespace-pre-line leading-relaxed">{ROUND4_RULES_TEXT}</div>
+                <div className="text-sm text-black/80 whitespace-pre-line leading-relaxed">{ROUND4_RULES_TEXT}</div>
               </>
             )}
             <div className="space-y-3">
               <button
                 type="button"
                 onClick={handleStartRound4Rules}
-                className="w-full py-3 rounded-2xl font-black text-lg tracking-[0.3em] bg-[#f1532f] text-white border-[3px] border-[#142a45] hover:scale-105 hover:shadow-lg transition-all duration-200"
+                className="w-full py-3 comic-panel comic-font text-lg tracking-[0.3em] bg-[#ff007f] text-white border-[4px] border-[#000] hover:scale-105 hover: transition-all duration-200"
               >
                 Старт
               </button>
               <button
                 type="button"
                 onClick={handleCancelRound4Rules}
-                className="w-full py-3 rounded-2xl border-[3px] border-dashed border-[#142a45] bg-white font-semibold text-[#142a45] hover:scale-105 hover:shadow-lg transition-all duration-200"
+                className="w-full py-3 comic-panel border-dashed border-[#000] bg-white comic-font text-black hover:scale-105 hover: transition-all duration-200"
               >
                 Отмена
               </button>
@@ -9491,15 +9500,15 @@ export default function HostRoomPage() {
       )}
 
       {isRound5RulesVisible && (
-        <div className="fixed inset-0 z-50 bg-[#142a45]/70 backdrop-blur-sm flex items-center justify-center px-4 transition-opacity duration-300">
-          <div className="max-w-lg w-full rounded-3xl border-[4px] border-[#142a45] bg-[#fff6da] p-6 space-y-4 shadow-2xl transform transition-all duration-300 scale-100 opacity-100">
+        <div className="fixed inset-0 z-50 bg-[#ff2a2a]/70 backdrop-blur-sm flex items-center justify-center px-4 transition-opacity duration-300">
+          <div className="max-w-lg w-full comic-panel border-[4px] border-[#000] bg-white p-6 space-y-4  transform transition-all duration-300 scale-100 opacity-100">
             {!isCompactForcedLayout && (
               <>
                 <div>
-                  <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Финал · «Цифровая интуиция»</p>
-                  <h3 className="text-2xl font-black text-[#142a45]">Правила</h3>
+                  <p className="comic-font text-xs tracking-[0.4em] text-black/70">Финал · «Цифровая интуиция»</p>
+                  <h3 className="text-2xl comic-font text-black">Правила</h3>
                 </div>
-                <div className="text-sm text-[#142a45]/80 whitespace-pre-line leading-relaxed">{ROUND5_RULES_TEXT}</div>
+                <div className="text-sm text-black/80 whitespace-pre-line leading-relaxed">{ROUND5_RULES_TEXT}</div>
               </>
             )}
             <div className="space-y-3">
@@ -9507,14 +9516,14 @@ export default function HostRoomPage() {
                 type="button"
                 onClick={handleStartRound5Rules}
                 disabled={isRound5RulesAudioPlaying || isCountdownVisible}
-                className="w-full py-3 rounded-2xl font-black text-lg tracking-[0.3em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] hover:scale-105 hover:shadow-lg transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="w-full py-3 comic-panel comic-font text-lg tracking-[0.3em] bg-[#ff2a2a] text-white border-[4px] border-[#000] hover:scale-105 hover: transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {isRound5RulesAudioPlaying ? 'ОЗВУЧКА…' : 'СТАРТ'}
               </button>
               <button
                 type="button"
                 onClick={handleCancelRound5Rules}
-                className="w-full py-3 rounded-2xl border-[3px] border-dashed border-[#142a45] bg-white font-semibold text-[#142a45] hover:scale-105 hover:shadow-lg transition-all duration-200"
+                className="w-full py-3 comic-panel border-dashed border-[#000] bg-white comic-font text-black hover:scale-105 hover: transition-all duration-200"
               >
                 Отмена
               </button>

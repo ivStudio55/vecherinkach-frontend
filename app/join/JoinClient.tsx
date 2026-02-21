@@ -126,20 +126,20 @@ export default function JoinClient() {
   };
 
   return (
-    <div className="min-h-screen bg-[#fef4dc] text-[#142a45] px-4 py-10 relative overflow-hidden" style={backgroundStyle}>
+    <div className="min-h-screen comic-bg-dots-pink text-[#142a45] px-4 py-10 relative overflow-hidden" style={backgroundStyle}>
       <div className="max-w-3xl mx-auto space-y-6 relative z-20">
-        <header className="retro-panel bg-[#142a45] text-[#ffeccd] px-6 py-5">
-          <p className="retro-heading text-xs tracking-[0.5em] text-[#ffeccd]/80">Подключение игроков</p>
-          <h1 className="text-3xl font-black leading-tight">Введите код комнаты и присоединяйтесь</h1>
-          <p className="text-sm text-[#ffeccd]/80 mt-2">
+        <header className="comic-panel bg-[#142a45] text-[#ffeccd] px-6 py-5">
+          <p className="comic-font text-xs tracking-[0.5em] text-[#ffeccd]/80">Подключение игроков</p>
+          <h1 className="text-3xl comic-font leading-tight">Введите код комнаты и присоединяйтесь</h1>
+          <p className="text-sm text-[#ffeccd]/80 mt-2 font-bold">
             Этот экран можно отправить игрокам. Они самостоятельно введут код и свой ник.
           </p>
         </header>
 
-        <section className="rounded-3xl border-[4px] border-[#142a45] bg-white shadow-xl p-6 space-y-5">
+        <section className="comic-panel bg-white p-6 space-y-5">
           <form onSubmit={handleJoinRoom} className="space-y-5">
             <div>
-              <label htmlFor="roomCode" className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Код комнаты</label>
+              <label htmlFor="roomCode" className="comic-font text-xs tracking-[0.4em] text-[#142a45]/70">Код комнаты</label>
               <input
                 id="roomCode"
                 type="text"
@@ -149,14 +149,14 @@ export default function JoinClient() {
                 value={roomCode}
                 onChange={(e) => setRoomCode(e.target.value.replace(/\D/g, ''))}
                 placeholder="1234"
-                className="w-full mt-2 px-4 py-3 text-2xl text-center font-black tracking-[0.5em] rounded-2xl border-[3px] border-[#142a45] bg-[#fff2c8] focus:outline-none focus:ring-4 focus:ring-[#1f6ac6]/30"
+                className="w-full mt-2 px-4 py-3 text-2xl text-center comic-font tracking-[0.5em] rounded-2xl border-[4px] border-[#000] bg-[#ffde00] focus:outline-none focus:ring-4 focus:ring-[#1f6ac6]/30"
                 required
               />
-              <p className="text-xs text-[#142a45]/70 mt-2">Код выдаёт ведущий после создания комнаты.</p>
+              <p className="text-xs text-[#142a45]/70 mt-2 font-bold">Код выдаёт ведущий после создания комнаты.</p>
             </div>
 
             <div>
-              <label htmlFor="playerName" className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Ваш ник</label>
+              <label htmlFor="playerName" className="comic-font text-xs tracking-[0.4em] text-[#142a45]/70">Ваш ник</label>
               <div className="mt-2 flex gap-2">
                 <input
                   id="playerName"
@@ -165,22 +165,22 @@ export default function JoinClient() {
                   onChange={(e) => setPlayerName(e.target.value)}
                   placeholder="Плюшевый Ёж"
                   maxLength={30}
-                  className="flex-1 px-4 py-3 rounded-2xl border-[3px] border-[#142a45] bg-white placeholder-[#142a45]/40 focus:outline-none focus:ring-4 focus:ring-[#f1532f]/20"
+                  className="flex-1 px-4 py-3 rounded-2xl border-[4px] border-[#000] bg-white placeholder-[#142a45]/40 focus:outline-none focus:ring-4 focus:ring-[#f1532f]/20 font-bold"
                 />
                 <button
                   type="button"
                   onClick={handleGenerateName}
-                  className="px-4 py-3 rounded-2xl border-[3px] border-dashed border-[#142a45] bg-[#ffecc4] text-2xl"
+                  className="comic-button px-4 py-3 bg-[#00c3ff] text-2xl"
                   title="Сгенерировать имя"
                 >
                   🎲
                 </button>
               </div>
-              <p className="text-xs text-[#142a45]/70 mt-1">Можно оставить пустым — тогда мы выберем случайный ник.</p>
+              <p className="text-xs text-[#142a45]/70 mt-1 font-bold">Можно оставить пустым — тогда мы выберем случайный ник.</p>
             </div>
 
             {error && (
-              <div className="rounded-2xl border-[3px] border-[#b23324] bg-[#ffd7d0] px-4 py-3 text-sm font-semibold text-[#7b1d16]">
+              <div className="rounded-2xl border-[4px] border-[#000] bg-[#ff2a2a] px-4 py-3 text-sm font-bold text-white">
                 {error}
               </div>
             )}
@@ -188,7 +188,7 @@ export default function JoinClient() {
             <button
               type="submit"
               disabled={isLoading || roomCode.length !== 4}
-              className="w-full py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] transition disabled:opacity-40 disabled:cursor-not-allowed"
+              className="comic-button w-full py-4 text-xl bg-[#ff007f] text-white disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {isLoading ? 'Подключаем...' : 'Присоединиться'}
             </button>
@@ -198,14 +198,14 @@ export default function JoinClient() {
             <button
               type="button"
               onClick={() => router.push('/')}
-              className="px-4 py-2 rounded-2xl border-[3px] border-[#142a45] font-semibold bg-[#ffe184] hover:bg-[#ffd463] transition"
+              className="comic-button px-4 py-2 bg-[#ffde00]"
             >
               Главная
             </button>
             <button
               type="button"
               onClick={() => router.push('/host')}
-              className="px-4 py-2 rounded-2xl border-[3px] border-[#142a45] font-semibold bg-white hover:bg-[#fef4dc] transition"
+              className="comic-button px-4 py-2 bg-white"
             >
               Ведущий
             </button>

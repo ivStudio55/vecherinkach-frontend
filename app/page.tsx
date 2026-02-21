@@ -361,12 +361,12 @@ export default function HomePage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#fef4dc] text-[#142a45]" style={backgroundStyle} onClick={handleUserInteraction}>
+    <div className="min-h-screen comic-bg-dots-yellow text-[#142a45]" style={backgroundStyle} onClick={handleUserInteraction}>
       {!hasStarted ? (
         <div className="min-h-screen flex items-center justify-center">
           <button
             onClick={handleStart}
-            className={`px-8 py-4 rounded-2xl font-black text-xl tracking-[0.2em] bg-[#142a45] text-[#ffeccd] border-[3px] border-[#142a45] hover:bg-[#1a3a5a] transition-all duration-500 ${buttonAnimating ? 'scale-110 bg-[#f1532f] shadow-2xl' : ''}`}
+            className={`comic-button px-8 py-4 text-2xl bg-[#ffde00] text-[#000] hover:bg-[#ffea00] transition-all duration-500 ${buttonAnimating ? 'scale-110 bg-[#f1532f] shadow-2xl' : ''}`}
           >
             НАЧАТЬ ВЕСЕЛУХУ
           </button>
@@ -374,29 +374,29 @@ export default function HomePage() {
       ) : (
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 space-y-8">
           <div className={panelEnterClass(panelStage >= 1)} style={panelEnterStyle(panelStage >= 1, 0)}>
-            <header className="retro-panel bg-[#f1532f] text-[#ffeccd] px-6 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <header className="comic-panel bg-[#ff2a2a] text-[#fff] px-6 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
-                <p className="retro-heading text-xs tracking-[0.5em]">Редактор квиза</p>
-                <h1 className="text-3xl sm:text-4xl font-black leading-tight">Когнитивное программирование вечеринки</h1>
+                <p className="comic-font text-xs tracking-[0.5em]">Редактор квиза</p>
+                <h1 className="text-3xl sm:text-4xl comic-font leading-tight text-stroke-black">Когнитивное программирование вечеринки</h1>
               </div>
-              <div className="text-sm font-semibold uppercase tracking-[0.3em]">v 1.3.1</div>
+              <div className="text-sm comic-font uppercase tracking-[0.3em]">v 1.3.1</div>
             </header>
           </div>
 
           <div className={panelEnterClass(panelStage >= 2)} style={panelEnterStyle(panelStage >= 2, 140)}>
-            <section className="retro-panel bg-[#ffe184] border-[4px] border-[#142a45] p-6 space-y-6">
+            <section className="comic-panel bg-[#00c3ff] p-6 space-y-6">
             <div className="grid lg:grid-cols-[1.15fr,0.95fr] gap-6">
               <div className="space-y-5">
-                <div className="rounded-3xl border-[3px] border-[#142a45] bg-[#fff2c8] p-4 space-y-4">
+                <div className="comic-panel bg-[#fff] p-4 space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">вечеринкач классический режим</p>
-                      <p className="text-2xl font-black text-[#142a45]">Вечеринкач · Раунд 1</p>
+                      <p className="comic-font text-xs tracking-[0.4em] text-[#142a45]/70">вечеринкач классический режим</p>
+                      <p className="text-2xl comic-font text-[#142a45]">Вечеринкач · Раунд 1</p>
                     </div>
-                    <span className="px-3 py-1 rounded-full text-xs font-bold tracking-[0.3em] bg-[#142a45] text-[#ffeccd] animate-pulse">LIVE</span>
+                    <span className="px-3 py-1 rounded-full text-xs comic-font tracking-[0.3em] bg-[#ffde00] text-[#000] border-2 border-black animate-pulse">LIVE</span>
                   </div>
-                  <div className="flex flex-wrap gap-3 text-sm font-semibold">
-                    <button type="button" className="px-4 py-2 rounded-full border-2 border-[#142a45] bg-white">Общее</button>
+                  <div className="flex flex-wrap gap-3 text-sm comic-font">
+                    <button type="button" className="comic-button px-4 py-2 bg-white">Общее</button>
                     <button
                       type="button"
                       onClick={playRandomMeet}
