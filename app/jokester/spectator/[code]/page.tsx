@@ -411,7 +411,7 @@ function SpectatorTimerBar({ seconds, total }: { seconds: number; total: number 
       </div>
       <div className="h-2 bg-[#1a2940] rounded-full overflow-hidden">
         <div
-          className="h-full rounded-full transition-all duration-1000"
+          className="h-full rounded-full transition-all duration-1000 ease-linear"
           style={{ width: `${pct}%`, backgroundColor: color }}
         />
       </div>

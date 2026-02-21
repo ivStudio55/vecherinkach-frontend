@@ -948,7 +948,7 @@ export default function JokesterHostPage() {
             {'Пошути-кач'.split('').map((ch, i) => (
               <span
                 key={`${ch}-${i}`}
-                className="jokester-letter"
+                className="jokester-letter text-black"
                 style={{ animationDelay: `${i * 0.06}s` }}
               >
                 {ch}
@@ -1248,19 +1248,23 @@ export default function JokesterHostPage() {
                       label: showDeAnon ? (players.find(p => p.id === currentDuel.player2_id)?.name || 'Дуэлянт 2') : 'Дуэлянт 2',
                       color: '#ef4444',
                     },
-                  ].map((cfg, idx) => (
-                    <DuelAnswerCard
-                      key={cfg.id}
-                      label={cfg.label}
-                      answers={currentAnswers.filter(a => a.player_id === cfg.id)}
-                      votes={currentVotes.filter(v => v.voted_for_id === cfg.id)}
-                      players={players}
-                      color={cfg.color}
-                      showNames={showDeAnon}
-                      emitFeathers={emitFeathers}
-                      animDelay={idx * 0.6}
-                    />
-                  ))}
+                  ].map((cfg, idx) => {
+                    const isLoser = room.voting_phase === 'results' && voteReveal ? voteReveal.playerName !== cfg.label && voteReveal.playerName !== 'Ничья' : false;
+                    return (
+                      <DuelAnswerCard
+                        key={cfg.id}
+                        label={cfg.label}
+                        answers={currentAnswers.filter(a => a.player_id === cfg.id)}
+                        votes={currentVotes.filter(v => v.voted_for_id === cfg.id)}
+                        players={players}
+                        color={cfg.color}
+                        showNames={showDeAnon}
+                        emitFeathers={emitFeathers}
+                        animDelay={idx * 0.6}
+                        isLoser={isLoser}
+                      />
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -1288,8 +1292,10 @@ export default function JokesterHostPage() {
                         to={voteReveal.pointsTo}
                         className="text-5xl font-black text-purple-600 drop-shadow-[2px_2px_0_#000]"
                         onComplete={() => {
-                          emitAtElement(winnerPanelRef.current, { count: 46, spread: 200, speed: 7.2 });
-                          playRandomSound(START_DUCK_SOUNDS, 0.55);
+                          setTimeout(() => {
+                            emitAtElement(winnerPanelRef.current, { count: 46, spread: 200, speed: 7.2 });
+                            playRandomSound(START_DUCK_SOUNDS, 0.55);
+                          }, 500);
                         }}
                       />
                     </div>
@@ -1620,7 +1626,7 @@ function TimerCircle({ seconds, total, tickKey, className }: { seconds: number; 
             stroke={color} strokeWidth="8" strokeLinecap="round"
             strokeDasharray={circumference}
             strokeDashoffset={offset}
-            className="transition-all duration-1000"
+            className="transition-all duration-1000 ease-linear"
           />
         </svg>
         <div className="absolute inset-0 flex items-center justify-center z-20">
@@ -1650,6 +1656,7 @@ function DuelAnswerCard({
   showNames,
   emitFeathers,
   animDelay = 0,
+  isLoser = false,
 }: {
   label: string;
   answers: JokesterAnswer[];
@@ -1659,6 +1666,7 @@ function DuelAnswerCard({
   showNames: boolean;
   emitFeathers: (spawn: FeatherSpawn) => void;
   animDelay?: number;
+  isLoser?: boolean;
 }) {
   const avatarSrc = (avatar?: string | null) => {
     if (!avatar) return '/audio/sound/Jokester/ava/1.png';
@@ -1669,7 +1677,7 @@ function DuelAnswerCard({
 
   return (
     <div
-      className="relative cartoon-panel p-6 space-y-4 overflow-hidden answer-card-anim panel-pulse"
+      className={`relative cartoon-panel p-6 space-y-4 overflow-hidden answer-card-anim panel-pulse ${isLoser ? 'animate-knockout' : ''}`}
       style={{
         borderColor: color,
         animationDelay: `${animDelay}s`,

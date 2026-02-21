@@ -160,10 +160,12 @@ export class JokesterAudioPlayer {
       a.volume = volume;
       a.onended = () => {
         this.voice = null;
+        this.fadeBgm(0.4, 500);
         resolve();
       };
       a.onerror = () => {
         this.voice = null;
+        this.fadeBgm(0.4, 500);
         resolve();
       };
       a.play().catch(() => resolve());

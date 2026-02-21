@@ -109,7 +109,7 @@ export default function JokesterEntryPage() {
             {'Пошути-кач'.split('').map((ch, i) => (
               <span
                 key={`${ch}-${i}`}
-                className="inline-block jokester-letter"
+                className="inline-block jokester-letter text-white"
                 style={{ animationDelay: `${i * 0.08}s` }}
               >
                 {ch}

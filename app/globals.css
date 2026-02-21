@@ -1350,6 +1350,19 @@ body {
 }
 
 /* Cartoon Style (Jokester) */
+.jokester-sunrays {
+  position: absolute;
+  inset: -50vmax;
+  background: repeating-conic-gradient(
+    from 0deg,
+    #1f6ac6 0deg 15deg,
+    #2b7cdb 15deg 30deg
+  );
+  animation: sunraysRotate 60s linear infinite;
+  transform-origin: center;
+  z-index: 0;
+}
+
 .cartoon-panel {
   background-color: #ffffff;
   color: #000000;
@@ -1419,5 +1432,15 @@ body {
 .cartoon-input:focus {
   outline: none;
   border-color: #1f6ac6;
+}
+
+@keyframes knockout {
+  0% { transform: scale(1) rotate(0deg); opacity: 1; }
+  20% { transform: scale(1.1) rotate(-5deg); opacity: 1; }
+  100% { transform: scale(0) rotate(45deg) translateY(500px); opacity: 0; }
+}
+
+.animate-knockout {
+  animation: knockout 0.8s cubic-bezier(0.36, 0, 0.66, -0.56) forwards;
 }
 
