@@ -139,7 +139,6 @@ export default function HostPage() {
   const frameStyle: CSSProperties = {
     width: '100%',
     maxWidth: 'min(1400px, calc((100vh - 48px) * 16 / 9))',
-    maxHeight: 'min(calc(100vh - 48px), calc(100vw * 9 / 16))',
   };
 
 
@@ -150,7 +149,7 @@ export default function HostPage() {
 
   return (
     <div
-      className={`min-h-screen text-[#142a45] relative overflow-hidden z-10 ${isCompactLayout ? 'px-3 py-4' : 'px-4 py-6 lg:py-8'} ${
+      className={`min-h-screen text-[#142a45] relative z-10 ${isCompactLayout ? 'px-3 py-4' : 'px-4 py-6 lg:py-8'} ${
         isMobileLayout ? 'text-[calc(1rem*0.85)]' : ''
       }`}
     >
@@ -165,7 +164,7 @@ export default function HostPage() {
           className="w-full rounded-[32px] border-[3px] border-[#142a45]/20 bg-[#fff6da]/80 px-4 py-4 shadow-[0_25px_80px_rgba(20,42,69,0.25)] backdrop-blur-sm sm:px-6 sm:py-6 lg:px-8"
           style={frameStyle}
         >
-          <div className={`flex h-full flex-col ${isCompactLayout ? 'gap-4' : 'gap-6'} overflow-hidden`}>
+          <div className={`flex h-full flex-col ${isCompactLayout ? 'gap-4' : 'gap-6'}`}>
             <header className={`retro-panel bg-[#142a45] text-[#ffeccd] ${isCompactLayout ? 'px-4 py-4' : 'px-6 py-5'} shrink-0`}>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
@@ -189,7 +188,7 @@ export default function HostPage() {
             </header>
 
             <section
-              className={`min-h-0 flex-1 overflow-auto ${
+              className={`flex-1 ${
                 isMobileLayout ? 'flex flex-col gap-4' : 'grid gap-6 lg:grid-cols-[1.1fr,0.9fr]'
               }`}
             >

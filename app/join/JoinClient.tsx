@@ -119,7 +119,7 @@ export default function JoinClient() {
   };
 
   return (
-    <div className="min-h-screen text-[#142a45] px-4 py-10 relative overflow-hidden z-10">
+    <div className="min-h-screen text-[#142a45] px-4 py-10 relative z-10">
       <ComicBackground />
       <div className="max-w-3xl mx-auto space-y-6 relative z-20">
         <header className="comic-panel bg-[#142a45] text-[#ffeccd] px-6 py-5">
