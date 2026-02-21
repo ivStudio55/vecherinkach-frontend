@@ -112,18 +112,18 @@ export default function DrawCanvas({ maxStrokes, onSubmit, disabled, word }: Dra
   };
 
   return (
-    <div className="flex flex-col items-center gap-3 w-full">
+    <div className="flex flex-col items-center gap-4 w-full">
       {word && (
         <div className="text-center">
-          <span className="text-xs uppercase tracking-[0.3em] text-white/60">Нарисуй</span>
-          <p className="text-2xl font-black text-white">{word}</p>
+          <span className="text-xl font-bangers tracking-widest text-[#FF69B4] bg-white border-[3px] border-black px-4 py-2 inline-block transform -rotate-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]" style={{ WebkitTextStroke: '0.5px black' }}>НАРИСУЙ</span>
+          <p className="text-4xl font-bangers tracking-wide text-[#00BFFF] mt-2 drop-shadow-[2px_2px_0_#000]" style={{ WebkitTextStroke: '1px black' }}>{word}</p>
         </div>
       )}
 
       {maxStrokes !== undefined && (
-        <div className="flex items-center gap-2 text-sm font-bold text-white/80">
-          <span>Касаний осталось:</span>
-          <span className={`text-lg ${remainingStrokes === 0 ? 'text-red-400' : 'text-green-400'}`}>
+        <div className="flex items-center gap-2 text-lg font-black uppercase bg-white border-[3px] border-black px-4 py-2 transform rotate-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+          <span>КАСАНИЙ ОСТАЛОСЬ:</span>
+          <span className={`text-2xl font-bangers tracking-widest ${remainingStrokes === 0 ? 'text-[#FF69B4]' : 'text-[#32CD32]'}`} style={{ WebkitTextStroke: '1px black' }}>
             {remainingStrokes}
           </span>
         </div>
@@ -133,7 +133,7 @@ export default function DrawCanvas({ maxStrokes, onSubmit, disabled, word }: Dra
         ref={canvasRef}
         width={CANVAS_SIZE}
         height={CANVAS_SIZE}
-        className="border-4 border-white/20 rounded-2xl bg-white touch-none cursor-crosshair"
+        className="border-[6px] border-black bg-white touch-none cursor-crosshair shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transform -rotate-1"
         style={{ width: '100%', maxWidth: '400px', aspectRatio: '1' }}
         onMouseDown={handleStart}
         onMouseMove={handleMove}
@@ -144,27 +144,28 @@ export default function DrawCanvas({ maxStrokes, onSubmit, disabled, word }: Dra
         onTouchEnd={handleEnd}
       />
 
-      <div className="flex gap-2 flex-wrap justify-center">
+      <div className="flex gap-3 flex-wrap justify-center mt-2">
         <button
           onClick={handleUndo}
           disabled={strokes.length === 0 || disabled}
-          className="px-4 py-2 rounded-xl border-2 border-white/20 bg-white/10 text-sm font-bold text-white disabled:opacity-40 active:scale-95 transition"
+          className="px-4 py-3 bg-white border-[4px] border-black text-lg font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all disabled:opacity-50 disabled:cursor-not-allowed transform rotate-1"
         >
-          ↩ Отменить
+          ↩ ОТМЕНИТЬ
         </button>
         <button
           onClick={handleClear}
           disabled={strokes.length === 0 || disabled}
-          className="px-4 py-2 rounded-xl border-2 border-white/20 bg-white/10 text-sm font-bold text-white disabled:opacity-40 active:scale-95 transition"
+          className="px-4 py-3 bg-white border-[4px] border-black text-lg font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all disabled:opacity-50 disabled:cursor-not-allowed transform -rotate-1"
         >
-          🗑 Очистить
+          🗑 ОЧИСТИТЬ
         </button>
         <button
           onClick={handleSubmit}
           disabled={disabled || strokes.length === 0}
-          className="px-6 py-2 rounded-xl bg-green-500 text-white text-sm font-bold disabled:opacity-40 active:scale-95 transition"
+          className="px-6 py-3 bg-[#32CD32] hover:bg-[#28a428] text-white border-[4px] border-black text-xl font-bangers tracking-widest shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all disabled:opacity-50 disabled:cursor-not-allowed transform rotate-2"
+          style={{ WebkitTextStroke: '1px black' }}
         >
-          ✅ Отправить
+          ✅ ОТПРАВИТЬ
         </button>
       </div>
     </div>

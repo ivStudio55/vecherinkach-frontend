@@ -26,6 +26,8 @@ import type { DrawRoom, DrawPlayer, DrawChain, DrawStep } from '@/lib/draw/types
 import { roundLabel } from '@/lib/draw/types';
 import { DrawAudioPlayer, AUDIO, getDrawCommentary } from '@/lib/draw/audio';
 
+import ComicBackground from '@/components/draw/ComicBackground';
+
 export default function DrawHostPage() {
   const params = useParams<{ code: string }>();
   const code = (params?.code || '').toString().toUpperCase();
@@ -421,80 +423,90 @@ export default function DrawHostPage() {
 
   if (!room) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-[#1a0a2e] via-[#16213e] to-[#0f3460] text-white flex items-center justify-center">
-        <p className="text-xl">{error || 'Загрузка…'}</p>
-      </div>
+      <ComicBackground>
+        <div className="flex items-center justify-center">
+          <div className="bg-white border-[4px] border-black p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transform -rotate-2">
+            <p className="text-3xl font-bangers tracking-widest text-[#FF69B4]" style={{ WebkitTextStroke: '1px black' }}>
+              {error || 'ЗАГРУЗКА...'}
+            </p>
+          </div>
+        </div>
+      </ComicBackground>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#1a0a2e] via-[#16213e] to-[#0f3460] text-white">
-      <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
+    <ComicBackground>
+      <div className="max-w-6xl mx-auto space-y-8 text-black">
         {/* Header */}
-        <header className="rounded-3xl border-4 border-white/10 bg-white/5 backdrop-blur px-8 py-6 shadow-2xl flex items-center justify-between">
+        <header className="flex flex-wrap items-center justify-between gap-4 bg-white border-[6px] border-black p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transform -rotate-1">
           <div>
-            <p className="uppercase text-xs tracking-[0.5em] text-white/60">🎨 Рисункач</p>
-            <h1 className="text-4xl font-black">Комната: {code}</h1>
-            <p className="text-xs text-white/40 mt-1">{modeLabel}</p>
+            <div className="inline-block bg-[#FF69B4] border-[3px] border-black px-3 py-1 transform rotate-2 mb-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+              <p className="uppercase text-xs font-black tracking-widest text-white">🎨 Рисункач</p>
+            </div>
+            <h1 className="text-4xl sm:text-5xl font-bangers tracking-wide text-[#00BFFF] drop-shadow-[2px_2px_0_#000]" style={{ WebkitTextStroke: '1px black' }}>
+              КОМНАТА: {code}
+            </h1>
+            <p className="text-sm font-bold mt-2 bg-gray-100 border-[2px] border-black px-2 py-1 inline-block">{modeLabel}</p>
             <a
               href="https://donatty.com/aleksandri"
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-2 inline-flex rounded-xl border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-bold tracking-[0.14em] text-white/80 transition hover:bg-white/20"
+              className="mt-2 ml-3 inline-block bg-[#FFD700] border-[3px] border-black px-3 py-1 text-xs font-black uppercase tracking-widest shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[0px_0px_0px_0px_rgba(0,0,0,1)] transition-all"
             >
-              💛 Поддержать проект
+              💛 Поддержать
             </a>
           </div>
           <div className="flex items-center gap-4">
             {/* Audio controls */}
             <button
               onClick={handleToggleJingle}
-              className={`px-3 py-2 rounded-xl border text-xs font-bold transition ${jingleMuted ? 'border-red-400/50 bg-red-400/10 text-red-300' : 'border-white/20 bg-white/10 text-white/80 hover:bg-white/20'}`}
+              className={`w-12 h-12 rounded-full border-[4px] border-black flex items-center justify-center text-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-transform hover:scale-110 ${jingleMuted ? 'bg-gray-300' : 'bg-[#FFD700]'}`}
               title={jingleMuted ? 'Включить музыку' : 'Выключить музыку'}
             >
-              {jingleMuted ? '🔇 Музыка' : '🔊 Музыка'}
+              {jingleMuted ? '🔇' : '🎵'}
             </button>
             <button
               onClick={handleToggleVoice}
-              className={`px-3 py-2 rounded-xl border text-xs font-bold transition ${voiceMuted ? 'border-red-400/50 bg-red-400/10 text-red-300' : 'border-white/20 bg-white/10 text-white/80 hover:bg-white/20'}`}
+              className={`w-12 h-12 rounded-full border-[4px] border-black flex items-center justify-center text-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-transform hover:scale-110 ${voiceMuted ? 'bg-gray-300' : 'bg-[#B266FF]'}`}
               title={voiceMuted ? 'Включить голос' : 'Выключить голос'}
             >
-              {voiceMuted ? '🔇 Голос' : '🗣️ Голос'}
+              {voiceMuted ? '🤫' : '🗣️'}
             </button>
             <button
               onClick={handleCloseRoom}
-              className="px-3 py-2 rounded-xl border border-red-400/30 bg-red-500/10 text-red-300 text-xs font-bold hover:bg-red-500/20 transition"
+              className="bg-red-500 hover:bg-red-600 text-white border-[4px] border-black px-4 py-2 font-black uppercase text-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[0px_0px_0px_0px_rgba(0,0,0,1)] transition-all"
               title="Закрыть комнату"
             >
               ✕ Закрыть
             </button>
-            <div className="text-right ml-2">
-              <p className="text-sm text-white/60">Статус</p>
-              <p className="text-lg font-bold capitalize">{
-                room.status === 'lobby' ? '⏳ Лобби' :
-                room.status === 'playing' ? `🎮 Раунд ${room.current_round}` :
-                room.status === 'voting' ? '🗳️ Голосование' :
-                room.status === 'results' ? '📊 Результаты' :
-                '🏆 Финал'
+            <div className="text-right ml-4 bg-gray-100 border-[3px] border-black p-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transform rotate-2">
+              <p className="text-xs font-black uppercase">Статус</p>
+              <p className="text-xl font-bangers tracking-widest text-[#FF69B4]" style={{ WebkitTextStroke: '0.5px black' }}>{
+                room.status === 'lobby' ? '⏳ ЛОББИ' :
+                room.status === 'playing' ? `🎮 РАУНД ${room.current_round}` :
+                room.status === 'voting' ? '🗳️ ГОЛОСОВАНИЕ' :
+                room.status === 'results' ? '📊 РЕЗУЛЬТАТЫ' :
+                '🏆 ФИНАЛ'
               }</p>
             </div>
           </div>
         </header>
 
         {error && (
-          <div className="rounded-xl bg-red-500/20 border border-red-400/30 px-4 py-3 text-red-200 text-sm">
-            {error}
+          <div className="bg-white border-[4px] border-black p-4 transform rotate-1 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+            <p className="text-red-600 font-black uppercase text-center">{error}</p>
           </div>
         )}
 
         {/* ═══════════ COUNTDOWN OVERLAY ═══════════ */}
         {countdown !== null && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-            <div className="text-center animate-pulse">
-              <p className="text-9xl font-black text-purple-300 drop-shadow-2xl">
+            <div className="text-center animate-[pulse_1s_ease-in-out_infinite]">
+              <p className="text-9xl font-bangers text-[#FFD700] drop-shadow-[4px_4px_0_#000]" style={{ WebkitTextStroke: '3px black' }}>
                 {countdown > 0 ? countdown : '🎨'}
               </p>
-              <p className="text-4xl font-black mt-6 text-white">
+              <p className="text-6xl font-bangers mt-6 text-white drop-shadow-[3px_3px_0_#000]" style={{ WebkitTextStroke: '2px black' }}>
                 {countdownLabels[countdown] || 'РИСУЕМ! 🎨'}
               </p>
             </div>
@@ -503,32 +515,34 @@ export default function DrawHostPage() {
 
         {/* ═══════════ LOBBY ═══════════ */}
         {room.status === 'lobby' && (
-          <div className="space-y-6">
-            <section className="rounded-3xl border-4 border-white/10 bg-white/5 p-8 text-center space-y-6">
+          <div className="space-y-8">
+            <section className="bg-white border-[6px] border-black p-10 text-center space-y-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transform rotate-1">
               <div>
-                <p className="text-sm text-white/60 mb-2">Код для подключения</p>
-                <p className="text-7xl font-black tracking-[0.3em] text-purple-300">{code}</p>
-                <p className="mt-2 text-sm text-white/50">Игроки вводят этот код на своих телефонах</p>
+                <div className="inline-block bg-[#00BFFF] border-[3px] border-black px-4 py-1 transform -rotate-2 mb-4 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                  <p className="text-sm font-black uppercase tracking-widest text-white">Код для подключения</p>
+                </div>
+                <p className="text-8xl sm:text-9xl font-bangers tracking-widest text-[#FF69B4] drop-shadow-[4px_4px_0_#000]" style={{ WebkitTextStroke: '2px black' }}>{code}</p>
+                <p className="mt-4 text-lg font-bold bg-gray-100 border-[2px] border-black px-4 py-2 inline-block transform rotate-1">Игроки вводят этот код на своих телефонах</p>
               </div>
 
-              <div>
-                <p className="text-sm text-white/60 mb-3">Игроки ({gamePlayers.length})</p>
-                <div className="flex flex-wrap justify-center gap-3">
+              <div className="bg-gray-50 border-[4px] border-black p-6 shadow-[inset_4px_4px_0px_0px_rgba(0,0,0,0.1)]">
+                <p className="text-xl font-bangers tracking-wide mb-4 text-[#B266FF]" style={{ WebkitTextStroke: '1px black' }}>ИГРОКИ ({gamePlayers.length})</p>
+                <div className="flex flex-wrap justify-center gap-4">
                   {gamePlayers.map(p => (
-                    <div key={p.id} className="rounded-2xl border-2 border-white/20 bg-white/10 px-5 py-3 text-sm font-bold">
+                    <div key={p.id} className="bg-white border-[3px] border-black px-6 py-3 text-xl font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transform hover:-translate-y-1 transition-transform">
                       {p.name}
                     </div>
                   ))}
-                  {gamePlayers.length === 0 && <p className="text-white/40">Пока никого…</p>}
+                  {gamePlayers.length === 0 && <p className="text-gray-500 font-bold text-lg">Пока никого...</p>}
                 </div>
               </div>
 
               <button
                 onClick={handleStartGame}
                 disabled={pending || gamePlayers.length < 2}
-                className="px-12 py-4 rounded-2xl bg-purple-600 text-white text-xl font-black tracking-[0.1em] hover:bg-purple-500 disabled:opacity-40 active:scale-95 transition"
+                className="px-12 py-6 bg-[#FFD700] hover:bg-[#FFC000] text-black border-[6px] border-black text-3xl font-bangers tracking-widest shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all disabled:opacity-50 disabled:cursor-not-allowed transform -rotate-1"
               >
-                {gamePlayers.length < 2 ? `Нужно минимум 2 игрока (сейчас ${gamePlayers.length})` : '🚀 Начать игру!'}
+                {gamePlayers.length < 2 ? `НУЖНО МИНИМУМ 2 ИГРОКА (СЕЙЧАС ${gamePlayers.length})` : '🚀 НАЧАТЬ ИГРУ!'}
               </button>
             </section>
           </div>
@@ -536,51 +550,51 @@ export default function DrawHostPage() {
 
         {/* ═══════════ PLAYING ═══════════ */}
         {room.status === 'playing' && (
-          <div className="space-y-6">
+          <div className="space-y-8">
             {/* Round info */}
-            <section className="rounded-3xl border-4 border-white/10 bg-white/5 p-8 text-center space-y-4">
-              <div className="flex items-center justify-center gap-6 text-lg">
-                <div>
-                  <span className="text-white/60 text-sm">Раунд</span>
-                  <p className="text-4xl font-black text-purple-300">{room.current_round}</p>
+            <section className="bg-white border-[6px] border-black p-8 text-center space-y-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transform -rotate-1">
+              <div className="flex flex-wrap items-center justify-center gap-8 text-xl">
+                <div className="bg-gray-100 border-[3px] border-black p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transform rotate-2">
+                  <span className="text-sm font-black uppercase block mb-1">Раунд</span>
+                  <p className="text-5xl font-bangers text-[#FF69B4]" style={{ WebkitTextStroke: '1px black' }}>{room.current_round}</p>
                 </div>
-                <div className="w-px h-12 bg-white/20" />
-                <div>
-                  <span className="text-white/60 text-sm">Шаг</span>
-                  <p className="text-4xl font-black">{room.current_step} / {room.total_steps}</p>
+                <div className="bg-gray-100 border-[3px] border-black p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transform -rotate-2">
+                  <span className="text-sm font-black uppercase block mb-1">Шаг</span>
+                  <p className="text-5xl font-bangers text-[#00BFFF]" style={{ WebkitTextStroke: '1px black' }}>{room.current_step} / {room.total_steps}</p>
                 </div>
-                <div className="w-px h-12 bg-white/20" />
-                <div>
-                  <span className="text-white/60 text-sm">Таймер</span>
-                  <p className={`text-4xl font-black ${timeLeft <= 10 ? 'text-red-400 animate-pulse' : 'text-green-400'}`}>
+                <div className={`border-[4px] border-black p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transform rotate-1 ${timeLeft <= 10 ? 'bg-red-500 animate-[pulse_0.5s_ease-in-out_infinite]' : 'bg-[#32CD32]'}`}>
+                  <span className="text-sm font-black uppercase text-white block mb-1">Таймер</span>
+                  <p className="text-6xl font-bangers text-white drop-shadow-[2px_2px_0_#000]" style={{ WebkitTextStroke: '2px black' }}>
                     {timeLeft}с
                   </p>
                 </div>
               </div>
 
-              <div className="rounded-xl bg-purple-500/20 border border-purple-400/30 px-4 py-2 inline-block">
-                <span className="text-sm font-bold text-purple-300">{roundLabel(room.current_round)}</span>
+              <div className="inline-block bg-[#B266FF] border-[3px] border-black px-6 py-2 transform rotate-1 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                <span className="text-lg font-black text-white uppercase tracking-wider">{roundLabel(room.current_round)}</span>
               </div>
 
-              <p className="text-sm text-white/60">
+              <p className="text-xl font-bold bg-gray-100 border-[2px] border-black px-4 py-2 inline-block transform -rotate-1">
                 {room.current_step === 1
-                  ? 'Игроки получили слова и рисуют…'
-                  : 'Игроки угадывают и рисуют…'}
+                  ? 'Игроки получили слова и рисуют...'
+                  : 'Игроки угадывают и рисуют...'}
               </p>
             </section>
 
             {/* Submission status */}
-            <section className="rounded-3xl border-4 border-white/10 bg-white/5 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-black">Статус игроков</h2>
-                <span className="text-lg font-bold text-purple-300">{submittedCount}/{totalGamePlayers}</span>
+            <section className="bg-white border-[6px] border-black p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transform rotate-1">
+              <div className="flex items-center justify-between mb-6 border-b-[4px] border-black pb-4">
+                <h2 className="text-3xl font-bangers tracking-wide text-[#FF69B4]" style={{ WebkitTextStroke: '1px black' }}>СТАТУС ИГРОКОВ</h2>
+                <div className="bg-[#FFD700] border-[3px] border-black px-4 py-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transform -rotate-2">
+                  <span className="text-2xl font-bangers">{submittedCount}/{totalGamePlayers}</span>
+                </div>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                 {gamePlayers.map((p, i) => (
                   <div
                     key={p.id}
-                    className={`rounded-xl border-2 px-4 py-3 text-center text-sm font-bold transition-all ${
-                      i < submittedCount ? 'border-green-400/50 bg-green-400/10 text-green-300' : 'border-white/10 bg-white/5 text-white/60'
+                    className={`border-[3px] border-black px-4 py-3 text-center text-lg font-bold transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] ${
+                      i < submittedCount ? 'bg-[#32CD32] text-white transform -translate-y-1' : 'bg-gray-100 text-gray-500'
                     }`}
                   >
                     {i < submittedCount ? '✅ ' : '⏳ '}{p.name}
@@ -588,11 +602,11 @@ export default function DrawHostPage() {
                 ))}
               </div>
 
-              <div className="mt-4 text-center">
+              <div className="mt-8 text-center">
                 <button
                   onClick={handleAdvanceStep}
                   disabled={pending}
-                  className="px-6 py-2 rounded-xl border border-white/20 bg-white/10 text-sm font-bold hover:bg-white/20 disabled:opacity-40 transition"
+                  className="bg-white border-[4px] border-black px-6 py-3 text-lg font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all disabled:opacity-50"
                 >
                   Пропустить таймер →
                 </button>
@@ -603,44 +617,48 @@ export default function DrawHostPage() {
 
         {/* ═══════════ VOTING ═══════════ */}
         {room.status === 'voting' && (
-          <div className="space-y-6">
-            <section className="rounded-3xl border-4 border-white/10 bg-white/5 p-8 text-center space-y-2 animate-draw-panel">
-              <p className="text-sm text-white/60">Голосование после раунда {room.current_round}</p>
-              <h2 className="text-3xl font-black">
-                Цепочка {(room.voting_chain_index || 0) + 1} из {roundChains.length}
+          <div className="space-y-8">
+            <section className="bg-white border-[6px] border-black p-8 text-center space-y-4 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transform rotate-1">
+              <div className="inline-block bg-[#00BFFF] border-[3px] border-black px-4 py-1 transform -rotate-2 mb-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                <p className="text-sm font-black uppercase tracking-widest text-white">Голосование после раунда {room.current_round}</p>
+              </div>
+              <h2 className="text-5xl font-bangers tracking-wide text-[#FF69B4] drop-shadow-[2px_2px_0_#000]" style={{ WebkitTextStroke: '1px black' }}>
+                ЦЕПОЧКА {(room.voting_chain_index || 0) + 1} ИЗ {roundChains.length}
               </h2>
-              <p className="text-white/60 text-sm">Смотрим как менялся рисунок от слова к слову</p>
+              <p className="text-xl font-bold bg-gray-100 border-[2px] border-black px-4 py-2 inline-block transform rotate-1">Смотрим как менялся рисунок от слова к слову</p>
             </section>
 
             {/* Drawings for voting with sequential animation */}
-            <section className="rounded-3xl border-4 border-yellow-400/20 bg-yellow-400/5 p-6 text-center space-y-4 animate-draw-panel" style={{animationDelay: '150ms'}}>
-              <h3 className="text-xl font-black text-yellow-300">🗳️ Игроки голосуют на своих телефонах!</h3>
-              <p className="text-sm text-white/60">
+            <section className="bg-[#FFD700] border-[6px] border-black p-8 text-center space-y-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transform -rotate-1">
+              <h3 className="text-3xl font-bangers tracking-wide text-white drop-shadow-[2px_2px_0_#000]" style={{ WebkitTextStroke: '1px black' }}>🗳️ ИГРОКИ ГОЛОСУЮТ НА СВОИХ ТЕЛЕФОНАХ!</h3>
+              <p className="text-lg font-bold bg-white border-[3px] border-black px-4 py-2 inline-block transform rotate-1">
                 Каждый выбирает лучший рисунок этой цепочки
               </p>
-              <p className="text-lg font-bold text-purple-300">
-                Проголосовало: {voteCount} / {totalGamePlayers}
-              </p>
+              <div className="bg-white border-[4px] border-black p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transform -rotate-2 inline-block mx-auto">
+                <p className="text-2xl font-bangers tracking-widest text-[#B266FF]" style={{ WebkitTextStroke: '1px black' }}>
+                  ПРОГОЛОСОВАЛО: {voteCount} / {totalGamePlayers}
+                </p>
+              </div>
 
               {/* Show all drawings from current chain with sequential reveal */}
               {currentChainSteps.length > 0 && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6 mt-8">
                   {currentChainSteps.filter(s => s.drawing_data).map((step, idx) => {
                     const player = gamePlayers.find(p => p.id === step.player_id);
                     return (
                       <div
                         key={step.id}
-                        className="rounded-xl border-2 border-white/20 bg-white/5 overflow-hidden animate-draw-card-reveal"
+                        className="bg-white border-[4px] border-black overflow-hidden shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transform hover:-translate-y-2 transition-transform"
                         style={{ animationDelay: `${idx * 400 + 300}ms` }}
                       >
-                        <div className="relative">
+                        <div className="relative border-b-[4px] border-black">
                           <img src={step.drawing_data!} alt="" className="w-full aspect-square object-contain bg-white" />
-                          <span className="absolute top-2 left-2 w-7 h-7 rounded-full bg-purple-600/90 text-white text-xs font-black flex items-center justify-center shadow">{idx + 1}</span>
+                          <span className="absolute top-2 left-2 w-10 h-10 rounded-full bg-[#FF69B4] border-[3px] border-black text-white text-xl font-bangers flex items-center justify-center shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transform -rotate-12">{idx + 1}</span>
                         </div>
-                        <div className="px-2 py-2 text-center">
-                          <p className="text-sm font-bold text-white/80">{player?.name || '???'}</p>
+                        <div className="p-4 text-center bg-gray-50">
+                          <p className="text-lg font-black uppercase">{player?.name || '???'}</p>
                           {step.target_word && (
-                            <p className="text-base font-bold text-purple-300 mt-0.5">«{step.target_word}»</p>
+                            <p className="text-xl font-bangers tracking-wide text-[#00BFFF] mt-1" style={{ WebkitTextStroke: '0.5px black' }}>«{step.target_word}»</p>
                           )}
                         </div>
                       </div>
@@ -650,15 +668,16 @@ export default function DrawHostPage() {
               )}
             </section>
 
-            <div className="text-center animate-draw-panel" style={{animationDelay: '300ms'}}>
+            <div className="text-center">
               <button
                 onClick={handleNextChain}
                 disabled={pending}
-                className="px-8 py-3 rounded-2xl bg-purple-600 text-white font-bold text-lg hover:bg-purple-500 disabled:opacity-40 active:scale-95 transition"
+                className="px-10 py-4 bg-[#B266FF] hover:bg-[#9932CC] text-white border-[6px] border-black text-2xl font-bangers tracking-widest shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all disabled:opacity-50 disabled:cursor-not-allowed transform rotate-1"
+                style={{ WebkitTextStroke: '1px black' }}
               >
                 {(room.voting_chain_index || 0) >= roundChains.length - 1
-                  ? '📊 Показать результаты'
-                  : `Следующая цепочка →`}
+                  ? '📊 ПОКАЗАТЬ РЕЗУЛЬТАТЫ'
+                  : `СЛЕДУЮЩАЯ ЦЕПОЧКА →`}
               </button>
             </div>
           </div>
@@ -666,31 +685,33 @@ export default function DrawHostPage() {
 
         {/* ═══════════ RESULTS ═══════════ */}
         {room.status === 'results' && (
-          <div className="space-y-6">
-            <section className="rounded-3xl border-4 border-white/10 bg-white/5 p-8 text-center space-y-2 animate-draw-panel">
-              <p className="text-sm text-white/60">Результаты раунда {room.current_round}</p>
-              <h2 className="text-3xl font-black">📊 Таблица лидеров</h2>
+          <div className="space-y-8">
+            <section className="bg-white border-[6px] border-black p-8 text-center space-y-4 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transform -rotate-1">
+              <div className="inline-block bg-[#00BFFF] border-[3px] border-black px-4 py-1 transform rotate-2 mb-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                <p className="text-sm font-black uppercase tracking-widest text-white">Результаты раунда {room.current_round}</p>
+              </div>
+              <h2 className="text-5xl font-bangers tracking-wide text-[#FF69B4] drop-shadow-[2px_2px_0_#000]" style={{ WebkitTextStroke: '1px black' }}>📊 ТАБЛИЦА ЛИДЕРОВ</h2>
             </section>
 
-            <section className="rounded-3xl border-4 border-white/10 bg-white/5 p-6 animate-draw-panel" style={{animationDelay: '200ms'}}>
-              <div className="space-y-3">
+            <section className="bg-white border-[6px] border-black p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transform rotate-1">
+              <div className="space-y-4">
                 {sortedPlayers.map((p, i) => (
                   <div
                     key={p.id}
-                    className={`flex items-center justify-between rounded-2xl border-2 px-6 py-4 ${
-                      i === 0 ? 'border-yellow-400/50 bg-yellow-400/10' :
-                      i === 1 ? 'border-gray-300/30 bg-gray-300/5' :
-                      i === 2 ? 'border-amber-600/30 bg-amber-600/5' :
-                      'border-white/10 bg-white/5'
+                    className={`flex items-center justify-between border-[4px] border-black px-6 py-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transform hover:-translate-y-1 transition-transform ${
+                      i === 0 ? 'bg-[#FFD700]' :
+                      i === 1 ? 'bg-gray-200' :
+                      i === 2 ? 'bg-[#CD7F32]' :
+                      'bg-white'
                     }`}
                   >
                     <div className="flex items-center gap-4">
-                      <span className="text-3xl">
-                        {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`}
+                      <span className="text-4xl drop-shadow-[2px_2px_0_#000]">
+                        {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : <span className="font-bangers text-black" style={{ WebkitTextStroke: '1px white' }}>{i + 1}.</span>}
                       </span>
-                      <span className="text-xl font-bold">{p.name}</span>
+                      <span className="text-2xl font-black uppercase">{p.name}</span>
                     </div>
-                    <span className="text-2xl font-black text-purple-300">{p.score}</span>
+                    <span className="text-4xl font-bangers text-[#00BFFF] drop-shadow-[2px_2px_0_#000]" style={{ WebkitTextStroke: '1px black' }}>{p.score}</span>
                   </div>
                 ))}
               </div>
@@ -700,11 +721,12 @@ export default function DrawHostPage() {
               <button
                 onClick={handleNextRound}
                 disabled={pending}
-                className="px-8 py-4 rounded-2xl bg-purple-600 text-white font-bold text-xl hover:bg-purple-500 disabled:opacity-40 active:scale-95 transition"
+                className="px-10 py-4 bg-[#32CD32] hover:bg-[#28a428] text-white border-[6px] border-black text-2xl font-bangers tracking-widest shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all disabled:opacity-50 disabled:cursor-not-allowed transform -rotate-1"
+                style={{ WebkitTextStroke: '1px black' }}
               >
                 {room.current_round >= 3
-                  ? '🏆 Финальные результаты'
-                  : `🚀 Начать раунд ${room.current_round + 1}`}
+                  ? '🏆 ФИНАЛЬНЫЕ РЕЗУЛЬТАТЫ'
+                  : `🚀 НАЧАТЬ РАУНД ${room.current_round + 1}`}
               </button>
             </div>
           </div>
@@ -712,62 +734,72 @@ export default function DrawHostPage() {
 
         {/* ═══════════ FINISHED ═══════════ */}
         {room.status === 'finished' && (
-          <div className="space-y-6">
-            <section className="rounded-3xl border-4 border-yellow-400/30 bg-yellow-400/5 p-8 text-center space-y-4 animate-draw-panel">
-              <p className="text-6xl">🏆</p>
-              <h2 className="text-4xl font-black">Игра окончена!</h2>
+          <div className="space-y-8">
+            <section className="bg-[#FFD700] border-[6px] border-black p-8 text-center space-y-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transform rotate-1">
+              <p className="text-7xl drop-shadow-[4px_4px_0_#000] animate-[bounce_2s_infinite]">🏆</p>
+              <h2 className="text-6xl font-bangers tracking-wide text-white drop-shadow-[3px_3px_0_#000]" style={{ WebkitTextStroke: '2px black' }}>ИГРА ОКОНЧЕНА!</h2>
               {sortedPlayers[0] && (
-                <p className="text-2xl text-yellow-300 font-bold">
-                  Победитель: {sortedPlayers[0].name} — {sortedPlayers[0].score} баллов!
-                </p>
+                <div className="inline-block bg-white border-[4px] border-black px-6 py-3 transform -rotate-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                  <p className="text-3xl font-bangers tracking-widest text-[#FF69B4]" style={{ WebkitTextStroke: '1px black' }}>
+                    ПОБЕДИТЕЛЬ: {sortedPlayers[0].name} — {sortedPlayers[0].score} БАЛЛОВ!
+                  </p>
+                </div>
               )}
             </section>
 
-            <section className="rounded-3xl border-4 border-white/10 bg-white/5 p-6 animate-draw-panel" style={{animationDelay: '200ms'}}>
-              <h3 className="text-xl font-black mb-4 text-center">Финальная таблица</h3>
-              <div className="space-y-3">
+            <section className="bg-white border-[6px] border-black p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transform -rotate-1">
+              <div className="inline-block bg-[#B266FF] border-[3px] border-black px-4 py-1 transform rotate-2 mb-6 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                <h3 className="text-xl font-black uppercase tracking-widest text-white">Финальная таблица</h3>
+              </div>
+              <div className="space-y-4">
                 {sortedPlayers.map((p, i) => (
                   <div
                     key={p.id}
-                    className={`flex items-center justify-between rounded-2xl border-2 px-6 py-4 ${
-                      i === 0 ? 'border-yellow-400/50 bg-yellow-400/10' :
-                      i === 1 ? 'border-gray-300/30 bg-gray-300/5' :
-                      i === 2 ? 'border-amber-600/30 bg-amber-600/5' :
-                      'border-white/10 bg-white/5'
+                    className={`flex items-center justify-between border-[4px] border-black px-6 py-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transform hover:-translate-y-1 transition-transform ${
+                      i === 0 ? 'bg-[#FFD700]' :
+                      i === 1 ? 'bg-gray-200' :
+                      i === 2 ? 'bg-[#CD7F32]' :
+                      'bg-white'
                     }`}
                   >
                     <div className="flex items-center gap-4">
-                      <span className="text-3xl">
-                        {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`}
+                      <span className="text-4xl drop-shadow-[2px_2px_0_#000]">
+                        {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : <span className="font-bangers text-black" style={{ WebkitTextStroke: '1px white' }}>{i + 1}.</span>}
                       </span>
-                      <span className="text-xl font-bold">{p.name}</span>
+                      <span className="text-2xl font-black uppercase">{p.name}</span>
                     </div>
-                    <span className="text-2xl font-black text-purple-300">{p.score}</span>
+                    <span className="text-4xl font-bangers text-[#00BFFF] drop-shadow-[2px_2px_0_#000]" style={{ WebkitTextStroke: '1px black' }}>{p.score}</span>
                   </div>
                 ))}
               </div>
             </section>
 
             {/* Gallery of all drawings */}
-            <section className="rounded-3xl border-4 border-white/10 bg-white/5 p-6 animate-draw-panel" style={{animationDelay: '400ms'}}>
-              <h3 className="text-xl font-black mb-4 text-center">🖼️ Галерея рисунков</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+            <section className="bg-[#00BFFF] border-[6px] border-black p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transform rotate-1">
+              <div className="text-center mb-8">
+                <div className="inline-block bg-white border-[4px] border-black px-6 py-2 transform -rotate-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                  <h3 className="text-3xl font-bangers tracking-widest text-[#FF69B4]" style={{ WebkitTextStroke: '1px black' }}>🖼️ ГАЛЕРЕЯ РИСУНКОВ</h3>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
                 {allSteps
                   .filter(s => s.drawing_data)
                   .map((s, idx) => {
                     const player = gamePlayers.find(p => p.id === s.player_id);
                     return (
-                      <div key={s.id} className="rounded-xl border border-white/10 bg-white/5 p-2 animate-draw-card-reveal" style={{animationDelay: `${idx * 100 + 500}ms`}}>
-                        <img
-                          src={s.drawing_data!}
-                          alt={s.guess || s.target_word || 'drawing'}
-                          className="w-full aspect-square object-contain rounded-lg bg-white"
-                        />
-                        <div className="text-center mt-2 space-y-0.5">
-                          <p className="text-base font-black text-white">
+                      <div key={s.id} className="bg-white border-[4px] border-black overflow-hidden shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transform hover:-translate-y-2 transition-transform" style={{animationDelay: `${idx * 100 + 500}ms`}}>
+                        <div className="relative border-b-[4px] border-black">
+                          <img
+                            src={s.drawing_data!}
+                            alt={s.guess || s.target_word || 'drawing'}
+                            className="w-full aspect-square object-contain bg-white"
+                          />
+                        </div>
+                        <div className="p-4 text-center bg-gray-50">
+                          <p className="text-xl font-bangers tracking-wide text-[#B266FF]" style={{ WebkitTextStroke: '0.5px black' }}>
                             {s.target_word ? `«${s.target_word}»` : (s.guess ? `«${s.guess}»` : '')}
                           </p>
-                          <p className="text-sm font-bold text-purple-300">
+                          <p className="text-lg font-black uppercase mt-1">
                             🎨 {player?.name || '?'}
                           </p>
                         </div>
@@ -794,6 +826,6 @@ export default function DrawHostPage() {
           </div>
         )}
       </div>
-    </div>
+    </ComicBackground>
   );
 }

@@ -21,6 +21,7 @@ import {
 import type { DrawRoom, DrawPlayer, DrawChain, DrawStep } from '@/lib/draw/types';
 import { maxStrokesForRound, roundLabel } from '@/lib/draw/types';
 import DrawCanvas from '@/components/draw/DrawCanvas';
+import ComicBackground from '@/components/draw/ComicBackground';
 
 type PlayerPhase = 'waiting' | 'free-word' | 'drawing' | 'guessing' | 'drawing-guess' | 'submitted' | 'voting' | 'results' | 'finished';
 
@@ -272,146 +273,159 @@ export default function DrawRoomPage() {
 
   if (!room) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-[#1a0a2e] via-[#16213e] to-[#0f3460] text-white flex items-center justify-center p-4">
-        <p className="text-lg">{error || 'Загрузка…'}</p>
-      </div>
+      <ComicBackground>
+        <div className="min-h-screen flex items-center justify-center p-4">
+          <div className="bg-white border-[4px] border-black px-8 py-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transform -rotate-2">
+            <p className="text-2xl font-bangers tracking-widest text-[#FF69B4]" style={{ WebkitTextStroke: '1px black' }}>
+              {error || 'ЗАГРУЗКА…'}
+            </p>
+          </div>
+        </div>
+      </ComicBackground>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#1a0a2e] via-[#16213e] to-[#0f3460] text-white">
-      <div className="max-w-md mx-auto px-4 py-6 space-y-4">
-        {/* Mini header */}
-        <header className="flex items-center justify-between rounded-2xl border-2 border-white/10 bg-white/5 px-4 py-3">
-          <div className="text-sm">
-            <span className="text-white/60">🎨 Рисункач</span>
-            {room.status === 'playing' && (
-              <span className="ml-2 text-purple-300 font-bold">
-                Р{room.current_round} · Шаг {room.current_step}/{room.total_steps}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            {room.status === 'playing' && (
-              <span className={`text-lg font-black ${timeLeft <= 10 ? 'text-red-400 animate-pulse' : 'text-green-400'}`}>
-                {timeLeft}с
-              </span>
-            )}
-            <span className="text-xs text-white/60">⭐ {myScore}</span>
-          </div>
-        </header>
-
-        {error && (
-          <div className="rounded-xl bg-red-500/20 border border-red-400/30 px-3 py-2 text-red-200 text-sm">
-            {error}
-          </div>
-        )}
-
-        {/* ═══════════ LOBBY ═══════════ */}
-        {room.status === 'lobby' && (
-          <section className="rounded-2xl border-2 border-white/10 bg-white/5 p-6 text-center space-y-4">
-            <p className="text-3xl">🎨</p>
-            <h2 className="text-xl font-black">Ожидание начала игры</h2>
-            <p className="text-sm text-white/60">Код: <span className="text-purple-300 font-bold text-lg">{code}</span></p>
-            <div>
-              <p className="text-xs text-white/50 mb-2">Игроки ({gamePlayers.length})</p>
-              <div className="flex flex-wrap justify-center gap-2">
-                {gamePlayers.map(p => (
-                  <span
-                    key={p.id}
-                    className={`rounded-full border px-3 py-1 text-xs font-bold ${
-                      p.id === session.playerId ? 'border-purple-400 bg-purple-400/20 text-purple-300' : 'border-white/20 bg-white/5 text-white/70'
-                    }`}
-                  >
-                    {p.name}
-                  </span>
-                ))}
-              </div>
-            </div>
-            <p className="text-xs text-white/40">Ведущий скоро начнёт игру…</p>
-          </section>
-        )}
-
-        {/* ═══════════ FREE MODE: ENTER WORD ═══════════ */}
-        {phase === 'free-word' && myStep && (
-          <section className="space-y-4">
-            <div className="rounded-xl border border-purple-400/30 bg-purple-400/10 px-4 py-2 text-center">
-              <span className="text-xs text-white/60">✏️ Свободный режим</span>
-            </div>
-            <div className="rounded-2xl border-2 border-white/10 bg-white/5 p-6 text-center space-y-4">
-              <p className="text-lg font-bold">Придумай слово для рисования!</p>
-              <input
-                className="w-full rounded-xl bg-white/10 border-2 border-white/20 px-4 py-3 text-lg text-center font-bold focus:outline-none focus:border-purple-400 text-white placeholder-white/30"
-                value={freeWord}
-                onChange={e => setFreeWord(e.target.value)}
-                placeholder="Введи слово…"
-                autoFocus
-              />
-              <button
-                onClick={handleSubmitFreeWord}
-                disabled={!freeWord.trim()}
-                className="w-full rounded-xl bg-purple-600 text-white font-bold px-4 py-3 text-lg disabled:opacity-40 active:scale-95 transition"
-              >
-                Далее → Рисовать
-              </button>
-            </div>
-          </section>
-        )}
-
-        {/* ═══════════ DRAWING (Step 1) ═══════════ */}
-        {phase === 'drawing' && myStep && (
-          <section className="space-y-3">
-            <div className="rounded-xl border border-purple-400/30 bg-purple-400/10 px-4 py-2 text-center">
-              <span className="text-xs text-white/60">{roundLabel(room.current_round)}</span>
-            </div>
-            <DrawCanvas
-              maxStrokes={strokeLimit}
-              onSubmit={handleSubmitDrawing}
-              word={myStep.target_word || ''}
-            />
-          </section>
-        )}
-
-        {/* ═══════════ GUESSING (Step 2+) ═══════════ */}
-        {phase === 'guessing' && previousStep && (
-          <section className="space-y-4">
-            <div className="rounded-xl border border-purple-400/30 bg-purple-400/10 px-4 py-2 text-center">
-              <span className="text-xs text-white/60">{roundLabel(room.current_round)}</span>
-            </div>
-
-            <div className="text-center">
-              <span className="text-xs uppercase tracking-[0.3em] text-white/60">Что здесь нарисовано?</span>
-            </div>
-
-            {/* Previous drawing */}
-            <div className="rounded-2xl border-2 border-white/20 overflow-hidden">
-              {previousStep.drawing_data ? (
-                <img
-                  src={previousStep.drawing_data}
-                  alt="Рисунок для угадывания"
-                  className="w-full aspect-square object-contain bg-white"
-                />
-              ) : (
-                <div className="w-full aspect-square flex items-center justify-center bg-white/10 text-white/40">
-                  Пустой рисунок
-                </div>
+    <ComicBackground>
+      <div className="min-h-screen text-black">
+        <div className="max-w-md mx-auto px-4 py-6 space-y-6">
+          {/* Mini header */}
+          <header className="flex items-center justify-between bg-white border-[4px] border-black px-4 py-3 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transform rotate-1">
+            <div className="text-sm">
+              <span className="font-black uppercase tracking-widest">🎨 РИСУНКАЧ</span>
+              {room.status === 'playing' && (
+                <span className="ml-2 text-[#B266FF] font-bangers text-lg tracking-wide" style={{ WebkitTextStroke: '0.5px black' }}>
+                  Р{room.current_round} · ШАГ {room.current_step}/{room.total_steps}
+                </span>
               )}
             </div>
+            <div className="flex items-center gap-3">
+              {room.status === 'playing' && (
+                <span className={`text-2xl font-bangers tracking-widest ${timeLeft <= 10 ? 'text-[#FF69B4] animate-[pulse_0.5s_infinite]' : 'text-[#32CD32]'}`} style={{ WebkitTextStroke: '1px black' }}>
+                  {timeLeft}С
+                </span>
+              )}
+              <span className="text-lg font-bangers tracking-widest text-[#FFD700]" style={{ WebkitTextStroke: '1px black' }}>⭐ {myScore}</span>
+            </div>
+          </header>
 
-            <div className="space-y-3">
+          {error && (
+            <div className="bg-[#FF69B4] border-[4px] border-black px-4 py-3 text-white text-lg font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transform -rotate-1">
+              {error}
+            </div>
+          )}
+
+          {/* ═══════════ LOBBY ═══════════ */}
+          {room.status === 'lobby' && (
+            <section className="bg-white border-[6px] border-black p-8 text-center space-y-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transform -rotate-1">
+              <p className="text-6xl drop-shadow-[2px_2px_0_#000] animate-[bounce_2s_infinite]">🎨</p>
+              <h2 className="text-3xl font-bangers tracking-wide text-[#00BFFF] drop-shadow-[2px_2px_0_#000]" style={{ WebkitTextStroke: '1px black' }}>ОЖИДАНИЕ НАЧАЛА ИГРЫ</h2>
+              <div className="inline-block bg-[#FFD700] border-[3px] border-black px-4 py-2 transform rotate-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                <p className="text-lg font-black uppercase">КОД: <span className="text-2xl font-bangers tracking-widest text-white" style={{ WebkitTextStroke: '1px black' }}>{code}</span></p>
+              </div>
+              <div>
+                <p className="text-sm font-black uppercase mb-3">ИГРОКИ ({gamePlayers.length})</p>
+                <div className="flex flex-wrap justify-center gap-3">
+                  {gamePlayers.map(p => (
+                    <span
+                      key={p.id}
+                      className={`border-[3px] border-black px-4 py-2 text-sm font-black uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transform hover:-translate-y-1 transition-transform ${
+                        p.id === session.playerId ? 'bg-[#B266FF] text-white -rotate-2' : 'bg-gray-100 rotate-1'
+                      }`}
+                    >
+                      {p.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <p className="text-sm font-bold bg-gray-100 border-[2px] border-black px-3 py-1 inline-block transform -rotate-1">ВЕДУЩИЙ СКОРО НАЧНЁТ ИГРУ…</p>
+            </section>
+          )}
+
+          {/* ═══════════ FREE MODE: ENTER WORD ═══════════ */}
+          {phase === 'free-word' && myStep && (
+            <section className="space-y-6">
+              <div className="inline-block bg-[#B266FF] border-[3px] border-black px-4 py-1 transform rotate-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                <span className="text-sm font-black uppercase tracking-widest text-white">✏️ СВОБОДНЫЙ РЕЖИМ</span>
+              </div>
+              <div className="bg-white border-[6px] border-black p-8 text-center space-y-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transform -rotate-1">
+                <p className="text-2xl font-bangers tracking-wide text-[#FF69B4]" style={{ WebkitTextStroke: '1px black' }}>ПРИДУМАЙ СЛОВО ДЛЯ РИСОВАНИЯ!</p>
+                <input
+                  className="w-full bg-white border-[4px] border-black px-4 py-4 text-2xl text-center font-bangers tracking-widest focus:outline-none focus:ring-4 focus:ring-[#00BFFF] shadow-[inset_4px_4px_0px_0px_rgba(0,0,0,0.1)]"
+                  value={freeWord}
+                  onChange={e => setFreeWord(e.target.value)}
+                  placeholder="ВВЕДИ СЛОВО…"
+                  autoFocus
+                />
+                <button
+                  onClick={handleSubmitFreeWord}
+                  disabled={!freeWord.trim()}
+                  className="w-full bg-[#32CD32] hover:bg-[#28a428] text-white border-[4px] border-black font-bangers tracking-widest px-4 py-4 text-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all disabled:opacity-50 disabled:cursor-not-allowed transform rotate-1"
+                  style={{ WebkitTextStroke: '1px black' }}
+                >
+                  ДАЛЕЕ → РИСОВАТЬ
+                </button>
+              </div>
+            </section>
+          )}
+
+          {/* ═══════════ DRAWING (Step 1) ═══════════ */}
+          {phase === 'drawing' && myStep && (
+            <section className="space-y-4">
+              <div className="inline-block bg-[#B266FF] border-[3px] border-black px-4 py-1 transform -rotate-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                <span className="text-sm font-black uppercase tracking-widest text-white">{roundLabel(room.current_round)}</span>
+              </div>
+              <div className="bg-white border-[6px] border-black p-2 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transform rotate-1">
+                <DrawCanvas
+                  maxStrokes={strokeLimit}
+                  onSubmit={handleSubmitDrawing}
+                  word={myStep.target_word || ''}
+                />
+              </div>
+            </section>
+          )}
+
+          {/* ═══════════ GUESSING (Step 2+) ═══════════ */}
+          {phase === 'guessing' && previousStep && (
+            <section className="space-y-6">
+              <div className="inline-block bg-[#B266FF] border-[3px] border-black px-4 py-1 transform rotate-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                <span className="text-sm font-black uppercase tracking-widest text-white">{roundLabel(room.current_round)}</span>
+              </div>
+
+              <div className="text-center">
+                <span className="text-xl font-bangers tracking-widest text-[#FF69B4] bg-white border-[3px] border-black px-4 py-2 inline-block transform -rotate-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]" style={{ WebkitTextStroke: '0.5px black' }}>ЧТО ЗДЕСЬ НАРИСОВАНО?</span>
+              </div>
+
+              {/* Previous drawing */}
+              <div className="bg-white border-[6px] border-black overflow-hidden shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transform rotate-1">
+                {previousStep.drawing_data ? (
+                  <img
+                    src={previousStep.drawing_data}
+                    alt="Рисунок для угадывания"
+                    className="w-full aspect-square object-contain bg-white"
+                  />
+                ) : (
+                  <div className="w-full aspect-square flex items-center justify-center bg-gray-100 text-gray-400 font-black uppercase">
+                    ПУСТОЙ РИСУНОК
+                  </div>
+                )}
+              </div>
+
+            <div className="space-y-4">
               <input
-                className="w-full rounded-xl bg-white/10 border-2 border-white/20 px-4 py-3 text-lg text-center font-bold focus:outline-none focus:border-purple-400 text-white placeholder-white/30"
+                className="w-full bg-white border-[4px] border-black px-4 py-4 text-2xl text-center font-bangers tracking-widest focus:outline-none focus:ring-4 focus:ring-[#00BFFF] shadow-[inset_4px_4px_0px_0px_rgba(0,0,0,0.1)]"
                 value={guess}
                 onChange={e => setGuess(e.target.value)}
-                placeholder="Напиши свою догадку…"
+                placeholder="НАПИШИ СВОЮ ДОГАДКУ…"
                 autoFocus
               />
               <button
                 onClick={handleConfirmGuess}
                 disabled={!guess.trim()}
-                className="w-full rounded-xl bg-purple-600 text-white font-bold px-4 py-3 text-lg disabled:opacity-40 active:scale-95 transition"
+                className="w-full bg-[#32CD32] hover:bg-[#28a428] text-white border-[4px] border-black font-bangers tracking-widest px-4 py-4 text-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all disabled:opacity-50 disabled:cursor-not-allowed transform -rotate-1"
+                style={{ WebkitTextStroke: '1px black' }}
               >
-                Далее → Рисовать
+                ДАЛЕЕ → РИСОВАТЬ
               </button>
             </div>
           </section>
@@ -419,51 +433,59 @@ export default function DrawRoomPage() {
 
         {/* ═══════════ DRAWING GUESS (Step 2+ after guessing) ═══════════ */}
         {phase === 'drawing-guess' && (
-          <section className="space-y-3">
+          <section className="space-y-4">
             {guessResult && (
-              <div className={`rounded-xl border px-4 py-3 text-center ${
-                guessResult.isCorrect ? 'border-green-400/50 bg-green-400/10 text-green-300' : 'border-red-400/40 bg-red-400/10 text-red-300'
+              <div className={`border-[4px] border-black px-4 py-3 text-center shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transform rotate-1 ${
+                guessResult.isCorrect ? 'bg-[#32CD32] text-white' : 'bg-[#FF69B4] text-white'
               }`}>
-                {guessResult.isCorrect ? '🎉 +50 баллов! Правильно!' : ''}
+                <p className="text-xl font-bangers tracking-widest" style={{ WebkitTextStroke: '1px black' }}>
+                  {guessResult.isCorrect ? '🎉 +50 БАЛЛОВ! ПРАВИЛЬНО!' : '❌ НЕ УГАДАЛ!'}
+                </p>
               </div>
             )}
-            <DrawCanvas
-              maxStrokes={strokeLimit}
-              onSubmit={handleSubmitGuessAndDrawing}
-              word={guess}
-            />
+            <div className="bg-white border-[6px] border-black p-2 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transform -rotate-1">
+              <DrawCanvas
+                maxStrokes={strokeLimit}
+                onSubmit={handleSubmitGuessAndDrawing}
+                word={guess}
+              />
+            </div>
           </section>
         )}
 
         {/* ═══════════ SUBMITTED ═══════════ */}
         {phase === 'submitted' && (
-          <section className="rounded-2xl border-2 border-green-400/30 bg-green-400/5 p-6 text-center space-y-4">
-            <p className="text-4xl">✅</p>
-            <h2 className="text-xl font-black text-green-300">Отправлено!</h2>
+          <section className="bg-white border-[6px] border-black p-8 text-center space-y-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transform rotate-1">
+            <p className="text-6xl drop-shadow-[2px_2px_0_#000] animate-[bounce_2s_infinite]">✅</p>
+            <h2 className="text-4xl font-bangers tracking-wide text-[#32CD32] drop-shadow-[2px_2px_0_#000]" style={{ WebkitTextStroke: '1px black' }}>ОТПРАВЛЕНО!</h2>
             {guessResult && (
-              <div className={`rounded-xl px-4 py-2 text-sm font-bold ${
-                guessResult.isCorrect ? 'text-green-300' : 'text-white/60'
+              <div className={`border-[3px] border-black px-4 py-3 transform -rotate-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] ${
+                guessResult.isCorrect ? 'bg-[#32CD32] text-white' : 'bg-gray-100 text-black'
               }`}>
-                {guessResult.isCorrect
-                  ? '🎉 Ты угадал! +50 баллов тебе и автору рисунка!'
-                  : 'Не угадал, но ничего — продолжаем!'}
+                <p className="text-lg font-black uppercase">
+                  {guessResult.isCorrect
+                    ? '🎉 ТЫ УГАДАЛ! +50 БАЛЛОВ ТЕБЕ И АВТОРУ РИСУНКА!'
+                    : 'НЕ УГАДАЛ, НО НИЧЕГО — ПРОДОЛЖАЕМ!'}
+                </p>
               </div>
             )}
-            <p className="text-sm text-white/50">Ожидание остальных игроков…</p>
+            <p className="text-sm font-bold bg-gray-100 border-[2px] border-black px-3 py-1 inline-block transform rotate-1">ОЖИДАНИЕ ОСТАЛЬНЫХ ИГРОКОВ…</p>
           </section>
         )}
 
         {/* ═══════════ VOTING ═══════════ */}
         {phase === 'voting' && (
-          <section className="space-y-4">
-            <div className="rounded-2xl border-2 border-yellow-400/30 bg-yellow-400/5 p-4 text-center animate-draw-panel">
-              <h2 className="text-xl font-black text-yellow-300">🗳️ Голосование</h2>
-              <p className="text-xs text-white/60 mt-1">
-                Цепочка {(room.voting_chain_index || 0) + 1} — выбери лучший финальный рисунок
-              </p>
+          <section className="space-y-6">
+            <div className="bg-[#FFD700] border-[6px] border-black p-6 text-center shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transform -rotate-1">
+              <h2 className="text-4xl font-bangers tracking-wide text-white drop-shadow-[2px_2px_0_#000]" style={{ WebkitTextStroke: '1px black' }}>🗳️ ГОЛОСОВАНИЕ</h2>
+              <div className="inline-block bg-white border-[3px] border-black px-4 py-1 mt-2 transform rotate-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                <p className="text-sm font-black uppercase">
+                  ЦЕПОЧКА {(room.voting_chain_index || 0) + 1} — ВЫБЕРИ ЛУЧШИЙ РИСУНОК
+                </p>
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-4">
               {currentChainDrawings.map(({ step, chain, playerName, playerId }, idx) => {
                 const isMe = playerId === session.playerId;
                 const isVoted = myVote === playerId;
@@ -473,21 +495,29 @@ export default function DrawRoomPage() {
                     key={step.id}
                     onClick={() => !isMe && handleVote(playerId)}
                     disabled={isMe || votePending || !!myVote}
-                    className={`rounded-2xl border-2 overflow-hidden transition-all active:scale-95 animate-draw-card-reveal ${
-                      isVoted ? 'border-yellow-400 shadow-lg shadow-yellow-400/20' :
-                      isMe ? 'border-white/10 opacity-50' :
-                      myVote ? 'border-white/10 opacity-60' :
-                      'border-white/20 hover:border-purple-400/50'
+                    className={`bg-white border-[4px] border-black overflow-hidden shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all ${
+                      isVoted ? 'ring-4 ring-[#FFD700] transform -translate-y-2' :
+                      isMe ? 'opacity-50 grayscale' :
+                      myVote ? 'opacity-60' :
+                      'hover:-translate-y-1 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
                     }`}
                     style={{ animationDelay: `${idx * 300}ms` }}
                   >
-                    <img src={step.drawing_data!} alt="" className="w-full aspect-square object-contain bg-white" />
-                    <div className="px-2 py-2 text-center bg-black/40">
-                      {step.target_word && (
-                        <p className="text-sm font-bold text-purple-300">«{step.target_word}»</p>
+                    <div className="relative border-b-[4px] border-black">
+                      <img src={step.drawing_data!} alt="" className="w-full aspect-square object-contain bg-white" />
+                      {isVoted && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                          <span className="text-6xl drop-shadow-[2px_2px_0_#000] animate-[bounce_1s_infinite]">⭐</span>
+                        </div>
                       )}
-                      {isVoted && <span className="text-yellow-300">★ Выбрано</span>}
-                      {isMe && <span className="text-white/40 text-xs">(ты)</span>}
+                    </div>
+                    <div className="p-3 text-center bg-gray-50">
+                      {step.target_word && (
+                        <p className="text-xl font-bangers tracking-wide text-[#B266FF]" style={{ WebkitTextStroke: '0.5px black' }}>«{step.target_word}»</p>
+
+                      )}
+                      {isVoted && <span className="text-[#32CD32] font-black uppercase mt-1 block">★ ВЫБРАНО</span>}
+                      {isMe && <span className="text-gray-400 font-black uppercase text-xs mt-1 block">(ТЫ)</span>}
                     </div>
                   </button>
                 );
@@ -495,60 +525,65 @@ export default function DrawRoomPage() {
             </div>
 
             {myVote && (
-              <p className="text-center text-green-300 text-sm font-bold">✅ Голос принят!</p>
+              <div className="bg-[#32CD32] border-[4px] border-black px-4 py-3 text-center shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transform rotate-1">
+                <p className="text-xl font-bangers tracking-widest text-white" style={{ WebkitTextStroke: '1px black' }}>✅ ГОЛОС ПРИНЯТ!</p>
+              </div>
             )}
           </section>
         )}
 
         {/* ═══════════ RESULTS ═══════════ */}
         {(phase === 'results' || phase === 'finished') && (
-          <section className="space-y-4">
-            <div className="rounded-2xl border-2 border-white/10 bg-white/5 p-4 text-center">
-              <p className="text-3xl mb-2">{phase === 'finished' ? '🏆' : '📊'}</p>
-              <h2 className="text-xl font-black">
-                {phase === 'finished' ? 'Игра окончена!' : `Результаты раунда ${room.current_round}`}
+          <section className="space-y-6">
+            <div className="bg-white border-[6px] border-black p-6 text-center shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transform -rotate-1">
+              <p className="text-5xl mb-4 drop-shadow-[2px_2px_0_#000] animate-[bounce_2s_infinite]">{phase === 'finished' ? '🏆' : '📊'}</p>
+              <h2 className="text-3xl font-bangers tracking-wide text-[#00BFFF] drop-shadow-[2px_2px_0_#000]" style={{ WebkitTextStroke: '1px black' }}>
+                {phase === 'finished' ? 'ИГРА ОКОНЧЕНА!' : `РЕЗУЛЬТАТЫ РАУНДА ${room.current_round}`}
               </h2>
               <a
                 href="https://donatty.com/aleksandri"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-3 inline-flex rounded-xl border border-white/20 bg-white/10 px-3.5 py-2 text-xs font-bold tracking-[0.12em] text-white/80 transition hover:bg-white/20"
+                className="mt-4 inline-block bg-[#FF69B4] hover:bg-[#ff4da6] text-white border-[3px] border-black px-4 py-2 font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all transform rotate-2"
               >
-                💛 Поддержать проект
+                💛 ПОДДЕРЖАТЬ ПРОЕКТ
               </a>
             </div>
 
-            <div className="space-y-2">
-              {sortedPlayers.map((p, i) => (
-                <div
-                  key={p.id}
-                  className={`flex items-center justify-between rounded-xl border px-4 py-3 ${
-                    p.id === session.playerId ? 'border-purple-400/50 bg-purple-400/10' : 'border-white/10 bg-white/5'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-xl">
-                      {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`}
-                    </span>
-                    <span className="font-bold text-sm">{p.name}</span>
-                    {p.id === session.playerId && <span className="text-xs text-purple-300">(ты)</span>}
+            <div className="bg-white border-[6px] border-black p-4 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transform rotate-1">
+              <div className="space-y-3">
+                {sortedPlayers.map((p, i) => (
+                  <div
+                    key={p.id}
+                    className={`flex items-center justify-between border-[3px] border-black px-4 py-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] ${
+                      p.id === session.playerId ? 'bg-[#B266FF] text-white transform -rotate-1' : 'bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl drop-shadow-[1px_1px_0_#000]">
+                        {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : <span className="font-bangers text-black" style={{ WebkitTextStroke: '1px white' }}>{i + 1}.</span>}
+                      </span>
+                      <span className="font-black uppercase text-lg">{p.name}</span>
+                      {p.id === session.playerId && <span className="text-xs font-black uppercase bg-white text-black px-1 border-[1px] border-black">(ТЫ)</span>}
+                    </div>
+                    <span className="text-2xl font-bangers tracking-widest text-[#FFD700] drop-shadow-[1px_1px_0_#000]" style={{ WebkitTextStroke: '1px black' }}>{p.score}</span>
                   </div>
-                  <span className="font-black text-purple-300">{p.score}</span>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
 
             {phase === 'results' && (
-              <p className="text-center text-xs text-white/40">Ведущий переключит на следующий раунд…</p>
+              <p className="text-center text-sm font-bold bg-white border-[3px] border-black px-4 py-2 inline-block transform -rotate-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">ВЕДУЩИЙ ПЕРЕКЛЮЧИТ НА СЛЕДУЮЩИЙ РАУНД…</p>
             )}
 
             {phase === 'finished' && (
-              <div className="text-center pt-2">
+              <div className="text-center pt-4">
                 <Link
                   href="/"
-                  className="px-6 py-3 rounded-xl border border-white/20 bg-white/10 text-sm font-bold hover:bg-white/20 transition inline-block"
+                  className="inline-block bg-[#32CD32] hover:bg-[#28a428] text-white border-[4px] border-black font-bangers tracking-widest px-8 py-4 text-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all transform rotate-1"
+                  style={{ WebkitTextStroke: '1px black' }}
                 >
-                  На главную
+                  НА ГЛАВНУЮ
                 </Link>
               </div>
             )}
@@ -557,9 +592,9 @@ export default function DrawRoomPage() {
 
         {/* ═══════════ WAITING (generic) ═══════════ */}
         {phase === 'waiting' && room.status === 'playing' && (
-          <section className="rounded-2xl border-2 border-white/10 bg-white/5 p-6 text-center space-y-3">
-            <p className="text-3xl animate-pulse">⏳</p>
-            <p className="text-sm text-white/60">Загрузка данных шага…</p>
+          <section className="bg-white border-[6px] border-black p-8 text-center space-y-4 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transform -rotate-1">
+            <p className="text-5xl animate-[pulse_1s_infinite]">⏳</p>
+            <p className="text-xl font-bangers tracking-widest text-[#B266FF]" style={{ WebkitTextStroke: '0.5px black' }}>ЗАГРУЗКА ДАННЫХ ШАГА…</p>
           </section>
         )}
       </div>
@@ -567,18 +602,19 @@ export default function DrawRoomPage() {
       {phase === 'submitted' && (
         <div className="fixed left-0 right-0 bottom-4 flex justify-center pointer-events-none">
           <div className="max-w-md w-full px-4 pointer-events-auto">
-            <div className="rounded-2xl border-2 border-white/10 bg-black/40 backdrop-blur px-4 py-3 flex items-center justify-between gap-3">
-              <p className="text-sm text-white/60">Если ты видишь не то, что видят другие игроки — обнови экран</p>
+            <div className="bg-white border-[4px] border-black px-4 py-3 flex items-center justify-between gap-3 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transform rotate-1">
+              <p className="text-sm font-black uppercase">ЕСЛИ ТЫ ВИДИШЬ НЕ ТО, ЧТО ВИДЯТ ДРУГИЕ ИГРОКИ — ОБНОВИ ЭКРАН</p>
               <button
                 onClick={() => { if (typeof window !== 'undefined') window.location.reload(); }}
-                className="ml-2 rounded-xl bg-purple-600 text-white font-bold px-3 py-2 text-sm hover:bg-purple-500 active:scale-95 transition"
+                className="ml-2 bg-[#00BFFF] hover:bg-[#0099cc] text-white border-[3px] border-black font-black uppercase px-3 py-2 text-sm shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] transition-all transform -rotate-2"
               >
-                Обновить
+                ОБНОВИТЬ
               </button>
             </div>
           </div>
         </div>
       )}
     </div>
+    </ComicBackground>
   );
 }

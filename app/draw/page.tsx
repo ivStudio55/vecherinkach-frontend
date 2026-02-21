@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { createDrawRoom, joinDrawRoom } from '@/lib/draw/api';
 import type { DrawGameMode } from '@/lib/draw/types';
+import ComicBackground from '@/components/draw/ComicBackground';
 
 export default function DrawPage() {
   const router = useRouter();
@@ -44,152 +45,161 @@ export default function DrawPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#1a0a2e] via-[#16213e] to-[#0f3460] text-white">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 space-y-8">
+    <ComicBackground>
+      <div className="space-y-8 text-black">
         {/* Header */}
-        <header className="rounded-3xl border-4 border-white/10 bg-white/5 backdrop-blur p-6 sm:p-8 shadow-2xl">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="uppercase text-xs tracking-[0.4em] text-white/70">мини-игра</p>
-              <h1 className="text-3xl sm:text-4xl font-black tracking-tight">🎨 Рисункач</h1>
-            </div>
-            <span className="px-3 py-1 rounded-full text-xs font-bold tracking-[0.24em] bg-purple-500/20 border border-purple-400/30 text-purple-300">
-              новое
-            </span>
+        <header className="text-center">
+          <div className="inline-block bg-[#FF69B4] border-[4px] border-black px-4 py-1 -rotate-2 mb-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+            <p className="uppercase text-sm font-black tracking-widest text-white">мини-игра</p>
           </div>
-          <p className="mt-4 text-base text-white/80">
+          <h1 className="text-5xl sm:text-7xl font-bangers tracking-wider text-white drop-shadow-[4px_4px_0_#000] mb-4" style={{ WebkitTextStroke: '2px black' }}>
+            🎨 РИСУНКАЧ
+          </h1>
+          <p className="text-lg sm:text-xl font-bold bg-white border-[3px] border-black p-4 rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] inline-block rotate-1">
             Рисуй, угадывай и голосуй! Забавные цепочки превращений от слова к рисунку.
-            3 раунда с возрастающей сложностью.
+            <br/>3 раунда с возрастающей сложностью.
           </p>
         </header>
 
         {/* Rules */}
-        <section className="rounded-3xl border-4 border-white/10 bg-white/5 p-6 shadow-xl">
-          <h2 className="text-xl font-black mb-4">Как играть?</h2>
-          <div className="grid sm:grid-cols-3 gap-4">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-              <div className="text-3xl mb-2">🖌️</div>
-              <h3 className="font-bold text-sm mb-1">Раунд 1 — Свобода</h3>
-              <p className="text-xs text-white/70">Рисуй без ограничений. Получи слово → нарисуй его за 60 секунд.</p>
+        <section className="bg-[#00BFFF] border-[6px] border-black p-6 sm:p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] -rotate-1">
+          <h2 className="text-3xl font-bangers tracking-wide text-white mb-6 drop-shadow-[2px_2px_0_#000]" style={{ WebkitTextStroke: '1px black' }}>КАК ИГРАТЬ?</h2>
+          <div className="grid sm:grid-cols-3 gap-6">
+            <div className="bg-white border-[4px] border-black p-5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-2 transition-transform">
+              <div className="text-4xl mb-3">🖌️</div>
+              <h3 className="font-black text-lg mb-2 uppercase">Раунд 1 — Свобода</h3>
+              <p className="font-bold text-sm">Рисуй без ограничений. Получи слово → нарисуй его за 60 секунд.</p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-              <div className="text-3xl mb-2">✌️</div>
-              <h3 className="font-bold text-sm mb-1">Раунд 2 — 3 касания</h3>
-              <p className="text-xs text-white/70">Всего 3 линии на холсте. Рисуй минимально, но понятно!</p>
+            <div className="bg-white border-[4px] border-black p-5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-2 transition-transform">
+              <div className="text-4xl mb-3">✌️</div>
+              <h3 className="font-black text-lg mb-2 uppercase">Раунд 2 — 3 касания</h3>
+              <p className="font-bold text-sm">Всего 3 линии на холсте. Рисуй минимально, но понятно!</p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-              <div className="text-3xl mb-2">☝️</div>
-              <h3 className="font-bold text-sm mb-1">Раунд 3 — 1 касание</h3>
-              <p className="text-xs text-white/70">Одна линия! Финальное испытание для настоящих художников.</p>
+            <div className="bg-white border-[4px] border-black p-5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-2 transition-transform">
+              <div className="text-4xl mb-3">☝️</div>
+              <h3 className="font-black text-lg mb-2 uppercase">Раунд 3 — 1 касание</h3>
+              <p className="font-bold text-sm">Одна линия! Финальное испытание для настоящих художников.</p>
             </div>
           </div>
-          <div className="mt-4 rounded-2xl border border-yellow-400/20 bg-yellow-400/5 p-3 text-sm text-yellow-200/80">
-            <strong>Баллы:</strong> +50 за правильную догадку, +50 если твой рисунок угадали, +25 за каждый голос.
+          <div className="mt-6 bg-[#FFD700] border-[4px] border-black p-4 font-bold text-center shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rotate-1">
+            <span className="text-xl">⭐ БАЛЛЫ:</span> +50 за правильную догадку, +50 если твой рисунок угадали, +25 за каждый голос.
           </div>
         </section>
 
         {/* Create / Join */}
-        <section className="rounded-3xl border-4 border-white/10 bg-white/5 p-6 sm:p-7 space-y-5 shadow-2xl">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+        <section className="bg-[#B266FF] border-[6px] border-black p-6 sm:p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] rotate-1">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
             <div>
-              <p className="uppercase text-[11px] tracking-[0.32em] text-white/60">онлайн</p>
-              <h3 className="text-2xl font-black">Создать или войти в комнату</h3>
+              <div className="inline-block bg-white border-[3px] border-black px-3 py-1 -rotate-2 mb-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                <p className="uppercase text-xs font-black tracking-widest">онлайн</p>
+              </div>
+              <h3 className="text-3xl font-bangers tracking-wide text-white drop-shadow-[2px_2px_0_#000]" style={{ WebkitTextStroke: '1px black' }}>СОЗДАТЬ ИЛИ ВОЙТИ</h3>
             </div>
-            {error && <span className="text-sm text-red-300 font-semibold">{error}</span>}
+            {error && (
+              <div className="bg-white border-[3px] border-black px-4 py-2 rotate-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                <span className="text-red-600 font-black uppercase">{error}</span>
+              </div>
+            )}
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            {/* Create */}
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-bold">Создать комнату</p>
-                <span className="text-[11px] uppercase tracking-[0.24em] text-white/60">ведущий</span>
-              </div>
-              <p className="text-xs text-white/50">Запустите игру на большом экране (ТВ, ноутбук) — это экран ведущего.</p>
-              <input
-                className="w-full rounded-xl bg-white/10 border border-white/20 px-3 py-2 text-sm focus:outline-none focus:border-purple-400 text-white"
-                value={hostName}
-                onChange={e => setHostName(e.target.value)}
-                placeholder="Имя ведущего"
-              />
-
-              {/* Game mode selector */}
-              <div className="space-y-2">
-                <p className="text-xs text-white/60 font-bold">Режим игры</p>
-                <div className="grid grid-cols-3 gap-2">
-                  {([
-                    { value: 'russian' as DrawGameMode, label: '🇷🇺 Русский', desc: 'Слова на русском' },
-                    { value: 'english' as DrawGameMode, label: '🇬🇧 English', desc: 'Words in English' },
-                    { value: 'free' as DrawGameMode, label: '✏️ Свободный', desc: 'Свои слова' },
-                  ]).map(m => (
-                    <button
-                      key={m.value}
-                      type="button"
-                      onClick={() => setMode(m.value)}
-                      className={`rounded-xl border px-2 py-2 text-center transition ${
-                        mode === m.value
-                          ? 'border-purple-400 bg-purple-400/20 text-purple-300'
-                          : 'border-white/20 bg-white/5 text-white/60 hover:bg-white/10'
-                      }`}
-                    >
-                      <span className="text-xs font-bold block">{m.label}</span>
-                      <span className="text-[10px] text-white/40">{m.desc}</span>
-                    </button>
-                  ))}
+          <div className="grid md:grid-cols-2 gap-8">
+            {/* Create Room */}
+            <div className="bg-white border-[4px] border-black p-6 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] flex flex-col">
+              <h4 className="text-2xl font-bangers tracking-wide mb-4 text-[#FF69B4] drop-shadow-[1px_1px_0_#000]" style={{ WebkitTextStroke: '1px black' }}>СОЗДАТЬ ИГРУ</h4>
+              <div className="space-y-4 flex-1">
+                <div>
+                  <label className="block text-sm font-black uppercase mb-2">Имя ведущего</label>
+                  <input
+                    type="text"
+                    value={hostName}
+                    onChange={e => setHostName(e.target.value)}
+                    className="w-full bg-gray-100 border-[3px] border-black px-4 py-3 font-bold focus:outline-none focus:bg-white focus:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all"
+                    placeholder="Ведущий"
+                    maxLength={20}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-black uppercase mb-2">Режим игры</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {([
+                      { value: 'russian' as DrawGameMode, label: '🇷🇺 Русский', desc: 'Слова на русском' },
+                      { value: 'english' as DrawGameMode, label: '🇬🇧 English', desc: 'Words in English' },
+                      { value: 'free' as DrawGameMode, label: '✏️ Свободный', desc: 'Свои слова' },
+                    ]).map(m => (
+                      <button
+                        key={m.value}
+                        type="button"
+                        onClick={() => setMode(m.value)}
+                        className={`border-[3px] border-black px-2 py-2 text-center transition-all font-bold ${
+                          mode === m.value
+                            ? 'bg-[#FFD700] shadow-[inset_0px_-4px_0px_0px_rgba(0,0,0,0.2)]'
+                            : 'bg-white hover:bg-gray-100 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[0px_0px_0px_0px_rgba(0,0,0,1)]'
+                        }`}
+                      >
+                        <span className="text-xs block">{m.label}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
-
               <button
-                type="button"
-                disabled={pending}
                 onClick={handleCreate}
-                className="w-full rounded-xl bg-purple-600 text-white font-bold px-4 py-3 text-sm tracking-[0.08em] hover:bg-purple-500 disabled:opacity-60 active:scale-95 transition"
+                disabled={pending || !hostName.trim()}
+                className="mt-6 w-full bg-[#00BFFF] hover:bg-[#0099CC] text-white border-[4px] border-black py-4 text-2xl font-bangers tracking-widest shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ WebkitTextStroke: '1px black' }}
               >
-                {pending ? 'Создаём…' : '🎨 Создать комнату'}
+                {pending ? 'СОЗДАЕМ...' : 'СОЗДАТЬ КОМНАТУ'}
               </button>
             </div>
 
-            {/* Join */}
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-bold">Войти по коду</p>
-                <span className="text-[11px] uppercase tracking-[0.24em] text-white/60">игрок</span>
+            {/* Join Room */}
+            <div className="bg-white border-[4px] border-black p-6 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] flex flex-col">
+              <h4 className="text-2xl font-bangers tracking-wide mb-4 text-[#00BFFF] drop-shadow-[1px_1px_0_#000]" style={{ WebkitTextStroke: '1px black' }}>ПРИСОЕДИНИТЬСЯ</h4>
+              <div className="space-y-4 flex-1">
+                <div>
+                  <label className="block text-sm font-black uppercase mb-2">Код комнаты</label>
+                  <input
+                    type="text"
+                    value={joinCode}
+                    onChange={e => setJoinCode(e.target.value.toUpperCase())}
+                    className="w-full bg-gray-100 border-[3px] border-black px-4 py-3 font-bold text-center text-2xl tracking-widest uppercase focus:outline-none focus:bg-white focus:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all"
+                    placeholder="XXXX"
+                    maxLength={6}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-black uppercase mb-2">Твое имя</label>
+                  <input
+                    type="text"
+                    value={joinName}
+                    onChange={e => setJoinName(e.target.value)}
+                    className="w-full bg-gray-100 border-[3px] border-black px-4 py-3 font-bold focus:outline-none focus:bg-white focus:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all"
+                    placeholder="Игрок"
+                    maxLength={20}
+                  />
+                </div>
               </div>
-              <p className="text-xs text-white/50">Откройте на телефоне — это экран игрока. Введите код с экрана ведущего.</p>
-              <input
-                className="w-full rounded-xl bg-white/10 border border-white/20 px-3 py-2 text-sm focus:outline-none focus:border-purple-400 text-white"
-                value={joinName}
-                onChange={e => setJoinName(e.target.value)}
-                placeholder="Ваше имя"
-              />
-              <input
-                className="w-full rounded-xl bg-white/10 border border-white/20 px-3 py-2 text-sm uppercase tracking-[0.2em] focus:outline-none focus:border-purple-400 text-white text-center"
-                value={joinCode}
-                onChange={e => setJoinCode(e.target.value)}
-                placeholder="Код комнаты"
-                maxLength={6}
-              />
               <button
-                type="button"
-                disabled={pending}
                 onClick={handleJoin}
-                className="w-full rounded-xl bg-white/15 text-white font-bold px-4 py-3 text-sm tracking-[0.08em] border border-white/30 hover:bg-white/25 disabled:opacity-60 active:scale-95 transition"
+                disabled={pending || !joinCode.trim() || !joinName.trim()}
+                className="mt-6 w-full bg-[#FF69B4] hover:bg-[#FF1493] text-white border-[4px] border-black py-4 text-2xl font-bangers tracking-widest shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ WebkitTextStroke: '1px black' }}
               >
-                {pending ? 'Подключаем…' : 'Войти'}
+                {pending ? 'ВХОДИМ...' : 'ВОЙТИ В ИГРУ'}
               </button>
             </div>
           </div>
         </section>
 
-        <div className="flex flex-wrap gap-3 text-sm font-semibold">
-          <Link
-            href="/"
-            className="rounded-2xl border border-white/20 bg-white/10 px-4 py-2 hover:bg-white/20 transition-colors"
+        <div className="text-center pt-4">
+          <Link 
+            href="/" 
+            className="inline-block bg-white border-[3px] border-black px-6 py-3 font-black uppercase hover:bg-gray-100 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all"
           >
-            ← Вернуться на главную
+            ← На главную
           </Link>
         </div>
       </div>
-    </div>
+    </ComicBackground>
   );
 }

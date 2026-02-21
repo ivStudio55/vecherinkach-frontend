@@ -1,7 +1,26 @@
 ﻿@import "tailwindcss";
 
+@theme {
+  --font-bangers: var(--font-bangers), system-ui, sans-serif;
+}
+
 html {
   scrollbar-gutter: stable;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(var(--tw-rotate, 0deg)); }
+  50% { transform: translateY(-20px) rotate(var(--tw-rotate, 0deg)); }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1) rotate(var(--tw-rotate, 0deg)); }
+  50% { transform: scale(1.05) rotate(var(--tw-rotate, 0deg)); }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0) rotate(var(--tw-rotate, 0deg)); }
+  50% { transform: translateY(-15px) rotate(var(--tw-rotate, 0deg)); }
 }
 
 :root {
