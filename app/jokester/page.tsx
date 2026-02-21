@@ -105,11 +105,11 @@ export default function JokesterEntryPage() {
       <div className="relative z-10 max-w-2xl mx-auto px-4 py-10 space-y-8">
         {/* ─── Заголовок 3D CSS ─── */}
         <div className="text-center">
-          <h1 className="text-5xl sm:text-7xl font-black tracking-tight select-none flex justify-center gap-1 flex-wrap">
+          <h1 className="text-5xl sm:text-7xl font-black tracking-tight select-none flex justify-center gap-1 flex-wrap drop-shadow-[2px_2px_0_#fff]">
             {'Пошути-кач'.split('').map((ch, i) => (
               <span
                 key={`${ch}-${i}`}
-                className="inline-block jokester-letter text-white"
+                className="inline-block jokester-letter text-black"
                 style={{ animationDelay: `${i * 0.08}s` }}
               >
                 {ch}

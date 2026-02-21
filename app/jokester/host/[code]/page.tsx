@@ -56,6 +56,7 @@ type VoteReveal = {
   winnerLabel: string;
   pointsFrom: number;
   pointsTo: number;
+  rank?: number;
 };
 
 type FeatherSpawn = {
@@ -106,6 +107,7 @@ export default function JokesterHostPage() {
   const [showDeAnon, setShowDeAnon] = useState(false);
   const [bestAnswer, setBestAnswer] = useState<{ text: string; playerName: string; playerAvatar: string; question: string } | null>(null);
   const [voteReveal, setVoteReveal] = useState<VoteReveal | null>(null);
+  const [showRank, setShowRank] = useState(false);
   const [creditsData, setCreditsData] = useState<{ winnerAnswers: CreditsAnswer[]; playerRanks: CreditsPlayerBest[] } | null>(null);
   const [isBgmMuted, setIsBgmMuted] = useState(false);
   const [isVoiceMuted, setIsVoiceMuted] = useState(false);
@@ -663,6 +665,17 @@ export default function JokesterHostPage() {
         const winnerAnswer = duelAnswers.find(a => a.player_id === winnerId && !!a.answer_text?.trim())?.answer_text
           || duelAnswers.find(a => a.player_id === winnerId)?.answer_text
           || 'Ответ не найден';
+          
+        // Calculate new ranks
+        const updatedPlayers = players.map(p => {
+          if (p.id === duel.player1_id) return { ...p, total_points: p1Before + p1Delta };
+          if (p.id === duel.player2_id) return { ...p, total_points: p2Before + p2Delta };
+          return p;
+        });
+        const gamePlayers = updatedPlayers.filter(p => p.role === 'player' && !p.is_host);
+        const sortedByPoints = [...gamePlayers].sort((a, b) => b.total_points - a.total_points);
+        const winnerRank = sortedByPoints.findIndex(p => p.id === winnerId) + 1;
+
         setVoteReveal({
           answer: winnerAnswer,
           playerName: winnerPlayer?.name || 'Победитель',
@@ -671,9 +684,12 @@ export default function JokesterHostPage() {
           winnerLabel: winnerPlayer?.name ? `Побеждает ${winnerPlayer.name}` : 'Победитель дуэли',
           pointsFrom: winnerId === duel.player1_id ? p1Before : p2Before,
           pointsTo: winnerId === duel.player1_id ? p1Before + p1Delta : p2Before + p2Delta,
+          rank: winnerRank,
         });
+        setShowRank(false);
       } else {
         setVoteReveal(null);
+        setShowRank(false);
       }
 
       audioRef.current?.playBgm(JOKESTER_AUDIO.betweenMusic, 0.28);
@@ -719,7 +735,6 @@ export default function JokesterHostPage() {
       const afterFolder = JOKESTER_AUDIO.afterRound(1);
       audioRef.current?.playBgm(JOKESTER_AUDIO.afterRoundMusic, 0.28);
       await audioRef.current?.playVoiceRandom(afterFolder);
-      audioRef.current?.stopBgm();
       autoStartingDuelsRef.current = false;
     }
   };
@@ -1250,6 +1265,7 @@ export default function JokesterHostPage() {
                     },
                   ].map((cfg, idx) => {
                     const isLoser = room.voting_phase === 'results' && voteReveal ? voteReveal.playerName !== cfg.label && voteReveal.playerName !== 'Ничья' : false;
+                    const isWinner = room.voting_phase === 'results' && voteReveal ? voteReveal.playerName === cfg.label : false;
                     return (
                       <DuelAnswerCard
                         key={cfg.id}
@@ -1262,6 +1278,8 @@ export default function JokesterHostPage() {
                         emitFeathers={emitFeathers}
                         animDelay={idx * 0.6}
                         isLoser={isLoser}
+                        isWinner={isWinner}
+                        idx={idx}
                       />
                     );
                   })}
@@ -1293,12 +1311,21 @@ export default function JokesterHostPage() {
                         className="text-5xl font-black text-purple-600 drop-shadow-[2px_2px_0_#000]"
                         onComplete={() => {
                           setTimeout(() => {
+                            setShowRank(true);
                             emitAtElement(winnerPanelRef.current, { count: 46, spread: 200, speed: 7.2 });
                             playRandomSound(START_DUCK_SOUNDS, 0.55);
                           }, 500);
                         }}
                       />
                     </div>
+                    {showRank && voteReveal.rank && (
+                      <div className="mt-4 animate-rank-appear">
+                        <p className="text-sm text-gray-800 font-bold mb-1">Место в рейтинге</p>
+                        <p className="text-6xl font-black text-yellow-500 drop-shadow-[3px_3px_0_#000]">
+                          #{voteReveal.rank}
+                        </p>
+                      </div>
+                    )}
                     <div className="flex items-center justify-center gap-4 mt-6">
                       <FeatherAvatar
                         src={avatarSrc(voteReveal.playerAvatar)}
@@ -1657,6 +1684,8 @@ function DuelAnswerCard({
   emitFeathers,
   animDelay = 0,
   isLoser = false,
+  isWinner = false,
+  idx = 0,
 }: {
   label: string;
   answers: JokesterAnswer[];
@@ -1667,6 +1696,8 @@ function DuelAnswerCard({
   emitFeathers: (spawn: FeatherSpawn) => void;
   animDelay?: number;
   isLoser?: boolean;
+  isWinner?: boolean;
+  idx?: number;
 }) {
   const avatarSrc = (avatar?: string | null) => {
     if (!avatar) return '/audio/sound/Jokester/ava/1.png';
@@ -1675,13 +1706,17 @@ function DuelAnswerCard({
   };
   const duelist = answers.length > 0 ? players.find(p => p.id === answers[0].player_id) : null;
 
+  const strikeClass = isWinner ? (idx === 0 ? 'animate-strike-right' : 'animate-strike-left') : '';
+  const knockoutClass = isLoser ? (idx === 0 ? 'animate-knockout-left' : 'animate-knockout-right') : '';
+  const appearClass = !isWinner && !isLoser ? 'animate-card-appear' : '';
+
   return (
     <div
-      className={`relative cartoon-panel p-6 space-y-4 overflow-hidden answer-card-anim panel-pulse ${isLoser ? 'animate-knockout' : ''}`}
+      className={`relative cartoon-panel p-6 space-y-4 overflow-hidden answer-card-anim panel-pulse ${appearClass} ${strikeClass} ${knockoutClass}`}
       style={{
         borderColor: color,
-        animationDelay: `${animDelay}s`,
-        ...panelDelayStyle(`${animDelay}s`),
+        animationDelay: isWinner || isLoser ? '0s' : `${animDelay}s`,
+        ...panelDelayStyle(isWinner || isLoser ? '0s' : `${animDelay}s`),
       }}
     >
       {duelist && (
@@ -1691,8 +1726,12 @@ function DuelAnswerCard({
       )}
       <div className="relative z-10 space-y-4">
         <h3 className="text-2xl font-black drop-shadow-[1px_1px_0_#fff]" style={{ color }}>{label}</h3>
-        {answers.map(a => (
-          <div key={a.id} className="bg-white border-4 border-black rounded-2xl p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+        {answers.map((a, aIdx) => (
+          <div 
+            key={a.id} 
+            className="bg-white border-4 border-black rounded-2xl p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] animate-answer-appear"
+            style={{ animationDelay: `${animDelay + 0.4 + aIdx * 0.2}s` }}
+          >
             <p className="text-5xl sm:text-6xl font-black text-black jokester-answer-font">« {a.answer_text} »</p>
           </div>
         ))}

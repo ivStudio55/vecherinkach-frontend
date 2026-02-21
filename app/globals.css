@@ -1434,13 +1434,76 @@ body {
   border-color: #1f6ac6;
 }
 
-@keyframes knockout {
+@keyframes knockoutLeft {
   0% { transform: scale(1) rotate(0deg); opacity: 1; }
-  20% { transform: scale(1.1) rotate(-5deg); opacity: 1; }
-  100% { transform: scale(0) rotate(45deg) translateY(500px); opacity: 0; }
+  20% { transform: scale(1.1) rotate(5deg); opacity: 1; }
+  100% { transform: scale(0) rotate(-45deg) translate(-500px, 500px); opacity: 0; }
 }
 
-.animate-knockout {
-  animation: knockout 0.8s cubic-bezier(0.36, 0, 0.66, -0.56) forwards;
+@keyframes knockoutRight {
+  0% { transform: scale(1) rotate(0deg); opacity: 1; }
+  20% { transform: scale(1.1) rotate(-5deg); opacity: 1; }
+  100% { transform: scale(0) rotate(45deg) translate(500px, 500px); opacity: 0; }
+}
+
+@keyframes strikeRight {
+  0% { transform: translateX(0) scale(1); }
+  20% { transform: translateX(-20px) scale(1.05); }
+  40% { transform: translateX(100px) scale(1.1); }
+  60% { transform: translateX(-10px) scale(1); }
+  100% { transform: translateX(0) scale(1); }
+}
+
+@keyframes strikeLeft {
+  0% { transform: translateX(0) scale(1); }
+  20% { transform: translateX(20px) scale(1.05); }
+  40% { transform: translateX(-100px) scale(1.1); }
+  60% { transform: translateX(10px) scale(1); }
+  100% { transform: translateX(0) scale(1); }
+}
+
+@keyframes cardAppear {
+  0% { transform: scale(0.5); opacity: 0; }
+  60% { transform: scale(1.05); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes answerAppear {
+  0% { transform: scale(0); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.animate-knockout-left {
+  animation: knockoutLeft 0.8s cubic-bezier(0.36, 0, 0.66, -0.56) forwards;
+}
+
+.animate-knockout-right {
+  animation: knockoutRight 0.8s cubic-bezier(0.36, 0, 0.66, -0.56) forwards;
+}
+
+.animate-strike-right {
+  animation: strikeRight 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.animate-strike-left {
+  animation: strikeLeft 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.animate-card-appear {
+  animation: cardAppear 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+}
+
+.animate-answer-appear {
+  animation: answerAppear 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+}
+
+@keyframes rankAppear {
+  0% { opacity: 0; transform: scale(0.5) rotate(-10deg); }
+  50% { opacity: 1; transform: scale(1.2) rotate(5deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
+.animate-rank-appear {
+  animation: rankAppear 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
