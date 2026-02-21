@@ -183,41 +183,44 @@ export default function JokesterSpectatorPage() {
 
   if (!room) {
     return (
-      <div className="min-h-screen bg-[#0a1628] flex items-center justify-center">
-        <p className="text-white animate-pulse">Загрузка...</p>
+      <div className="min-h-screen bg-[#1f6ac6] flex items-center justify-center">
+        <p className="text-white animate-pulse font-bold text-lg">Загрузка...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0a1628] text-white">
+    <div className="min-h-screen bg-[#1f6ac6] text-white relative overflow-hidden">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="jokester-sunrays" />
+      </div>
       {/* Header */}
-      <header className="bg-[#0d1a30] border-b border-purple-600/30 px-4 py-2 flex items-center justify-between">
+      <header className="relative z-10 bg-white border-b-4 border-black px-4 py-2 flex items-center justify-between shadow-[0px_4px_0px_0px_rgba(0,0,0,1)]">
         <div className="flex items-center gap-2">
-          <span className="text-lg">👀</span>
-          <span className="font-bold text-sm text-purple-400">Зритель</span>
+          <span className="text-2xl drop-shadow-[2px_2px_0_#000]">👀</span>
+          <span className="font-black text-lg text-purple-600 drop-shadow-[1px_1px_0_#000]">Зритель</span>
         </div>
-        <span className="text-xs text-gray-400">{roomCode}</span>
+        <span className="text-sm font-bold text-black bg-gray-200 px-2 py-1 rounded-lg border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">{roomCode}</span>
       </header>
 
-      <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
+      <div className="relative z-10 max-w-lg mx-auto px-4 py-6 space-y-6">
 
         {/* ═══ LOBBY ═══ */}
         {room.status === 'lobby' && (
           <div className="text-center space-y-4 animate-[fadeIn_0.5s_ease]">
-            <div className="text-5xl">👀</div>
-            <h2 className="text-xl font-black text-purple-400">Зрительский зал</h2>
-            <p className="text-gray-400">Ожидание начала игры...</p>
-            <div className="bg-[#111d33] rounded-2xl p-4 space-y-2 panel-pulse" style={panelDelayStyle('0.1s')}>
-              <h3 className="text-sm font-bold text-gray-400">Рейтинг игроков</h3>
+            <div className="text-5xl drop-shadow-[2px_2px_0_#000]">👀</div>
+            <h2 className="text-2xl font-black text-white drop-shadow-[2px_2px_0_#000]">Зрительский зал</h2>
+            <p className="text-white font-bold drop-shadow-[1px_1px_0_#000]">Ожидание начала игры...</p>
+            <div className="cartoon-panel p-4 space-y-2 panel-pulse" style={panelDelayStyle('0.1s')}>
+              <h3 className="text-sm font-bold text-gray-800">Рейтинг игроков</h3>
               {gamePlayers.map((p, idx) => (
                 <div
                   key={p.id}
-                  className="flex items-center gap-2 bg-[#0d1a30] rounded-lg p-2 panel-pulse"
+                  className="flex items-center gap-2 bg-white border-2 border-black rounded-xl p-2 panel-pulse shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
                   style={panelDelayStyle(`${0.05 + idx * 0.06}s`)}
                 >
-                  <img src={avatarSrc(p.avatar)} alt={p.name} className="w-14 h-14 rounded-full object-cover jokester-avatar-pop" />
-                  <span className="text-sm font-bold">{p.name}</span>
+                  <img src={avatarSrc(p.avatar)} alt={p.name} className="w-14 h-14 rounded-full object-cover border-2 border-black jokester-avatar-pop" />
+                  <span className="text-sm font-black text-black">{p.name}</span>
                 </div>
               ))}
             </div>
@@ -227,11 +230,11 @@ export default function JokesterSpectatorPage() {
         {/* ═══ CATEGORY VOTE ═══ */}
         {room.status === 'category_vote' && (
           <div className="space-y-4 animate-[fadeIn_0.5s_ease]">
-            <h2 className="text-lg font-black text-purple-400 text-center">Голосуй за категории!</h2>
-            <p className="text-center text-xs text-gray-400">
+            <h2 className="text-2xl font-black text-white text-center drop-shadow-[2px_2px_0_#000]">Голосуй за категории!</h2>
+            <p className="text-center text-sm text-white font-bold drop-shadow-[1px_1px_0_#000]">
               ({myCatVotes.size}/{gamePlayers.length})
             </p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-3">
               {categories.map(cat => {
                 const voted = myCatVotes.has(cat.id);
                 return (
@@ -239,15 +242,15 @@ export default function JokesterSpectatorPage() {
                     key={cat.id}
                     onClick={() => handleCategoryVote(cat.id)}
                     disabled={voted || myCatVotes.size >= gamePlayers.length}
-                    className={`rounded-xl border-2 p-3 text-left transition-all active:scale-95 panel-pulse ${
+                    className={`rounded-2xl border-4 p-3 text-left transition-all active:scale-95 panel-pulse shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] ${
                       voted
-                        ? 'bg-purple-600/20 border-purple-600 text-purple-300'
-                        : 'bg-[#111d33] border-gray-700 hover:border-purple-500'
+                        ? 'bg-purple-600 border-black text-white'
+                        : 'bg-white border-black hover:bg-gray-100 text-black'
                     } disabled:opacity-50`}
                     style={panelDelayStyle('0.08s')}
                   >
-                    <span className="text-xl">{cat.emoji}</span>
-                    <span className="text-lg font-black ml-1">{cat.name}</span>
+                    <span className="text-2xl drop-shadow-[1px_1px_0_#000]">{cat.emoji}</span>
+                    <span className="text-lg font-black ml-2">{cat.name}</span>
                   </button>
                 );
               })}
@@ -259,20 +262,20 @@ export default function JokesterSpectatorPage() {
         {(room.status === 'round_playing' || room.status === 'final_playing') && room.voting_phase === 'voting' && (
           <div className="space-y-5 animate-[fadeIn_0.5s_ease]">
             <SpectatorTimerBar seconds={timer} total={VOTE_TIME_SEC} />
-            <h2 className="text-lg font-black text-center text-purple-400">Голосуй за лучший ответ!</h2>
+            <h2 className="text-2xl font-black text-center text-white drop-shadow-[2px_2px_0_#000]">Голосуй за лучший ответ!</h2>
 
             {/* Вопрос */}
             {currentDuel && (
               <div
-                className="bg-[#111d33] border border-gray-700 rounded-2xl p-4 text-center panel-pulse"
+                className="cartoon-panel p-4 text-center panel-pulse"
                 style={panelDelayStyle('0.12s')}
               >
-                <p className="font-bold">{currentDuel.question1_text}</p>
+                <p className="font-black text-black text-lg">{currentDuel.question1_text}</p>
               </div>
             )}
 
             {/* Ответы */}
-            <div className="grid grid-cols-1 gap-3">
+            <div className="grid grid-cols-1 gap-4">
               {currentDuel && (
                 <>
                   <VoteButton
@@ -293,7 +296,7 @@ export default function JokesterSpectatorPage() {
                     answers={currentAnswers.filter(a => a.player_id === currentDuel.player2_id).map(a => a.answer_text)}
                     isSelected={myVote === currentDuel.player2_id}
                     disabled={!!myVote}
-                    color="#f1532f"
+                    color="#ef4444"
                     onClick={() => handleVote(currentDuel.player2_id)}
                     panelDelay="0.26s"
                   />
@@ -301,7 +304,7 @@ export default function JokesterSpectatorPage() {
               )}
             </div>
             {myVote && (
-              <p className="text-center text-purple-400 font-bold animate-[fadeIn_0.3s_ease]">✅ Голос принят!</p>
+              <p className="text-center text-white font-black text-xl drop-shadow-[2px_2px_0_#000] animate-[fadeIn_0.3s_ease]">✅ Голос принят!</p>
             )}
           </div>
         )}
@@ -309,16 +312,16 @@ export default function JokesterSpectatorPage() {
         {/* ═══ VOTE RESULTS ═══ */}
         {(room.status === 'round_playing' || room.status === 'final_playing') && room.voting_phase === 'results' && (
           <div className="text-center py-8 space-y-4 animate-[fadeIn_0.5s_ease]">
-            <div className="text-5xl">🏆</div>
-            <p className="text-xl font-bold text-[#ffd700]">Победитель дуэли</p>
-            {duelReveal?.question && <p className="text-sm text-gray-400">{duelReveal.question}</p>}
-            <p className="text-2xl font-black text-white">{duelReveal?.winnerName || 'Ничья'}</p>
+            <div className="text-6xl drop-shadow-[2px_2px_0_#000]">🏆</div>
+            <p className="text-2xl font-black text-white drop-shadow-[2px_2px_0_#000]">Победитель дуэли</p>
+            {duelReveal?.question && <p className="text-sm text-white font-bold drop-shadow-[1px_1px_0_#000]">{duelReveal.question}</p>}
+            <p className="text-3xl font-black text-white drop-shadow-[2px_2px_0_#000]">{duelReveal?.winnerName || 'Ничья'}</p>
             {duelReveal?.winnerAnswer && (
               <div
-                className="bg-[#111d33] border border-[#ffd700]/40 rounded-2xl p-4 panel-pulse"
+                className="cartoon-panel p-6 panel-pulse"
                 style={panelDelayStyle('0.14s')}
               >
-                <p className="text-4xl font-black jokester-answer-font">« {duelReveal.winnerAnswer} »</p>
+                <p className="text-4xl font-black text-black jokester-answer-font">« {duelReveal.winnerAnswer} »</p>
               </div>
             )}
           </div>
@@ -328,33 +331,33 @@ export default function JokesterSpectatorPage() {
         {(room.status === 'round_playing' || room.status === 'final_playing') && room.voting_phase === 'answering' && (
           <div className="text-center py-12 space-y-4 animate-[fadeIn_0.5s_ease]">
             <SpectatorTimerBar seconds={timer} total={ANSWER_TIME_SEC} />
-            <div className="text-5xl animate-[bounce_2s_infinite]">⏳</div>
-            <p className="text-lg text-gray-400">Дуэлянты отвечают на вопросы...</p>
-            <p className="text-sm text-gray-500">Скоро голосование!</p>
+            <div className="text-6xl animate-[bounce_2s_infinite] drop-shadow-[2px_2px_0_#000]">⏳</div>
+            <p className="text-xl font-black text-white drop-shadow-[2px_2px_0_#000]">Дуэлянты отвечают на вопросы...</p>
+            <p className="text-sm font-bold text-white drop-shadow-[1px_1px_0_#000]">Скоро голосование!</p>
           </div>
         )}
 
         {/* ═══ RESULTS ═══ */}
         {(room.status === 'round_results' || room.status === 'final_results') && (
           <div className="space-y-4 animate-[fadeIn_0.5s_ease]">
-            <h2 className="text-lg font-black text-center text-purple-400">
+            <h2 className="text-2xl font-black text-center text-white drop-shadow-[2px_2px_0_#000]">
               {room.status === 'final_results' ? '🏆 Итоги финала' : `Итоги раунда ${room.current_round}`}
             </h2>
-            <div className="space-y-2">
+            <div className="space-y-3">
               {sortedByPoints.filter(p => !p.is_host).map((p, i) => (
                 <div
                   key={p.id}
-                  className="bg-[#111d33] rounded-xl p-3 flex items-center gap-3 panel-pulse"
+                  className="cartoon-panel p-3 flex items-center gap-3 panel-pulse"
                     style={panelDelayStyle(`${0.05 + i * 0.06}s`)}
                 >
-                  <span className="text-lg font-bold w-6 text-center">
+                  <span className="text-2xl font-black w-8 text-center drop-shadow-[1px_1px_0_#000]">
                     {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
                   </span>
-                  <img src={avatarSrc(p.avatar)} alt={p.name} className="w-16 h-16 rounded-full object-cover jokester-avatar-pop" />
-                  <span className="flex-1 font-bold text-sm">{p.name}</span>
+                  <img src={avatarSrc(p.avatar)} alt={p.name} className="w-16 h-16 rounded-full object-cover border-2 border-black jokester-avatar-pop" />
+                  <span className="flex-1 font-black text-black text-lg">{p.name}</span>
                   <div className="text-right">
-                    <span className="font-black text-[#ffd700] jokester-score-font">{p.total_points}</span>
-                    <p className="text-xs text-gray-500">👥{p.player_votes} 👀{p.spectator_votes}</p>
+                    <span className="font-black text-black text-2xl jokester-score-font">{p.total_points}</span>
+                    <p className="text-xs text-gray-800 font-bold">👥{p.player_votes} 👀{p.spectator_votes}</p>
                   </div>
                 </div>
               ))}
@@ -365,29 +368,29 @@ export default function JokesterSpectatorPage() {
         {/* ═══ CREDITS ═══ */}
         {room.status === 'credits' && (
           <div className="text-center py-12 space-y-4 animate-[fadeIn_0.5s_ease]">
-            <div className="text-5xl">🎬</div>
-            <p className="text-xl font-black text-purple-400">Титры</p>
-            <p className="text-gray-400">Смотрите на экран ведущего!</p>
+            <div className="text-6xl drop-shadow-[2px_2px_0_#000]">🎬</div>
+            <p className="text-3xl font-black text-white drop-shadow-[2px_2px_0_#000]">Титры</p>
+            <p className="text-lg font-bold text-white drop-shadow-[1px_1px_0_#000]">Смотрите на экран ведущего!</p>
           </div>
         )}
 
         {room.status === 'finished' && (
           <div className="text-center py-12 space-y-4">
-            <div className="text-5xl">🎉</div>
-            <p className="text-xl font-black text-purple-400">Игра окончена!</p>
+            <div className="text-6xl drop-shadow-[2px_2px_0_#000]">🎉</div>
+            <p className="text-3xl font-black text-white drop-shadow-[2px_2px_0_#000]">Игра окончена!</p>
           </div>
         )}
 
         {/* Various states fallback */}
         {(room.status === 'starting' || room.status === 'round_rules' || room.status === 'final_rules') && (
           <div className="text-center py-12 space-y-4 animate-[fadeIn_0.5s_ease]">
-            <div className="text-5xl animate-[bounce_1.5s_infinite]">🎭</div>
-            <p className="text-xl font-bold text-purple-400">
+            <div className="text-6xl animate-[bounce_1.5s_infinite] drop-shadow-[2px_2px_0_#000]">🎭</div>
+            <p className="text-3xl font-black text-white drop-shadow-[2px_2px_0_#000]">
               {room.status === 'starting' ? 'Игра начинается!' :
                room.status === 'final_rules' ? 'ФИНАЛ!' :
                `Раунд ${room.current_round}`}
             </p>
-            <p className="text-gray-400">Следите за экраном ведущего...</p>
+            <p className="text-lg font-bold text-white drop-shadow-[1px_1px_0_#000]">Следите за экраном ведущего...</p>
           </div>
         )}
       </div>
@@ -441,29 +444,29 @@ function VoteButton({
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`rounded-2xl border-2 p-4 text-left transition-all active:scale-95 panel-pulse ${
+      className={`rounded-2xl border-4 p-4 text-left transition-all active:scale-95 panel-pulse shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] ${
         isSelected
-          ? 'scale-[1.02] shadow-lg'
-          : disabled ? 'opacity-40' : 'hover:scale-[1.01]'
+          ? 'scale-[1.02] text-white'
+          : disabled ? 'opacity-40 border-gray-700 bg-gray-200 text-gray-500' : 'bg-white border-black hover:bg-gray-100 text-black'
       }`}
       style={{
-        borderColor: color,
-        backgroundColor: isSelected ? `${color}22` : '#111d33',
+        borderColor: isSelected ? 'black' : disabled ? '#374151' : 'black',
+        backgroundColor: isSelected ? color : disabled ? '#e5e7eb' : 'white',
         ...panelDelayStyle(panelDelay || '0s'),
       }}
     >
       <div className="flex items-center gap-3 mb-2">
         {avatar && (
-          <img src={avatarSrc(avatar)} alt={playerName || label} className="w-16 h-16 rounded-full object-cover jokester-avatar-pop" />
+          <img src={avatarSrc(avatar)} alt={playerName || label} className="w-16 h-16 rounded-full object-cover border-2 border-black jokester-avatar-pop" />
         )}
-        <p className="text-xs font-bold" style={{ color }}>{label}</p>
+        <p className={`text-lg font-black ${isSelected ? 'text-white' : ''}`} style={{ color: isSelected ? 'white' : color }}>{label}</p>
       </div>
       {answers.length > 0 ? (
         answers.map((a, idx) => (
-          <p key={`${label}-${idx}`} className="text-4xl font-bold text-white jokester-answer-font">« {a} »</p>
+          <p key={`${label}-${idx}`} className={`text-4xl font-black mt-1 italic jokester-answer-font ${isSelected ? 'text-white' : 'text-black'}`}>« {a} »</p>
         ))
       ) : (
-        <p className="text-4xl font-bold text-white jokester-answer-font">...</p>
+        <p className={`text-4xl font-black mt-1 italic jokester-answer-font ${isSelected ? 'text-white' : 'text-black'}`}>...</p>
       )}
     </button>
   );

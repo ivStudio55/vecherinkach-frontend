@@ -923,7 +923,7 @@ export default function JokesterHostPage() {
 
   if (!room) {
     return (
-      <div className="min-h-screen bg-[#0a1628] flex items-center justify-center">
+      <div className="min-h-screen bg-[#1f6ac6] flex items-center justify-center">
         <div className="text-white text-xl font-bold animate-pulse">Загрузка...</div>
       </div>
     );
@@ -936,21 +936,15 @@ export default function JokesterHostPage() {
   const creditsWinnerAnswers = creditsData?.winnerAnswers || [];
 
   return (
-    <div className="min-h-screen bg-[#0a1628] text-white overflow-hidden relative">
+    <div className="min-h-screen bg-[#1f6ac6] text-white overflow-hidden relative font-sans">
       <FeatherBurstCanvas registerEmitter={registerFeatherEmitter} />
-      <div className="jokester-host-bg" aria-hidden="true">
-        <div className="jokester-host-blob host-blob-1" />
-        <div className="jokester-host-blob host-blob-2" />
-        <div className="jokester-host-grid" />
-      </div>
-      <div className="sunrays-host-layer" aria-hidden="true">
-        <div className="sunrays-host-rotor sunrays-host-rotor-main" />
-        <div className="sunrays-host-rotor sunrays-host-rotor-soft" />
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="jokester-sunrays" />
       </div>
       {/* ─── Header ─── */}
-      <header className="bg-[#0d1a30] border-b border-[#ffd700]/20 px-4 py-3 flex items-center justify-between">
+      <header className="relative z-10 bg-white border-b-4 border-black px-6 py-3 flex items-center justify-between shadow-[0px_4px_0px_0px_rgba(0,0,0,1)]">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl sm:text-3xl font-black flex gap-1">
+          <h1 className="text-2xl sm:text-3xl font-black flex gap-1 text-black drop-shadow-[1px_1px_0_#fff]">
             {'Пошути-кач'.split('').map((ch, i) => (
               <span
                 key={`${ch}-${i}`}
@@ -963,95 +957,95 @@ export default function JokesterHostPage() {
           </h1>
         </div>
         <div className="flex items-center gap-3">
-          <span className="px-3 py-1 rounded-full text-sm font-bold bg-[#ffd700] text-[#0a1628]">
+          <span className="px-3 py-1 rounded-xl text-sm font-black bg-gray-200 text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
             {roomCode}
           </span>
           <a
             href="https://donatty.com/aleksandri"
             target="_blank"
             rel="noopener noreferrer"
-            className="px-3 py-1 rounded-lg text-xs font-bold border border-[#ffd700]/50 bg-[#ffd700]/15 text-[#ffd700] hover:bg-[#ffd700]/25 transition-transform transition hover:scale-105"
+            className="px-3 py-1 rounded-xl text-xs font-black border-2 border-black bg-yellow-400 text-black hover:bg-yellow-300 transition-transform transition hover:scale-105 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
           >
             💛 Поддержать проект
           </a>
           <button
             onClick={() => setIsBgmMuted(audioRef.current?.toggleBgmMute() ?? false)}
-            className={`px-3 py-1 rounded-lg text-xs border transition-transform transition hover:scale-110 ${
+            className={`px-3 py-1 rounded-xl text-xs border-2 transition-transform transition hover:scale-110 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] ${
               isBgmMuted
-                ? 'bg-[#ffd700] text-[#0a1628] border-[#ffd700]'
-                : 'border-gray-600 hover:border-[#ffd700]'
+                ? 'bg-yellow-400 text-black border-black'
+                : 'bg-white border-black hover:bg-gray-100 text-black'
             }`}
           >
             🎵
           </button>
           <button
             onClick={() => setIsVoiceMuted(audioRef.current?.toggleVoiceMute() ?? false)}
-            className={`px-3 py-1 rounded-lg text-xs border transition-transform transition hover:scale-110 ${
+            className={`px-3 py-1 rounded-xl text-xs border-2 transition-transform transition hover:scale-110 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] ${
               isVoiceMuted
-                ? 'bg-[#ffd700] text-[#0a1628] border-[#ffd700]'
-                : 'border-gray-600 hover:border-[#ffd700]'
+                ? 'bg-yellow-400 text-black border-black'
+                : 'bg-white border-black hover:bg-gray-100 text-black'
             }`}
           >
             🎤
           </button>
           <button
             onClick={() => { void handleForceAdvance(); }}
-            className="px-3 py-1 rounded-lg text-xs bg-amber-500 hover:bg-amber-400 text-[#0a1628] font-bold transition-transform transition hover:scale-105"
+            className="px-3 py-1 rounded-xl text-xs bg-amber-500 hover:bg-amber-400 text-black font-black border-2 border-black transition-transform transition hover:scale-105 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
             title="Ручной переход к следующему шагу"
           >
             → Дальше
           </button>
           <button
             onClick={handleCloseRoom}
-            className="px-3 py-1 rounded-lg text-xs bg-red-600 hover:bg-red-500 transition-transform transition hover:scale-105 font-bold"
+            className="px-3 py-1 rounded-xl text-xs bg-red-600 hover:bg-red-500 text-white border-2 border-black transition-transform transition hover:scale-105 font-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
           >
             ✕ Закрыть
           </button>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 py-6 space-y-6">
 
         {/* ══════════════════ LOBBY ══════════════════ */}
         {room.status === 'lobby' && (
           <div className="space-y-6 animate-[fadeIn_0.5s_ease]">
             {/* QR + Info */}
             <div className="grid lg:grid-cols-2 gap-6">
-              <div className="bg-[#111d33] border-2 border-[#ffd700]/30 rounded-3xl p-6 space-y-4 text-center">
-                <h2 className="text-xl font-black text-[#ffd700]">Подключение к игре</h2>
-                <div className="bg-white rounded-2xl p-4 inline-block">
-                  <QRCodeCanvas value={joinUrl} size={200} fgColor="#0a1628" bgColor="#ffffff" />
+              <div className="cartoon-panel p-8 space-y-6 text-center">
+                <h2 className="text-3xl font-black text-black drop-shadow-[1px_1px_0_#fff]">Подключение к игре</h2>
+                <div className="bg-white rounded-2xl p-4 inline-block border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                  <QRCodeCanvas value={joinUrl} size={240} fgColor="#000000" bgColor="#ffffff" />
                 </div>
-                <p className="font-mono text-3xl font-black tracking-[0.5em] text-[#ffd700]">{roomCode}</p>
-                <p className="text-xs text-gray-400 break-all">{joinUrl}</p>
+                <p className="font-mono text-5xl font-black tracking-[0.5em] text-black drop-shadow-[2px_2px_0_#fff]">{roomCode}</p>
+                <p className="text-sm text-gray-800 font-bold break-all">{joinUrl}</p>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {/* Игроки */}
-                <div className="bg-[#111d33] border-2 border-[#1f6ac6]/30 rounded-3xl p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-black text-[#1f6ac6]">🎮 Игроки ({gamePlayers.length}/{MAX_PLAYERS})</h3>
-                    <span className="px-2 py-1 rounded-full text-xs bg-green-600 animate-pulse">LIVE</span>
+                <div className="cartoon-panel p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-2xl font-black text-[#1f6ac6] drop-shadow-[1px_1px_0_#fff]">🎮 Игроки ({gamePlayers.length}/{MAX_PLAYERS})</h3>
+                    <span className="px-3 py-1 rounded-full text-sm font-black bg-green-500 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] animate-pulse">LIVE</span>
                   </div>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-3 gap-4">
                     {gamePlayers.map(p => (
-                      <div key={p.id} className="bg-[#0d1a30] rounded-xl p-2 text-center animate-[fadeIn_0.3s_ease]">
+                      <div key={p.id} className="bg-white border-4 border-black rounded-2xl p-3 text-center animate-[fadeIn_0.3s_ease] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
                         <FeatherAvatar
                           src={avatarSrc(p.avatar)}
                           alt={p.name}
-                          className="w-20 h-20 rounded-full object-cover mx-auto mb-1 jokester-avatar-pop"
+                          className="w-24 h-24 rounded-full object-cover mx-auto mb-2 border-4 border-black jokester-avatar-pop"
                           emitFeathers={emitFeathers}
                           burstCount={20}
                         />
-                        <p className="text-xs font-bold truncate">{p.name}</p>
+                        <p className="text-sm font-black text-black truncate">{p.name}</p>
                       </div>
                     ))}
                   </div>
                 </div>
 
                 {/* Зрители */}
-                <div className="bg-[#111d33] border-2 border-purple-600/30 rounded-3xl p-5">
-                  <h3 className="font-black text-purple-400 mb-2">👀 Зрители ({spectators.length})</h3>
+                <div className="cartoon-panel p-6">
+                  <h3 className="text-2xl font-black text-purple-600 drop-shadow-[1px_1px_0_#fff] mb-4">👀 Зрители ({spectators.length})</h3>
                   <SpectatorHall count={spectators.length} total={hallSize} />
                 </div>
               </div>
@@ -1064,13 +1058,13 @@ export default function JokesterHostPage() {
                   triggerStartButtonEffects(e.currentTarget);
                   void handleStartGame();
                 }}
-                className="w-full py-5 rounded-2xl font-black text-2xl bg-[#ffd700] text-[#0a1628] hover:bg-[#ffe44d] active:scale-[0.98] transition-all shadow-lg shadow-[#ffd700]/30 animate-[pulse_2s_infinite]"
+                className="w-full py-6 rounded-3xl font-black text-4xl bg-[#ffd700] text-black border-4 border-black hover:bg-[#ffe44d] active:scale-[0.98] transition-all shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] animate-[pulse_2s_infinite]"
               >
                 🎬 НАЧАТЬ ИГРУ
               </button>
             )}
             {gamePlayers.length < 4 && (
-              <div className="text-center text-gray-400 text-sm py-4">
+              <div className="text-center text-white font-bold text-lg py-4 drop-shadow-[1px_1px_0_#000]">
                 Минимум 4 игрока для начала (сейчас: {gamePlayers.length})
               </div>
             )}
@@ -1080,18 +1074,14 @@ export default function JokesterHostPage() {
         {/* ══════════════════ STARTING ══════════════════ */}
         {room.status === 'starting' && (
           <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8 animate-[fadeIn_0.5s_ease]">
-            <div className="text-8xl animate-[bounce_1s_infinite]">🎭</div>
+            <div className="text-8xl animate-[bounce_1s_infinite] drop-shadow-[4px_4px_0_#000]">🎭</div>
             <h2
-              className="text-5xl font-black text-center"
-              style={{
-                color: '#fff',
-                textShadow: '2px 2px 0 #c8a835, 4px 4px 0 #b89730, 6px 6px 12px rgba(0,0,0,0.4)',
-              }}
+              className="text-6xl font-black text-center text-white drop-shadow-[4px_4px_0_#000]"
             >
               Пошути-кач!
             </h2>
-            <p className="text-xl text-[#ffd700] font-bold animate-pulse">Игра начинается...</p>
-            <div className="flex gap-3">
+            <p className="text-3xl text-white font-black animate-pulse drop-shadow-[2px_2px_0_#000]">Игра начинается...</p>
+            <div className="flex gap-4">
               {gamePlayers.map((p, i) => (
                 <div
                   key={p.id}
@@ -1101,7 +1091,7 @@ export default function JokesterHostPage() {
                   <FeatherAvatar
                     src={avatarSrc(p.avatar)}
                     alt={p.name}
-                    className="w-24 h-24 rounded-full object-cover border border-white/20 jokester-avatar-pop"
+                    className="w-28 h-28 rounded-full object-cover border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] jokester-avatar-pop"
                     emitFeathers={emitFeathers}
                     burstCount={22}
                   />
@@ -1115,29 +1105,29 @@ export default function JokesterHostPage() {
         {room.status === 'category_vote' && (
           <div className="space-y-6 animate-[fadeIn_0.5s_ease]">
             <div className="text-center">
-              <h2 className="text-3xl font-black text-[#ffd700] mb-2">Голосование за категории</h2>
-              <p className="text-gray-400">Игроки и зрители выбирают категории вопросов</p>
+              <h2 className="text-4xl font-black text-white drop-shadow-[2px_2px_0_#000] mb-2">Голосование за категории</h2>
+              <p className="text-white font-bold drop-shadow-[1px_1px_0_#000]">Игроки и зрители выбирают категории вопросов</p>
               {timer > 0 && <TimerCircle seconds={timer} total={CATEGORY_VOTE_TIME_SEC} tickKey={timerTickKey} />}
             </div>
             <div className="grid sm:grid-cols-2 gap-4">
               {categoryRanking.map((cat, i) => (
                 <div
                   key={cat.id}
-                  className={`bg-[#111d33] border-2 rounded-2xl p-4 flex items-center gap-4 transition-all ${
-                    i < gamePlayers.length ? 'border-[#ffd700]/60 shadow-[#ffd700]/10 shadow-lg' : 'border-gray-700'
+                  className={`bg-white border-4 border-black rounded-2xl p-4 flex items-center gap-4 transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] ${
+                    i < gamePlayers.length ? 'scale-[1.02]' : 'opacity-80'
                   }`}
                 >
-                  <span className="text-3xl">{cat.emoji}</span>
+                  <span className="text-4xl drop-shadow-[2px_2px_0_#000]">{cat.emoji}</span>
                   <div className="flex-1">
-                    <p className="font-black text-2xl">{cat.name}</p>
-                    <div className="h-2 bg-gray-700 rounded-full mt-1 overflow-hidden">
+                    <p className="font-black text-2xl text-black">{cat.name}</p>
+                    <div className="h-4 bg-gray-200 border-2 border-black rounded-full mt-2 overflow-hidden">
                       <div
-                        className="h-full bg-[#ffd700] rounded-full transition-all duration-500"
+                        className="h-full bg-purple-500 rounded-r-full transition-all duration-500"
                         style={{ width: `${categoryVotes.length > 0 ? (cat.votes / categoryVotes.length * 100) : 0}%` }}
                       />
                     </div>
                   </div>
-                  <span className="text-2xl font-black text-[#ffd700]">{cat.votes}</span>
+                  <span className="text-3xl font-black text-black">{cat.votes}</span>
                 </div>
               ))}
             </div>
@@ -1147,7 +1137,7 @@ export default function JokesterHostPage() {
                 triggerStartButtonEffects(e.currentTarget);
                 void handleStartDuels();
               }}
-              className="w-full py-4 rounded-2xl font-black text-xl bg-[#1f6ac6] text-white hover:bg-[#2a7ad6] transition-all"
+              className="w-full py-6 rounded-3xl font-black text-3xl bg-purple-600 text-white border-4 border-black hover:bg-purple-500 transition-all shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
             >
               ▶ Начать дуэли
             </button>
@@ -1158,11 +1148,11 @@ export default function JokesterHostPage() {
         {(room.status === 'round_playing' || room.status === 'final_playing') && (
           <div className="space-y-6 animate-[fadeIn_0.5s_ease]">
             <div className="text-center">
-              <h2 className="text-2xl font-black text-[#ffd700]">
+              <h2 className="text-4xl font-black text-white drop-shadow-[2px_2px_0_#000]">
                 {room.status === 'final_playing' ? '🏆 ФИНАЛ' : <DancingWord text={`Раунд ${room.current_round}`} />}
                 {room.voting_phase === 'voting' && currentDuel ? ` · Дуэль ${room.current_duel_index + 1}` : ''}
               </h2>
-              <p className="text-sm text-gray-400">
+              <p className="text-lg text-white font-bold drop-shadow-[1px_1px_0_#000]">
                 {room.voting_phase === 'answering' ? 'Игроки отвечают...' : room.voting_phase === 'voting' ? 'Голосование!' : 'Результаты'}
               </p>
             </div>
@@ -1173,40 +1163,40 @@ export default function JokesterHostPage() {
 
             {room.voting_phase === 'answering' && (
               <div
-                className="bg-[#111d33] border-2 border-[#ffd700]/30 rounded-3xl p-6 space-y-4 panel-pulse"
+                className="cartoon-panel p-8 space-y-6 panel-pulse"
                 style={panelDelayStyle('0.12s')}
               >
-                <p className="text-center text-lg font-black text-[#ffd700]">Все игроки отвечают одновременно</p>
-                <p className="text-center text-sm text-gray-400">120 секунд. Одна дуэль = один вопрос</p>
-                <div className="grid md:grid-cols-2 gap-3">
+                <p className="text-center text-2xl font-black text-black">Все игроки отвечают одновременно</p>
+                <p className="text-center text-lg text-gray-800 font-bold">120 секунд. Одна дуэль = один вопрос</p>
+                <div className="grid md:grid-cols-2 gap-4">
                   {answerProgress.map(progress => (
-                    <div key={progress.player.id} className="bg-[#0d1a30] rounded-2xl p-3 border border-gray-700">
-                      <div className="flex items-center gap-3">
+                    <div key={progress.player.id} className="bg-white border-4 border-black rounded-2xl p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                      <div className="flex items-center gap-4">
                         <FeatherAvatar
                           src={avatarSrc(progress.player.avatar)}
                           alt={progress.player.name}
-                          className="w-14 h-14 rounded-full object-cover jokester-avatar-pop"
+                          className="w-16 h-16 rounded-full object-cover border-2 border-black jokester-avatar-pop"
                           emitFeathers={emitFeathers}
                           burstCount={16}
                         />
                         <div className="flex-1 min-w-0">
-                          <p className="font-bold truncate">{progress.player.name}</p>
-                          <p className="text-xs text-gray-400">{progress.player.total_points} очков</p>
+                          <p className="font-black text-xl text-black truncate">{progress.player.name}</p>
+                          <p className="text-sm text-gray-600 font-bold">{progress.player.total_points} очков</p>
                         </div>
                         <div
                           id={`answer-check-${progress.player.id}`}
-                          className={`w-8 h-8 rounded-full flex items-center justify-center text-lg font-black transition-all ${
+                          className={`w-10 h-10 rounded-full flex items-center justify-center text-2xl font-black border-4 transition-all ${
                             progress.done
-                              ? 'bg-green-500/30 text-green-300 border border-green-300/40'
-                              : 'bg-gray-700/40 text-gray-400 border border-gray-600/40'
+                              ? 'bg-green-400 text-white border-black'
+                              : 'bg-gray-200 text-gray-500 border-gray-400'
                           }`}
                         >
                           {progress.expected === 0 ? '—' : progress.done ? '✓' : '…'}
                         </div>
                       </div>
-                      <div className="mt-3 h-2 bg-[#1a2940] rounded-full overflow-hidden">
+                      <div className="mt-4 h-4 bg-gray-200 border-2 border-black rounded-full overflow-hidden">
                         <div
-                          className="h-full rounded-full bg-[#ffd700] transition-all duration-300"
+                          className="h-full rounded-r-full bg-purple-500 transition-all duration-300"
                           style={{ width: `${progress.expected > 0 ? Math.min(100, (progress.answered / progress.expected) * 100) : 0}%` }}
                         />
                       </div>
@@ -1218,7 +1208,7 @@ export default function JokesterHostPage() {
 
             {room.voting_phase === 'voting' && currentDuel && (
               <div
-                className="relative bg-[#111d33] border-2 border-[#ffd700]/40 rounded-3xl p-6 text-center overflow-hidden panel-pulse"
+                className="relative cartoon-panel p-8 text-center overflow-hidden panel-pulse"
                 style={panelDelayStyle('0.2s')}
               >
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-80">
@@ -1226,8 +1216,8 @@ export default function JokesterHostPage() {
                     <TimerCircle seconds={timer} total={VOTE_TIME_SEC} tickKey={timerTickKey} />
                   </div>
                 </div>
-                <div className="relative z-10 space-y-2">
-                  <p className="text-lg font-black text-gray-100 tracking-wide">
+                <div className="relative z-10 space-y-4">
+                  <p className="text-2xl font-black text-purple-600 tracking-wide drop-shadow-[1px_1px_0_#fff]">
                     {categoryLabel(currentDuel.question1_cat)}
                   </p>
                   <AnimatedQuestionText text={currentDuel.question1_text || ''} />
@@ -1246,7 +1236,7 @@ export default function JokesterHostPage() {
                   <div className="sunrays-panel-rotor sunrays-panel-rotor-main" />
                   <div className="sunrays-panel-rotor sunrays-panel-rotor-soft" />
                 </div>
-                <div className="grid sm:grid-cols-2 gap-6 relative z-10">
+                <div className="grid sm:grid-cols-2 gap-8 relative z-10">
                   {[
                     {
                       id: currentDuel.player1_id,
@@ -1256,7 +1246,7 @@ export default function JokesterHostPage() {
                     {
                       id: currentDuel.player2_id,
                       label: showDeAnon ? (players.find(p => p.id === currentDuel.player2_id)?.name || 'Дуэлянт 2') : 'Дуэлянт 2',
-                      color: '#f1532f',
+                      color: '#ef4444',
                     },
                   ].map((cfg, idx) => (
                     <DuelAnswerCard
@@ -1278,44 +1268,44 @@ export default function JokesterHostPage() {
             {room.voting_phase === 'results' && (
               <div
                 ref={winnerPanelRef}
-                className="bg-[#111d33] border-2 border-[#ffd700]/40 rounded-3xl p-6 text-center animate-[fadeIn_0.4s_ease] panel-pulse"
+                className="cartoon-panel p-8 text-center animate-[fadeIn_0.4s_ease] panel-pulse"
                 style={panelDelayStyle('0.25s')}
               >
                 {voteReveal ? (
                   <>
-                    <p className="text-xs text-gray-400 mb-2">Правильный ответ</p>
-                    <p className="text-xl font-black text-[#ffd700] mb-3">{voteReveal.winnerLabel}</p>
+                    <p className="text-sm text-gray-800 font-bold mb-2">Правильный ответ</p>
+                    <p className="text-3xl font-black text-black mb-4">{voteReveal.winnerLabel}</p>
                     {voteReveal.question && (
-                      <p className="text-sm text-gray-400 mb-3">{voteReveal.question}</p>
+                      <p className="text-lg text-gray-800 font-bold mb-4">{voteReveal.question}</p>
                     )}
-                    <div className="bg-[#0d1a30] rounded-2xl p-4 border border-[#ffd700]/30">
-                      <p className="text-2xl font-black jokester-answer-font">« {voteReveal.answer} »</p>
+                    <div className="bg-white border-4 border-black rounded-3xl p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                      <p className="text-4xl font-black text-black jokester-answer-font">« {voteReveal.answer} »</p>
                     </div>
-                    <div className="mt-4">
-                      <p className="text-xs text-gray-400 mb-1">Очки победителя</p>
+                    <div className="mt-6">
+                      <p className="text-sm text-gray-800 font-bold mb-2">Очки победителя</p>
                       <AnimatedCountUp
                         from={voteReveal.pointsFrom}
                         to={voteReveal.pointsTo}
-                        className="text-3xl font-black text-[#ffd700]"
+                        className="text-5xl font-black text-purple-600 drop-shadow-[2px_2px_0_#000]"
                         onComplete={() => {
                           emitAtElement(winnerPanelRef.current, { count: 46, spread: 200, speed: 7.2 });
                           playRandomSound(START_DUCK_SOUNDS, 0.55);
                         }}
                       />
                     </div>
-                    <div className="flex items-center justify-center gap-3 mt-4">
+                    <div className="flex items-center justify-center gap-4 mt-6">
                       <FeatherAvatar
                         src={avatarSrc(voteReveal.playerAvatar)}
                         alt={voteReveal.playerName}
-                        className="w-20 h-20 rounded-full object-cover jokester-avatar-pop"
+                        className="w-24 h-24 rounded-full object-cover border-4 border-black jokester-avatar-pop"
                         emitFeathers={emitFeathers}
                         burstCount={30}
                       />
-                      <span className="text-sm text-[#ffd700] font-bold">{voteReveal.playerName}</span>
+                      <span className="text-2xl text-black font-black">{voteReveal.playerName}</span>
                     </div>
                   </>
                 ) : (
-                  <p className="text-xl font-black text-gray-300">Ничья — голосов поровну</p>
+                  <p className="text-3xl font-black text-black">Ничья — голосов поровну</p>
                 )}
               </div>
             )}
@@ -1324,7 +1314,7 @@ export default function JokesterHostPage() {
             {room.voting_phase === 'voting' && (
               <div className="text-center">
                 <SpectatorHall count={spectatorCount - currentVotes.filter(v => v.voter_role === 'spectator').length} total={hallSize} />
-                <p className="text-sm text-gray-400 mt-2">
+                <p className="text-lg text-white font-bold mt-3 drop-shadow-[1px_1px_0_#000]">
                   Голосов: {currentVotes.length} (игроки: {currentVotes.filter(v => v.voter_role === 'player').length}, зрители: {currentVotes.filter(v => v.voter_role === 'spectator').length})
                 </p>
               </div>
@@ -1335,50 +1325,48 @@ export default function JokesterHostPage() {
         {/* ══════════════════ ROUND RESULTS ══════════════════ */}
         {(room.status === 'round_results' || room.status === 'final_results') && (
           <div className="space-y-6 animate-[fadeIn_0.5s_ease]">
-            <h2 className="text-3xl font-black text-center text-[#ffd700]">
+            <h2 className="text-4xl font-black text-center text-white drop-shadow-[2px_2px_0_#000]">
               {room.status === 'final_results' ? '🏆 Итоги финала' : `Итоги раунда ${room.current_round}`}
             </h2>
 
             {/* Рейтинг */}
-            <div className="space-y-3">
+            <div className="space-y-4">
               {sortedByPoints.filter(p => !p.is_host).map((p, i) => (
                 <div
                   key={p.id}
-                  className={`bg-[#111d33] border-2 rounded-2xl p-4 flex items-center gap-4 transition-all panel-pulse ${
-                    i === 0 ? 'border-[#ffd700] shadow-lg shadow-[#ffd700]/20' :
-                    i === 1 ? 'border-gray-400' :
-                    i === 2 ? 'border-amber-700' : 'border-gray-700'
+                  className={`cartoon-panel p-4 flex items-center gap-4 transition-all panel-pulse ${
+                    i === 0 ? 'scale-[1.02]' : ''
                   }`}
                   style={{ animationDelay: `${i * 0.1}s`, ...panelDelayStyle(`${0.05 + i * 0.06}s`) }}
                 >
-                  <span className="text-2xl font-black text-[#ffd700] w-8 text-center">
+                  <span className="text-4xl font-black text-black w-12 text-center drop-shadow-[2px_2px_0_#fff]">
                     {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
                   </span>
                   <FeatherAvatar
                     src={avatarSrc(p.avatar)}
                     alt={p.name}
-                    className="w-20 h-20 rounded-full object-cover jokester-avatar-pop"
+                    className="w-24 h-24 rounded-full object-cover border-4 border-black jokester-avatar-pop"
                     emitFeathers={emitFeathers}
                     burstCount={18}
                   />
                   <div className="flex-1">
-                    <p className="font-bold">{p.name}</p>
-                    <p className="text-xs text-gray-400">
+                    <p className="font-black text-2xl text-black">{p.name}</p>
+                    <p className="text-sm text-gray-800 font-bold">
                       👥 {p.player_votes} голосов игроков · 👀 {p.spectator_votes} голосов зрителей
                     </p>
                   </div>
-                  <AnimatedScore value={p.total_points} className="text-2xl font-black text-[#ffd700]" />
+                  <AnimatedScore value={p.total_points} className="text-4xl font-black text-purple-600 drop-shadow-[2px_2px_0_#000]" />
                 </div>
               ))}
             </div>
 
             {/* Best answer */}
             {bestAnswer && (
-              <div className="bg-[#1a1a3e] border-2 border-[#ffd700] rounded-3xl p-6 text-center">
-                <p className="text-xs text-[#ffd700] tracking-wider mb-2">⭐ ЛУЧШИЙ ОТВЕТ РАУНДА</p>
-                <p className="text-sm text-gray-400 mb-2">{bestAnswer.question}</p>
-                <p className="text-2xl font-black text-white mb-3">« {bestAnswer.text} »</p>
-                <p className="text-sm text-[#ffd700]">{bestAnswer.playerName}</p>
+              <div className="bg-white border-4 border-black rounded-3xl p-8 text-center shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+                <p className="text-sm text-purple-600 font-black tracking-wider mb-2 drop-shadow-[1px_1px_0_#fff]">⭐ ЛУЧШИЙ ОТВЕТ РАУНДА</p>
+                <p className="text-lg text-gray-800 font-bold mb-4">{bestAnswer.question}</p>
+                <p className="text-4xl font-black text-black mb-4 jokester-answer-font">« {bestAnswer.text} »</p>
+                <p className="text-xl text-purple-600 font-black drop-shadow-[1px_1px_0_#fff]">{bestAnswer.playerName}</p>
               </div>
             )}
 
@@ -1390,7 +1378,7 @@ export default function JokesterHostPage() {
                   triggerStartButtonEffects(e.currentTarget);
                   void handleNextRound();
                 }}
-                className="w-full py-4 rounded-2xl font-black text-xl bg-[#ffd700] text-[#0a1628] hover:bg-[#ffe44d] transition-all"
+                className="w-full py-6 rounded-3xl font-black text-3xl bg-[#ffd700] text-black border-4 border-black hover:bg-[#ffe44d] transition-all shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
               >
                 ▶ {room.current_round + 1} раунд
               </button>
@@ -1402,7 +1390,7 @@ export default function JokesterHostPage() {
                   triggerStartButtonEffects(e.currentTarget);
                   void handleStartFinal();
                 }}
-                className="w-full py-4 rounded-2xl font-black text-xl bg-red-600 text-white hover:bg-red-500 transition-all animate-pulse"
+                className="w-full py-6 rounded-3xl font-black text-4xl bg-red-600 text-white border-4 border-black hover:bg-red-500 transition-all animate-pulse shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
               >
                 🏆 ФИНАЛ
               </button>
@@ -1410,7 +1398,7 @@ export default function JokesterHostPage() {
             {room.status === 'final_results' && (
               <button
                 onClick={() => { void handleShowCredits(); }}
-                className="w-full py-4 rounded-2xl font-black text-xl bg-[#ffd700] text-[#0a1628] hover:bg-[#ffe44d] transition-all"
+                className="w-full py-6 rounded-3xl font-black text-3xl bg-[#ffd700] text-black border-4 border-black hover:bg-[#ffe44d] transition-all shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
               >
                 🎬 Титры
               </button>
@@ -1421,82 +1409,78 @@ export default function JokesterHostPage() {
         {/* ══════════════════ CREDITS ══════════════════ */}
         {room.status === 'credits' && (
           <div className="min-h-[80vh] flex flex-col items-center justify-end overflow-hidden relative">
-            <div className="animate-[creditsScroll_70s_linear_forwards] space-y-10 text-center pb-[120vh]">
+            <div className="animate-[creditsScroll_70s_linear_forwards] space-y-12 text-center pb-[120vh]">
               <h2
-                className="text-5xl font-black mb-8"
-                style={{
-                  color: '#fff',
-                  textShadow: '2px 2px 0 #c8a835, 4px 4px 8px rgba(0,0,0,0.4)',
-                }}
+                className="text-6xl font-black mb-10 text-white drop-shadow-[4px_4px_0_#000]"
               >
                 🏆 Победитель
               </h2>
               {creditsWinner && (
-                <div className="space-y-4">
+                <div className="space-y-6">
                   <FeatherAvatar
                     src={avatarSrc(creditsWinner.avatar)}
                     alt={creditsWinner.name}
-                    className="w-40 h-40 rounded-full object-cover mx-auto border-4 border-[#ffd700]/70 jokester-avatar-pop"
+                    className="w-48 h-48 rounded-full object-cover mx-auto border-8 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] jokester-avatar-pop"
                     emitFeathers={emitFeathers}
                     burstCount={36}
                   />
-                  <p className="text-4xl font-black text-[#ffd700]">{creditsWinner.name}</p>
-                  <p className="text-2xl text-white">{creditsWinner.total_points} очков</p>
+                  <p className="text-5xl font-black text-white drop-shadow-[2px_2px_0_#000]">{creditsWinner.name}</p>
+                  <p className="text-3xl text-white font-black drop-shadow-[2px_2px_0_#000]">{creditsWinner.total_points} очков</p>
                 </div>
               )}
 
-              <div className="h-10" />
+              <div className="h-12" />
 
-              <h3 className="text-2xl font-black text-[#ffd700]">История победителя</h3>
+              <h3 className="text-4xl font-black text-white drop-shadow-[2px_2px_0_#000]">История победителя</h3>
               {creditsWinnerAnswers.length === 0 && (
-                <p className="text-gray-400">Ответы не найдены</p>
+                <p className="text-white font-bold drop-shadow-[1px_1px_0_#000]">Ответы не найдены</p>
               )}
               {creditsWinnerAnswers.map((entry, i) => (
-                <div key={`${entry.question}-${i}`} className="bg-[#111d33] border border-[#ffd700]/30 rounded-2xl p-4 text-left max-w-3xl mx-auto">
-                  <p className="text-xs text-gray-400 mb-2">Раунд {entry.round}</p>
-                  <p className="text-sm text-gray-300 mb-2">{entry.question}</p>
-                  <p className="text-xl font-black">« {entry.answer} »</p>
+                <div key={`${entry.question}-${i}`} className="cartoon-panel p-6 text-left max-w-3xl mx-auto">
+                  <p className="text-sm text-gray-800 font-bold mb-2">Раунд {entry.round}</p>
+                  <p className="text-lg text-black font-bold mb-4">{entry.question}</p>
+                  <p className="text-3xl font-black text-black">« {entry.answer} »</p>
                 </div>
               ))}
 
-              <div className="h-10" />
+              <div className="h-12" />
 
-              <h3 className="text-2xl font-black text-[#ffd700]">Все участники</h3>
+              <h3 className="text-4xl font-black text-white drop-shadow-[2px_2px_0_#000]">Все участники</h3>
               {creditsRanks.map((row, i) => (
-                <div key={row.player.id} className="bg-[#111d33] border border-gray-700 rounded-2xl p-4 text-left max-w-3xl mx-auto">
-                  <div className="flex items-center gap-3">
-                    <span className="text-xl font-black text-[#ffd700] w-8 text-center">{i + 1}</span>
+                <div key={row.player.id} className="cartoon-panel p-6 text-left max-w-3xl mx-auto">
+                  <div className="flex items-center gap-4">
+                    <span className="text-3xl font-black text-black w-10 text-center">{i + 1}</span>
                     <FeatherAvatar
                       src={avatarSrc(row.player.avatar)}
                       alt={row.player.name}
-                      className="w-20 h-20 rounded-full object-cover jokester-avatar-pop"
+                      className="w-24 h-24 rounded-full object-cover border-4 border-black jokester-avatar-pop"
                       emitFeathers={emitFeathers}
                       burstCount={14}
                     />
                     <div className="flex-1">
-                      <p className="font-bold">{row.player.name}</p>
-                      <p className="text-xs text-gray-400">{row.player.total_points} очков</p>
+                      <p className="font-black text-2xl text-black">{row.player.name}</p>
+                      <p className="text-sm text-gray-800 font-bold">{row.player.total_points} очков</p>
                     </div>
                   </div>
                   {row.bestAnswer && (
-                    <div className="mt-3 bg-[#0d1a30] rounded-xl p-3">
-                      <p className="text-xs text-gray-400 mb-1">Лучший ответ ({row.bestAnswer.votes} голосов)</p>
-                      <p className="text-sm text-gray-300 mb-1">{row.bestAnswer.question}</p>
-                      <p className="text-lg font-bold">« {row.bestAnswer.answer} »</p>
+                    <div className="mt-4 bg-gray-100 border-2 border-black rounded-2xl p-4">
+                      <p className="text-sm text-gray-800 font-bold mb-2">Лучший ответ ({row.bestAnswer.votes} голосов)</p>
+                      <p className="text-lg text-black font-bold mb-2">{row.bestAnswer.question}</p>
+                      <p className="text-2xl font-black text-black">« {row.bestAnswer.answer} »</p>
                     </div>
                   )}
                 </div>
               ))}
 
-              <div className="h-10" />
-              <p className="text-lg text-gray-400">Спасибо за игру! 🎭</p>
-              <p className="text-sm text-gray-500">Пошути-кач · Вечеринкач</p>
+              <div className="h-12" />
+              <p className="text-2xl text-white font-black drop-shadow-[2px_2px_0_#000]">Спасибо за игру! 🎭</p>
+              <p className="text-lg text-white font-bold drop-shadow-[1px_1px_0_#000]">Пошути-кач · Вечеринкач</p>
             </div>
 
             <div className="fixed inset-0 flex items-end justify-center pb-16 pointer-events-none">
               <button
                 onClick={() => { void handleRestartGame(); }}
-                className="pointer-events-auto px-8 py-4 rounded-2xl font-black text-lg bg-[#ffd700] text-[#0a1628] hover:bg-[#ffe44d] transition-all shadow-lg shadow-[#ffd700]/30"
+                className="pointer-events-auto px-10 py-6 rounded-3xl font-black text-2xl bg-[#ffd700] text-black border-4 border-black hover:bg-[#ffe44d] transition-all shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
               >
                 Играть заново
               </button>
@@ -1504,7 +1488,7 @@ export default function JokesterHostPage() {
 
             <button
               onClick={handleCloseRoom}
-              className="fixed bottom-8 right-8 px-6 py-3 rounded-2xl font-bold bg-red-600 text-white hover:bg-red-500 transition z-50"
+              className="fixed bottom-8 right-8 px-8 py-4 rounded-2xl font-black text-xl bg-red-600 text-white border-4 border-black hover:bg-red-500 transition z-50 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
             >
               Закрыть комнату
             </button>
@@ -1514,18 +1498,18 @@ export default function JokesterHostPage() {
         {/* ══════════════════ ROUND RULES ══════════════════ */}
         {(room.status === 'round_rules' || room.status === 'final_rules') && (
           <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8 animate-[fadeIn_0.5s_ease]">
-            <div className="text-6xl animate-round-emoji-flip">
+            <div className="text-8xl animate-round-emoji-flip drop-shadow-[4px_4px_0_#000]">
               {room.current_round === 1 ? '1️⃣' : room.current_round === 2 ? '2️⃣' : room.current_round === 3 ? '3️⃣' : '🏆'}
             </div>
-            <h2 className="text-4xl font-black text-[#ffd700] text-center">
+            <h2 className="text-6xl font-black text-white text-center drop-shadow-[4px_4px_0_#000]">
               {room.status === 'final_rules' ? 'ФИНАЛ' : <DancingWord text={`Раунд ${room.current_round}`} />}
             </h2>
-            <div className="bg-[#111d33] border-2 border-[#ffd700]/30 rounded-3xl p-6 max-w-lg text-center space-y-3">
-              <p className="text-gray-300">Каждый игрок проведёт 2 дуэли</p>
-              <p className="text-gray-300">120 секунд на 1 ответ</p>
-              <p className="text-gray-300">Зрители и игроки голосуют за лучший ответ</p>
+            <div className="cartoon-panel p-8 max-w-xl text-center space-y-4">
+              <p className="text-xl text-black font-black">Каждый игрок проведёт 2 дуэли</p>
+              <p className="text-xl text-black font-black">120 секунд на 1 ответ</p>
+              <p className="text-xl text-black font-black">Зрители и игроки голосуют за лучший ответ</p>
               {room.current_round > 1 && (
-                <p className="text-[#ffd700] font-bold text-xl">
+                <p className="text-purple-600 font-black text-3xl mt-4 drop-shadow-[1px_1px_0_#fff]">
                   Множитель очков: ×{roundMultiplier(room.current_round)}
                 </p>
               )}
@@ -1536,7 +1520,7 @@ export default function JokesterHostPage() {
                 triggerStartButtonEffects(e.currentTarget);
                 void handleStartRound();
               }}
-              className="px-8 py-4 rounded-2xl font-black text-xl bg-[#ffd700] text-[#0a1628] hover:bg-[#ffe44d] active:scale-95 transition-all"
+              className="px-12 py-6 rounded-3xl font-black text-3xl bg-[#ffd700] text-black border-4 border-black hover:bg-[#ffe44d] active:scale-95 transition-all shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
             >
               ▶ Начать
             </button>
@@ -1629,8 +1613,8 @@ function TimerCircle({ seconds, total, tickKey, className }: { seconds: number; 
           <div className="sunrays-timer-rays sunrays-timer-rays-soft" />
           <div className="sunrays-timer-core" />
         </div>
-        <svg className="relative z-10 w-full h-full -rotate-90" viewBox="0 0 120 120">
-          <circle cx="60" cy="60" r={radius} fill="none" stroke="#1a2940" strokeWidth="8" />
+        <svg className="relative z-10 w-full h-full -rotate-90 drop-shadow-[2px_2px_0_#000]" viewBox="0 0 120 120">
+          <circle cx="60" cy="60" r={radius} fill="none" stroke="#fff" strokeWidth="8" />
           <circle
             cx="60" cy="60" r={radius} fill="none"
             stroke={color} strokeWidth="8" strokeLinecap="round"
@@ -1644,7 +1628,7 @@ function TimerCircle({ seconds, total, tickKey, className }: { seconds: number; 
             {String(seconds).split('').map((ch, idx) => (
               <span
                 key={`${tickKey}-${idx}-${ch}`}
-                className="text-3xl font-black jokester-timer-number animate-digit-pop"
+                className="text-4xl font-black jokester-timer-number animate-digit-pop drop-shadow-[2px_2px_0_#000]"
                 style={{ color, animationDelay: `${idx * 40}ms` }}
               >
                 {ch}
@@ -1685,7 +1669,7 @@ function DuelAnswerCard({
 
   return (
     <div
-      className="relative bg-[#111d33] border-2 rounded-3xl p-6 space-y-3 overflow-hidden answer-card-anim panel-pulse"
+      className="relative cartoon-panel p-6 space-y-4 overflow-hidden answer-card-anim panel-pulse"
       style={{
         borderColor: color,
         animationDelay: `${animDelay}s`,
@@ -1693,15 +1677,15 @@ function DuelAnswerCard({
       }}
     >
       {duelist && (
-        <div className="absolute inset-0 flex items-center justify-center opacity-15 pointer-events-none scale-125" aria-hidden="true">
+        <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none scale-125" aria-hidden="true">
           <img src={avatarSrc(duelist.avatar)} alt="" className="w-48 h-48 rounded-full object-cover blur-[1px]" />
         </div>
       )}
-      <div className="relative z-10 space-y-3">
-        <h3 className="text-xl font-black" style={{ color }}>{label}</h3>
+      <div className="relative z-10 space-y-4">
+        <h3 className="text-2xl font-black drop-shadow-[1px_1px_0_#fff]" style={{ color }}>{label}</h3>
         {answers.map(a => (
-          <div key={a.id} className="bg-[#0d1a30]/90 rounded-2xl p-4 shadow-inner shadow-black/30">
-            <p className="text-5xl sm:text-6xl font-bold text-white jokester-answer-font">« {a.answer_text} »</p>
+          <div key={a.id} className="bg-white border-4 border-black rounded-2xl p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+            <p className="text-5xl sm:text-6xl font-black text-black jokester-answer-font">« {a.answer_text} »</p>
           </div>
         ))}
         <div className="flex flex-wrap gap-2">
@@ -1711,12 +1695,12 @@ function DuelAnswerCard({
             return (
               <div
                 key={v.id}
-                className="w-16 h-16 rounded-full bg-[#1a2940]/90 flex items-center justify-center text-sm animate-[fadeIn_0.3s_ease]"
+                className="w-16 h-16 rounded-full bg-white border-4 border-black flex items-center justify-center text-sm animate-[fadeIn_0.3s_ease] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
                 title={voter?.name}
               >
                 {isSpectator ? (
                   <div
-                    className="w-5 h-6 rounded-t-full bg-purple-500/80 shadow-sm shadow-purple-500/50"
+                    className="w-6 h-8 rounded-t-full bg-purple-500 border-2 border-black"
                     title="Зритель"
                   />
                 ) : voter ? (
@@ -1732,7 +1716,7 @@ function DuelAnswerCard({
             );
           })}
         </div>
-        <p className="text-lg font-black" style={{ color }}>
+        <p className="text-2xl font-black drop-shadow-[1px_1px_0_#fff]" style={{ color }}>
           {votes.length} голосов
         </p>
       </div>
@@ -1791,14 +1775,14 @@ function DancingWord({ text }: { text: string }) {
 function SpectatorHall({ count, total }: { count: number; total: number }) {
   const seats = Array.from({ length: Math.min(total, 50) }, (_, i) => i < count);
   return (
-    <div className="flex flex-wrap gap-1 justify-center">
+    <div className="flex flex-wrap gap-2 justify-center">
       {seats.map((filled, i) => (
         <div
           key={i}
-          className={`w-4 h-5 rounded-t-full transition-all duration-300 ${
+          className={`w-6 h-8 rounded-t-full border-2 border-black transition-all duration-300 ${
             filled
-              ? 'bg-purple-500 shadow-sm shadow-purple-500/50'
-              : 'bg-gray-700/40'
+              ? 'bg-purple-500 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
+              : 'bg-gray-200 shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]'
           }`}
           style={{
             transform: filled ? 'scale(1.1)' : 'scale(1)',
@@ -1806,7 +1790,7 @@ function SpectatorHall({ count, total }: { count: number; total: number }) {
         />
       ))}
       {total > 50 && (
-        <span className="text-xs text-gray-400 ml-2">+{Math.max(0, total - 50)} мест</span>
+        <span className="text-sm font-black text-black ml-2">+{Math.max(0, total - 50)} мест</span>
       )}
     </div>
   );

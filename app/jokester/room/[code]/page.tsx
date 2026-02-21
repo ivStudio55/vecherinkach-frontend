@@ -269,43 +269,46 @@ export default function JokesterPlayerPage() {
 
   if (!room || !me) {
     return (
-      <div className="min-h-screen bg-[#0a1628] flex items-center justify-center">
-        <p className="text-white animate-pulse text-lg">Загрузка...</p>
+      <div className="min-h-screen bg-[#1f6ac6] flex items-center justify-center">
+        <p className="text-white animate-pulse text-lg font-bold">Загрузка...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0a1628] text-white">
+    <div className="min-h-screen bg-[#1f6ac6] text-white relative overflow-hidden">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="jokester-sunrays" />
+      </div>
       {/* Header */}
-      <header className="bg-[#0d1a30] border-b border-[#ffd700]/20 px-4 py-2 flex items-center justify-between">
+      <header className="relative z-10 bg-white border-b-4 border-black px-4 py-2 flex items-center justify-between shadow-[0px_4px_0px_0px_rgba(0,0,0,1)]">
         <div className="flex items-center gap-2">
-          <img src={avatarSrc(me.avatar)} alt={me.name} className="w-16 h-16 rounded-full object-cover jokester-avatar-pop" />
-          <span className="font-bold text-sm">{me.name}</span>
+          <img src={avatarSrc(me.avatar)} alt={me.name} className="w-16 h-16 rounded-full object-cover border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] jokester-avatar-pop" />
+          <span className="font-black text-black text-lg">{me.name}</span>
         </div>
-        <div className="flex items-center gap-3 text-sm">
-          <span className="text-[#ffd700] font-black">{me.total_points} pts</span>
-          {myRank > 0 && <span className="text-gray-400">#{myRank}</span>}
+        <div className="flex items-center gap-3 text-lg">
+          <span className="text-[#ffd700] font-black drop-shadow-[1px_1px_0_#000]">{me.total_points} pts</span>
+          {myRank > 0 && <span className="text-gray-800 font-bold">#{myRank}</span>}
         </div>
       </header>
 
-      <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
+      <div className="relative z-10 max-w-lg mx-auto px-4 py-6 space-y-6">
 
         {/* ═══ LOBBY ═══ */}
         {room.status === 'lobby' && (
-          <div className="text-center space-y-6 animate-[fadeIn_0.5s_ease]">
-            <div className="text-6xl animate-[bounce_2s_infinite]">🎭</div>
-            <h2 className="text-2xl font-black text-[#ffd700]">Ожидание игроков...</h2>
-            <p className="text-gray-400">Код комнаты: <span className="text-white font-mono font-bold">{roomCode}</span></p>
+          <div className="cartoon-panel p-6 text-center space-y-6 animate-[fadeIn_0.5s_ease]">
+            <div className="text-6xl animate-[bounce_2s_infinite] drop-shadow-[2px_2px_0_#000]">🎭</div>
+            <h2 className="text-2xl font-black text-black">Ожидание игроков...</h2>
+            <p className="text-gray-800 font-bold">Код комнаты: <span className="text-black font-mono font-black bg-gray-200 px-2 py-1 rounded-lg border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">{roomCode}</span></p>
             <div className="grid grid-cols-4 gap-2">
               {gamePlayers.map((p, idx) => (
                 <div
                   key={p.id}
-                  className={`bg-[#111d33] rounded-xl p-2 text-center panel-pulse ${p.id === myId ? 'border-2 border-[#ffd700]' : ''}`}
+                  className={`bg-white border-2 border-black rounded-xl p-2 text-center panel-pulse shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] ${p.id === myId ? 'bg-[#ffd700]' : ''}`}
                   style={panelDelayStyle(`${idx * 0.08}s`)}
                 >
-                  <img src={avatarSrc(p.avatar)} alt={p.name} className="w-16 h-16 rounded-full object-cover mx-auto jokester-avatar-pop" />
-                  <p className="text-xs truncate">{p.name}</p>
+                  <img src={avatarSrc(p.avatar)} alt={p.name} className="w-16 h-16 rounded-full object-cover mx-auto border-2 border-black jokester-avatar-pop" />
+                  <p className="text-xs font-bold text-black truncate mt-1">{p.name}</p>
                 </div>
               ))}
             </div>
@@ -314,18 +317,18 @@ export default function JokesterPlayerPage() {
 
         {/* ═══ STARTING ═══ */}
         {room.status === 'starting' && (
-          <div className="text-center space-y-6 animate-[fadeIn_0.5s_ease]">
-            <div className="text-7xl animate-[bounce_1s_infinite]">🎬</div>
-            <h2 className="text-3xl font-black text-[#ffd700]">Игра начинается!</h2>
-            <p className="text-gray-400 animate-pulse">Приготовься шутить...</p>
+          <div className="cartoon-panel p-6 text-center space-y-6 animate-[fadeIn_0.5s_ease]">
+            <div className="text-7xl animate-[bounce_1s_infinite] drop-shadow-[2px_2px_0_#000]">🎬</div>
+            <h2 className="text-3xl font-black text-black">Игра начинается!</h2>
+            <p className="text-gray-800 font-bold animate-pulse">Приготовься шутить...</p>
           </div>
         )}
 
         {/* ═══ CATEGORY VOTE ═══ */}
         {room.status === 'category_vote' && (
-          <div className="space-y-4 animate-[fadeIn_0.5s_ease]">
-            <h2 className="text-xl font-black text-[#ffd700] text-center">Выбери категории</h2>
-            <p className="text-center text-sm text-gray-400">
+          <div className="cartoon-panel p-6 space-y-4 animate-[fadeIn_0.5s_ease]">
+            <h2 className="text-xl font-black text-black text-center">Выбери категории</h2>
+            <p className="text-center text-sm text-gray-800 font-bold">
               Можно выбрать до {gamePlayers.length} категорий
               ({myCatVotes.size}/{gamePlayers.length})
             </p>
@@ -337,13 +340,13 @@ export default function JokesterPlayerPage() {
                     key={cat.id}
                     onClick={() => handleCategoryVote(cat.id)}
                     disabled={voted || myCatVotes.size >= gamePlayers.length}
-                    className={`rounded-2xl border-2 p-3 text-left transition-all active:scale-95 ${
+                    className={`rounded-2xl border-4 border-black p-3 text-left transition-all active:scale-95 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] ${
                       voted
-                        ? 'bg-[#ffd700]/20 border-[#ffd700] text-[#ffd700]'
-                        : 'bg-[#111d33] border-gray-700 hover:border-[#ffd700]/50'
+                        ? 'bg-[#ffd700] text-black'
+                        : 'bg-white text-black hover:bg-gray-100'
                     } disabled:opacity-50`}
                   >
-                    <span className="text-2xl block mb-1">{cat.emoji}</span>
+                    <span className="text-2xl block mb-1 drop-shadow-[1px_1px_0_#000]">{cat.emoji}</span>
                     <span className="text-xl font-black leading-tight">{cat.name}</span>
                   </button>
                 );
@@ -354,17 +357,17 @@ export default function JokesterPlayerPage() {
 
         {/* ═══ ROUND RULES ═══ */}
         {(room.status === 'round_rules' || room.status === 'final_rules') && (
-          <div className="text-center space-y-6 animate-[fadeIn_0.5s_ease]">
-            <div className="text-6xl animate-round-emoji-bounce">
+          <div className="cartoon-panel p-6 text-center space-y-6 animate-[fadeIn_0.5s_ease]">
+            <div className="text-6xl animate-round-emoji-bounce drop-shadow-[2px_2px_0_#000]">
               {room.current_round <= 3 ? `${room.current_round}️⃣` : '🏆'}
             </div>
-            <h2 className="text-3xl font-black text-[#ffd700]">
+            <h2 className="text-3xl font-black text-black">
               {room.status === 'final_rules' ? 'ФИНАЛ' : <span className="jokester-answer-font">Раунд {room.current_round}</span>}
             </h2>
             {room.current_round > 1 && (
-              <p className="text-xl text-[#ffd700] font-bold">Множитель: ×{roundMultiplier(room.current_round)}</p>
+              <p className="text-xl text-[#1f6ac6] font-black drop-shadow-[1px_1px_0_#000]">Множитель: ×{roundMultiplier(room.current_round)}</p>
             )}
-            <p className="text-gray-400">Ожидайте начала...</p>
+            <p className="text-gray-800 font-bold">Ожидайте начала...</p>
           </div>
         )}
 
@@ -375,16 +378,16 @@ export default function JokesterPlayerPage() {
             {showCategoryScroll && (
               <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 animate-[fadeIn_0.3s_ease]">
                 <div
-                  className="bg-[#111d33] border-2 border-[#ffd700]/50 rounded-3xl p-6 text-center max-w-md w-[90%] animate-[categoryReveal_2.5s_ease-out_forwards] panel-pulse"
+                  className="cartoon-panel p-6 text-center max-w-md w-[90%] animate-[categoryReveal_2.5s_ease-out_forwards] panel-pulse"
                   style={panelDelayStyle('0.1s')}
                 >
-                  <p className="text-xs text-gray-400 mb-2">Категория</p>
-                  <p className="text-3xl font-black text-[#ffd700]">
-                    {categories.find(c => c.id === selectedCategory)?.emoji}{' '}
+                  <p className="text-xs text-gray-800 font-bold mb-2">Категория</p>
+                  <p className="text-3xl font-black text-black">
+                    <span className="drop-shadow-[1px_1px_0_#000]">{categories.find(c => c.id === selectedCategory)?.emoji}</span>{' '}
                     {categories.find(c => c.id === selectedCategory)?.name || 'Неизвестно'}
                   </p>
                   {currentTarget?.text && (
-                    <p className="text-sm text-gray-300 mt-3">{currentTarget.text}</p>
+                    <p className="text-sm text-gray-800 font-bold mt-3">{currentTarget.text}</p>
                   )}
                 </div>
               </div>
@@ -396,36 +399,36 @@ export default function JokesterPlayerPage() {
             {currentTarget ? (
               <>
                 <div
-                  className="bg-[#111d33] border-2 border-[#1f6ac6]/50 rounded-2xl p-4 space-y-3 panel-pulse"
+                  className="cartoon-panel p-6 space-y-4 panel-pulse"
                   style={panelDelayStyle('0.14s')}
                 >
-                  <p className="text-lg text-[#ffd700] font-black tracking-wide">
+                  <p className="text-lg text-[#1f6ac6] font-black tracking-wide drop-shadow-[1px_1px_0_#000]">
                     {categoryLabel(currentTarget.cat, categories)} · дуэль {currentTarget.duel.duel_index + 1}
                   </p>
-                  <p className="text-lg font-bold">{currentTarget.text}</p>
+                  <p className="text-xl font-black text-black">{currentTarget.text}</p>
                   <textarea
                     placeholder="Твой смешной ответ..."
                     value={answer1}
                     onChange={e => setAnswer1(e.target.value)}
                     maxLength={200}
                     rows={3}
-                    className="w-full px-3 py-2 rounded-xl bg-[#0d1a30] border border-gray-600 text-white placeholder-gray-500 focus:border-[#ffd700] focus:outline-none resize-none"
+                    className="w-full px-4 py-3 cartoon-input resize-none"
                   />
                   <button
                     onClick={() => handleSubmitAnswer(currentTarget.qIndex)}
                     disabled={!answer1.trim()}
-                    className="w-full py-3 rounded-xl font-bold bg-[#1f6ac6] text-white hover:bg-[#2a7ad6] active:scale-95 transition disabled:opacity-40"
+                    className="w-full py-4 text-lg cartoon-button-blue"
                   >
                     ✅ Отправить ответ
                   </button>
-                  <p className="text-xs text-gray-400 text-right">Осталось ответов: {pendingTargets.length}</p>
+                  <p className="text-sm font-bold text-gray-800 text-right">Осталось ответов: {pendingTargets.length}</p>
                 </div>
               </>
             ) : (
-              <div className="text-center py-12 space-y-4">
-                <div className="text-5xl">✅</div>
-                <p className="text-lg text-[#ffd700] font-bold">Ответы отправлены!</p>
-                <p className="text-gray-400">Ждём окончания таймера и начала голосования...</p>
+              <div className="cartoon-panel p-8 text-center space-y-4">
+                <div className="text-6xl drop-shadow-[2px_2px_0_#000]">✅</div>
+                <p className="text-2xl text-black font-black">Ответы отправлены!</p>
+                <p className="text-gray-800 font-bold">Ждём окончания таймера и начала голосования...</p>
               </div>
             )}
           </div>
@@ -448,17 +451,17 @@ export default function JokesterPlayerPage() {
 
         {/* ═══ VOTE RESULTS ═══ */}
         {(room.status === 'round_playing' || room.status === 'final_playing') && room.voting_phase === 'results' && (
-          <div className="text-center py-8 space-y-4 animate-[fadeIn_0.5s_ease]">
-            <div className="text-5xl">🏆</div>
-            <p className="text-xl font-bold text-[#ffd700]">Победитель дуэли</p>
-            {duelReveal?.question && <p className="text-sm text-gray-400">{duelReveal.question}</p>}
-            <p className="text-2xl font-black text-white">{duelReveal?.winnerName || 'Ничья'}</p>
+          <div className="cartoon-panel p-8 text-center space-y-4 animate-[fadeIn_0.5s_ease]">
+            <div className="text-6xl drop-shadow-[2px_2px_0_#000]">🏆</div>
+            <p className="text-2xl font-black text-black">Победитель дуэли</p>
+            {duelReveal?.question && <p className="text-lg font-bold text-gray-800">{duelReveal.question}</p>}
+            <p className="text-3xl font-black text-[#1f6ac6] drop-shadow-[1px_1px_0_#000]">{duelReveal?.winnerName || 'Ничья'}</p>
             {duelReveal?.winnerAnswer && (
               <div
-                className="bg-[#111d33] border border-[#ffd700]/40 rounded-2xl p-4 panel-pulse"
+                className="bg-white border-4 border-black rounded-2xl p-6 panel-pulse shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
                 style={panelDelayStyle('0.18s')}
               >
-                <p className="text-4xl font-black jokester-answer-font">« {duelReveal.winnerAnswer} »</p>
+                <p className="text-4xl font-black text-black jokester-answer-font">« {duelReveal.winnerAnswer} »</p>
               </div>
             )}
           </div>
@@ -470,13 +473,13 @@ export default function JokesterPlayerPage() {
             {/* My stats */}
             {me && (
               <div
-                className="bg-[#111d33] border-2 border-[#ffd700]/50 rounded-3xl p-6 text-center space-y-3 panel-pulse"
+                className="cartoon-panel p-8 text-center space-y-4 panel-pulse"
                 style={panelDelayStyle('0.12s')}
               >
-                <img src={avatarSrc(me.avatar)} alt={me.name} className="w-28 h-28 rounded-full object-cover mx-auto jokester-avatar-pop" />
-                <p className="text-2xl font-black text-[#ffd700]">{me.total_points} очков</p>
-                <p className="text-lg text-white">Место: #{myRank}</p>
-                <div className="flex justify-center gap-6 text-sm text-gray-400">
+                <img src={avatarSrc(me.avatar)} alt={me.name} className="w-32 h-32 rounded-full object-cover mx-auto border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] jokester-avatar-pop" />
+                <p className="text-4xl font-black text-[#ffd700] drop-shadow-[2px_2px_0_#000]">{me.total_points} очков</p>
+                <p className="text-2xl font-black text-black">Место: #{myRank}</p>
+                <div className="flex justify-center gap-6 text-lg font-bold text-gray-800">
                   <span>👥 {me.player_votes} от игроков</span>
                   <span>👀 {me.spectator_votes} от зрителей</span>
                 </div>
@@ -484,21 +487,21 @@ export default function JokesterPlayerPage() {
             )}
 
             {/* Leaderboard */}
-            <div className="space-y-2">
+            <div className="space-y-3">
               {sortedByPoints.filter(p => !p.is_host).map((p, i) => (
                 <div
                   key={p.id}
-                  className={`bg-[#111d33] rounded-xl p-3 flex items-center gap-3 panel-pulse ${
-                    p.id === myId ? 'border-2 border-[#ffd700]' : ''
+                  className={`bg-white border-4 border-black rounded-2xl p-4 flex items-center gap-4 panel-pulse shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] ${
+                    p.id === myId ? 'bg-[#ffd700]' : ''
                   }`}
                   style={panelDelayStyle(`${0.05 + i * 0.06}s`)}
                 >
-                  <span className="text-lg font-bold w-6 text-center">
+                  <span className="text-2xl font-black w-8 text-center drop-shadow-[1px_1px_0_#000]">
                     {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
                   </span>
-                  <img src={avatarSrc(p.avatar)} alt={p.name} className="w-16 h-16 rounded-full object-cover jokester-avatar-pop" />
-                  <span className="flex-1 font-bold text-sm truncate">{p.name}</span>
-                  <span className="font-black text-[#ffd700]">{p.total_points}</span>
+                  <img src={avatarSrc(p.avatar)} alt={p.name} className="w-16 h-16 rounded-full object-cover border-2 border-black jokester-avatar-pop" />
+                  <span className="flex-1 font-black text-black text-lg truncate">{p.name}</span>
+                  <span className="font-black text-[#1f6ac6] text-xl drop-shadow-[1px_1px_0_#000]">{p.total_points}</span>
                 </div>
               ))}
             </div>
@@ -508,7 +511,7 @@ export default function JokesterPlayerPage() {
                 href="https://donatty.com/aleksandri"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex rounded-xl border border-[#ffd700]/40 bg-[#0d1a30] px-4 py-2 text-xs font-bold tracking-[0.14em] text-[#ffd700] hover:bg-[#1a2940] transition"
+                className="inline-flex cartoon-button px-6 py-3 text-sm"
               >
                 💛 Поддержать проект
               </a>
@@ -518,21 +521,21 @@ export default function JokesterPlayerPage() {
 
         {/* ═══ CREDITS ═══ */}
         {room.status === 'credits' && (
-          <div className="text-center py-12 space-y-6 animate-[fadeIn_0.5s_ease]">
-            <div className="text-6xl">🎬</div>
-            <p className="text-2xl font-black text-[#ffd700]">Спасибо за игру!</p>
-            <p className="text-gray-400">Смотри титры на экране ведущего</p>
+          <div className="cartoon-panel p-8 text-center space-y-6 animate-[fadeIn_0.5s_ease]">
+            <div className="text-6xl drop-shadow-[2px_2px_0_#000]">🎬</div>
+            <p className="text-3xl font-black text-black">Спасибо за игру!</p>
+            <p className="text-gray-800 font-bold">Смотри титры на экране ведущего</p>
             {me && (
               <div>
-                <p className="text-xl text-white">{me.name}</p>
-                <p className="text-lg text-[#ffd700]">{me.total_points} очков · #{myRank} место</p>
+                <p className="text-2xl font-black text-black">{me.name}</p>
+                <p className="text-xl font-black text-[#1f6ac6] drop-shadow-[1px_1px_0_#000]">{me.total_points} очков · #{myRank} место</p>
               </div>
             )}
             <a
               href="https://donatty.com/aleksandri"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex rounded-xl border border-[#ffd700]/40 bg-[#0d1a30] px-4 py-2 text-xs font-bold tracking-[0.14em] text-[#ffd700] hover:bg-[#1a2940] transition"
+              className="inline-flex cartoon-button px-6 py-3 text-sm"
             >
               💛 Поддержать проект
             </a>
@@ -541,15 +544,15 @@ export default function JokesterPlayerPage() {
 
         {/* ═══ FINISHED ═══ */}
         {room.status === 'finished' && (
-          <div className="text-center py-12 space-y-6 animate-[fadeIn_0.5s_ease]">
-            <div className="text-6xl">🎉</div>
-            <p className="text-2xl font-black text-[#ffd700]">Игра окончена!</p>
-            {me && <p className="text-lg text-white">{me.total_points} очков · #{myRank} место</p>}
+          <div className="cartoon-panel p-8 text-center space-y-6 animate-[fadeIn_0.5s_ease]">
+            <div className="text-6xl drop-shadow-[2px_2px_0_#000]">🎉</div>
+            <p className="text-3xl font-black text-black">Игра окончена!</p>
+            {me && <p className="text-xl font-black text-[#1f6ac6] drop-shadow-[1px_1px_0_#000]">{me.total_points} очков · #{myRank} место</p>}
             <a
               href="https://donatty.com/aleksandri"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex rounded-xl border border-[#ffd700]/40 bg-[#0d1a30] px-4 py-2 text-xs font-bold tracking-[0.14em] text-[#ffd700] hover:bg-[#1a2940] transition"
+              className="inline-flex cartoon-button px-6 py-3 text-sm"
             >
               💛 Поддержать проект
             </a>
@@ -605,61 +608,61 @@ function VotingPanel({
 
       {questionText && (
         <div
-          className="bg-[#111d33] border border-[#ffd700]/40 rounded-2xl p-4 text-center panel-pulse"
+          className="cartoon-panel p-6 text-center panel-pulse"
           style={panelDelayStyle('0.1s')}
         >
-          <p className="text-sm text-gray-400 mb-1">Вопрос дуэли</p>
-          <p className="text-lg font-bold">{questionText}</p>
+          <p className="text-sm text-gray-800 font-bold mb-2">Вопрос дуэли</p>
+          <p className="text-xl font-black text-black">{questionText}</p>
         </div>
       )}
 
       {amInDuel ? (
-        <div className="text-center py-10 space-y-4">
-          <div className="text-5xl">⚔️</div>
-          <p className="text-xl font-bold text-[#ffd700]">Ты дуэлянт!</p>
-          <p className="text-gray-400">Ждём результатов голосования...</p>
+        <div className="cartoon-panel p-8 text-center space-y-4">
+          <div className="text-6xl drop-shadow-[2px_2px_0_#000]">⚔️</div>
+          <p className="text-2xl font-black text-black">Ты дуэлянт!</p>
+          <p className="text-gray-800 font-bold">Ждём результатов голосования...</p>
           {/* Показываем свои ответы */}
           {p1Answers.length > 0 && p1 && currentDuel && myId === currentDuel.player1_id && (
-            <div className="bg-[#111d33] border border-[#1f6ac6]/40 rounded-2xl p-4 text-left space-y-2">
-              <p className="text-xs text-gray-400">Твои ответы:</p>
-              {p1Answers.map(a => <p key={a.id} className="text-white font-bold">« {a.answer_text} »</p>)}
+            <div className="bg-white border-4 border-[#1f6ac6] rounded-2xl p-4 text-left space-y-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+              <p className="text-xs text-gray-800 font-bold">Твои ответы:</p>
+              {p1Answers.map(a => <p key={a.id} className="text-black font-black text-xl">« {a.answer_text} »</p>)}
             </div>
           )}
           {p2Answers.length > 0 && p2 && currentDuel && myId === currentDuel.player2_id && (
-            <div className="bg-[#111d33] border border-red-600/40 rounded-2xl p-4 text-left space-y-2">
-              <p className="text-xs text-gray-400">Твои ответы:</p>
-              {p2Answers.map(a => <p key={a.id} className="text-white font-bold">« {a.answer_text} »</p>)}
+            <div className="bg-white border-4 border-red-600 rounded-2xl p-4 text-left space-y-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+              <p className="text-xs text-gray-800 font-bold">Твои ответы:</p>
+              {p2Answers.map(a => <p key={a.id} className="text-black font-black text-xl">« {a.answer_text} »</p>)}
             </div>
           )}
         </div>
       ) : (
         <div className="space-y-4">
-          <h2 className="text-xl font-black text-center text-[#ffd700]">Голосуй!</h2>
-          <p className="text-center text-sm text-gray-400">Чей ответ смешнее?</p>
+          <h2 className="text-2xl font-black text-center text-black drop-shadow-[1px_1px_0_#fff]">Голосуй!</h2>
+          <p className="text-center text-sm text-white font-bold drop-shadow-[1px_1px_0_#000]">Чей ответ смешнее?</p>
 
           {/* Первый дуэлянт */}
           <button
             onClick={() => currentDuel && onVote(currentDuel.player1_id)}
             disabled={!!myVote}
-            className={`w-full rounded-2xl border-2 p-4 text-left transition-all active:scale-95 panel-pulse ${
+            className={`w-full rounded-2xl border-4 p-4 text-left transition-all active:scale-95 panel-pulse shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] ${
               myVote === currentDuel?.player1_id
-                ? 'bg-[#1f6ac6]/30 border-[#1f6ac6] scale-[1.02]'
-                : myVote ? 'opacity-40 border-gray-700' : 'bg-[#111d33] border-[#1f6ac6] hover:bg-[#1f6ac6]/20'
+                ? 'bg-[#1f6ac6] border-black scale-[1.02] text-white'
+                : myVote ? 'opacity-40 border-gray-700 bg-gray-200 text-gray-500' : 'bg-white border-black hover:bg-gray-100 text-black'
             }`}
             style={panelDelayStyle('0.16s')}
           >
             <div className="flex items-center gap-3 mb-2">
               {p1?.avatar && (
-                <img src={avatarSrc(p1.avatar)} alt="" className="w-16 h-16 rounded-full object-cover jokester-avatar-pop" />
+                <img src={avatarSrc(p1.avatar)} alt="" className="w-16 h-16 rounded-full object-cover border-2 border-black jokester-avatar-pop" />
               )}
-              <span className="font-bold text-[#1f6ac6]">🔵 Дуэлянт 1</span>
+              <span className={`font-black text-lg ${myVote === currentDuel?.player1_id ? 'text-white' : 'text-[#1f6ac6]'}`}>🔵 Дуэлянт 1</span>
             </div>
             {p1Answers.length > 0 ? (
               p1Answers.map(a => (
-                <p key={a.id} className="text-white text-4xl mt-1 italic jokester-answer-font">« {a.answer_text} »</p>
+                <p key={a.id} className="text-4xl mt-1 italic jokester-answer-font">« {a.answer_text} »</p>
               ))
             ) : (
-              <p className="text-gray-500 text-sm italic">Ответ ещё не подан...</p>
+              <p className="text-sm italic font-bold">Ответ ещё не подан...</p>
             )}
           </button>
 
@@ -667,30 +670,30 @@ function VotingPanel({
           <button
             onClick={() => currentDuel && onVote(currentDuel.player2_id)}
             disabled={!!myVote}
-            className={`w-full rounded-2xl border-2 p-4 text-left transition-all active:scale-95 panel-pulse ${
+            className={`w-full rounded-2xl border-4 p-4 text-left transition-all active:scale-95 panel-pulse shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] ${
               myVote === currentDuel?.player2_id
-                ? 'bg-red-600/30 border-red-600 scale-[1.02]'
-                : myVote ? 'opacity-40 border-gray-700' : 'bg-[#111d33] border-red-600 hover:bg-red-600/20'
+                ? 'bg-red-600 border-black scale-[1.02] text-white'
+                : myVote ? 'opacity-40 border-gray-700 bg-gray-200 text-gray-500' : 'bg-white border-black hover:bg-gray-100 text-black'
             }`}
             style={panelDelayStyle('0.22s')}
           >
             <div className="flex items-center gap-3 mb-2">
               {p2?.avatar && (
-                <img src={avatarSrc(p2.avatar)} alt="" className="w-16 h-16 rounded-full object-cover jokester-avatar-pop" />
+                <img src={avatarSrc(p2.avatar)} alt="" className="w-16 h-16 rounded-full object-cover border-2 border-black jokester-avatar-pop" />
               )}
-              <span className="font-bold text-red-400">🔴 Дуэлянт 2</span>
+              <span className={`font-black text-lg ${myVote === currentDuel?.player2_id ? 'text-white' : 'text-red-600'}`}>🔴 Дуэлянт 2</span>
             </div>
             {p2Answers.length > 0 ? (
               p2Answers.map(a => (
-                <p key={a.id} className="text-white text-4xl mt-1 italic jokester-answer-font">« {a.answer_text} »</p>
+                <p key={a.id} className="text-4xl mt-1 italic jokester-answer-font">« {a.answer_text} »</p>
               ))
             ) : (
-              <p className="text-gray-500 text-sm italic">Ответ ещё не подан...</p>
+              <p className="text-sm italic font-bold">Ответ ещё не подан...</p>
             )}
           </button>
 
           {myVote && (
-            <p className="text-center text-[#ffd700] font-bold animate-[fadeIn_0.3s_ease]">
+            <p className="text-center text-white font-black text-xl drop-shadow-[2px_2px_0_#000] animate-[fadeIn_0.3s_ease]">
               ✅ Голос принят!
             </p>
           )}

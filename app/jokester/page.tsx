@@ -96,12 +96,10 @@ export default function JokesterEntryPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a1628] text-white overflow-hidden relative">
+    <div className="min-h-screen bg-[#1f6ac6] text-white overflow-hidden relative">
       {/* Фоновые анимированные слои */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="jokester-blob jokester-blob-1" />
-        <div className="jokester-blob jokester-blob-2" />
-        <div className="jokester-grid" />
+        <div className="jokester-sunrays" />
       </div>
 
       <div className="relative z-10 max-w-2xl mx-auto px-4 py-10 space-y-8">
@@ -124,20 +122,20 @@ export default function JokesterEntryPage() {
         <div className="flex justify-center gap-3">
           <button
             onClick={() => { setTab('create'); setError(''); }}
-            className={`px-6 py-3 rounded-2xl font-bold text-sm tracking-wider border-2 transition-all duration-300 hover:scale-105 ${
+            className={`px-6 py-3 text-sm tracking-wider ${
               tab === 'create'
-                ? 'bg-[#ffd700] text-[#0a1628] border-[#ffd700] shadow-lg shadow-[#ffd700]/20'
-                : 'bg-transparent text-gray-400 border-gray-600 hover:border-gray-400'
+                ? 'cartoon-button'
+                : 'cartoon-panel opacity-70 hover:opacity-100'
             }`}
           >
             🎤 Создать комнату
           </button>
           <button
             onClick={() => { setTab('join'); setError(''); }}
-            className={`px-6 py-3 rounded-2xl font-bold text-sm tracking-wider border-2 transition-all duration-300 hover:scale-105 ${
+            className={`px-6 py-3 text-sm tracking-wider ${
               tab === 'join'
-                ? 'bg-[#1f6ac6] text-white border-[#1f6ac6] shadow-lg shadow-[#1f6ac6]/20'
-                : 'bg-transparent text-gray-400 border-gray-600 hover:border-gray-400'
+                ? 'cartoon-button-blue'
+                : 'cartoon-panel opacity-70 hover:opacity-100'
             }`}
           >
             🎮 Присоединиться
@@ -147,15 +145,15 @@ export default function JokesterEntryPage() {
         {/* ─── Create ─── */}
         {tab === 'create' && (
           <div
-            className="bg-[#111d33]/80 border-2 border-[#ffd700]/30 rounded-3xl p-6 space-y-5 backdrop-blur-sm animate-[fadeIn_0.3s_ease] panel-pulse"
+            className="cartoon-panel p-6 space-y-5 animate-[fadeIn_0.3s_ease] panel-pulse"
             style={panelDelayStyle('0.08s')}
           >
-            <h2 className="text-xl font-black text-[#ffd700]">Создание комнаты</h2>
-            <p className="text-sm text-gray-400">Вы станете ведущим  весёлой битвы шуток! Создайте хаб для игроков и зрителей!</p>
+            <h2 className="text-2xl font-black text-black">Создание комнаты</h2>
+            <p className="text-sm text-gray-700 font-medium">Вы станете ведущим весёлой битвы шуток! Создайте хаб для игроков и зрителей!</p>
             <button
               onClick={handleCreate}
               disabled={loading}
-              className="w-full py-4 rounded-xl font-black text-lg bg-[#ffd700] text-[#0a1628] hover:bg-[#ffe44d] active:scale-95 transition-all hover:scale-[1.02] disabled:opacity-50"
+              className="w-full py-4 text-lg cartoon-button"
             >
               {loading ? '⏳ Создаю...' : '🎤 Создать комнату'}
             </button>
@@ -165,28 +163,28 @@ export default function JokesterEntryPage() {
         {/* ─── Join ─── */}
         {tab === 'join' && (
           <div
-            className="bg-[#111d33]/80 border-2 border-[#1f6ac6]/30 rounded-3xl p-6 space-y-5 backdrop-blur-sm animate-[fadeIn_0.3s_ease] panel-pulse"
+            className="cartoon-panel p-6 space-y-5 animate-[fadeIn_0.3s_ease] panel-pulse"
             style={panelDelayStyle('0.12s')}
           >
-            <h2 className="text-xl font-black text-[#1f6ac6]">Подключение</h2>
+            <h2 className="text-2xl font-black text-black">Подключение</h2>
 
             <div className="flex gap-3">
               <button
                 onClick={() => setJoinRole('player')}
-                className={`flex-1 py-3 rounded-xl font-bold border-2 transition-all hover:scale-105 ${
+                className={`flex-1 py-3 ${
                   joinRole === 'player'
-                    ? 'bg-[#1f6ac6] border-[#1f6ac6] text-white'
-                    : 'bg-transparent border-gray-600 text-gray-400'
+                    ? 'cartoon-button-blue'
+                    : 'cartoon-panel opacity-70 hover:opacity-100'
                 }`}
               >
                 🎮 Игрок
               </button>
               <button
                 onClick={() => setJoinRole('spectator')}
-                className={`flex-1 py-3 rounded-xl font-bold border-2 transition-all hover:scale-105 ${
+                className={`flex-1 py-3 ${
                   joinRole === 'spectator'
-                    ? 'bg-purple-600 border-purple-600 text-white'
-                    : 'bg-transparent border-gray-600 text-gray-400'
+                    ? 'cartoon-button-purple'
+                    : 'cartoon-panel opacity-70 hover:opacity-100'
                 }`}
               >
                 👀 Зритель
@@ -201,7 +199,7 @@ export default function JokesterEntryPage() {
               value={joinCode}
               onChange={e => setJoinCode(e.target.value.toUpperCase())}
               maxLength={4}
-              className="w-full px-4 py-3 rounded-xl bg-[#0d1a30] border-2 border-[#1f6ac6]/40 text-white text-center text-2xl font-mono tracking-[0.5em] placeholder-gray-500 focus:border-[#1f6ac6] focus:outline-none transition"
+              className="w-full px-4 py-3 text-center text-2xl font-mono tracking-[0.5em] cartoon-input"
             />
             {joinRole === 'player' && (
               <input
@@ -210,14 +208,14 @@ export default function JokesterEntryPage() {
                 value={joinName}
                 onChange={e => setJoinName(e.target.value)}
                 maxLength={20}
-                className="w-full px-4 py-3 rounded-xl bg-[#0d1a30] border-2 border-[#1f6ac6]/40 text-white placeholder-gray-500 focus:border-[#1f6ac6] focus:outline-none transition"
+                className="w-full px-4 py-3 text-center text-lg cartoon-input"
               />
             )}
 
             {/* Аватарки */}
             {joinRole === 'player' && (
               <div>
-                <p className="text-xs text-gray-400 mb-2 tracking-wider">ВЫБЕРИ АВАТАРКУ</p>
+                <p className="text-xs text-gray-700 font-bold mb-2 tracking-wider text-center">ВЫБЕРИ АВАТАРКУ</p>
                 <div className="grid grid-cols-6 gap-2">
                   {AVATARS.map(a => {
                     const taken = takenAvatars.includes(a);
@@ -228,12 +226,12 @@ export default function JokesterEntryPage() {
                         onClick={() => !taken && setAvatar(a)}
                         disabled={taken}
                         title={taken ? 'Занята' : a}
-                        className={`aspect-square rounded-xl border-2 transition-all overflow-hidden relative ${
+                        className={`aspect-square rounded-xl border-4 transition-all overflow-hidden relative ${
                           selected
-                            ? 'border-[#ffd700] scale-110 shadow-lg shadow-[#ffd700]/30'
+                            ? 'border-black scale-110 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] z-10'
                             : taken
-                            ? 'border-gray-700 opacity-40 cursor-not-allowed'
-                            : 'border-gray-600 hover:border-gray-400'
+                            ? 'border-transparent opacity-40 cursor-not-allowed'
+                            : 'border-transparent hover:border-black hover:scale-105'
                         }`}
                       >
                         <img
@@ -255,7 +253,7 @@ export default function JokesterEntryPage() {
             <button
               onClick={handleJoin}
               disabled={loading}
-              className="w-full py-4 rounded-xl font-black text-lg bg-[#1f6ac6] text-white hover:bg-[#2a7ad6] active:scale-95 transition-all hover:scale-[1.02] disabled:opacity-50"
+              className={`w-full py-4 text-lg ${joinRole === 'spectator' ? 'cartoon-button-purple' : 'cartoon-button-blue'}`}
             >
               {loading ? '⏳ Подключаюсь...' : joinRole === 'spectator' ? '👀 Войти как зритель' : '🎮 Войти как игрок'}
             </button>
@@ -263,74 +261,54 @@ export default function JokesterEntryPage() {
         )}
 
         {error && (
-          <div className="bg-red-900/40 border-2 border-red-500/50 rounded-2xl px-4 py-3 text-center text-red-300 font-semibold text-sm animate-[fadeIn_0.2s_ease]">
+          <div className="cartoon-panel !bg-red-100 !border-red-500 px-4 py-3 text-center text-red-600 font-bold text-sm animate-[fadeIn_0.2s_ease]">
             {error}
           </div>
         )}
 
         {/* ─── Правила ─── */}
-        <div className="bg-[#111d33]/60 border border-gray-700 rounded-3xl p-6 space-y-4 text-sm text-gray-400">
-          <h3 className="text-lg font-black text-white">📋 Правила</h3>
+        <div className="cartoon-panel p-6 space-y-4 text-sm text-gray-800 font-medium">
+          <h3 className="text-xl font-black text-black">📋 Правила</h3>
           <div className="space-y-3">
             <div className="flex gap-3 items-start">
-              <span className="bg-[#ffd700] text-[#0a1628] w-7 h-7 rounded-full flex items-center justify-center font-black text-xs flex-shrink-0">1</span>
-              <p>Отвечай смешно на каверзные вопросы в дуэлях 1 на 1</p>
+              <span className="bg-[#ffd700] text-black border-2 border-black w-8 h-8 rounded-full flex items-center justify-center font-black text-sm flex-shrink-0 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">1</span>
+              <p className="mt-1">Отвечай смешно на каверзные вопросы в дуэлях 1 на 1</p>
             </div>
             <div className="flex gap-3 items-start">
-              <span className="bg-[#ffd700] text-[#0a1628] w-7 h-7 rounded-full flex items-center justify-center font-black text-xs flex-shrink-0">2</span>
-              <p>Игроки и зрители голосуют за лучший ответ</p>
+              <span className="bg-[#ffd700] text-black border-2 border-black w-8 h-8 rounded-full flex items-center justify-center font-black text-sm flex-shrink-0 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">2</span>
+              <p className="mt-1">Игроки и зрители голосуют за лучший ответ</p>
             </div>
             <div className="flex gap-3 items-start">
-              <span className="bg-[#ffd700] text-[#0a1628] w-7 h-7 rounded-full flex items-center justify-center font-black text-xs flex-shrink-0">3</span>
-              <p>3 раунда + финал! Очки удваиваются и утраиваются с каждым раундом</p>
+              <span className="bg-[#ffd700] text-black border-2 border-black w-8 h-8 rounded-full flex items-center justify-center font-black text-sm flex-shrink-0 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">3</span>
+              <p className="mt-1">3 раунда + финал! Очки удваиваются и утраиваются с каждым раундом</p>
             </div>
             <div className="flex gap-3 items-start">
-              <span className="bg-[#ffd700] text-[#0a1628] w-7 h-7 rounded-full flex items-center justify-center font-black text-xs flex-shrink-0">4</span>
-              <p>В финале — два лучших игрока. Побеждает победитель финала!</p>
+              <span className="bg-[#ffd700] text-black border-2 border-black w-8 h-8 rounded-full flex items-center justify-center font-black text-sm flex-shrink-0 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">4</span>
+              <p className="mt-1">В финале — два лучших игрока. Побеждает победитель финала!</p>
             </div>
           </div>
         </div>
 
       </div>
       <style jsx>{`
-        .jokester-blob {
+        .jokester-sunrays {
           position: absolute;
-          border-radius: 50%;
-          filter: blur(60px);
-          opacity: 0.6;
-          mix-blend-mode: screen;
-          animation: jokester-blob-move 22s ease-in-out infinite alternate;
+          inset: -100%;
+          background: repeating-conic-gradient(
+            from 0deg,
+            #1f6ac6 0deg 15deg,
+            #1a5bb0 15deg 30deg
+          );
+          animation: spin 120s linear infinite;
+          z-index: 0;
         }
-        .jokester-blob-1 {
-          width: 420px;
-          height: 420px;
-          background: radial-gradient(circle at 30% 30%, rgba(255,215,0,0.35), rgba(255,215,0,0));
-          top: -120px;
-          left: -80px;
-          animation-delay: 0s;
-        }
-        .jokester-blob-2 {
-          width: 520px;
-          height: 520px;
-          background: radial-gradient(circle at 70% 70%, rgba(31,106,198,0.35), rgba(31,106,198,0));
-          bottom: -160px;
-          right: -120px;
-          animation-delay: 4s;
-        }
-        .jokester-grid {
-          position: absolute;
-          inset: 0;
-          background: radial-gradient(circle at center, rgba(255,255,255,0.03), transparent 45%);
-          mask-image: radial-gradient(circle at center, rgba(0,0,0,0.6), transparent 70%);
-        }
-        @keyframes jokester-blob-move {
-          0% { transform: translate3d(0,0,0) scale(1); }
-          50% { transform: translate3d(40px, -20px, 0) scale(1.05); }
-          100% { transform: translate3d(-30px, 30px, 0) scale(0.95); }
+        @keyframes spin {
+          100% { transform: rotate(360deg); }
         }
         .jokester-letter {
           color: #fff;
-          text-shadow: 2px 2px 0 #c8a835, 4px 4px 0 #b89730, 6px 6px 12px rgba(0,0,0,0.35);
+          text-shadow: 4px 4px 0 #000, 6px 6px 0 #000;
+          -webkit-text-stroke: 2px #000;
           animation: jokester-letter-bounce 1.4s ease-in-out infinite;
           transform-origin: center bottom;
         }
