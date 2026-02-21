@@ -82,80 +82,94 @@ export default function UnoPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#0d1117] via-[#0b1224] to-[#0d1117] text-white">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 space-y-8">
+    <div className="min-h-screen comic-bg-dots-blue text-black overflow-hidden relative">
+      {/* Decorative background elements */}
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] comic-bg-rays-yellow-red rounded-full opacity-30 blur-3xl mix-blend-overlay pointer-events-none"></div>
+      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] comic-bg-rays-pink-purple rounded-full opacity-30 blur-3xl mix-blend-overlay pointer-events-none"></div>
+
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 space-y-8 relative z-10">
         {/* Header */}
-        <header className="rounded-3xl border-4 border-white/10 bg-[#141a2b]/80 backdrop-blur p-6 sm:p-8 shadow-2xl">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="uppercase text-xs tracking-[0.4em] text-white/70">мини-игра</p>
-              <h1 className="text-3xl sm:text-4xl font-black tracking-tight">UNO для вечеринки</h1>
-            </div>
-            <span className="px-3 py-1 rounded-full text-xs font-bold tracking-[0.24em] bg-white/10 border border-white/20">beta</span>
+        <header className="comic-panel bg-white p-6 sm:p-8 relative">
+          <div className="absolute -top-6 -right-6 rotate-12 comic-speech-bubble bg-yellow-400 text-black font-black text-xl px-4 py-2 z-20">
+            BETA!
           </div>
-          <p className="mt-4 text-base text-white/80">
+          <div className="flex flex-col gap-2">
+            <p className="comic-font-thin text-sm tracking-widest text-gray-500 font-bold">МИНИ-ИГРА</p>
+            <h1 className="comic-font text-5xl sm:text-6xl text-red-500 drop-shadow-[3px_3px_0_#000]">UNO ДЛЯ ВЕЧЕРИНКИ</h1>
+          </div>
+          <p className="mt-4 text-lg comic-font-thin font-bold text-gray-800">
             Три режима: классический, «Все формы» и «Угадай глагол». Мультиплеер через Supabase Realtime.
           </p>
         </header>
 
         {/* Mode cards */}
-        <section className="grid gap-4 md:grid-cols-3">
-          {modes.map(mode => (
-            <article
-              key={mode.id}
-              className={`rounded-3xl border-4 border-white/10 bg-white/5 p-5 shadow-xl flex flex-col gap-3`}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="space-y-1">
-                  <p className="uppercase text-[11px] tracking-[0.32em] text-white/60">режим</p>
-                  <h2 className="text-xl font-black">{mode.title}</h2>
-                  <p className="text-xs text-white/70 leading-relaxed">{mode.description}</p>
+        <section className="grid gap-6 md:grid-cols-3">
+          {modes.map((mode, i) => {
+            const bgColors = ['bg-yellow-300', 'bg-pink-400', 'bg-green-400'];
+            const cardBg = bgColors[i % bgColors.length];
+            return (
+              <article
+                key={mode.id}
+                className={`comic-panel ${cardBg} p-5 flex flex-col gap-4 relative overflow-hidden group hover:-translate-y-2 transition-transform`}
+              >
+                {/* Decorative halftone overlay */}
+                <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#000_2px,transparent_2.5px)] [background-size:10px_10px] pointer-events-none"></div>
+                
+                <div className="flex items-start justify-between gap-2 relative z-10">
+                  <div className="space-y-1">
+                    <p className="comic-font-thin text-xs tracking-widest text-black/70 font-bold">РЕЖИМ</p>
+                    <h2 className="comic-font text-3xl text-white drop-shadow-[2px_2px_0_#000]">{mode.title}</h2>
+                    <p className="comic-font-thin text-sm text-black/90 font-bold leading-tight">{mode.description}</p>
+                  </div>
                 </div>
-                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-[0.18em] ${mode.badgeColor} text-black border border-white/30`}>{mode.badge}</span>
-              </div>
-              <ul className="space-y-1.5 text-xs text-white/75">
-                {mode.bullets.map(item => (
-                  <li key={item} className="flex items-start gap-1.5">
-                    <span aria-hidden="true">•</span>
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </article>
-          ))}
+                <ul className="space-y-2 comic-font-thin text-sm text-black font-bold relative z-10 mt-auto">
+                  {mode.bullets.map(item => (
+                    <li key={item} className="flex items-start gap-2">
+                      <span className="text-red-500 drop-shadow-[1px_1px_0_#000]">★</span>
+                      <span className="leading-tight">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </article>
+            );
+          })}
         </section>
 
         {/* Create / Join */}
-        <section className="rounded-3xl border-4 border-white/10 bg-white/5 p-6 sm:p-7 space-y-5 shadow-2xl">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="uppercase text-[11px] tracking-[0.32em] text-white/60">онлайн</p>
-              <h3 className="text-2xl font-black">Создать или войти в комнату</h3>
-            </div>
-            {error ? <span className="text-sm text-[#ffb4b4] font-semibold">{error}</span> : null}
+        <section className="comic-panel bg-white p-6 sm:p-8 space-y-6 relative">
+          <div className="absolute -top-5 -left-5 -rotate-6 bg-blue-500 text-white comic-font text-2xl px-4 py-1 border-4 border-black shadow-[4px_4px_0_#000]">
+            ИГРАТЬ!
           </div>
-          <div className="grid gap-4 md:grid-cols-2">
+          
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-4">
+            <div>
+              <h3 className="comic-font text-4xl text-blue-600 drop-shadow-[2px_2px_0_#000]">СОЗДАТЬ ИЛИ ВОЙТИ</h3>
+            </div>
+            {error ? <span className="comic-font-thin text-lg text-red-500 font-bold bg-red-100 px-3 py-1 border-2 border-black">{error}</span> : null}
+          </div>
+          
+          <div className="grid gap-8 md:grid-cols-2">
             {/* Create */}
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-3">
+            <div className="comic-panel bg-yellow-100 p-5 space-y-4">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-bold">Создать</p>
-                <span className="text-[11px] uppercase tracking-[0.24em] text-white/60">host</span>
+                <p className="comic-font text-2xl text-red-500 drop-shadow-[1px_1px_0_#000]">СОЗДАТЬ</p>
+                <span className="comic-font-thin text-xs uppercase tracking-widest text-black/50 font-bold">HOST</span>
               </div>
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <input
-                  className="w-full rounded-xl bg-white/10 border border-white/20 px-3 py-2 text-sm focus:outline-none focus:border-white"
+                  className="w-full comic-panel bg-white px-4 py-3 text-lg comic-font-thin font-bold focus:outline-none focus:ring-4 focus:ring-blue-400"
                   value={createName}
                   onChange={e => setCreateName(e.target.value)}
-                  placeholder="Имя ведущего"
+                  placeholder="ИМЯ ВЕДУЩЕГО"
                 />
 
                 {/* Mode selector — 3 options */}
-                <div className="grid grid-cols-3 gap-2 text-xs">
+                <div className="grid grid-cols-3 gap-3 text-sm">
                   {modes.map(m => (
                     <label
                       key={m.id}
-                      className={`flex flex-col items-center gap-1 rounded-xl border px-2 py-2 cursor-pointer transition-all text-center
-                        ${createMode === m.id ? `${m.borderColor} ${m.bgActive}` : 'border-white/20 bg-white/5'}`}
+                      className={`flex flex-col items-center justify-center gap-1 comic-panel px-2 py-3 cursor-pointer transition-all text-center
+                        ${createMode === m.id ? `bg-blue-400 text-white scale-105` : 'bg-white text-black hover:bg-gray-100'}`}
                     >
                       <input
                         type="radio"
@@ -165,21 +179,21 @@ export default function UnoPage() {
                         onChange={() => setCreateMode(m.id)}
                         className="sr-only"
                       />
-                      <span className="font-bold leading-tight">{m.title}</span>
+                      <span className="comic-font text-lg leading-none drop-shadow-[1px_1px_0_#000]">{m.title}</span>
                     </label>
                   ))}
                 </div>
 
                 {selectedMode.needsVerbs && (
-                  <div className="flex items-center justify-between gap-3 text-sm">
-                    <label className="text-white/80">Кол-во глаголов</label>
+                  <div className="flex items-center justify-between gap-3 comic-font-thin font-bold text-lg">
+                    <label className="text-black">КОЛ-ВО ГЛАГОЛОВ</label>
                     <input
                       type="number"
                       min={15}
                       max={25}
                       value={verbCount}
                       onChange={e => setVerbCount(Number(e.target.value))}
-                      className="w-24 rounded-xl bg-white/10 border border-white/20 px-3 py-2 text-right"
+                      className="w-24 comic-panel bg-white px-3 py-2 text-center"
                     />
                   </div>
                 )}
@@ -188,57 +202,57 @@ export default function UnoPage() {
                   type="button"
                   disabled={pending}
                   onClick={handleCreate}
-                  className="w-full rounded-xl bg-[#f1362f] text-black font-bold px-4 py-3 text-sm tracking-[0.08em] hover:brightness-95 disabled:opacity-60"
+                  className="w-full comic-button bg-red-500 text-white text-2xl py-4 mt-2"
                 >
-                  {pending ? 'Создаём…' : 'Создать комнату UNO'}
+                  {pending ? 'СОЗДАЁМ...' : 'СОЗДАТЬ КОМНАТУ'}
                 </button>
               </div>
             </div>
 
             {/* Join */}
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-3">
+            <div className="comic-panel bg-blue-100 p-5 space-y-4">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-bold">Войти по коду</p>
-                <span className="text-[11px] uppercase tracking-[0.24em] text-white/60">join</span>
+                <p className="comic-font text-2xl text-blue-600 drop-shadow-[1px_1px_0_#000]">ВОЙТИ ПО КОДУ</p>
+                <span className="comic-font-thin text-xs uppercase tracking-widest text-black/50 font-bold">JOIN</span>
               </div>
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <input
-                  className="w-full rounded-xl bg-white/10 border border-white/20 px-3 py-2 text-sm focus:outline-none focus:border-white"
+                  className="w-full comic-panel bg-white px-4 py-3 text-lg comic-font-thin font-bold focus:outline-none focus:ring-4 focus:ring-yellow-400"
                   value={joinName}
                   onChange={e => setJoinName(e.target.value)}
-                  placeholder="Имя игрока"
+                  placeholder="ИМЯ ИГРОКА"
                 />
                 <input
-                  className="w-full rounded-xl bg-white/10 border border-white/20 px-3 py-2 text-sm uppercase tracking-[0.2em] focus:outline-none focus:border-white"
+                  className="w-full comic-panel bg-white px-4 py-3 text-2xl comic-font uppercase tracking-widest text-center focus:outline-none focus:ring-4 focus:ring-yellow-400"
                   value={joinCode}
                   onChange={e => setJoinCode(e.target.value)}
-                  placeholder="Код комнаты"
+                  placeholder="КОД КОМНАТЫ"
                 />
                 <button
                   type="button"
                   disabled={pending}
                   onClick={handleJoin}
-                  className="w-full rounded-xl bg-white/15 text-white font-bold px-4 py-3 text-sm tracking-[0.08em] border border-white/30 hover:bg-white/25 disabled:opacity-60"
+                  className="w-full comic-button bg-yellow-400 text-black text-2xl py-4 mt-2"
                 >
-                  {pending ? 'Подключаем…' : 'Войти'}
+                  {pending ? 'ПОДКЛЮЧАЕМ...' : 'ВОЙТИ В ИГРУ'}
                 </button>
               </div>
             </div>
           </div>
         </section>
 
-        <div className="flex flex-wrap gap-3 text-sm font-semibold">
+        <div className="flex flex-wrap gap-4 justify-center pt-4">
           <Link
             href="/"
-            className="rounded-2xl border border-white/20 bg-white/10 px-4 py-2 hover:bg-white/20 transition-colors"
+            className="comic-button bg-white text-black px-6 py-3 text-xl"
           >
-            ← Вернуться на главную
+            НА ГЛАВНУЮ
           </Link>
           <Link
             href="/host"
-            className="rounded-2xl border border-[#f1362f] bg-[#f1362f] px-4 py-2 text-black hover:brightness-95 transition-colors"
+            className="comic-button bg-green-400 text-black px-6 py-3 text-xl"
           >
-            Перейти к созданию комнаты
+            К СОЗДАНИЮ КОМНАТЫ
           </Link>
         </div>
       </div>

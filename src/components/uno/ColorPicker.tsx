@@ -3,10 +3,10 @@
 import type { UnoColor } from '@/lib/uno/types';
 
 const COLORS: { value: UnoColor; bg: string; label: string }[] = [
-  { value: 'red', bg: '#e5383b', label: 'Красный' },
-  { value: 'blue', bg: '#2563eb', label: 'Синий' },
-  { value: 'green', bg: '#16a34a', label: 'Зелёный' },
-  { value: 'yellow', bg: '#eab308', label: 'Жёлтый' },
+  { value: 'red', bg: '#ef4444', label: 'КРАСНЫЙ' },
+  { value: 'blue', bg: '#3b82f6', label: 'СИНИЙ' },
+  { value: 'green', bg: '#4ade80', label: 'ЗЕЛЁНЫЙ' },
+  { value: 'yellow', bg: '#facc15', label: 'ЖЁЛТЫЙ' },
 ];
 
 interface Props {
@@ -17,26 +17,27 @@ interface Props {
 export default function ColorPicker({ onPick, onCancel }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-[#1a1f2e] border-2 border-white/20 rounded-3xl p-6 shadow-2xl max-w-xs w-full space-y-4 animate-scaleIn">
-        <h3 className="text-center text-lg font-black text-white tracking-wide">Выбери цвет</h3>
-        <div className="grid grid-cols-2 gap-3">
+      <div className="comic-panel bg-white p-8 max-w-sm w-full mx-4 space-y-6 relative animate-scaleIn">
+        <div className="absolute -top-6 -left-6 rotate-[-10deg] comic-speech-bubble bg-yellow-400 text-black font-black text-xl px-4 py-2 z-20">
+          ВЫБЕРИ ЦВЕТ!
+        </div>
+        <div className="grid grid-cols-2 gap-4 pt-4">
           {COLORS.map(c => (
             <button
               key={c.value}
               onClick={() => onPick(c.value)}
-              className="group relative rounded-2xl py-5 font-bold text-white text-sm tracking-wider
-                         transition-all duration-200 hover:scale-105 hover:shadow-lg active:scale-95"
-              style={{ backgroundColor: c.bg }}
+              className="comic-button py-6 text-xl transition-all duration-200 hover:scale-105 active:scale-95"
+              style={{ backgroundColor: c.bg, color: c.value === 'yellow' ? '#000' : '#fff' }}
             >
-              <span className="drop-shadow-md">{c.label}</span>
+              <span className="drop-shadow-[2px_2px_0_#000]">{c.label}</span>
             </button>
           ))}
         </div>
         <button
           onClick={onCancel}
-          className="w-full rounded-xl border border-white/20 bg-white/5 py-2 text-sm text-white/70 hover:bg-white/10 transition-colors"
+          className="w-full comic-button bg-gray-200 text-black py-3 text-lg mt-4"
         >
-          Отмена
+          ОТМЕНА
         </button>
       </div>
     </div>

@@ -187,7 +187,11 @@ export default function UnoRoomPage() {
   const dirArrow = room?.direction === -1 ? '⟲' : '⟳';
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#0a0e1a] via-[#0d1226] to-[#0a0e1a] text-white overflow-hidden">
+    <div className="min-h-screen comic-bg-dots-yellow text-black overflow-hidden relative">
+      {/* Decorative background elements */}
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] comic-bg-rays-blue-cyan rounded-full opacity-30 blur-3xl mix-blend-overlay pointer-events-none"></div>
+      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] comic-bg-rays-pink-purple rounded-full opacity-30 blur-3xl mix-blend-overlay pointer-events-none"></div>
+
       {/* ── Color picker modal ── */}
       {pickingColor && (
         <ColorPicker
@@ -203,89 +207,97 @@ export default function UnoRoomPage() {
       {/* ── Winner overlay ── */}
       {isFinished && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fadeIn">
-          <div className="text-center space-y-6 animate-scaleIn">
-            <div className="text-6xl">🏆</div>
-            <h2 className="text-4xl font-black">
-              {room?.winner_id === me?.id ? 'Ты победил!' : `${winnerName} побеждает!`}
+          <div className="text-center space-y-6 animate-scaleIn comic-panel bg-white p-10 max-w-lg w-full mx-4 relative">
+            <div className="absolute -top-10 -right-10 rotate-12 comic-speech-bubble bg-yellow-400 text-black font-black text-3xl px-6 py-4 z-20">
+              ПОБЕДА!
+            </div>
+            <div className="text-8xl drop-shadow-[4px_4px_0_#000]">🏆</div>
+            <h2 className="comic-font text-5xl text-red-500 drop-shadow-[2px_2px_0_#000]">
+              {room?.winner_id === me?.id ? 'ТЫ ПОБЕДИЛ!' : `${winnerName} ПОБЕЖДАЕТ!`}
             </h2>
-            <div className="flex gap-3 justify-center">
+            <div className="flex flex-col gap-3 justify-center mt-6">
               <a
                 href="https://donatty.com/aleksandri"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="rounded-xl bg-white/10 border border-white/20 px-6 py-3 font-bold text-white hover:bg-white/20 transition"
+                className="comic-button bg-yellow-400 px-6 py-3 text-xl"
               >
-                💛 Поддержать проект
+                💛 ПОДДЕРЖАТЬ ПРОЕКТ
               </a>
-              <Link
-                href="/uno"
-                className="rounded-xl bg-white/10 border border-white/20 px-6 py-3 font-bold hover:bg-white/20 transition"
-              >
-                В лобби
-              </Link>
-              <button
-                onClick={() => router.push('/uno')}
-                className="rounded-xl bg-[#e5383b] px-6 py-3 font-bold text-white hover:brightness-110 transition"
-              >
-                Новая игра
-              </button>
+              <div className="flex gap-3">
+                <Link
+                  href="/uno"
+                  className="comic-button bg-white flex-1 px-6 py-3 text-xl text-center"
+                >
+                  В ЛОББИ
+                </Link>
+                <button
+                  onClick={() => router.push('/uno')}
+                  className="comic-button bg-blue-500 text-white flex-1 px-6 py-3 text-xl"
+                >
+                  НОВАЯ ИГРА
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      <div className="max-w-6xl mx-auto px-3 sm:px-6 py-4 space-y-4">
+      <div className="max-w-6xl mx-auto px-3 sm:px-6 py-4 space-y-6 relative z-10">
         {/* ── Header ── */}
-        <header className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <Link href="/uno" className="text-white/60 hover:text-white text-sm">← назад</Link>
+        <header className="comic-panel bg-white p-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-4">
+            <Link href="/uno" className="comic-button bg-gray-200 px-3 py-1 text-sm">← НАЗАД</Link>
             <div>
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2">
+              <h1 className="comic-font text-3xl text-red-500 drop-shadow-[2px_2px_0_#000] flex items-center gap-3">
                 UNO
-                <span className="text-sm font-mono bg-white/10 rounded-lg px-2 py-0.5 tracking-widest">{code}</span>
+                <span className="comic-font-thin text-lg bg-yellow-400 text-black border-2 border-black px-3 py-1 rounded-lg shadow-[2px_2px_0_#000]">{code}</span>
               </h1>
               <a
                 href="https://donatty.com/aleksandri"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-1 inline-flex rounded-lg border border-white/20 bg-white/10 px-2.5 py-1 text-[11px] font-bold tracking-[0.14em] text-white/80 transition hover:bg-white/20"
+                className="mt-2 inline-block comic-font-thin text-xs font-bold bg-pink-400 text-white border-2 border-black px-2 py-1 shadow-[2px_2px_0_#000] hover:-translate-y-0.5 transition-transform"
               >
-                💛 Поддержать проект
+                💛 ПОДДЕРЖАТЬ ПРОЕКТ
               </a>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-xs text-white/60">
+          <div className="flex items-center gap-2 comic-font-thin font-bold text-sm bg-blue-100 border-2 border-black px-3 py-2 rounded-xl shadow-[2px_2px_0_#000]">
             {room && (
               <>
-                <span className={`inline-block w-2 h-2 rounded-full ${room.status === 'playing' ? 'bg-green-400 animate-pulse' : room.status === 'finished' ? 'bg-red-400' : 'bg-yellow-400'}`} />
-                <span>{room.status === 'lobby' ? 'Лобби' : room.status === 'playing' ? 'Игра' : 'Завершена'}</span>
+                <span className={`inline-block w-3 h-3 rounded-full border-2 border-black ${room.status === 'playing' ? 'bg-green-400 animate-pulse' : room.status === 'finished' ? 'bg-red-400' : 'bg-yellow-400'}`} />
+                <span className="uppercase">{room.status === 'lobby' ? 'ЛОББИ' : room.status === 'playing' ? 'ИГРА' : 'ЗАВЕРШЕНА'}</span>
                 <span className="mx-1">·</span>
-                <span>{room.mode === 'irregular-verbs' ? 'Все формы' : room.mode === 'verb-match' ? 'Угадай глагол' : 'Классика'}</span>
+                <span className="uppercase text-blue-600">{room.mode === 'irregular-verbs' ? 'ВСЕ ФОРМЫ' : room.mode === 'verb-match' ? 'УГАДАЙ ГЛАГОЛ' : 'КЛАССИКА'}</span>
               </>
             )}
           </div>
         </header>
 
         {error && (
-          <div className="rounded-xl border border-[#ffb4b4]/30 bg-[#ffb4b4]/10 px-4 py-2 text-sm text-[#ffb4b4] flex justify-between items-center">
+          <div className="comic-panel bg-red-100 p-3 text-red-600 comic-font-thin font-bold flex justify-between items-center">
             <span>{error}</span>
-            <button onClick={() => setError('')} className="text-[#ffb4b4]/60 hover:text-white ml-2">✕</button>
+            <button onClick={() => setError('')} className="text-red-800 hover:text-red-500 text-xl">✕</button>
           </div>
         )}
 
         {/* ── Lobby ── */}
         {room?.status === 'lobby' && (
-          <section className="rounded-2xl border border-white/10 bg-white/5 p-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-bold">Ожидание игроков</h2>
-                <p className="text-sm text-white/60">Поделитесь кодом <strong>{code}</strong> с друзьями</p>
-              </div>
-              <span className="text-3xl animate-pulse">⏳</span>
+          <section className="comic-panel bg-yellow-100 p-6 space-y-6 relative">
+            <div className="absolute -top-4 -left-4 -rotate-6 bg-blue-500 text-white comic-font text-xl px-4 py-1 border-4 border-black shadow-[4px_4px_0_#000]">
+              ОЖИДАНИЕ
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex items-center justify-between pt-2">
+              <div>
+                <h2 className="comic-font text-3xl text-blue-600 drop-shadow-[1px_1px_0_#000]">ЖДЕМ ИГРОКОВ...</h2>
+                <p className="comic-font-thin font-bold text-lg mt-1">ПОДЕЛИТЕСЬ КОДОМ <strong className="bg-white border-2 border-black px-2 py-0.5 rounded">{code}</strong> С ДРУЗЬЯМИ</p>
+              </div>
+              <span className="text-5xl animate-bounce drop-shadow-[2px_2px_0_#000]">⏳</span>
+            </div>
+            <div className="flex flex-wrap gap-3">
               {players.map(p => (
-                <div key={p.id} className={`rounded-xl px-3 py-2 text-sm border ${p.id === me?.id ? 'border-[#eab308] bg-[#eab308]/10 text-[#eab308]' : 'border-white/10 bg-white/5'}`}>
+                <div key={p.id} className={`comic-panel px-4 py-2 text-lg comic-font-thin font-bold ${p.id === me?.id ? 'bg-green-400 text-white' : 'bg-white text-black'}`}>
                   {p.name} {p.is_host ? '👑' : ''}
                 </div>
               ))}
@@ -294,13 +306,13 @@ export default function UnoRoomPage() {
               <button
                 onClick={handleStart}
                 disabled={pending}
-                className="rounded-xl bg-[#e5383b] text-white font-bold px-6 py-3 text-sm tracking-wide hover:brightness-110 transition disabled:opacity-50"
+                className="comic-button bg-red-500 text-white text-2xl py-4 w-full mt-4"
               >
-                {pending ? 'Запускаем…' : `🚀 Начать игру (${players.length} игроков)`}
+                {pending ? 'ЗАПУСКАЕМ...' : `🚀 НАЧАТЬ ИГРУ (${players.length} ИГРОКОВ)`}
               </button>
             )}
             {me?.is_host && players.length < 2 && (
-              <p className="text-sm text-white/50">Нужно минимум 2 игрока для старта</p>
+              <p className="comic-font-thin font-bold text-red-600 text-center mt-4">НУЖНО МИНИМУМ 2 ИГРОКА ДЛЯ СТАРТА</p>
             )}
           </section>
         )}
@@ -309,7 +321,7 @@ export default function UnoRoomPage() {
         {room?.status === 'playing' && (
           <>
             {/* Opponents bar */}
-            <section className="flex flex-wrap gap-2 justify-center">
+            <section className="flex flex-wrap gap-3 justify-center">
               {players.filter(p => p.id !== me?.id).map(p => {
                 const hand = room.hands?.[p.id] as UnoCard[] | undefined;
                 const count = hand?.length ?? 0;
@@ -317,78 +329,83 @@ export default function UnoRoomPage() {
                 return (
                   <div
                     key={p.id}
-                    className={`rounded-xl px-3 py-2 text-sm border transition-all duration-300
-                      ${isCurrent ? 'border-[#eab308] bg-[#eab308]/15 shadow-lg shadow-[#eab308]/20 scale-105' : 'border-white/10 bg-white/5'}`}
+                    className={`comic-panel px-4 py-2 flex items-center gap-2 transition-all duration-300
+                      ${isCurrent ? 'bg-yellow-400 scale-110 z-10' : 'bg-white'}`}
                   >
-                    <span className="font-semibold">{p.name}</span>
-                    <span className="ml-2 text-white/50">{count} 🃏</span>
-                    {count === 1 && <span className="ml-1 text-[#e5383b] font-black text-xs animate-pulse">UNO!</span>}
+                    <span className="comic-font-thin font-bold text-lg">{p.name}</span>
+                    <span className="comic-font text-xl bg-black text-white px-2 py-0.5 rounded">{count}</span>
+                    {count === 1 && <span className="comic-font text-red-500 text-xl animate-pulse drop-shadow-[1px_1px_0_#000]">UNO!</span>}
                   </div>
                 );
               })}
             </section>
 
             {/* Table center */}
-            <section className="flex items-center justify-center gap-6 py-6">
+            <section className="flex items-center justify-center gap-8 py-8 relative">
               {/* Draw pile */}
               <button
                 onClick={handleDraw}
                 disabled={!myTurn || pending}
                 className={`relative flex flex-col items-center gap-2 group transition-all
-                  ${myTurn ? 'cursor-pointer hover:scale-105' : 'opacity-60 cursor-not-allowed'}`}
+                  ${myTurn ? 'cursor-pointer hover:scale-105' : 'opacity-80 cursor-not-allowed'}`}
               >
-                <div className={`w-24 h-36 rounded-xl bg-[#1e293b] border-2 flex items-center justify-center shadow-xl transition-all
-                  ${myTurn && !hasPlayable ? 'border-[#eab308] shadow-[#eab308]/30 animate-pulse' : 'border-[#334155] group-hover:border-[#60a5fa] group-hover:shadow-[#60a5fa]/30'}`}>
-                  <span className="text-3xl font-black text-white/20">U</span>
+                <div className={`w-24 h-36 comic-panel bg-blue-500 flex items-center justify-center transition-all
+                  ${myTurn && !hasPlayable ? 'ring-4 ring-yellow-400 ring-offset-4 ring-offset-black animate-pulse' : ''}`}>
+                  <span className="comic-font text-6xl text-white drop-shadow-[3px_3px_0_#000]">U</span>
                 </div>
-                <span className="text-xs text-white/50">{room.draw_pile?.length ?? 0}</span>
+                <span className="comic-font-thin font-bold text-black bg-white border-2 border-black px-2 py-0.5 rounded-full shadow-[2px_2px_0_#000]">{room.draw_pile?.length ?? 0}</span>
                 {myTurn && !hasPlayable && (
-                  <span className="text-xs text-[#eab308] font-semibold animate-pulse">Возьми карту!</span>
+                  <span className="absolute -top-8 -left-8 rotate-[-15deg] comic-speech-bubble bg-yellow-400 text-black comic-font text-lg px-3 py-1 z-20 whitespace-nowrap">
+                    БЕРИ!
+                  </span>
                 )}
               </button>
 
               {/* Direction indicator */}
-              <div className="text-4xl text-white/20 select-none">{dirArrow}</div>
+              <div className="comic-font text-6xl text-black drop-shadow-[2px_2px_0_#fff] select-none">{dirArrow}</div>
 
               {/* Discard pile */}
-              <div className="flex flex-col items-center gap-2">
+              <div className="flex flex-col items-center gap-2 relative">
                 {topCard ? (
                   <UnoCardView card={topCard} size="lg" playable={false} disabled />
                 ) : (
-                  <div className="w-28 h-40 rounded-xl border-2 border-dashed border-white/10 flex items-center justify-center text-white/30 text-sm">
-                    Сброс
+                  <div className="w-28 h-40 comic-panel bg-gray-200 flex items-center justify-center text-gray-500 comic-font text-xl">
+                    СБРОС
                   </div>
                 )}
-                <span className="text-xs text-white/50">{room.discard_pile?.length ?? 0}</span>
+                <span className="comic-font-thin font-bold text-black bg-white border-2 border-black px-2 py-0.5 rounded-full shadow-[2px_2px_0_#000]">{room.discard_pile?.length ?? 0}</span>
               </div>
             </section>
 
             {/* Turn indicator */}
-            <div className="text-center">
+            <div className="text-center my-4">
               {myTurn ? (
-                <span className="inline-block rounded-full bg-[#eab308]/20 border border-[#eab308]/40 px-4 py-1.5 text-sm font-bold text-[#eab308] animate-pulse">
-                  ⚡ Твой ход!
+                <span className="inline-block comic-panel bg-yellow-400 px-6 py-2 comic-font text-3xl text-red-600 drop-shadow-[1px_1px_0_#000] animate-pulse">
+                  ⚡ ТВОЙ ХОД!
                 </span>
               ) : (
-                <span className="text-sm text-white/50">
-                  Ходит: <strong>{currentPlayerName}</strong>
+                <span className="comic-panel bg-white px-4 py-2 comic-font-thin font-bold text-lg">
+                  ХОДИТ: <strong className="comic-font text-xl text-blue-600">{currentPlayerName}</strong>
                 </span>
               )}
             </div>
 
             {/* My hand */}
-            <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-bold">Твои карты ({myHand.length})</span>
+            <section className="comic-panel bg-pink-100 p-6 relative">
+              <div className="absolute -top-4 -left-4 -rotate-3 bg-green-400 text-black comic-font text-xl px-4 py-1 border-4 border-black shadow-[4px_4px_0_#000]">
+                ТВОИ КАРТЫ
+              </div>
+              <div className="flex items-center justify-between mb-4 pt-2">
+                <span className="comic-font-thin font-bold text-xl">ВСЕГО: {myHand.length}</span>
                 {myHand.length === 1 && (
-                  <span className="text-[#e5383b] font-black text-sm animate-pulse">UNO!</span>
+                  <span className="comic-font text-3xl text-red-500 drop-shadow-[2px_2px_0_#000] animate-pulse">UNO!</span>
                 )}
               </div>
 
               {myHand.length === 0 ? (
-                <p className="text-white/50 text-sm text-center py-6">Нет карт</p>
+                <p className="comic-font-thin font-bold text-black/50 text-center py-6 text-xl">НЕТ КАРТ</p>
               ) : (
-                <div className="flex flex-wrap gap-2 justify-center">
+                <div className="flex flex-wrap gap-3 justify-center">
                   {myHand.map(card => {
                     const playable = cardPlayable(card, topCard);
                     return (
@@ -409,7 +426,9 @@ export default function UnoRoomPage() {
 
         {/* ── Event log (subtle) ── */}
         {lastEvent && (
-          <div className="text-center text-xs text-white/40 animate-fadeIn">{lastEvent}</div>
+          <div className="fixed bottom-4 right-4 comic-speech-bubble bg-white text-black comic-font text-xl px-4 py-2 z-50 animate-fadeIn">
+            {lastEvent}
+          </div>
         )}
       </div>
     </div>
