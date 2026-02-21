@@ -2384,7 +2384,7 @@ export default function RoomPage() {
     effectiveCorrectness === true
       ? 'border-[#000] bg-[#00ff00] text-black'
       : effectiveCorrectness === false
-        ? 'border-[#000] bg-[#ff2a2a] text-[#ff2a2a]'
+        ? 'border-[#000] bg-[#ff2a2a] text-white'
         : 'border-[#000]/20 bg-white text-black';
   const round2CurrentItem = round2ItemIndex !== null ? round2Items[round2ItemIndex] ?? null : null;
   const round2QuestionText = round2CurrentItem
@@ -2952,11 +2952,11 @@ export default function RoomPage() {
                   <button
                     onClick={() => void submitRound2Answer(false)}
                     disabled={isSubmitting || effectiveTimeLeft <= 0 || roomStatus !== 'round2-running'}
-                    className={`w-full flex items-center gap-3 comic-panel px-4 py-4 text-left comic-font transition disabled:opacity-40 disabled:cursor-not-allowed border-[#000] bg-[#ff2a2a] text-[#ff2a2a] ${
+                    className={`w-full flex items-center gap-3 comic-panel px-4 py-4 text-left comic-font transition disabled:opacity-40 disabled:cursor-not-allowed border-[#000] bg-[#ff2a2a] text-white ${
                       round2PlayerAnswer === false ? 'ring-2 ring-[#b23324]' : 'hover:brightness-95'
                     }`}
                   >
-                    <span className="w-10 h-10 comic-panel border-[4px] border-[#000] flex items-center justify-center comic-font bg-[#ff2a2a] text-[#ff2a2a]">
+                    <span className="w-10 h-10 comic-panel border-[4px] border-[#000] flex items-center justify-center comic-font bg-[#ff2a2a] text-white">
                       ❌
                     </span>
                     <span className="flex-1 text-sm">Вымысел</span>
