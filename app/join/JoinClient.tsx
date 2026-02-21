@@ -1,11 +1,11 @@
 'use client';
 
-import { useMemo, useState, type CSSProperties } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { logEvent } from '@/shared/logic/logger';
 import { generateRandomName } from '@/lib/nameGenerator';
-import backTexture from '../img/back2.png';
+import { ComicBackground } from '@/components/ComicBackground';
 
 export default function JoinClient() {
   const router = useRouter();
@@ -118,15 +118,9 @@ export default function JoinClient() {
     setPlayerName(generateRandomName());
   };
 
-  const backgroundStyle: CSSProperties = {
-    backgroundImage: `url(${backTexture.src})`,
-    backgroundSize: 'cover',
-    backgroundRepeat: 'no-repeat',
-    backgroundPosition: 'center',
-  };
-
   return (
-    <div className="min-h-screen comic-bg-dots-pink text-[#142a45] px-4 py-10 relative overflow-hidden" style={backgroundStyle}>
+    <div className="min-h-screen text-[#142a45] px-4 py-10 relative overflow-hidden z-10">
+      <ComicBackground />
       <div className="max-w-3xl mx-auto space-y-6 relative z-20">
         <header className="comic-panel bg-[#142a45] text-[#ffeccd] px-6 py-5">
           <p className="comic-font text-xs tracking-[0.5em] text-[#ffeccd]/80">Подключение игроков</p>

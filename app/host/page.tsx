@@ -4,7 +4,7 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { logError, logEvent } from '@/shared/logic/logger';
-import backTexture from '../img/back2.png';
+import { ComicBackground } from '@/components/ComicBackground';
 import { HostRoleNoticeModal } from '@/shared/ui/HostRoleNoticeModal';
 import { DEFAULT_PACK_ID, normalizePackId, QUESTION_PACKS, type PackId } from '@/lib/questionPacks';
 
@@ -136,13 +136,6 @@ export default function HostPage() {
     }
   };
 
-  const backgroundStyle: CSSProperties = {
-    backgroundImage: `url(${backTexture.src})`,
-    backgroundSize: 'cover',
-    backgroundRepeat: 'no-repeat',
-    backgroundPosition: 'center',
-  };
-
   const frameStyle: CSSProperties = {
     width: '100%',
     maxWidth: 'min(1400px, calc((100vh - 48px) * 16 / 9))',
@@ -157,11 +150,11 @@ export default function HostPage() {
 
   return (
     <div
-      className={`min-h-screen bg-[#fef4dc] text-[#142a45] ${isCompactLayout ? 'px-3 py-4' : 'px-4 py-6 lg:py-8'} ${
+      className={`min-h-screen text-[#142a45] relative overflow-hidden z-10 ${isCompactLayout ? 'px-3 py-4' : 'px-4 py-6 lg:py-8'} ${
         isMobileLayout ? 'text-[calc(1rem*0.85)]' : ''
       }`}
-      style={backgroundStyle}
     >
+      <ComicBackground />
       <HostRoleNoticeModal
         isOpen={isRoleNoticeOpen}
         onContinue={() => setIsRoleNoticeOpen(false)}

@@ -3,11 +3,11 @@
 
 import { useEffect, useRef, useState, useCallback, CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
-import backTexture from './img/back.png';
 import { supabase } from '../src/lib/supabase';
 import { normalizePackId, type PackId } from '@/lib/questionPacks';
 import { DuckMascot } from '@/components/DuckMascot';
 import { DuckFace } from '@/components/DuckFace';
+import { ComicBackground } from '@/components/ComicBackground';
 
 export default function HomePage() {
   const router = useRouter();
@@ -325,13 +325,6 @@ export default function HomePage() {
     return '😄';
   })();
 
-  const backgroundStyle: CSSProperties = {
-    backgroundImage: `url(${backTexture.src})`,
-    backgroundSize: 'cover',
-    backgroundRepeat: 'no-repeat',
-    backgroundPosition: 'center',
-  };
-
   useEffect(() => {
     const loadStats = async () => {
       try {
@@ -361,7 +354,8 @@ export default function HomePage() {
   }, []);
 
   return (
-    <div className="min-h-screen comic-bg-dots-yellow text-[#142a45]" style={backgroundStyle} onClick={handleUserInteraction}>
+    <div className="min-h-screen text-[#142a45] relative z-10" onClick={handleUserInteraction}>
+      <ComicBackground />
       {!hasStarted ? (
         <div className="min-h-screen flex items-center justify-center">
           <button
