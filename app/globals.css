@@ -1529,10 +1529,36 @@ body {
 
 /* Comic Book Styles */
 @layer components {
+  /* Custom fonts for Jokester (Cyrillic-capable) */
+  @font-face {
+    font-family: 'Adventure Indiana';
+    src: url('/audio/sound/Jokester/font/Adventure_Indiana_Jones.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+  }
+
+  @font-face {
+    font-family: 'Alcotton';
+    src: url('/audio/sound/Jokester/font/alcotton.ttf') format('truetype');
+    font-weight: 300;
+    font-style: italic;
+    font-display: swap;
+  }
+
   .comic-font {
-    font-family: var(--font-bangers), cursive;
+    /* Primary comic display font (bold/adventure) */
+    font-family: 'Adventure Indiana', var(--font-bangers), system-ui, cursive;
     letter-spacing: 0.05em;
     text-transform: uppercase;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  .comic-font-italic {
+    font-family: 'Alcotton', var(--font-bangers), system-ui, cursive;
+    font-style: italic;
+    font-weight: 300;
   }
 
   .comic-panel {
@@ -1548,9 +1574,13 @@ body {
     border-radius: 12px;
     box-shadow: 6px 6px 0 #000;
     transition: all 0.1s ease-in-out;
-    font-family: var(--font-bangers), cursive;
+    font-family: 'Adventure Indiana', var(--font-bangers), cursive;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    /* Default readable color and comic outline for contrast */
+    color: #ffffff !important;
+    -webkit-text-stroke: 2px #000;
+    text-shadow: 3px 3px 0 #000;
   }
 
   .comic-button:active {
@@ -1562,11 +1592,37 @@ body {
   filter: brightness(1.1);
 }
 
+/* Animated background for comic feel */
+@keyframes comic-bg-pan {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.comic-animated-bg {
+  background: linear-gradient(120deg, #ffde00 0%, #ff007f 25%, #00c3ff 50%, #00ff00 75%, #ff2a2a 100%);
+  background-size: 200% 200%;
+  animation: comic-bg-pan 12s linear infinite;
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+}
+
+.comic-animated-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image: radial-gradient(rgba(0,0,0,0.03) 1px, transparent 1px);
+  background-size: 10px 10px;
+  opacity: 0.6;
+  mix-blend-mode: multiply;
+}
+
 /* Halftone Dot Patterns */
 .comic-bg-dots-yellow {
   background-color: #ffde00;
   background-image: radial-gradient(#000 15%, transparent 16%), radial-gradient(#000 15%, transparent 16%);
-  background-size: 20px 20px;
+    transition: background-color 0.3s ease;
   background-position: 0 0, 10px 10px;
 }
 
