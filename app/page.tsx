@@ -25,6 +25,18 @@ export default function HomePage() {
   const autoPlayAttemptedRef = useRef(false);
   const [roomsToday, setRoomsToday] = useState(0);
   const [playersToday, setPlayersToday] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      const isPortrait = window.matchMedia('(orientation: portrait)').matches;
+      const isSmallScreen = window.innerWidth < 768;
+      setIsMobile(isPortrait || isSmallScreen);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const packCards: Array<{ id: PackId; title: string; description: string; badge?: string }> = [
     {
@@ -367,7 +379,7 @@ export default function HomePage() {
                 <p className="retro-heading text-xs tracking-[0.5em]">Редактор квиза</p>
                 <h1 className="text-3xl sm:text-4xl font-black leading-tight">Когнитивное программирование вечеринки</h1>
               </div>
-              <div className="text-sm font-semibold uppercase tracking-[0.3em]">v 1.0.1</div>
+              <div className="text-sm font-semibold uppercase tracking-[0.3em]">v 1.3.1</div>
             </header>
           </div>
 
@@ -463,33 +475,45 @@ export default function HomePage() {
                           key={pack.id}
                           type="button"
                           onClick={() => choosePackAndGoHost(normalizePackId(pack.id))}
-                          className={`rounded-3xl border-[3px] border-[#142a45] bg-white/90 p-4 flex flex-col gap-3 transition transform hover:scale-105 ${isLeft ? 'text-left items-start pr-16 sm:pr-20' : 'text-right items-end pl-16 sm:pl-20'} ${isExiting ? 'scale-95 opacity-70' : cardsVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0 translate-y-3'}`}
+                          className={`rounded-3xl border-[3px] border-[#142a45] bg-white/90 p-4 flex flex-col gap-3 transition transform hover:scale-105 ${
+                            isMobile
+                              ? 'items-center justify-center text-center min-h-[80px]'
+                              : isLeft ? 'text-left items-start pr-16 sm:pr-20' : 'text-right items-end pl-16 sm:pl-20'
+                          } ${isExiting ? 'scale-95 opacity-70' : cardsVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0 translate-y-3'}`}
                           style={{ transitionDelay: `${index * 70}ms` }}
                         >
-                          <div className={`flex items-center gap-3 w-full ${isLeft ? 'flex-row justify-between' : 'flex-row-reverse justify-between'}`}>
-                            <div className={isLeft ? 'text-left' : 'text-right'}>
-                              <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Пакет</p>
-                              <div className={`flex items-center gap-2 ${isLeft ? '' : 'flex-row-reverse'}`}>
-                                <h3 className="text-xl font-black text-[#142a45]">{pack.title}</h3>
-                                {pack.badge ? (
-                                  <span className="rounded-full border-[2px] border-[#142a45] bg-[#ffe184] px-2 py-0.5 text-xs font-black tracking-[0.12em] text-[#142a45]">
-                                    {pack.badge}
-                                  </span>
-                                ) : null}
+                          {isMobile ? (
+                            <h3 className="text-xl font-black text-[#142a45]">{pack.title}</h3>
+                          ) : (
+                            <>
+                              <div className={`flex items-center gap-3 w-full ${isLeft ? 'flex-row justify-between' : 'flex-row-reverse justify-between'}`}>
+                                <div className={isLeft ? 'text-left' : 'text-right'}>
+                                  <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Пакет</p>
+                                  <div className={`flex items-center gap-2 ${isLeft ? '' : 'flex-row-reverse'}`}>
+                                    <h3 className="text-xl font-black text-[#142a45]">{pack.title}</h3>
+                                    {pack.badge ? (
+                                      <span className="rounded-full border-[2px] border-[#142a45] bg-[#ffe184] px-2 py-0.5 text-xs font-black tracking-[0.12em] text-[#142a45]">
+                                        {pack.badge}
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                </div>
+                                <span className="text-3xl">{pack.id === 'classic' ? '📘' : '📦'}</span>
                               </div>
-                            </div>
-                            <span className="text-3xl">{pack.id === 'classic' ? '📘' : '📦'}</span>
-                          </div>
-                          <p className="text-sm text-[#142a45]/80 flex-1">{pack.description}</p>
-                          <div className="text-xs font-semibold text-[#1f6ac6]">выбрать и перейти к созданию</div>
+                              <p className="text-sm text-[#142a45]/80 flex-1">{pack.description}</p>
+                              <div className="text-xs font-semibold text-[#1f6ac6]">выбрать и перейти к созданию</div>
+                            </>
+                          )}
                         </button>
                       );
                     })}
                   </div>
                   {/* Утка-лицо — абсолютный центр между плашками */}
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-auto drop-shadow-xl">
-                    <DuckFace size={130} />
-                  </div>
+                  {!isMobile && (
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-auto drop-shadow-xl">
+                      <DuckFace size={130} />
+                    </div>
+                  )}
                 </div>
               </section>
 
@@ -508,17 +532,13 @@ export default function HomePage() {
                       const isBottom = index >= 2;
 
                       // Контент смещается в угол, противоположный центру утки
-                      // 0=top-left  → контент вверху-слева  (items-start)
-                      // 1=top-right → контент вверху-справа (items-end)
-                      // 2=bot-left  → контент внизу-слева   (items-start justify-end)
-                      // 3=bot-right → контент внизу-справа  (items-end   justify-end)
-                      const alignItems  = (index === 1 || index === 3) ? 'items-end'   : 'items-start';
-                      const justifyContent = isBottom ? 'justify-end' : 'justify-start';
-                      const textAlign   = (index === 1 || index === 3) ? 'text-right'  : 'text-left';
+                      const alignItems  = isMobile ? 'items-center' : (index === 1 || index === 3) ? 'items-end'   : 'items-start';
+                      const justifyContent = isMobile ? 'justify-center' : isBottom ? 'justify-end' : 'justify-start';
+                      const textAlign   = isMobile ? 'text-center' : (index === 1 || index === 3) ? 'text-right'  : 'text-left';
                       // Паддинг от центра (освобождаем место для утки)
-                      const innerPad    = isLeft ? 'pr-10' : 'pl-10';
+                      const innerPad    = isMobile ? '' : isLeft ? 'pr-10' : 'pl-10';
                       // Для правых карточек (1, 3) переворачиваем ряд эмодзи+title
-                      const rowReverse  = (index === 1 || index === 3) ? 'flex-row-reverse' : '';
+                      const rowReverse  = isMobile ? '' : (index === 1 || index === 3) ? 'flex-row-reverse' : '';
 
                       const emoji = game.id === 'uno'      ? '🃏'
                                   : game.id === 'risunkach' ? '🎨'
@@ -533,7 +553,8 @@ export default function HomePage() {
                           disabled={isDisabled}
                           className={[
                             'rounded-3xl border-[3px] border-[#142a45] bg-white/95 p-4',
-                            'flex flex-col gap-2 min-h-[148px]',
+                            'flex flex-col gap-2',
+                            isMobile ? 'min-h-[80px]' : 'min-h-[148px]',
                             alignItems, justifyContent, textAlign, innerPad,
                             'transition transform hover:scale-105',
                             isDisabled ? 'opacity-70 cursor-not-allowed' : '',
@@ -543,47 +564,55 @@ export default function HomePage() {
                           ].join(' ')}
                           style={{ transitionDelay: `${index * 70}ms` }}
                         >
-                          {/* Subtitle */}
-                          <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">{game.subtitle}</p>
-
-                          {/* Title + emoji + badges */}
-                          <div className={`flex items-center gap-2 flex-wrap ${rowReverse}`}>
-                            {emoji && <span className="text-2xl" aria-hidden="true">{emoji}</span>}
+                          {isMobile ? (
                             <h3 className="text-xl font-black text-[#142a45]">{game.title}</h3>
-                            {game.badge && (
-                              <span className="rounded-full border-[2px] border-[#142a45] bg-[#ffe184] px-2 py-0.5 text-xs font-black tracking-[0.12em] text-[#142a45]">
-                                {game.badge}
-                              </span>
-                            )}
-                            {game.isSoon && (
-                              <span className="rounded-full border-[2px] border-[#142a45] bg-white px-2 py-0.5 text-xs font-black tracking-[0.12em] text-[#142a45]">
-                                скоро
-                              </span>
-                            )}
-                          </div>
+                          ) : (
+                            <>
+                              {/* Subtitle */}
+                              <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">{game.subtitle}</p>
 
-                          {/* Description */}
-                          <p className="text-sm text-[#142a45]/80">{game.description}</p>
+                              {/* Title + emoji + badges */}
+                              <div className={`flex items-center gap-2 flex-wrap ${rowReverse}`}>
+                                {emoji && <span className="text-2xl" aria-hidden="true">{emoji}</span>}
+                                <h3 className="text-xl font-black text-[#142a45]">{game.title}</h3>
+                                {game.badge && (
+                                  <span className="rounded-full border-[2px] border-[#142a45] bg-[#ffe184] px-2 py-0.5 text-xs font-black tracking-[0.12em] text-[#142a45]">
+                                    {game.badge}
+                                  </span>
+                                )}
+                                {game.isSoon && (
+                                  <span className="rounded-full border-[2px] border-[#142a45] bg-white px-2 py-0.5 text-xs font-black tracking-[0.12em] text-[#142a45]">
+                                    скоро
+                                  </span>
+                                )}
+                              </div>
 
-                          {/* Action label */}
-                          <div className={`flex items-center gap-1 text-xs font-semibold text-[#1f6ac6] ${rowReverse}`}>
-                            <span>
-                              {game.id === 'uno'       ? 'два режима: классический и irregular verbs'
-                                : game.id === 'risunkach' ? '3 режима'
-                                : game.id === 'jokester'  ? 'перейти к тестированию'
-                                : 'готовим концепт'}
-                            </span>
-                            <span>{game.isSoon ? '🔒' : '▶'}</span>
-                          </div>
+                              {/* Description */}
+                              <p className="text-sm text-[#142a45]/80">{game.description}</p>
+
+                              {/* Action label */}
+                              <div className={`flex items-center gap-1 text-xs font-semibold text-[#1f6ac6] ${rowReverse}`}>
+                                <span>
+                                  {game.id === 'uno'       ? 'два режима: классический и irregular verbs'
+                                    : game.id === 'risunkach' ? '3 режима'
+                                    : game.id === 'jokester'  ? 'перейти к тестированию'
+                                    : 'готовим концепт'}
+                                </span>
+                                <span>{game.isSoon ? '🔒' : '▶'}</span>
+                              </div>
+                            </>
+                          )}
                         </button>
                       );
                     })}
                   </div>
 
                   {/* Утка — абсолютный центр поверх всех плашек */}
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-auto drop-shadow-xl">
-                    <DuckMascot />
-                  </div>
+                  {!isMobile && (
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-auto drop-shadow-xl">
+                      <DuckMascot />
+                    </div>
+                  )}
                 </div>
               </section>
             </div>
