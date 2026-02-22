@@ -112,6 +112,7 @@ export default function JokesterHostPage() {
   const [isBgmMuted, setIsBgmMuted] = useState(false);
   const [isVoiceMuted, setIsVoiceMuted] = useState(false);
   const [timerTickKey, setTimerTickKey] = useState(0);
+  const [vsScreenActive, setVsScreenActive] = useState(false);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioRef = useRef<JokesterAudioPlayer | null>(null);
@@ -290,6 +291,16 @@ export default function JokesterHostPage() {
     fetchDuelAnswers(currentDuel.id).then(setCurrentAnswers);
     return subscribeJokesterAnswers(currentDuel.id, setCurrentAnswers);
   }, [room?.id, room?.voting_phase, currentDuel?.id]);
+
+  useEffect(() => {
+    if (room?.voting_phase === 'voting') {
+      setVsScreenActive(true);
+      const t = setTimeout(() => setVsScreenActive(false), 4000);
+      return () => clearTimeout(t);
+    } else {
+      setVsScreenActive(false);
+    }
+  }, [room?.voting_phase, currentDuel?.id]);
 
   useEffect(() => {
     if (!room || room.status !== 'category_vote') return;
@@ -1221,7 +1232,15 @@ export default function JokesterHostPage() {
               </div>
             )}
 
-            {room.voting_phase === 'voting' && currentDuel && (
+            {room.voting_phase === 'voting' && currentDuel && vsScreenActive && (
+              <VsScreen
+                player1={players.find(p => p.id === currentDuel.player1_id) || null}
+                player2={players.find(p => p.id === currentDuel.player2_id) || null}
+                showNames={showDeAnon}
+              />
+            )}
+
+            {room.voting_phase === 'voting' && currentDuel && !vsScreenActive && (
               <div
                 className="relative cartoon-panel p-8 text-center overflow-hidden panel-pulse"
                 style={panelDelayStyle('0.2s')}
@@ -1241,7 +1260,7 @@ export default function JokesterHostPage() {
             )}
 
             {/* Answers during voting */}
-            {room.voting_phase === 'voting' && currentDuel && (
+            {room.voting_phase === 'voting' && currentDuel && !vsScreenActive && (
               <div className="relative">
                 <div className="sunrays-panel sunrays-panel-left" aria-hidden="true">
                   <div className="sunrays-panel-rotor sunrays-panel-rotor-main" />
@@ -1344,12 +1363,38 @@ export default function JokesterHostPage() {
             )}
 
             {/* Spectator votes central */}
-            {room.voting_phase === 'voting' && (
+            {room.voting_phase === 'voting' && !vsScreenActive && (
               <div className="text-center">
                 <SpectatorHall count={spectatorCount - currentVotes.filter(v => v.voter_role === 'spectator').length} total={hallSize} />
                 <p className="text-lg text-white font-bold mt-3 drop-shadow-[1px_1px_0_#000]">
                   Голосов: {currentVotes.length} (игроки: {currentVotes.filter(v => v.voter_role === 'player').length}, зрители: {currentVotes.filter(v => v.voter_role === 'spectator').length})
                 </p>
+                <div className="flex flex-wrap justify-center gap-2 mt-4">
+                  {currentVotes.map(v => {
+                    const voter = players.find(p => p.id === v.voter_id);
+                    const isSpectator = v.voter_role === 'spectator';
+                    return (
+                      <div
+                        key={v.id}
+                        className="w-16 h-16 rounded-full bg-white border-4 border-black flex items-center justify-center text-sm animate-[fadeIn_0.3s_ease] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                        title={voter?.name}
+                      >
+                        {isSpectator ? (
+                          <div
+                            className="w-6 h-8 rounded-t-full bg-purple-500 border-2 border-black"
+                            title="Зритель"
+                          />
+                        ) : voter ? (
+                          <img
+                            src={avatarSrc(voter.avatar)}
+                            alt={voter.name}
+                            className="w-16 h-16 rounded-full object-cover jokester-avatar-pop"
+                          />
+                        ) : '👤'}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
@@ -1735,37 +1780,11 @@ function DuelAnswerCard({
             <p className="text-5xl sm:text-6xl font-black text-black jokester-answer-font">« {a.answer_text} »</p>
           </div>
         ))}
-        <div className="flex flex-wrap gap-2">
-          {votes.map(v => {
-            const voter = players.find(p => p.id === v.voter_id);
-            const isSpectator = v.voter_role === 'spectator';
-            return (
-              <div
-                key={v.id}
-                className="w-16 h-16 rounded-full bg-white border-4 border-black flex items-center justify-center text-sm animate-[fadeIn_0.3s_ease] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
-                title={voter?.name}
-              >
-                {isSpectator ? (
-                  <div
-                    className="w-6 h-8 rounded-t-full bg-purple-500 border-2 border-black"
-                    title="Зритель"
-                  />
-                ) : voter ? (
-                  <FeatherAvatar
-                    src={avatarSrc(voter.avatar)}
-                    alt={voter.name}
-                    className="w-16 h-16 rounded-full object-cover jokester-avatar-pop"
-                    emitFeathers={emitFeathers}
-                    burstCount={8}
-                  />
-                ) : '👤'}
-              </div>
-            );
-          })}
-        </div>
-        <p className="text-2xl font-black drop-shadow-[1px_1px_0_#fff]" style={{ color }}>
-          {votes.length} голосов
-        </p>
+        {isWinner || isLoser ? (
+          <p className="text-2xl font-black drop-shadow-[1px_1px_0_#fff]" style={{ color }}>
+            {votes.length} голосов
+          </p>
+        ) : null}
       </div>
     </div>
   );
@@ -1784,6 +1803,51 @@ function AnimatedQuestionText({ text }: { text: string }) {
         </span>
       ))}
     </p>
+  );
+}
+
+function VsScreen({
+  player1,
+  player2,
+  showNames,
+}: {
+  player1: JokesterPlayer | null;
+  player2: JokesterPlayer | null;
+  showNames: boolean;
+}) {
+  const avatarSrc = (avatar?: string | null) => {
+    if (!avatar) return '/audio/sound/Jokester/ava/1.png';
+    const normalized = avatar.replace(/^ava(\d+)\.png$/i, '$1.png');
+    return `/audio/sound/Jokester/ava/${normalized}`;
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex overflow-hidden animate-[fadeIn_0.3s_ease]">
+      {/* Left Side (Blue) */}
+      <div className="w-1/2 h-full bg-[#1f6ac6] relative flex items-center justify-center overflow-hidden border-r-8 border-black transform -skew-x-12 scale-110 origin-bottom-left">
+        <div className="absolute inset-0 opacity-30 bg-[radial-gradient(circle,transparent_20%,#000_120%)]" />
+        <div className="sunrays-panel-rotor sunrays-panel-rotor-main opacity-50" />
+        <div className="relative z-10 transform skew-x-12 flex flex-col items-center animate-knockout-right" style={{ animationDuration: '3s', animationIterationCount: 'infinite', animationDirection: 'alternate' }}>
+          <img src={avatarSrc(player1?.avatar)} alt="" className="w-64 h-64 rounded-full border-8 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] object-cover bg-white" />
+          {showNames && <p className="mt-6 text-5xl font-black text-white drop-shadow-[4px_4px_0_#000]">{player1?.name || 'Дуэлянт 1'}</p>}
+        </div>
+      </div>
+      {/* Right Side (Red) */}
+      <div className="w-1/2 h-full bg-[#ef4444] relative flex items-center justify-center overflow-hidden transform -skew-x-12 scale-110 origin-top-right">
+        <div className="absolute inset-0 opacity-30 bg-[radial-gradient(circle,transparent_20%,#000_120%)]" />
+        <div className="sunrays-panel-rotor sunrays-panel-rotor-main opacity-50" />
+        <div className="relative z-10 transform skew-x-12 flex flex-col items-center animate-knockout-left" style={{ animationDuration: '3s', animationIterationCount: 'infinite', animationDirection: 'alternate', animationDelay: '0.5s' }}>
+          <img src={avatarSrc(player2?.avatar)} alt="" className="w-64 h-64 rounded-full border-8 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] object-cover bg-white" />
+          {showNames && <p className="mt-6 text-5xl font-black text-white drop-shadow-[4px_4px_0_#000]">{player2?.name || 'Дуэлянт 2'}</p>}
+        </div>
+      </div>
+      {/* VS Badge */}
+      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20 animate-[bounce_1s_infinite]">
+        <div className="w-48 h-48 bg-yellow-400 rounded-full border-8 border-black flex items-center justify-center shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+          <span className="text-8xl font-black text-black italic tracking-tighter">VS</span>
+        </div>
+      </div>
+    </div>
   );
 }
 
