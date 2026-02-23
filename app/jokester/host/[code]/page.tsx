@@ -1313,48 +1313,48 @@ export default function JokesterHostPage() {
             {room.voting_phase === 'results' && (
               <div
                 ref={winnerPanelRef}
-                className="w-full max-w-5xl mx-auto animate-[fadeIn_0.4s_ease]"
+                className="w-full max-w-6xl mx-auto animate-[fadeIn_0.4s_ease] h-[calc(100vh-120px)] flex flex-col"
               >
                 {voteReveal ? (
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-6">
-                    {/* Top Panel: Winner Avatar & Name (Thrown animation) */}
-                    <div className="md:col-span-12 comic-panel comic-bg-dots-yellow p-6 flex flex-col items-center justify-center min-h-[200px] relative overflow-hidden">
-                      <div className="absolute top-2 left-2 bg-white border-2 border-black px-2 py-1 text-xs font-black transform -rotate-2">ПОБЕДИТЕЛЬ</div>
-                      <div className="animate-comic-slap flex flex-col items-center z-10">
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-2 md:gap-4 flex-1 min-h-0">
+                    {/* Top Panel: Winner Avatar & Name */}
+                    <div className="md:col-span-12 comic-panel comic-bg-dots-yellow p-2 md:p-4 flex flex-col items-center justify-center relative overflow-hidden min-h-[120px] md:min-h-[160px]">
+                      <div className="absolute top-2 left-2 bg-white border-2 border-black px-2 py-1 text-xs font-black text-black transform -rotate-2 z-20">ПОБЕДИТЕЛЬ</div>
+                      <div className="animate-comic-slap flex flex-row items-center gap-4 md:gap-8 z-10">
                         <FeatherAvatar
                           src={avatarSrc(voteReveal.playerAvatar)}
                           alt={voteReveal.playerName}
-                          className="w-32 h-32 md:w-40 md:h-40 rounded-full object-cover border-8 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] mb-4"
+                          className="w-20 h-20 md:w-32 md:h-32 rounded-full object-cover border-4 md:border-8 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] md:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
                           emitFeathers={emitFeathers}
                           burstCount={40}
                         />
-                        <h3 className="text-5xl md:text-7xl font-black text-white drop-shadow-[4px_4px_0_#000] uppercase tracking-wider transform -rotate-3">
+                        <h3 className="text-4xl md:text-7xl font-black text-white drop-shadow-[3px_3px_0_#000] md:drop-shadow-[4px_4px_0_#000] uppercase tracking-wider transform -rotate-3">
                           {voteReveal.playerName}
                         </h3>
                       </div>
                     </div>
 
                     {/* Middle Left: The Answer */}
-                    <div className="md:col-span-7 comic-panel bg-white p-6 flex flex-col justify-center relative">
-                      <div className="absolute top-2 left-2 bg-yellow-300 border-2 border-black px-2 py-1 text-xs font-black transform rotate-1">ОТВЕТ</div>
+                    <div className="md:col-span-8 comic-panel bg-white p-4 flex flex-col justify-center relative min-h-[120px] overflow-y-auto">
+                      <div className="absolute top-2 left-2 bg-yellow-300 border-2 border-black px-2 py-1 text-xs font-black text-black transform rotate-1 z-20">ОТВЕТ</div>
                       {voteReveal.question && (
-                        <p className="text-sm md:text-base text-gray-600 font-bold mb-2 mt-4">{voteReveal.question}</p>
+                        <p className="text-xs md:text-sm text-gray-600 font-bold mb-1 mt-4">{voteReveal.question}</p>
                       )}
-                      <div className="comic-speech-bubble p-4 mt-2">
-                        <p className="text-3xl md:text-5xl font-black text-black jokester-answer-font leading-tight">
+                      <div className="comic-speech-bubble p-3 md:p-4 mt-1">
+                        <p className="text-2xl md:text-4xl font-black text-black jokester-answer-font leading-tight">
                           « {voteReveal.answer} »
                         </p>
                       </div>
                     </div>
 
                     {/* Middle Right: Points & Rank */}
-                    <div className="md:col-span-5 comic-panel comic-bg-dots-blue p-6 flex flex-col items-center justify-center relative">
-                      <div className="absolute top-2 right-2 bg-white border-2 border-black px-2 py-1 text-xs font-black transform rotate-3">ОЧКИ</div>
-                      <div className="animate-comic-pop" style={{ animationDelay: '0.3s' }}>
+                    <div className="md:col-span-4 comic-panel comic-bg-dots-blue p-4 flex flex-col items-center justify-center relative min-h-[120px]">
+                      <div className="absolute top-2 right-2 bg-white border-2 border-black px-2 py-1 text-xs font-black text-black transform rotate-3 z-20">ОЧКИ</div>
+                      <div className="animate-comic-pop flex flex-col items-center" style={{ animationDelay: '0.3s' }}>
                         <AnimatedCountUp
                           from={voteReveal.pointsFrom}
                           to={voteReveal.pointsTo}
-                          className="text-7xl md:text-8xl font-black text-white drop-shadow-[4px_4px_0_#000]"
+                          className="text-5xl md:text-7xl font-black text-white drop-shadow-[3px_3px_0_#000] md:drop-shadow-[4px_4px_0_#000]"
                           onComplete={() => {
                             setTimeout(() => {
                               setShowRank(true);
@@ -1363,14 +1363,14 @@ export default function JokesterHostPage() {
                             }, 500);
                           }}
                         />
-                        <p className="text-2xl font-black text-black text-center mt-2 bg-yellow-400 border-4 border-black px-4 py-1 transform -rotate-2 inline-block shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                        <p className="text-lg md:text-xl font-black text-black text-center mt-1 bg-yellow-400 border-2 md:border-4 border-black px-3 py-0.5 transform -rotate-2 inline-block shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] md:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
                           ОЧКОВ
                         </p>
                       </div>
                       {showRank && voteReveal.rank && (
-                        <div className="mt-6 animate-rank-appear bg-white border-4 border-black p-3 transform rotate-3 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                          <p className="text-sm text-gray-800 font-bold text-center">Место в рейтинге</p>
-                          <p className="text-5xl font-black text-purple-600 text-center">
+                        <div className="absolute bottom-2 right-2 md:static md:mt-4 animate-rank-appear bg-white border-2 md:border-4 border-black p-1 md:p-2 transform rotate-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] md:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                          <p className="text-xs text-gray-800 font-bold text-center">Место</p>
+                          <p className="text-2xl md:text-4xl font-black text-purple-600 text-center">
                             #{voteReveal.rank}
                           </p>
                         </div>
@@ -1378,9 +1378,9 @@ export default function JokesterHostPage() {
                     </div>
 
                     {/* Bottom Left: Voters for Winner */}
-                    <div className="md:col-span-6 comic-panel bg-green-100 p-6 relative">
-                      <div className="absolute top-2 left-2 bg-white border-2 border-black px-2 py-1 text-xs font-black transform -rotate-1">ЗА НЕГО</div>
-                      <div className="mt-6 flex flex-wrap gap-3 justify-center">
+                    <div className="md:col-span-4 comic-panel bg-green-100 p-3 md:p-4 relative flex flex-col min-h-[80px]">
+                      <div className="absolute top-2 left-2 bg-white border-2 border-black px-2 py-1 text-xs font-black text-black transform -rotate-1 z-20">ЗА НЕГО</div>
+                      <div className="mt-6 flex-1 flex flex-wrap gap-2 justify-center items-center overflow-y-auto">
                         {currentVotes.filter(v => v.voted_for_id === voteReveal.winnerId && v.voter_role === 'player').map(v => {
                           const voter = players.find(p => p.id === v.voter_id);
                           return voter ? (
@@ -1388,22 +1388,22 @@ export default function JokesterHostPage() {
                               <img
                                 src={avatarSrc(voter.avatar)}
                                 alt={voter.name}
-                                className="w-16 h-16 rounded-full object-cover border-4 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                                className="w-10 h-10 md:w-12 md:h-12 rounded-full object-cover border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
                                 title={voter.name}
                               />
                             </div>
                           ) : null;
                         })}
                         {currentVotes.filter(v => v.voted_for_id === voteReveal.winnerId && v.voter_role === 'player').length === 0 && (
-                          <p className="text-gray-500 font-bold italic">Никто из игроков</p>
+                          <p className="text-gray-500 font-bold italic text-sm">Никто</p>
                         )}
                       </div>
                     </div>
 
-                    {/* Bottom Right: Voters for Loser (Crossed out) */}
-                    <div className="md:col-span-6 comic-panel bg-red-100 p-6 relative">
-                      <div className="absolute top-2 left-2 bg-white border-2 border-black px-2 py-1 text-xs font-black transform rotate-2">ПРОТИВ</div>
-                      <div className="mt-6 flex flex-wrap gap-3 justify-center">
+                    {/* Bottom Middle: Voters for Loser (Crossed out) */}
+                    <div className="md:col-span-4 comic-panel bg-red-100 p-3 md:p-4 relative flex flex-col min-h-[80px]">
+                      <div className="absolute top-2 left-2 bg-white border-2 border-black px-2 py-1 text-xs font-black text-black transform rotate-2 z-20">ПРОТИВ</div>
+                      <div className="mt-6 flex-1 flex flex-wrap gap-2 justify-center items-center overflow-y-auto">
                         {currentVotes.filter(v => v.voted_for_id === voteReveal.loserId && v.voter_role === 'player').map(v => {
                           const voter = players.find(p => p.id === v.voter_id);
                           return voter ? (
@@ -1411,38 +1411,40 @@ export default function JokesterHostPage() {
                               <img
                                 src={avatarSrc(voter.avatar)}
                                 alt={voter.name}
-                                className="w-16 h-16 rounded-full object-cover border-4 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] grayscale opacity-80"
+                                className="w-10 h-10 md:w-12 md:h-12 rounded-full object-cover border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] grayscale opacity-80"
                                 title={voter.name}
                               />
-                              {/* Red strike-through / No entry sign */}
                               <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="w-full h-2 bg-red-600 transform -rotate-45 border border-black shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]"></div>
+                                <div className="w-full h-1.5 bg-red-600 transform -rotate-45 border border-black shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]"></div>
                               </div>
                             </div>
                           ) : null;
                         })}
                         {currentVotes.filter(v => v.voted_for_id === voteReveal.loserId && v.voter_role === 'player').length === 0 && (
-                          <p className="text-gray-500 font-bold italic">Единогласно!</p>
+                          <p className="text-gray-500 font-bold italic text-sm">Единогласно!</p>
                         )}
                       </div>
                     </div>
 
-                    {/* Bottom Full: Spectators */}
-                    <div className="md:col-span-12 comic-panel bg-purple-100 p-4 flex items-center justify-center">
+                    {/* Bottom Right: Spectators */}
+                    <div className="md:col-span-4 comic-panel bg-purple-100 p-3 md:p-4 flex flex-col items-center justify-center relative min-h-[80px]">
+                      <div className="absolute top-2 left-2 bg-white border-2 border-black px-2 py-1 text-xs font-black text-black transform -rotate-3 z-20">ЗРИТЕЛИ</div>
                       {spectatorCount > 0 ? (
-                        <p className="text-xl font-black text-black uppercase tracking-wide">
-                          ЗРИТЕЛЕЙ В ЗАЛЕ: <span className="text-3xl text-purple-600 bg-white border-2 border-black px-3 py-1 ml-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transform rotate-2 inline-block">{spectatorCount}</span>
-                        </p>
+                        <div className="flex items-center justify-center mt-4">
+                          <span className="text-4xl md:text-5xl text-purple-600 bg-white border-2 md:border-4 border-black px-3 py-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] md:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transform rotate-2 font-black">
+                            {spectatorCount}
+                          </span>
+                        </div>
                       ) : (
-                        <p className="text-xl font-black text-gray-600 uppercase tracking-wide italic">
-                          {Math.random() > 0.5 ? "Сегодня без зрителей" : "Сегодня приватно"}
+                        <p className="text-sm md:text-base font-black text-gray-600 uppercase tracking-wide italic text-center mt-4">
+                          {Math.random() > 0.5 ? "Без зрителей" : "Приватно"}
                         </p>
                       )}
                     </div>
 
                   </div>
                 ) : (
-                  <div className="comic-panel comic-bg-dots-yellow p-12 flex flex-col items-center justify-center min-h-[300px]">
+                  <div className="comic-panel comic-bg-dots-yellow p-12 flex flex-col items-center justify-center flex-1">
                     <h3 className="text-6xl md:text-8xl font-black text-white drop-shadow-[4px_4px_0_#000] uppercase tracking-wider transform -rotate-2 animate-comic-slap">
                       НИЧЬЯ!
                     </h3>
