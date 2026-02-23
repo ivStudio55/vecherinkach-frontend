@@ -5,8 +5,6 @@ import { useEffect, useRef, useState, useCallback, CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../src/lib/supabase';
 import { normalizePackId, type PackId } from '@/lib/questionPacks';
-import { DuckMascot } from '@/components/DuckMascot';
-import { DuckFace } from '@/components/DuckFace';
 import { ComicBackground } from '@/components/ComicBackground';
 
 export default function HomePage() {
@@ -529,12 +527,6 @@ export default function HomePage() {
                       );
                     })}
                   </div>
-                  {/* Утка-лицо — абсолютный центр между плашками */}
-                  {!isMobile && (
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-auto drop-shadow-xl">
-                      <DuckFace size={130} />
-                    </div>
-                  )}
                 </div>
               </section>
 
@@ -628,12 +620,6 @@ export default function HomePage() {
                     })}
                   </div>
 
-                  {/* Утка — абсолютный центр поверх всех плашек */}
-                  {!isMobile && (
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-auto drop-shadow-xl">
-                      <DuckMascot />
-                    </div>
-                  )}
                 </div>
               </section>
             </div>
