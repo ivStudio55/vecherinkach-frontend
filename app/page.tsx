@@ -361,22 +361,32 @@ export default function HomePage() {
       <ComicBackground />
       {!hasStarted ? (
         <div className="min-h-screen flex flex-col items-center justify-center gap-6">
-          <button
-            onClick={handleStart}
-            className={`comic-button px-8 py-4 text-2xl bg-[#ffde00] text-[#000] hover:bg-[#ffea00] transition-all duration-500 ${buttonAnimating ? 'scale-110 bg-[#f1532f] shadow-2xl' : ''}`}
-          >
-            НАЧАТЬ ВЕСЕЛУХУ
-          </button>
-          <button
-            onClick={() => {
-              const next = !isAnimationsDisabled;
-              setIsAnimationsDisabled(next);
-              localStorage.setItem('vecherinkach_animations_disabled', String(next));
-            }}
-            className={`comic-button px-6 py-3 text-lg border-[4px] border-black transition-colors ${isAnimationsDisabled ? 'bg-yellow-400 text-black' : 'bg-white text-black hover:bg-gray-100'}`}
-          >
-            {isAnimationsDisabled ? '✨ Анимации выключены' : '✨ Отключить анимации'}
-          </button>
+          <div className="text-center space-y-4">
+            <button
+              onClick={handleStart}
+              className={`comic-button px-8 py-4 text-2xl bg-[#ffde00] text-[#000] hover:bg-[#ffea00] transition-all duration-500 ${buttonAnimating ? 'scale-110 bg-[#f1532f] shadow-2xl' : ''}`}
+            >
+              НАЧАТЬ ВЕСЕЛУХУ
+            </button>
+            <p className="comic-font text-sm text-[#142a45] max-w-md mx-auto leading-relaxed">
+              Если ты здесь — значит, твоя лента уже проиграла. Пора перейти в режим "веселухи".
+            </p>
+          </div>
+          <div className="text-center space-y-4">
+            <button
+              onClick={() => {
+                const next = !isAnimationsDisabled;
+                setIsAnimationsDisabled(next);
+                localStorage.setItem('vecherinkach_animations_disabled', String(next));
+              }}
+              className={`comic-button px-6 py-3 text-lg border-[4px] border-black transition-colors ${isAnimationsDisabled ? 'bg-yellow-400 text-black' : 'bg-white text-black hover:bg-gray-100'}`}
+            >
+              {isAnimationsDisabled ? '✨ Анимации выключены' : '✨ Отключить анимации'}
+            </button>
+            <p className="comic-font text-sm text-[#142a45] max-w-md mx-auto leading-relaxed">
+              чтобы сэкономить оперативку и избежать лагов, особенно на ТВ или старых устройствах. Игра останется такой же весёлой — просто без "фейерверков".
+            </p>
+          </div>
         </div>
       ) : (
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 space-y-8">
