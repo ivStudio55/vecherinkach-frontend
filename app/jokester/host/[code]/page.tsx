@@ -94,7 +94,7 @@ const panelDelayStyle = (value: string): CSSProperties => ({ '--panel-delay': va
 
 /* ─── Deadline Overlay Component ─── */
 function DeadlineOverlay({ seconds }: { seconds: number }) {
-  if (seconds > 10 || seconds <= 0) return null;
+  if (seconds > 3 || seconds <= 0) return null;
 
   return (
     <div className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center overflow-hidden">
@@ -404,18 +404,28 @@ export default function JokesterHostPage() {
     setTimer(seconds);
     timerRef.current = setInterval(() => {
       setTimer(prev => {
-        if (options?.preEndSfxAtSec && options?.preEndSfxFolder && prev === options.preEndSfxAtSec) {
+        const nextSec = prev - 1;
+        
+        if (options?.preEndSfxAtSec && options?.preEndSfxFolder && nextSec === options.preEndSfxAtSec) {
           const count = Math.max(1, options.preEndSfxCount || 1);
           const idx = Math.floor(Math.random() * count) + 1;
           audioRef.current?.playSfx(`${options.preEndSfxFolder}/${idx}.mp3`, options.preEndSfxVolume ?? 0.65);
         }
+
+        if (nextSec <= 10 && nextSec > 0) {
+          const freq = 400 + (10 - nextSec) * 50;
+          audioRef.current?.playBeep(freq, 150, 0.15);
+        } else if (nextSec === 0) {
+          audioRef.current?.playBeep(1000, 400, 0.2);
+        }
+
         if (prev <= 1) {
           if (timerRef.current) clearInterval(timerRef.current);
           timerRef.current = null;
           onEnd?.();
           return 0;
         }
-        return prev - 1;
+        return nextSec;
       });
     }, 1000);
   }, []);
@@ -690,16 +700,31 @@ export default function JokesterHostPage() {
 
     // Начислить очки
       let winnerId: string | null = null;
+      let p1WinPoints = 0;
+      let p2WinPoints = 0;
       if (p1votes.length > p2votes.length) {
         winnerId = duel.player1_id;
-        await updatePlayerPoints(duel.player1_id, POINTS.DUEL_WIN * mult, 0, 0);
+        p1WinPoints = POINTS.DUEL_WIN * mult;
       } else if (p2votes.length > p1votes.length) {
         winnerId = duel.player2_id;
-        await updatePlayerPoints(duel.player2_id, POINTS.DUEL_WIN * mult, 0, 0);
+        p2WinPoints = POINTS.DUEL_WIN * mult;
       }
-      // Голоса (для обоих)
-      await updatePlayerPoints(duel.player1_id, 0, p1playerVotes * POINTS.PLAYER_VOTE * mult, p1spectatorVotes * POINTS.SPECTATOR_VOTE * mult);
-      await updatePlayerPoints(duel.player2_id, 0, p2playerVotes * POINTS.PLAYER_VOTE * mult, p2spectatorVotes * POINTS.SPECTATOR_VOTE * mult);
+
+      const p1PointsFromVotes = (p1playerVotes * POINTS.PLAYER_VOTE * mult) + (p1spectatorVotes * POINTS.SPECTATOR_VOTE * mult);
+      const p2PointsFromVotes = (p2playerVotes * POINTS.PLAYER_VOTE * mult) + (p2spectatorVotes * POINTS.SPECTATOR_VOTE * mult);
+
+      await updatePlayerPoints(
+        duel.player1_id,
+        p1WinPoints + p1PointsFromVotes,
+        p1playerVotes,
+        p1spectatorVotes
+      );
+      await updatePlayerPoints(
+        duel.player2_id,
+        p2WinPoints + p2PointsFromVotes,
+        p2playerVotes,
+        p2spectatorVotes
+      );
 
       const p1Delta = (winnerId === duel.player1_id ? POINTS.DUEL_WIN * mult : 0)
         + (p1playerVotes * POINTS.PLAYER_VOTE * mult)
