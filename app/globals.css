@@ -1543,6 +1543,27 @@ body {
   animation: rankAppear 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
+@keyframes comicSlap {
+  0% { opacity: 0; transform: scale(3) rotate(15deg); filter: blur(10px); }
+  50% { opacity: 1; transform: scale(0.9) rotate(-2deg); filter: blur(0); }
+  70% { transform: scale(1.05) rotate(1deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+.animate-comic-slap {
+  animation: comicSlap 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+}
+
+@keyframes comicPop {
+  0% { opacity: 0; transform: scale(0.5) translateY(50px); }
+  60% { opacity: 1; transform: scale(1.05) translateY(-10px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.animate-comic-pop {
+  animation: comicPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+}
+
 
 /* Comic Book Styles */
 @layer components {
