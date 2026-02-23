@@ -470,6 +470,12 @@ const HostControls = ({
   layoutLabel,
   compact,
   showDonate = true,
+  isAnimationsDisabled,
+  onToggleAnimations,
+  isMusicMuted,
+  onToggleMusicMute,
+  isVoiceMuted,
+  onToggleVoiceMute,
 }: {
   primaryLabel: string;
   onPrimaryAction: () => void;
