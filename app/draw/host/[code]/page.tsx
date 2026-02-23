@@ -55,6 +55,13 @@ export default function DrawHostPage() {
   // Audio controls
   const [jingleMuted, setJingleMuted] = useState(false);
   const [voiceMuted, setVoiceMuted] = useState(false);
+  const [isAnimationsDisabled, setIsAnimationsDisabled] = useState(false);
+
+  useEffect(() => {
+    setJingleMuted(localStorage.getItem('draw_bgm_muted') === 'true');
+    setVoiceMuted(localStorage.getItem('draw_voice_muted') === 'true');
+    setIsAnimationsDisabled(localStorage.getItem('draw_animations_disabled') === 'true');
+  }, []);
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -436,11 +443,12 @@ export default function DrawHostPage() {
   }
 
   return (
-    <ComicBackground>
-      <div className="max-w-6xl mx-auto space-y-8 text-black">
-        {/* Header */}
-        <header className="flex flex-wrap items-center justify-between gap-4 bg-white border-[6px] border-black p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transform -rotate-1">
-          <div>
+    <div className={isAnimationsDisabled ? 'disable-animations' : ''}>
+      <ComicBackground>
+        <div className="max-w-6xl mx-auto space-y-8 text-black">
+          {/* Header */}
+          <header className="flex flex-wrap items-center justify-between gap-4 bg-white border-[6px] border-black p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transform -rotate-1">
+            <div>
             <div className="inline-block bg-[#FF69B4] border-[3px] border-black px-3 py-1 transform rotate-2 mb-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
               <p className="uppercase text-xs font-black tracking-widest text-white">🎨 Рисункач</p>
             </div>
@@ -472,6 +480,17 @@ export default function DrawHostPage() {
               title={voiceMuted ? 'Включить голос' : 'Выключить голос'}
             >
               {voiceMuted ? '🤫' : '🗣️'}
+            </button>
+            <button
+              onClick={() => {
+                const next = !isAnimationsDisabled;
+                setIsAnimationsDisabled(next);
+                localStorage.setItem('draw_animations_disabled', String(next));
+              }}
+              className={`w-12 h-12 rounded-full border-[4px] border-black flex items-center justify-center text-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-transform hover:scale-110 ${isAnimationsDisabled ? 'bg-gray-300' : 'bg-[#FF69B4]'}`}
+              title={isAnimationsDisabled ? 'Включить анимации' : 'Выключить анимации'}
+            >
+              ✨
             </button>
             <button
               onClick={handleCloseRoom}
@@ -826,6 +845,7 @@ export default function DrawHostPage() {
           </div>
         )}
       </div>
-    </ComicBackground>
+      </ComicBackground>
+    </div>
   );
 }

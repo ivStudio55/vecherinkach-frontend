@@ -477,6 +477,12 @@ const HostControls = ({
   layoutLabel: string;
   compact?: boolean;
   showDonate?: boolean;
+  isAnimationsDisabled?: boolean;
+  onToggleAnimations?: () => void;
+  isMusicMuted?: boolean;
+  onToggleMusicMute?: () => void;
+  isVoiceMuted?: boolean;
+  onToggleVoiceMute?: () => void;
 }) => (
   <div className="flex flex-wrap gap-3">
     <button
@@ -498,6 +504,36 @@ const HostControls = ({
     >
       Вид: {layoutLabel}
     </button>
+    {onToggleMusicMute && (
+      <button
+        type="button"
+        onClick={onToggleMusicMute}
+        className={`${compact ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'} comic-panel border-[4px] border-[#000] transition ${isMusicMuted ? 'bg-red-500 text-white' : 'text-white hover:bg-[#ffde00]/10'}`}
+        title={isMusicMuted ? 'Включить музыку' : 'Выключить музыку'}
+      >
+        🎵
+      </button>
+    )}
+    {onToggleVoiceMute && (
+      <button
+        type="button"
+        onClick={onToggleVoiceMute}
+        className={`${compact ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'} comic-panel border-[4px] border-[#000] transition ${isVoiceMuted ? 'bg-red-500 text-white' : 'text-white hover:bg-[#ffde00]/10'}`}
+        title={isVoiceMuted ? 'Включить озвучку' : 'Выключить озвучку'}
+      >
+        🎤
+      </button>
+    )}
+    {onToggleAnimations && (
+      <button
+        type="button"
+        onClick={onToggleAnimations}
+        className={`${compact ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'} comic-panel border-[4px] border-[#000] transition ${isAnimationsDisabled ? 'bg-yellow-400 text-black' : 'text-white hover:bg-[#ffde00]/10'}`}
+        title={isAnimationsDisabled ? 'Включить анимации' : 'Выключить анимации'}
+      >
+        ✨
+      </button>
+    )}
     {showDonate ? (
       <a
         href="https://donatty.com/aleksandri"
@@ -860,6 +896,14 @@ export default function HostRoomPage() {
   const [isRatingVisible, setIsRatingVisible] = useState(false);
   const [round3AudioBlocked, setRound3AudioBlocked] = useState(false);
   const [isMusicMuted, setIsMusicMuted] = useState(false);
+  const [isVoiceMuted, setIsVoiceMuted] = useState(false);
+  const [isAnimationsDisabled, setIsAnimationsDisabled] = useState(false);
+
+  useEffect(() => {
+    setIsMusicMuted(localStorage.getItem('host_bgm_muted') === 'true');
+    setIsVoiceMuted(localStorage.getItem('host_voice_muted') === 'true');
+    setIsAnimationsDisabled(localStorage.getItem('host_animations_disabled') === 'true');
+  }, []);
   const [round3VoteAnswers, setRound3VoteAnswers] = useState<Round3AnswerRow[]>([]);
   const [isRound3VoteAnswersLoading, setIsRound3VoteAnswersLoading] = useState(false);
   const [round3ScoredAnswers, setRound3ScoredAnswers] = useState<Round3ScoredAnswer[]>([]);
@@ -906,9 +950,15 @@ export default function HostRoomPage() {
   }, []);
 
   const isMusicMutedRef = useRef(isMusicMuted);
+  const isVoiceMutedRef = useRef(isVoiceMuted);
+  
   useEffect(() => {
     isMusicMutedRef.current = isMusicMuted;
   }, [isMusicMuted]);
+
+  useEffect(() => {
+    isVoiceMutedRef.current = isVoiceMuted;
+  }, [isVoiceMuted]);
 
   useEffect(() => {
     round5QuestionsRef.current = round5Questions;
@@ -1593,7 +1643,7 @@ export default function HostRoomPage() {
           return;
         }
         const voice = new Audio(buildAudioUrl(voiceRelative));
-        voice.volume = 0.95;
+        voice.volume = isVoiceMutedRef.current ? 0 : 0.95;
         voice.loop = false;
         round2EndVoiceAudioRef.current = voice;
         voice.play().catch((err) => {
@@ -1732,7 +1782,7 @@ export default function HostRoomPage() {
 
     const file = pickRandomItem(ROUND1_END_AUDIO_FILES);
     const voice = new Audio(buildAudioUrl(file));
-    voice.volume = isMusicMutedRef.current ? 0 : 0.95;
+    voice.volume = isVoiceMutedRef.current ? 0 : 0.95;
     voice.loop = false;
     roundEndAudioRef.current = voice;
     voice.play().catch((error) => {
@@ -1838,7 +1888,7 @@ export default function HostRoomPage() {
 
     const voiceSource = ROUND2_RULES_VOICE_FILES.length ? pickRandomItem(ROUND2_RULES_VOICE_FILES) : ROUND2_RULES_JINGLE_FILE;
     const voice = new Audio(buildAudioUrl(voiceSource));
-    voice.volume = 0.95;
+    voice.volume = isVoiceMutedRef.current ? 0 : 0.95;
     round2RulesVoiceAudioRef.current = voice;
 
     const stopJingle = () => {
@@ -1883,7 +1933,7 @@ export default function HostRoomPage() {
 
     const voiceSource = pickRandomItem(ROUND3_RULES_VOICE_FILES);
     const voice = new Audio(buildAudioUrl(voiceSource));
-    voice.volume = 0.95;
+    voice.volume = isVoiceMutedRef.current ? 0 : 0.95;
     round3RulesVoiceAudioRef.current = voice;
 
     const stopJingle = () => {
@@ -1929,7 +1979,7 @@ export default function HostRoomPage() {
 
     const voiceSource = pickRandomItem(ROUND4_RULES_VOICE_FILES);
     const voice = new Audio(buildAudioUrl(voiceSource));
-    voice.volume = 0.95;
+    voice.volume = isVoiceMutedRef.current ? 0 : 0.95;
     round4RulesVoiceAudioRef.current = voice;
 
     const stopJingle = () => {
@@ -1976,7 +2026,7 @@ export default function HostRoomPage() {
 
     const voiceSource = ROUND5_RULES_VOICE_FILES.length ? pickRandomItem(ROUND5_RULES_VOICE_FILES) : 'round5/ruels/1.mp3';
     const voice = new Audio(buildAudioUrl(voiceSource));
-    voice.volume = 0.95;
+    voice.volume = isVoiceMutedRef.current ? 0 : 0.95;
     round5RulesVoiceAudioRef.current = voice;
 
     const finish = () => {
@@ -2019,7 +2069,7 @@ export default function HostRoomPage() {
       const voiceFile = `${ROUND5_QUESTION_AUDIO_DIR}/${getRound5AudioOrdinal(bankIndex)}.mp3`;
       const voice = new Audio(buildAudioUrl(voiceFile));
       voice.loop = false;
-      voice.volume = 0.95;
+      voice.volume = isVoiceMutedRef.current ? 0 : 0.95;
       round5QuestionVoiceAudioRef.current = voice;
 
       try {
@@ -2052,7 +2102,7 @@ export default function HostRoomPage() {
       const voiceFile = `${ROUND5_EXPLANATION_AUDIO_DIR}/${getRound5AudioOrdinal(bankIndex)}.mp3`;
       const voice = new Audio(buildAudioUrl(voiceFile));
       voice.loop = false;
-      voice.volume = 0.95;
+      voice.volume = isVoiceMutedRef.current ? 0 : 0.95;
       round5ExplanationVoiceAudioRef.current = voice;
 
       const finish = () => {
@@ -2229,6 +2279,9 @@ export default function HostRoomPage() {
     const newMuted = !isMusicMuted;
     setIsMusicMuted(newMuted);
     isMusicMutedRef.current = newMuted;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('host_bgm_muted', String(newMuted));
+    }
 
     const bgGain = round3BgGainNodeRef.current;
     if (bgGain) {
@@ -2245,6 +2298,24 @@ export default function HostRoomPage() {
       voteTimerGain.gain.value = newMuted ? 0 : ROUND3_TIMER_VOLUME;
     }
   }, [isMusicMuted]);
+
+  const toggleVoiceMute = useCallback(() => {
+    const newMuted = !isVoiceMuted;
+    setIsVoiceMuted(newMuted);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('host_voice_muted', String(newMuted));
+    }
+
+    const voiceGain = round3VoiceGainNodeRef.current;
+    if (voiceGain) {
+      voiceGain.gain.value = newMuted ? 0 : 1;
+    }
+
+    const voteVoiceGain = round3VoteVoiceGainNodeRef.current;
+    if (voteVoiceGain) {
+      voteVoiceGain.gain.value = newMuted ? 0 : 0.95;
+    }
+  }, [isVoiceMuted]);
 
   const playRound3VoteVoiceAudio = useCallback(() => {
     if (typeof window === 'undefined') {
@@ -2330,7 +2401,7 @@ export default function HostRoomPage() {
         voteSource.loop = false;
 
         const voteGain = context.createGain();
-        voteGain.gain.value = 0.95;
+        voteGain.gain.value = isVoiceMutedRef.current ? 0 : 0.95;
 
         voteSource.connect(voteGain);
         voteGain.connect(context.destination);
@@ -2488,7 +2559,7 @@ export default function HostRoomPage() {
           voiceSource.loop = false;
 
           const voiceGain = context.createGain();
-          voiceGain.gain.value = 1;
+          voiceGain.gain.value = isVoiceMutedRef.current ? 0 : 1;
 
           const timerSource = context.createBufferSource();
           timerSource.buffer = timerBuffer;
@@ -3783,7 +3854,7 @@ export default function HostRoomPage() {
 
       const ordinal = getRound2AudioOrdinal(index, true);
       const voice = new Audio(buildAudioUrl(`round2/explanation/${ordinal}.mp3`));
-      voice.volume = 0.95;
+      voice.volume = isVoiceMutedRef.current ? 0 : 0.95;
 
       round2ExplanationAudioRef.current = voice;
 
@@ -3826,7 +3897,7 @@ export default function HostRoomPage() {
 
       const ordinal = getRound2AudioOrdinal(index, false);
       const voice = new Audio(buildAudioUrl(`round2/fictionExplanation/${ordinal}.mp3`));
-      voice.volume = 0.95;
+      voice.volume = isVoiceMutedRef.current ? 0 : 0.95;
 
       round2ExplanationAudioRef.current = voice;
 
@@ -4584,7 +4655,7 @@ export default function HostRoomPage() {
   }, []);
 
   const playAnswerDuckSound = useCallback(async () => {
-    if (!hasUserInteractedRef.current || isMusicMutedRef.current) {
+    if (!hasUserInteractedRef.current || isVoiceMutedRef.current) {
       return;
     }
 
@@ -4987,7 +5058,7 @@ export default function HostRoomPage() {
 
       const voice = new Audio(buildAudioUrl(getRound1AudioPath(questionId)));
       voice.loop = false;
-      voice.volume = 0.95;
+      voice.volume = isVoiceMutedRef.current ? 0 : 0.95;
       questionVoiceAudioRef.current = voice;
 
       try {
@@ -7535,7 +7606,7 @@ export default function HostRoomPage() {
   };
 
   return (
-    <Fragment>
+    <div className={isAnimationsDisabled ? 'disable-animations' : ''}>
       <div
         style={
           isMobileLayout
@@ -7564,6 +7635,24 @@ export default function HostRoomPage() {
                   onToggleLayout={setNextLayoutMode}
                   layoutLabel={layoutModeLabel}
                   compact={isCompactForcedLayout}
+                  isAnimationsDisabled={isAnimationsDisabled}
+                  onToggleAnimations={() => {
+                    const next = !isAnimationsDisabled;
+                    setIsAnimationsDisabled(next);
+                    localStorage.setItem('host_animations_disabled', String(next));
+                  }}
+                  isMusicMuted={isMusicMuted}
+                  onToggleMusicMute={() => {
+                    const next = !isMusicMuted;
+                    setIsMusicMuted(next);
+                    localStorage.setItem('host_bgm_muted', String(next));
+                  }}
+                  isVoiceMuted={isVoiceMuted}
+                  onToggleVoiceMute={() => {
+                    const next = !isVoiceMuted;
+                    setIsVoiceMuted(next);
+                    localStorage.setItem('host_voice_muted', String(next));
+                  }}
                 />
             </div>
             </header>
@@ -9531,6 +9620,6 @@ export default function HostRoomPage() {
           </div>
         </div>
       )}
-    </Fragment>
+    </div>
   );
 }

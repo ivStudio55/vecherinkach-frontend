@@ -55,6 +55,13 @@ export class DrawAudioPlayer {
   private _jingleMuted = false;
   private _voiceMuted = false;
 
+  constructor() {
+    if (typeof window !== 'undefined') {
+      this._jingleMuted = localStorage.getItem('draw_bgm_muted') === 'true';
+      this._voiceMuted = localStorage.getItem('draw_voice_muted') === 'true';
+    }
+  }
+
   get jingleMuted() { return this._jingleMuted; }
   get voiceMuted() { return this._voiceMuted; }
 
@@ -107,6 +114,9 @@ export class DrawAudioPlayer {
     if (this._jingleMuted) {
       this.stopBgm();
     }
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('draw_bgm_muted', String(this._jingleMuted));
+    }
     return this._jingleMuted;
   }
 
@@ -115,6 +125,9 @@ export class DrawAudioPlayer {
     this._voiceMuted = !this._voiceMuted;
     if (this._voiceMuted) {
       this.stopVoice();
+    }
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('draw_voice_muted', String(this._voiceMuted));
     }
     return this._voiceMuted;
   }
