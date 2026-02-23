@@ -26,6 +26,11 @@ export default function HomePage() {
   const [roomsToday, setRoomsToday] = useState(0);
   const [playersToday, setPlayersToday] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
+  const [isAnimationsDisabled, setIsAnimationsDisabled] = useState(false);
+
+  useEffect(() => {
+    setIsAnimationsDisabled(localStorage.getItem('vecherinkach_animations_disabled') === 'true');
+  }, []);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -354,15 +359,25 @@ export default function HomePage() {
   }, []);
 
   return (
-    <div className="min-h-screen text-[#142a45] relative z-10" onClick={handleUserInteraction}>
+    <div className={`min-h-screen text-[#142a45] relative z-10 ${isAnimationsDisabled ? 'disable-animations' : ''}`} onClick={handleUserInteraction}>
       <ComicBackground />
       {!hasStarted ? (
-        <div className="min-h-screen flex items-center justify-center">
+        <div className="min-h-screen flex flex-col items-center justify-center gap-6">
           <button
             onClick={handleStart}
             className={`comic-button px-8 py-4 text-2xl bg-[#ffde00] text-[#000] hover:bg-[#ffea00] transition-all duration-500 ${buttonAnimating ? 'scale-110 bg-[#f1532f] shadow-2xl' : ''}`}
           >
             НАЧАТЬ ВЕСЕЛУХУ
+          </button>
+          <button
+            onClick={() => {
+              const next = !isAnimationsDisabled;
+              setIsAnimationsDisabled(next);
+              localStorage.setItem('vecherinkach_animations_disabled', String(next));
+            }}
+            className={`comic-button px-6 py-3 text-lg border-[4px] border-black transition-colors ${isAnimationsDisabled ? 'bg-yellow-400 text-black' : 'bg-white text-black hover:bg-gray-100'}`}
+          >
+            {isAnimationsDisabled ? '✨ Анимации выключены' : '✨ Отключить анимации'}
           </button>
         </div>
       ) : (
@@ -444,6 +459,18 @@ export default function HomePage() {
                     >
                       {isSoundOn ? '🔊 Джингл включён' : '🎵 Включить джингл'}
                       <span className="text-xs tracking-[0.3em]">AUTO</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = !isAnimationsDisabled;
+                        setIsAnimationsDisabled(next);
+                        localStorage.setItem('vecherinkach_animations_disabled', String(next));
+                      }}
+                      className={`hover:scale-105 hover:shadow-lg transition-all duration-200 inline-flex items-center justify-between rounded-2xl border-[3px] border-[#142a45] px-4 py-3 font-semibold ${isAnimationsDisabled ? 'bg-yellow-400 text-black' : 'bg-white text-[#142a45]'}`}
+                    >
+                      {isAnimationsDisabled ? '✨ Анимации выключены' : '✨ Отключить анимации'}
+                      <span className="text-xs tracking-[0.3em]">UI</span>
                     </button>
                     {audioError && <span className="text-xs text-[#b23324] font-semibold">{audioError}</span>}
                   </div>
