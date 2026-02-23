@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { VercelAnalyticsButton } from './VercelAnalyticsButton';
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
@@ -48,6 +49,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               >
                 Вечеринкач
               </Link>
+              <VercelAnalyticsButton />
             </nav>
           </div>
         </header>

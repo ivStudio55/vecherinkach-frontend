@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 import { ClientBootstrap } from "./ClientBootstrap";
 import { SunRaysBackground } from "./SunRaysBackground";
@@ -40,6 +41,7 @@ export default function RootLayout({
         <SunRaysBackground />
         <ClientBootstrap />
         <div className="relative z-10">{children}</div>
+        <Analytics />
       </body>
     </html>
   );
