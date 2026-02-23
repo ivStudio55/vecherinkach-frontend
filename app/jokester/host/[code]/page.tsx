@@ -159,6 +159,13 @@ export default function JokesterHostPage() {
   const [creditsData, setCreditsData] = useState<{ winnerAnswers: CreditsAnswer[]; playerRanks: CreditsPlayerBest[] } | null>(null);
   const [isBgmMuted, setIsBgmMuted] = useState(false);
   const [isVoiceMuted, setIsVoiceMuted] = useState(false);
+  const [isAnimationsDisabled, setIsAnimationsDisabled] = useState(false);
+
+  useEffect(() => {
+    setIsBgmMuted(localStorage.getItem('jokester_bgm_muted') === 'true');
+    setIsVoiceMuted(localStorage.getItem('jokester_voice_muted') === 'true');
+    setIsAnimationsDisabled(localStorage.getItem('jokester_animations_disabled') === 'true');
+  }, []);
   const [timerTickKey, setTimerTickKey] = useState(0);
   const [vsScreenActive, setVsScreenActive] = useState(false);
 
@@ -1042,14 +1049,14 @@ export default function JokesterHostPage() {
   const creditsWinnerAnswers = creditsData?.winnerAnswers || [];
 
   return (
-    <div className="min-h-screen bg-[#1f6ac6] text-white overflow-hidden relative font-sans">
-      <FeatherBurstCanvas registerEmitter={registerFeatherEmitter} />
+    <div className={`min-h-screen bg-[#1f6ac6] text-white overflow-hidden relative font-sans ${isAnimationsDisabled ? 'disable-animations' : ''}`}>
+      {!isAnimationsDisabled && <FeatherBurstCanvas registerEmitter={registerFeatherEmitter} />}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="jokester-sunrays" />
+        {!isAnimationsDisabled && <div className="jokester-sunrays" />}
       </div>
       
       {/* Deadline Overlay */}
-      {(room.voting_phase === 'answering' || room.voting_phase === 'voting') && (
+      {!isAnimationsDisabled && (room.voting_phase === 'answering' || room.voting_phase === 'voting') && (
         <DeadlineOverlay seconds={timer} />
       )}
 
@@ -1097,8 +1104,26 @@ export default function JokesterHostPage() {
                 ? 'bg-yellow-400 text-black border-black'
                 : 'bg-white border-black hover:bg-gray-100 text-black'
             }`}
+            title="Голос ведущего"
           >
             🎤
+          </button>
+          <button
+            onClick={() => {
+              setIsAnimationsDisabled(prev => {
+                const next = !prev;
+                localStorage.setItem('jokester_animations_disabled', String(next));
+                return next;
+              });
+            }}
+            className={`px-3 py-1 rounded-xl text-xs border-2 transition-transform transition hover:scale-110 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] ${
+              isAnimationsDisabled
+                ? 'bg-yellow-400 text-black border-black'
+                : 'bg-white border-black hover:bg-gray-100 text-black'
+            }`}
+            title="Анимации"
+          >
+            ✨
           </button>
           <button
             onClick={() => { void handleForceAdvance(); }}
@@ -2206,6 +2231,7 @@ function FeatherBurstCanvas({ registerEmitter }: { registerEmitter: (emit: (spaw
     };
 
     registerEmitter(emit);
+    return () => registerEmitter(() => {});
   }, [registerEmitter]);
 
   useEffect(() => {

@@ -31,6 +31,16 @@ export default function JokesterEntryPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const [isBgmMuted, setIsBgmMuted] = useState(false);
+  const [isVoiceMuted, setIsVoiceMuted] = useState(false);
+  const [isAnimationsDisabled, setIsAnimationsDisabled] = useState(false);
+
+  useEffect(() => {
+    setIsBgmMuted(localStorage.getItem('jokester_bgm_muted') === 'true');
+    setIsVoiceMuted(localStorage.getItem('jokester_voice_muted') === 'true');
+    setIsAnimationsDisabled(localStorage.getItem('jokester_animations_disabled') === 'true');
+  }, []);
+
   // Fetch taken avatars when join code changes
   useEffect(() => {
     const code = joinCode.trim().toUpperCase();
@@ -96,10 +106,61 @@ export default function JokesterEntryPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#1f6ac6] text-white overflow-hidden relative">
+    <div className={`min-h-screen bg-[#1f6ac6] text-white overflow-hidden relative ${isAnimationsDisabled ? 'disable-animations' : ''}`}>
       {/* Фоновые анимированные слои */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="jokester-sunrays" />
+      {!isAnimationsDisabled && (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="jokester-sunrays" />
+        </div>
+      )}
+
+      {/* Кнопки управления */}
+      <div className="absolute top-4 right-4 z-50 flex gap-2">
+        <button
+          onClick={() => {
+            const next = !isBgmMuted;
+            setIsBgmMuted(next);
+            localStorage.setItem('jokester_bgm_muted', String(next));
+          }}
+          className={`px-3 py-1 rounded-xl text-xs border-2 transition-transform transition hover:scale-110 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] ${
+            isBgmMuted
+              ? 'bg-yellow-400 text-black border-black'
+              : 'bg-white border-black hover:bg-gray-100 text-black'
+          }`}
+          title="Музыка"
+        >
+          🎵
+        </button>
+        <button
+          onClick={() => {
+            const next = !isVoiceMuted;
+            setIsVoiceMuted(next);
+            localStorage.setItem('jokester_voice_muted', String(next));
+          }}
+          className={`px-3 py-1 rounded-xl text-xs border-2 transition-transform transition hover:scale-110 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] ${
+            isVoiceMuted
+              ? 'bg-yellow-400 text-black border-black'
+              : 'bg-white border-black hover:bg-gray-100 text-black'
+          }`}
+          title="Голос ведущего"
+        >
+          🎤
+        </button>
+        <button
+          onClick={() => {
+            const next = !isAnimationsDisabled;
+            setIsAnimationsDisabled(next);
+            localStorage.setItem('jokester_animations_disabled', String(next));
+          }}
+          className={`px-3 py-1 rounded-xl text-xs border-2 transition-transform transition hover:scale-110 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] ${
+            isAnimationsDisabled
+              ? 'bg-yellow-400 text-black border-black'
+              : 'bg-white border-black hover:bg-gray-100 text-black'
+          }`}
+          title="Анимации"
+        >
+          ✨
+        </button>
       </div>
 
       <div className="relative z-10 max-w-2xl mx-auto px-4 py-10 space-y-8">

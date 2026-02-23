@@ -114,6 +114,13 @@ export class JokesterAudioPlayer {
   private bgmMuted = false;
   private voiceMuted = false;
 
+  constructor() {
+    if (typeof window !== 'undefined') {
+      this.bgmMuted = localStorage.getItem('jokester_bgm_muted') === 'true';
+      this.voiceMuted = localStorage.getItem('jokester_voice_muted') === 'true';
+    }
+  }
+
   /* ─── BGM ─── */
 
   playBgm(src: string, volume = 0.4, loop = true) {
@@ -245,12 +252,18 @@ export class JokesterAudioPlayer {
   toggleBgmMute() {
     this.bgmMuted = !this.bgmMuted;
     if (this.bgmMuted) this.stopBgm();
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('jokester_bgm_muted', String(this.bgmMuted));
+    }
     return this.bgmMuted;
   }
 
   toggleVoiceMute() {
     this.voiceMuted = !this.voiceMuted;
     if (this.voiceMuted) this.stopVoice();
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('jokester_voice_muted', String(this.voiceMuted));
+    }
     return this.voiceMuted;
   }
 

@@ -58,10 +58,15 @@ export default function JokesterSpectatorPage() {
   const [myVote, setMyVote] = useState<string | null>(null);
   const [myCatVotes, setMyCatVotes] = useState<Set<string>>(new Set());
   const [duelReveal, setDuelReveal] = useState<{ winnerName: string; winnerAnswer: string; question: string } | null>(null);
+  const [isAnimationsDisabled, setIsAnimationsDisabled] = useState(false);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const session = jokesterStorage.get();
   const myId = session.playerId;
+
+  useEffect(() => {
+    setIsAnimationsDisabled(localStorage.getItem('jokester_animations_disabled') === 'true');
+  }, []);
 
   /* ─── Load categories ─── */
   useEffect(() => {
@@ -190,17 +195,36 @@ export default function JokesterSpectatorPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#1f6ac6] text-white relative overflow-hidden">
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="jokester-sunrays" />
-      </div>
+    <div className={`min-h-screen bg-[#1f6ac6] text-white relative overflow-hidden ${isAnimationsDisabled ? 'disable-animations' : ''}`}>
+      {!isAnimationsDisabled && (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="jokester-sunrays" />
+        </div>
+      )}
       {/* Header */}
       <header className="relative z-10 bg-white border-b-4 border-black px-4 py-2 flex items-center justify-between shadow-[0px_4px_0px_0px_rgba(0,0,0,1)]">
         <div className="flex items-center gap-2">
           <span className="text-2xl drop-shadow-[2px_2px_0_#000]">👀</span>
           <span className="font-black text-lg text-purple-600 drop-shadow-[1px_1px_0_#000]">Зритель</span>
         </div>
-        <span className="text-sm font-bold text-black bg-gray-200 px-2 py-1 rounded-lg border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">{roomCode}</span>
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-bold text-black bg-gray-200 px-2 py-1 rounded-lg border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">{roomCode}</span>
+          <button
+            onClick={() => {
+              const next = !isAnimationsDisabled;
+              setIsAnimationsDisabled(next);
+              localStorage.setItem('jokester_animations_disabled', String(next));
+            }}
+            className={`px-2 py-1 rounded-xl text-xs border-2 transition-transform transition hover:scale-110 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] ${
+              isAnimationsDisabled
+                ? 'bg-yellow-400 text-black border-black'
+                : 'bg-white border-black hover:bg-gray-100 text-black'
+            }`}
+            title="Анимации"
+          >
+            ✨
+          </button>
+        </div>
       </header>
 
       <div className="relative z-10 max-w-lg mx-auto px-4 py-6 space-y-6">

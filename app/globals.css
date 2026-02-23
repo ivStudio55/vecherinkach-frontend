@@ -58,6 +58,11 @@ body {
   letter-spacing: 0.01em;
 }
 
+.disable-animations * {
+  animation: none !important;
+  transition: none !important;
+}
+
 .sunrays-bg {
   position: fixed;
   inset: 0;
