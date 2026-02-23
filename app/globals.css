@@ -1564,6 +1564,15 @@ body {
   animation: comicPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
 }
 
+@keyframes wiggle {
+  0%, 100% { transform: rotate(-10deg); }
+  50% { transform: rotate(10deg); }
+}
+
+.animate-wiggle {
+  animation: wiggle 0.3s ease-in-out infinite;
+}
+
 
 /* Comic Book Styles */
 @layer components {

@@ -116,11 +116,11 @@ export class JokesterAudioPlayer {
 
   /* ─── BGM ─── */
 
-  playBgm(src: string, volume = 0.4) {
+  playBgm(src: string, volume = 0.4, loop = true) {
     this.stopBgm();
     if (this.bgmMuted) return;
     const a = new Audio(src);
-    a.loop = true;
+    a.loop = loop;
     a.volume = volume;
     a.play().catch(() => {});
     this.bgm = a;

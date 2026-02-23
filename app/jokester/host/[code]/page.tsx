@@ -92,6 +92,52 @@ const START_DUCK_SOUNDS = [
 
 const panelDelayStyle = (value: string): CSSProperties => ({ '--panel-delay': value } as CSSProperties);
 
+/* ─── Deadline Overlay Component ─── */
+function DeadlineOverlay({ seconds }: { seconds: number }) {
+  if (seconds > 10 || seconds <= 0) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center overflow-hidden">
+      {/* Comic sunburst background effect */}
+      <div className="absolute inset-0 opacity-30 animate-[spin_20s_linear_infinite]" style={{
+        background: 'repeating-conic-gradient(from 0deg, transparent 0deg 15deg, #ff0000 15deg 30deg)'
+      }} />
+      
+      {/* Halftone dots overlay */}
+      <div className="absolute inset-0 opacity-20 comic-bg-dots-red" />
+
+      {/* Main Explosion Container */}
+      <div className="relative flex flex-col items-center justify-center animate-[bounce_0.5s_infinite]">
+        {/* Explosion Shape Background */}
+        <div className="absolute inset-0 bg-yellow-400 border-8 border-black shadow-[16px_16px_0px_0px_rgba(0,0,0,1)] transform scale-150 rotate-3" style={{
+          clipPath: 'polygon(50% 0%, 61% 25%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 25%)'
+        }} />
+        
+        {/* Content */}
+        <div className="relative z-10 flex flex-col items-center transform -rotate-3">
+          <h2 className="text-7xl md:text-9xl font-black text-red-600 uppercase tracking-tighter" style={{
+            WebkitTextStroke: '4px black',
+            textShadow: '8px 8px 0 #000'
+          }}>
+            DEADLINE!
+          </h2>
+          
+          <div className="mt-4 bg-white border-8 border-black rounded-full w-48 h-48 flex flex-col items-center justify-center shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] relative">
+            {/* Alarm clock bells */}
+            <div className="absolute -top-6 -left-4 w-16 h-16 bg-red-500 border-4 border-black rounded-full shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" />
+            <div className="absolute -top-6 -right-4 w-16 h-16 bg-red-500 border-4 border-black rounded-full shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" />
+            
+            <span className="text-6xl mb-[-10px] animate-wiggle">⏰</span>
+            <span className="text-7xl font-black text-black drop-shadow-[4px_4px_0_#ff0000]">
+              {seconds}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ══════════════════════════════════════════════ */
 export default function JokesterHostPage() {
   const params = useParams();
@@ -527,7 +573,7 @@ export default function JokesterHostPage() {
     setDuels(freshDuels);
 
     // Фаза 1: все игроки отвечают одновременно (120 сек)
-    audioRef.current?.playBgm('/audio/sound/Jokester/soundTrack/120sec.mp3', 0.35);
+    audioRef.current?.playBgm('/audio/sound/Jokester/soundTrack/120sec.mp3', 0.35, false);
     audioRef.current?.playVoiceRandom(JOKESTER_AUDIO.roundFolder);
 
     await updateJokesterRoom(effectiveRoom.id, {
@@ -542,7 +588,7 @@ export default function JokesterHostPage() {
 
     // По истечении 120 сек начинаем поочерёдные дуэли с голосованием
     startTimer(ANSWER_TIME_SEC, () => handleAnswerPhaseEnd(), {
-      preEndSfxAtSec: 3,
+      preEndSfxAtSec: 10,
       preEndSfxFolder: '/audio/sound/Jokester/stop_timer',
       preEndSfxCount: 10,
       preEndSfxVolume: 0.75,
@@ -587,14 +633,14 @@ export default function JokesterHostPage() {
       state_version: effectiveRoom.state_version + 10 + duelIndex,
     });
 
-    audioRef.current?.playBgm('/audio/sound/Jokester/soundTrack/vote30sec.mp3', 0.4);
+    audioRef.current?.playBgm('/audio/sound/Jokester/soundTrack/vote30sec.mp3', 0.4, false);
     audioRef.current?.playVoiceRandom(JOKESTER_AUDIO.voteFolder);
     setShowDeAnon(false);
 
     startTimer(VOTE_TIME_SEC, () => {
       void handleVoteEnd();
     }, {
-      preEndSfxAtSec: 3,
+      preEndSfxAtSec: 10,
       preEndSfxFolder: '/audio/sound/Jokester/stop_vote_timer',
       preEndSfxCount: 8,
       preEndSfxVolume: 0.75,
@@ -707,7 +753,7 @@ export default function JokesterHostPage() {
         setShowRank(false);
       }
 
-      audioRef.current?.playBgm(JOKESTER_AUDIO.betweenMusic, 0.28);
+      audioRef.current?.playBgm(JOKESTER_AUDIO.betweenMusic, 0.28, false);
       // Озвучка комментария
       await audioRef.current?.playVoteComment(winnerPercent);
       audioRef.current?.stopBgm();
@@ -816,7 +862,7 @@ export default function JokesterHostPage() {
     const freshDuels = await fetchJokesterDuels(room.id, 4);
     setDuels(prev => [...prev, ...freshDuels]);
 
-    audioRef.current?.playBgm('/audio/sound/Jokester/soundTrack/120sec.mp3', 0.35);
+    audioRef.current?.playBgm('/audio/sound/Jokester/soundTrack/120sec.mp3', 0.35, false);
     await updateJokesterRoom(room.id, {
       status: 'final_playing',
       current_duel_index: 0,
@@ -826,7 +872,12 @@ export default function JokesterHostPage() {
       timer_duration_sec: ANSWER_TIME_SEC,
       state_version: room.state_version + 10,
     });
-    startTimer(ANSWER_TIME_SEC, () => handleAnswerPhaseEnd());
+    startTimer(ANSWER_TIME_SEC, () => handleAnswerPhaseEnd(), {
+      preEndSfxAtSec: 10,
+      preEndSfxFolder: '/audio/sound/Jokester/stop_timer',
+      preEndSfxCount: 10,
+      preEndSfxVolume: 0.75,
+    });
   };
 
   const handleShowCredits = async (roomSnapshot?: JokesterRoom) => {
@@ -971,6 +1022,12 @@ export default function JokesterHostPage() {
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="jokester-sunrays" />
       </div>
+      
+      {/* Deadline Overlay */}
+      {(room.voting_phase === 'answering' || room.voting_phase === 'voting') && (
+        <DeadlineOverlay seconds={timer} />
+      )}
+
       {/* ─── Header ─── */}
       <header className="relative z-10 bg-white border-b-4 border-black px-6 py-3 flex items-center justify-between shadow-[0px_4px_0px_0px_rgba(0,0,0,1)]">
         <div className="flex items-center gap-3">
@@ -1313,7 +1370,7 @@ export default function JokesterHostPage() {
             {room.voting_phase === 'results' && (
               <div
                 ref={winnerPanelRef}
-                className="w-full max-w-6xl mx-auto animate-[fadeIn_0.4s_ease] h-[calc(100vh-120px)] flex flex-col"
+                className="w-full max-w-6xl mx-auto animate-[fadeIn_0.4s_ease] h-[calc(100vh-180px)] flex flex-col"
               >
                 {voteReveal ? (
                   <div className="grid grid-cols-1 md:grid-cols-12 gap-2 md:gap-4 flex-1 min-h-0">
