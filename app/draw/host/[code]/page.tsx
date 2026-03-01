@@ -589,6 +589,7 @@ export function DrawHostContent({ isMirror = false }: { isMirror?: boolean }) {
             ) : (
               <div className="px-12 py-6 bg-gray-200 text-gray-500 border-[6px] border-gray-300 text-2xl font-bangers tracking-widest text-center transform -rotate-1">⏳ ОЖИДАЕМ ЗАПУСКА ОТ ВЕДУЩЕГО…</div>
             )}
+            </section>
           </div>
           );
         })()}
