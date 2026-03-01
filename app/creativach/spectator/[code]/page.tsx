@@ -287,6 +287,22 @@ export default function CreativachSpectatorPage() {
           </div>
         )}
 
+        {/* CREDITS */}
+        {room.status === 'credits' && (
+          <div className="cartoon-panel p-6 text-center space-y-4 animate-[fadeIn_0.3s_ease]">
+            <h2 className="text-2xl font-black text-black">🎬 Титры</h2>
+            <p className="text-gray-700 font-medium">Смотрите на экран ведущего!</p>
+            <div className="flex gap-3 mt-4">
+              <a href="https://donatty.com/aleksandri" target="_blank" rel="noopener noreferrer" className="flex-1 py-3 text-base font-black cartoon-button-purple text-center">
+                💖 Поддержать
+              </a>
+              <button onClick={() => { creativachStorage.clear(); router.push('/creativach'); }} className="flex-1 py-3 text-base font-black cartoon-button">
+                🚪 Выйти
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* FINISHED */}
         {room.status === 'finished' && (
           <div className="cartoon-panel p-6 text-center space-y-4 animate-[fadeIn_0.3s_ease]">

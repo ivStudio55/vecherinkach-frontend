@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS creativach_rooms (
                 'final_playing',     -- финал — игроки пишут
                 'final_voting',      -- голосование финала
                 'final_results',     -- финальные результаты
+                'credits',           -- титры
                 'finished'           -- игра окончена
               )),
   current_round       INT NOT NULL DEFAULT 0,        -- 1..5

@@ -11,6 +11,7 @@ export type CreativachRoomStatus =
   | 'final_playing'
   | 'final_voting'
   | 'final_results'
+  | 'credits'
   | 'finished';
 
 export type CreativachVotingPhase = 'idle' | 'answering' | 'voting' | 'results';

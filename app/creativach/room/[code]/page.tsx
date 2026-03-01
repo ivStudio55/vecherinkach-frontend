@@ -401,6 +401,40 @@ export default function CreativachRoomPage() {
           </div>
         )}
 
+        {/* ─── CREDITS ─── */}
+        {room.status === 'credits' && (
+          <div className="cartoon-panel p-6 text-center space-y-4 animate-[fadeIn_0.3s_ease]">
+            <h2 className="text-2xl font-black text-black">🎬 Титры</h2>
+            <p className="text-gray-700 font-medium">Смотрите на экран ведущего!</p>
+
+            {/* Mini leaderboard */}
+            <div className="space-y-2 mt-4">
+              {sortedByPoints.map((p, i) => (
+                <div
+                  key={p.id}
+                  className={`flex items-center gap-2 p-2 rounded-lg ${p.id === myId ? 'bg-[#FF6B35]/10 border border-[#FF6B35]' : ''}`}
+                >
+                  <span className="font-black w-6 text-center text-sm">
+                    {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
+                  </span>
+                  <img src={`/audio/sound/Jokester/ava/${p.avatar}`} alt={p.name} className="w-8 h-8 rounded-lg border-2 border-black" />
+                  <span className="font-bold text-black text-sm flex-1 truncate">{p.name}</span>
+                  <span className="font-black text-[#FF6B35]">{p.total_points}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-3 mt-4">
+              <a href="https://donatty.com/aleksandri" target="_blank" rel="noopener noreferrer" className="flex-1 py-3 text-base font-black cartoon-button-purple text-center">
+                💖 Поддержать
+              </a>
+              <button onClick={() => { creativachStorage.clear(); router.push('/creativach'); }} className="flex-1 py-3 text-base font-black cartoon-button">
+                🚪 Выйти
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* ─── FINISHED ─── */}
         {room.status === 'finished' && (
           <div className="cartoon-panel p-6 text-center space-y-4 animate-[fadeIn_0.3s_ease]">

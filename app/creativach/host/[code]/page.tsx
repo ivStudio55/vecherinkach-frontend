@@ -130,6 +130,12 @@ export default function CreativachHostPage() {
   const [brands, setBrands] = useState<string[]>([]);
   const [themes, setThemes] = useState<string[]>([]);
 
+  // Credits data
+  const [creditsData, setCreditsData] = useState<{
+    winnerAnswers: { round: number; task: string; answer: string }[];
+    playerRanks: { player: CreativachPlayer; bestAnswer: { round: number; answer: string; votes: number } | null }[];
+  } | null>(null);
+
   const audioRef = useRef<CreativachAudioPlayer | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const motivationPlayedRef = useRef(false);
@@ -348,6 +354,44 @@ export default function CreativachHostPage() {
       audioRef.current?.playBgm(CREATIVACH_AUDIO.finalMusic, 0.5, false);
       audioRef.current?.playVoiceRandom(CREATIVACH_AUDIO.congratulationsFolder);
       setShowConfetti(true);
+
+      // Prepare credits data
+      const allAnswers = await fetchCreativachAnswers(room.id);
+      const allVotesAll = await fetchCreativachVotes(room.id);
+      const freshPlayers = await fetchCreativachPlayers(room.id);
+      const ranked = freshPlayers
+        .filter(p => p.role === 'player' && !p.is_host)
+        .sort((a, b) => b.total_points - a.total_points);
+
+      // Vote counts per answer
+      const voteCountMap = new Map<string, number>();
+      for (const v of allVotesAll) {
+        const key = `${v.round}|${v.voted_for_id}`;
+        voteCountMap.set(key, (voteCountMap.get(key) || 0) + 1);
+      }
+
+      const winner = ranked[0];
+      const winnerAnswers = winner
+        ? allAnswers
+            .filter(a => a.player_id === winner.id)
+            .map(a => ({ round: a.round, task: '', answer: a.answer_text }))
+            .sort((a, b) => a.round - b.round)
+        : [];
+
+      const playerRanks = ranked.map(player => {
+        const playerAnswers = allAnswers.filter(a => a.player_id === player.id);
+        let best: { round: number; answer: string; votes: number } | null = null;
+        for (const ans of playerAnswers) {
+          const key = `${ans.round}|${player.id}`;
+          const v = voteCountMap.get(key) || 0;
+          if (!best || v > best.votes) {
+            best = { round: ans.round, answer: ans.answer_text, votes: v };
+          }
+        }
+        return { player, bestAnswer: best };
+      });
+
+      setCreditsData({ winnerAnswers, playerRanks });
     } else {
       audioRef.current?.playBgm(CREATIVACH_AUDIO.betweenMusic, 0.3, false);
       audioRef.current?.playVoiceRandom(CREATIVACH_AUDIO.resultsFolder);
@@ -457,8 +501,17 @@ export default function CreativachHostPage() {
     });
     setShowConfetti(false);
     setResultsRevealed(false);
+    setCreditsData(null);
     audioRef.current?.stopBgm();
     audioRef.current?.playBgm(CREATIVACH_AUDIO.lobbyMusic);
+  }, [room]);
+
+  const handleShowCredits = useCallback(async () => {
+    if (!room) return;
+    await updateCreativachRoom(room.id, { status: 'credits' });
+    setShowConfetti(false);
+    audioRef.current?.stopBgm();
+    audioRef.current?.playBgm(CREATIVACH_AUDIO.finalMusic, 0.4);
   }, [room]);
 
   const handleCloseRoom = useCallback(async () => {
@@ -482,6 +535,16 @@ export default function CreativachHostPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answers.length, gamePlayers.length, room?.voting_phase]);
+
+  // Check all players+spectators voted → auto-advance to results
+  const allVoters = useMemo(() => players.filter(p => !p.is_host), [players]);
+  useEffect(() => {
+    if (!room || room.voting_phase !== 'voting') return;
+    if (votes.length >= allVoters.length && allVoters.length > 0) {
+      calculateAndShowResults();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [votes.length, allVoters.length, room?.voting_phase]);
 
   /* ══════════════════════════════════════════════
      Render
@@ -734,11 +797,11 @@ export default function CreativachHostPage() {
                 )}
 
                 <div className="flex gap-3">
+                  <button onClick={handleShowCredits} className="flex-1 py-4 text-lg font-black cartoon-button">
+                    🎬 Титры
+                  </button>
                   <button onClick={handlePlayAgain} className="flex-1 py-4 text-lg font-black cartoon-button-blue">
                     🔄 Играть ещё
-                  </button>
-                  <button onClick={handleExit} className="flex-1 py-4 text-lg font-black cartoon-button">
-                    🚪 Выйти
                   </button>
                   <a href="https://donatty.com/aleksandri" target="_blank" rel="noopener noreferrer" className="flex-1 py-4 text-lg font-black cartoon-button-purple text-center">
                     💖 Поддержать
@@ -748,6 +811,88 @@ export default function CreativachHostPage() {
             )}
           </div>
         )}
+
+        {/* ─── CREDITS ─── */}
+        {room.status === 'credits' && (() => {
+          const ranks = creditsData?.playerRanks
+            || sortedByPoints.map(player => ({ player, bestAnswer: null }));
+          const winner = ranks[0]?.player || null;
+          const winnerAnswers = creditsData?.winnerAnswers || [];
+
+          return (
+            <div className="min-h-[80vh] flex flex-col items-center justify-end overflow-hidden relative">
+              <div className="animate-[creditsScroll_60s_linear_forwards] space-y-12 text-center pb-[120vh]">
+                <h2 className="text-6xl font-black mb-10 text-white drop-shadow-[4px_4px_0_#000]">🏆 Победитель</h2>
+
+                {winner && (
+                  <div className="space-y-6">
+                    <img
+                      src={`/audio/sound/Jokester/ava/${winner.avatar}`}
+                      alt={winner.name}
+                      className="w-48 h-48 rounded-full object-cover mx-auto border-8 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
+                    />
+                    <p className="text-5xl font-black text-white drop-shadow-[2px_2px_0_#000]">{winner.name}</p>
+                    <p className="text-3xl text-white font-black drop-shadow-[2px_2px_0_#000]">{winner.total_points} очков</p>
+                  </div>
+                )}
+
+                <div className="h-12" />
+
+                <h3 className="text-4xl font-black text-white drop-shadow-[2px_2px_0_#000]">Ответы победителя</h3>
+                {winnerAnswers.length === 0 && (
+                  <p className="text-white font-bold drop-shadow-[1px_1px_0_#000]">Ответы не найдены</p>
+                )}
+                {winnerAnswers.map((entry, i) => (
+                  <div key={`w-${i}`} className="cartoon-panel p-6 text-left max-w-3xl mx-auto">
+                    <p className="text-sm text-gray-800 font-bold mb-2">Раунд {entry.round}: {ROUNDS[entry.round - 1]?.title}</p>
+                    <p className="text-3xl font-black text-black">« {entry.answer} »</p>
+                  </div>
+                ))}
+
+                <div className="h-12" />
+
+                <h3 className="text-4xl font-black text-white drop-shadow-[2px_2px_0_#000]">Все участники</h3>
+                {ranks.map((row, i) => (
+                  <div key={row.player.id} className="cartoon-panel p-6 text-left max-w-3xl mx-auto">
+                    <div className="flex items-center gap-4">
+                      <span className="text-3xl font-black text-black w-10 text-center">{i + 1}</span>
+                      <img
+                        src={`/audio/sound/Jokester/ava/${row.player.avatar}`}
+                        alt={row.player.name}
+                        className="w-24 h-24 rounded-full object-cover border-4 border-black"
+                      />
+                      <div className="flex-1">
+                        <p className="font-black text-2xl text-black">{row.player.name}</p>
+                        <p className="text-sm text-gray-800 font-bold">{row.player.total_points} очков</p>
+                      </div>
+                    </div>
+                    {row.bestAnswer && (
+                      <div className="mt-4 bg-gray-100 border-2 border-black rounded-2xl p-4">
+                        <p className="text-sm text-gray-800 font-bold mb-2">Лучший ответ ({row.bestAnswer.votes} голосов) — Раунд {row.bestAnswer.round}</p>
+                        <p className="text-2xl font-black text-black">« {row.bestAnswer.answer} »</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                <div className="h-12" />
+                <p className="text-2xl text-white font-black drop-shadow-[2px_2px_0_#000]">Спасибо за игру! ✍️</p>
+                <p className="text-lg text-white font-bold drop-shadow-[1px_1px_0_#000]">Креативач · Вечеринкач</p>
+              </div>
+
+              <div className="fixed inset-0 flex items-end justify-center pb-16 pointer-events-none z-30">
+                <div className="pointer-events-auto flex gap-4">
+                  <button onClick={handlePlayAgain} className="px-10 py-6 rounded-3xl font-black text-2xl bg-[#FFD700] text-black border-4 border-black hover:bg-[#ffe44d] transition-all shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+                    🔄 Играть заново
+                  </button>
+                  <button onClick={handleCloseRoom} className="px-8 py-4 rounded-2xl font-black text-xl bg-red-600 text-white border-4 border-black hover:bg-red-500 transition shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                    Закрыть ✕
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ─── FINISHED ─── */}
         {room.status === 'finished' && (
@@ -769,6 +914,10 @@ export default function CreativachHostPage() {
           z-index: 0;
         }
         @keyframes spin { 100% { transform: rotate(360deg); } }
+        @keyframes creditsScroll {
+          0% { transform: translateY(100vh); }
+          100% { transform: translateY(-100%); }
+        }
       `}</style>
     </div>
   );
