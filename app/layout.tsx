@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 import { ClientBootstrap } from "./ClientBootstrap";
 import { SunRaysBackground } from "./SunRaysBackground";
+import { RouteAnalytics } from "./RouteAnalytics";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -41,7 +41,7 @@ export default function RootLayout({
         <SunRaysBackground />
         <ClientBootstrap />
         <div className="relative z-10">{children}</div>
-        <Analytics />
+        <RouteAnalytics />
       </body>
     </html>
   );

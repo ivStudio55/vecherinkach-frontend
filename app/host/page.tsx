@@ -3,6 +3,7 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { trackGameEvent } from '@/lib/analytics';
 import { logError, logEvent } from '@/shared/logic/logger';
 import { ComicBackground } from '@/components/ComicBackground';
 import { HostRoleNoticeModal } from '@/shared/ui/HostRoleNoticeModal';
@@ -39,6 +40,7 @@ export default function HostPage() {
   const cycleLayoutMode = () => {
     setLayoutMode((prev) => {
       const next = prev === 'default' ? 'compact' : prev === 'compact' ? 'stacked' : prev === 'stacked' ? 'mobile' : 'default';
+      trackGameEvent('host_layout_mode_change', { from: prev, to: next });
       try {
         localStorage.setItem('hostLayoutMode', next);
       } catch {
@@ -51,6 +53,7 @@ export default function HostPage() {
   const createRoom = async () => {
     setError('');
     setIsCreating(true);
+    trackGameEvent('host_create_room_click', { packId });
 
     localStorage.setItem('hostPackId', packId);
 
@@ -70,6 +73,10 @@ export default function HostPage() {
 
         const created = Array.isArray(data) ? data[0] : data;
         if (!insertError && created?.id) {
+          trackGameEvent('host_create_room_success', {
+            packId,
+            roomCode,
+          });
           localStorage.setItem('hostRoomId', created.id as string);
           localStorage.setItem('hostRoomCode', roomCode);
           localStorage.setItem('hostPackId', packId);
@@ -91,6 +98,7 @@ export default function HostPage() {
             errorMessage.includes('check constraint'));
 
         if (isLimitError) {
+          trackGameEvent('host_create_room_failed', { reason: 'limit_reached', packId });
           logEvent('warn', 'rpc', 'create_room limit reached', {
             roomCode,
             packId,
@@ -102,6 +110,7 @@ export default function HostPage() {
         }
 
         if (insertError) {
+          trackGameEvent('host_create_room_failed', { reason: 'rpc_error', packId });
           logEvent('error', 'rpc', 'create_room failed', {
             roomCode,
             packId,
@@ -123,8 +132,10 @@ export default function HostPage() {
       }
 
       setError('Не удалось создать комнату. Попробуйте ещё раз.');
+      trackGameEvent('host_create_room_failed', { reason: 'attempts_exceeded', packId });
     } catch (err) {
       console.error('createRoom error:', err);
+      trackGameEvent('host_create_room_failed', { reason: 'exception', packId });
       logError('rpc', 'create_room threw exception', err, {
         packId,
         eventName: 'create_room_exception',
@@ -156,8 +167,14 @@ export default function HostPage() {
       <ComicBackground />
       <HostRoleNoticeModal
         isOpen={isRoleNoticeOpen}
-        onContinue={() => setIsRoleNoticeOpen(false)}
-        onPlayer={() => router.push('/join')}
+        onContinue={() => {
+          trackGameEvent('host_role_notice_continue');
+          setIsRoleNoticeOpen(false);
+        }}
+        onPlayer={() => {
+          trackGameEvent('host_role_notice_player_mode');
+          router.push('/join');
+        }}
       />
       <div className="mx-auto flex w-full max-w-[1600px] items-center justify-center">
         <div
@@ -218,6 +235,7 @@ export default function HostPage() {
                       const next = normalizePackId(e.target.value);
                       setPackId(next);
                       localStorage.setItem('hostPackId', next);
+                      trackGameEvent('host_pack_change', { packId: next });
                     }}
                     className={`w-full rounded-2xl border-[3px] border-[#142a45] bg-white ${
                       isCompactLayout ? 'px-3 py-2 text-sm' : 'px-4 py-3 text-base'
@@ -243,7 +261,10 @@ export default function HostPage() {
 
                 <button
                   type="button"
-                  onClick={() => router.push('/')}
+                  onClick={() => {
+                    trackGameEvent('host_nav_click', { destination: '/' });
+                    router.push('/');
+                  }}
                   className={`hover:scale-105 hover:shadow-lg transition-all duration-200 w-full ${
                     isCompactLayout ? 'py-2 text-sm' : 'py-3'
                   } rounded-2xl border-[3px] border-[#142a45] font-semibold bg-white hover:bg-[#fef4dc]`}

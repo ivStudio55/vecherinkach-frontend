@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { trackGameEvent } from '@/lib/analytics';
 import { logEvent } from '@/shared/logic/logger';
 import { generateRandomName } from '@/lib/nameGenerator';
 import { ComicBackground } from '@/components/ComicBackground';
@@ -23,9 +24,14 @@ export default function JoinClient() {
     e.preventDefault();
     setError('');
     setIsLoading(true);
+    trackGameEvent('join_submit', {
+      roomCodeLength: roomCode.length,
+      hasName: Boolean(playerName.trim()),
+    });
 
     try {
       if (!/^\d{4}$/.test(roomCode)) {
+        trackGameEvent('join_validation_failed', { reason: 'invalid_room_code' });
         setError('Код должен состоять из 4 цифр');
         setIsLoading(false);
         return;
@@ -44,6 +50,7 @@ export default function JoinClient() {
         .single();
 
       if (roomError || !room) {
+        trackGameEvent('join_failed', { reason: 'room_not_found' });
         setError('Комната с таким кодом не найдена');
         setIsLoading(false);
         return;
@@ -51,6 +58,7 @@ export default function JoinClient() {
 
       const roomStatus = typeof (room as { status?: unknown }).status === 'string' ? (room as { status: string }).status : '';
       if (!room.is_active && roomStatus === 'finished') {
+        trackGameEvent('join_failed', { reason: 'room_inactive' });
         setError('Эта комната уже не активна');
         setIsLoading(false);
         return;
@@ -68,6 +76,7 @@ export default function JoinClient() {
         .single();
 
       if (playerError || !player) {
+        trackGameEvent('join_failed', { reason: 'player_insert_error' });
         setError('Ошибка при присоединении к комнате');
         setIsLoading(false);
         return;
@@ -95,6 +104,10 @@ export default function JoinClient() {
         roomId: room.id,
         playerId: player.id,
       });
+      trackGameEvent('join_success', {
+        roomCode,
+        playerId: player.id,
+      });
 
       try {
         localStorage.setItem('roomId', room.id);
@@ -109,12 +122,14 @@ export default function JoinClient() {
       router.push(`/room/${roomCode}?${query}`);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
+      trackGameEvent('join_failed', { reason: 'exception' });
       setError(`Ошибка: ${message}`);
       setIsLoading(false);
     }
   };
 
   const handleGenerateName = () => {
+    trackGameEvent('join_random_name_click');
     setPlayerName(generateRandomName());
   };
 
@@ -191,14 +206,20 @@ export default function JoinClient() {
           <div className="flex flex-wrap gap-3 text-sm">
             <button
               type="button"
-              onClick={() => router.push('/')}
+              onClick={() => {
+                trackGameEvent('join_nav_click', { destination: '/' });
+                router.push('/');
+              }}
               className="comic-button px-4 py-2 bg-[#ffde00]"
             >
               Главная
             </button>
             <button
               type="button"
-              onClick={() => router.push('/host')}
+              onClick={() => {
+                trackGameEvent('join_nav_click', { destination: '/host' });
+                router.push('/host');
+              }}
               className="comic-button px-4 py-2 bg-white"
             >
               Ведущий

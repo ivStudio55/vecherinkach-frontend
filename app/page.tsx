@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '../src/lib/supabase';
 import { normalizePackId, type PackId } from '@/lib/questionPacks';
 import { ComicBackground } from '@/components/ComicBackground';
+import { trackGameEvent } from '@/lib/analytics';
 
 export default function HomePage() {
   const router = useRouter();
@@ -94,11 +95,13 @@ export default function HomePage() {
   ];
 
   const choosePackAndGoHost = (nextPackId: PackId) => {
+    trackGameEvent('home_pack_select', { packId: nextPackId });
     localStorage.setItem('hostPackId', nextPackId);
     navigateWithExit(() => router.push('/host'));
   };
 
   const handleMiniGameClick = (gameId: 'uno' | 'risunkach' | 'jokester' | 'creativach') => {
+    trackGameEvent('home_minigame_open', { gameId });
     if (gameId === 'uno') {
       navigateWithExit(() => router.push('/uno'));
     } else if (gameId === 'risunkach') {
@@ -170,6 +173,7 @@ export default function HomePage() {
   };
 
   const handleStart = () => {
+    trackGameEvent('home_start_click');
     setButtonAnimating(true);
     setTimeout(() => {
       setHasStarted(true);
@@ -303,6 +307,7 @@ export default function HomePage() {
     setAudioError('');
 
     if (isSoundOn) {
+      trackGameEvent('home_sound_toggle', { enabled: false, source: 'manual' });
       stopAudio();
       return;
     }
@@ -310,9 +315,11 @@ export default function HomePage() {
     try {
       await audio.play();
       setIsSoundOn(true);
+      trackGameEvent('home_sound_toggle', { enabled: true, source: 'manual' });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Нужен жест пользователя, чтобы запустить аудио';
       setAudioError(message);
+      trackGameEvent('home_sound_toggle_failed', { reason: 'play_blocked' });
     }
   };
 
@@ -380,6 +387,7 @@ export default function HomePage() {
                 const next = !isAnimationsDisabled;
                 setIsAnimationsDisabled(next);
                 localStorage.setItem('vecherinkach_animations_disabled', String(next));
+                trackGameEvent('home_animations_toggle', { enabled: !next });
               }}
               className={`comic-button px-6 py-3 text-lg border-[4px] border-black transition-colors ${isAnimationsDisabled ? 'bg-yellow-400 text-black' : 'bg-white text-black hover:bg-gray-100'}`}
             >
@@ -426,7 +434,10 @@ export default function HomePage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => window.open('https://donatty.com/aleksandri', '_blank')}
+                      onClick={() => {
+                        trackGameEvent('home_donate_click', { provider: 'donatty' });
+                        window.open('https://donatty.com/aleksandri', '_blank');
+                      }}
                       className="px-4 py-2 rounded-full border-2 border-[#142a45] bg-white hover:bg-[#ffe184] transition-colors"
                     >
                       Поддержка
@@ -476,6 +487,7 @@ export default function HomePage() {
                         const next = !isAnimationsDisabled;
                         setIsAnimationsDisabled(next);
                         localStorage.setItem('vecherinkach_animations_disabled', String(next));
+                        trackGameEvent('home_animations_toggle', { enabled: !next });
                       }}
                       className={`hover:scale-105 hover:shadow-lg transition-all duration-200 inline-flex items-center justify-between rounded-2xl border-[3px] border-[#142a45] px-4 py-3 font-semibold ${isAnimationsDisabled ? 'bg-yellow-400 text-black' : 'bg-white text-[#142a45]'}`}
                     >
