@@ -29,7 +29,7 @@ import { DrawAudioPlayer, AUDIO, getDrawCommentary } from '@/lib/draw/audio';
 
 import ComicBackground from '@/components/draw/ComicBackground';
 
-export default function DrawHostPage() {
+export function DrawHostContent({ isMirror = false }: { isMirror?: boolean }) {
   const params = useParams<{ code: string }>();
   const code = (params?.code || '').toString().toUpperCase();
 
@@ -493,13 +493,17 @@ export default function DrawHostPage() {
             >
               ✨
             </button>
-            <button
-              onClick={handleCloseRoom}
-              className="bg-red-500 hover:bg-red-600 text-white border-[4px] border-black px-4 py-2 font-black uppercase text-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[0px_0px_0px_0px_rgba(0,0,0,1)] transition-all"
-              title="Закрыть комнату"
-            >
-              ✕ Закрыть
-            </button>
+            {isMirror ? (
+              <span className="bg-purple-600 text-white border-[3px] border-black px-4 py-2 font-black uppercase text-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] animate-pulse">📡 ЗЕРКАЛО</span>
+            ) : (
+              <button
+                onClick={handleCloseRoom}
+                className="bg-red-500 hover:bg-red-600 text-white border-[4px] border-black px-4 py-2 font-black uppercase text-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[0px_0px_0px_0px_rgba(0,0,0,1)] transition-all"
+                title="Закрыть комнату"
+              >
+                ✕ Закрыть
+              </button>
+            )}
             <div className="text-right ml-4 bg-gray-100 border-[3px] border-black p-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transform rotate-2">
               <p className="text-xs font-black uppercase">Статус</p>
               <p className="text-xl font-bangers tracking-widest text-[#FF69B4]" style={{ WebkitTextStroke: '0.5px black' }}>{
@@ -536,6 +540,7 @@ export default function DrawHostPage() {
         {/* ═══════════ LOBBY ═══════════ */}
         {room.status === 'lobby' && (() => {
           const joinUrl = typeof window !== 'undefined' ? `${window.location.origin}/draw?code=${code}` : '';
+          const mirrorUrl = typeof window !== 'undefined' ? `${window.location.origin}/draw/mirror/${code}` : '';
           return (
           <div className="space-y-8">
             <section className="bg-white border-[6px] border-black p-10 text-center space-y-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transform rotate-1">
@@ -549,6 +554,16 @@ export default function DrawHostPage() {
                 </div>
                 <p className="mt-2 text-xs text-gray-500 font-bold break-all">{joinUrl}</p>
                 <p className="mt-4 text-lg font-bold bg-gray-100 border-[2px] border-black px-4 py-2 inline-block transform rotate-1">Игроки вводят этот код или сканируют QR</p>
+
+                {!isMirror && (
+                  <div className="border-t-2 border-dashed border-gray-300 pt-4 mt-6 space-y-2">
+                    <p className="text-sm font-black text-purple-700">📡 Зеркало трансляции</p>
+                    <div className="bg-white rounded-xl p-3 inline-block border-2 border-purple-400 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.3)]">
+                      <QRCodeCanvas value={mirrorUrl} size={140} fgColor="#7c3aed" bgColor="#ffffff" />
+                    </div>
+                    <p className="text-xs text-purple-600 font-bold break-all">{mirrorUrl}</p>
+                  </div>
+                )}
               </div>
 
               <div className="bg-gray-50 border-[4px] border-black p-6 shadow-[inset_4px_4px_0px_0px_rgba(0,0,0,0.1)]">
@@ -563,6 +578,7 @@ export default function DrawHostPage() {
                 </div>
               </div>
 
+            {!isMirror ? (
               <button
                 onClick={handleStartGame}
                 disabled={pending || gamePlayers.length < 2}
@@ -570,7 +586,9 @@ export default function DrawHostPage() {
               >
                 {gamePlayers.length < 2 ? `НУЖНО МИНИМУМ 2 ИГРОКА (СЕЙЧАС ${gamePlayers.length})` : '🚀 НАЧАТЬ ИГРУ!'}
               </button>
-            </section>
+            ) : (
+              <div className="px-12 py-6 bg-gray-200 text-gray-500 border-[6px] border-gray-300 text-2xl font-bangers tracking-widest text-center transform -rotate-1">⏳ ОЖИДАЕМ ЗАПУСКА ОТ ВЕДУЩЕГО…</div>
+            )}
           </div>
           );
         })()}
@@ -629,15 +647,17 @@ export default function DrawHostPage() {
                 ))}
               </div>
 
-              <div className="mt-8 text-center">
-                <button
-                  onClick={handleAdvanceStep}
-                  disabled={pending}
-                  className="bg-white border-[4px] border-black px-6 py-3 text-lg font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all disabled:opacity-50"
-                >
-                  Пропустить таймер →
-                </button>
-              </div>
+              {!isMirror && (
+                <div className="mt-8 text-center">
+                  <button
+                    onClick={handleAdvanceStep}
+                    disabled={pending}
+                    className="bg-white border-[4px] border-black px-6 py-3 text-lg font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all disabled:opacity-50"
+                  >
+                    Пропустить таймер →
+                  </button>
+                </div>
+              )}
             </section>
           </div>
         )}
@@ -695,18 +715,20 @@ export default function DrawHostPage() {
               )}
             </section>
 
-            <div className="text-center">
-              <button
-                onClick={handleNextChain}
-                disabled={pending}
-                className="px-10 py-4 bg-[#B266FF] hover:bg-[#9932CC] text-white border-[6px] border-black text-2xl font-bangers tracking-widest shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all disabled:opacity-50 disabled:cursor-not-allowed transform rotate-1"
-                style={{ WebkitTextStroke: '1px black' }}
-              >
-                {(room.voting_chain_index || 0) >= roundChains.length - 1
-                  ? '📊 ПОКАЗАТЬ РЕЗУЛЬТАТЫ'
-                  : `СЛЕДУЮЩАЯ ЦЕПОЧКА →`}
-              </button>
-            </div>
+            {!isMirror && (
+              <div className="text-center">
+                <button
+                  onClick={handleNextChain}
+                  disabled={pending}
+                  className="px-10 py-4 bg-[#B266FF] hover:bg-[#9932CC] text-white border-[6px] border-black text-2xl font-bangers tracking-widest shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all disabled:opacity-50 disabled:cursor-not-allowed transform rotate-1"
+                  style={{ WebkitTextStroke: '1px black' }}
+                >
+                  {(room.voting_chain_index || 0) >= roundChains.length - 1
+                    ? '📊 ПОКАЗАТЬ РЕЗУЛЬТАТЫ'
+                    : `СЛЕДУЮЩАЯ ЦЕПОЧКА →`}
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -744,18 +766,20 @@ export default function DrawHostPage() {
               </div>
             </section>
 
-            <div className="text-center">
-              <button
-                onClick={handleNextRound}
-                disabled={pending}
-                className="px-10 py-4 bg-[#32CD32] hover:bg-[#28a428] text-white border-[6px] border-black text-2xl font-bangers tracking-widest shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all disabled:opacity-50 disabled:cursor-not-allowed transform -rotate-1"
-                style={{ WebkitTextStroke: '1px black' }}
-              >
-                {room.current_round >= 3
-                  ? '🏆 ФИНАЛЬНЫЕ РЕЗУЛЬТАТЫ'
-                  : `🚀 НАЧАТЬ РАУНД ${room.current_round + 1}`}
-              </button>
-            </div>
+            {!isMirror && (
+              <div className="text-center">
+                <button
+                  onClick={handleNextRound}
+                  disabled={pending}
+                  className="px-10 py-4 bg-[#32CD32] hover:bg-[#28a428] text-white border-[6px] border-black text-2xl font-bangers tracking-widest shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all disabled:opacity-50 disabled:cursor-not-allowed transform -rotate-1"
+                  style={{ WebkitTextStroke: '1px black' }}
+                >
+                  {room.current_round >= 3
+                    ? '🏆 ФИНАЛЬНЫЕ РЕЗУЛЬТАТЫ'
+                    : `🚀 НАЧАТЬ РАУНД ${room.current_round + 1}`}
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -856,4 +880,8 @@ export default function DrawHostPage() {
       </ComicBackground>
     </div>
   );
+}
+
+export default function DrawHostPage() {
+  return <DrawHostContent />;
 }
