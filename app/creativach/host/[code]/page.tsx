@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { QRCodeCanvas } from 'qrcode.react';
 import {
   fetchCreativachRoom,
   fetchCreativachPlayers,
@@ -591,11 +592,17 @@ export default function CreativachHostPage() {
       <div className="relative z-10 max-w-5xl mx-auto px-4 py-6 space-y-6">
 
         {/* ─── LOBBY ─── */}
-        {room.status === 'lobby' && (
+        {room.status === 'lobby' && (() => {
+          const joinUrl = typeof window !== 'undefined' ? `${window.location.origin}/creativach?code=${code}` : '';
+          return (
           <div className="space-y-6 animate-[fadeIn_0.4s_ease]">
             <div className="cartoon-panel p-6 text-center space-y-4">
               <h2 className="text-3xl font-black text-black">Лобби</h2>
               <p className="text-gray-700 font-medium">Код комнаты: <span className="text-4xl font-black text-black tracking-[0.3em]">{code}</span></p>
+              <div className="bg-white rounded-2xl p-4 inline-block border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                <QRCodeCanvas value={joinUrl} size={220} fgColor="#000000" bgColor="#ffffff" />
+              </div>
+              <p className="text-xs text-gray-500 font-bold break-all">{joinUrl}</p>
               <p className="text-sm text-gray-600">Игроки: {gamePlayers.length}/{MIN_PLAYERS}+ | Зрители: {spectators.length}</p>
             </div>
 
@@ -617,7 +624,8 @@ export default function CreativachHostPage() {
               {canStart ? '🎮 Начать Креативач' : `⏳ Ожидаем игроков (${gamePlayers.length}/${MIN_PLAYERS})`}
             </button>
           </div>
-        )}
+          );
+        })()}
 
         {/* ─── RULES MODAL ─── */}
         {showRulesModal && currentRoundInfo && (

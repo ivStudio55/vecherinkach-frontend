@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { QRCodeCanvas } from 'qrcode.react';
 import {
   cardPlayable,
   drawUnoCard,
@@ -291,10 +292,18 @@ export default function UnoRoomPage() {
             <div className="flex items-center justify-between pt-2">
               <div>
                 <h2 className="comic-font text-3xl text-blue-600 drop-shadow-[1px_1px_0_#000]">ЖДЕМ ИГРОКОВ...</h2>
-                <p className="comic-font-thin font-bold text-lg mt-1">ПОДЕЛИТЕСЬ КОДОМ <strong className="bg-white border-2 border-black px-2 py-0.5 rounded">{code}</strong> С ДРУЗЬЯМИ</p>
+                <p className="comic-font-thin font-bold text-lg mt-1">ПОДЕЛИТЕСЬ КОДОМ <strong className="bg-white border-2 border-black px-2 py-0.5 rounded">{code}</strong> ИЛИ СКАНИРУЙТЕ QR</p>
               </div>
               <span className="text-5xl animate-bounce drop-shadow-[2px_2px_0_#000]">⏳</span>
             </div>
+            {typeof window !== 'undefined' && (
+              <div className="text-center space-y-2">
+                <div className="bg-white rounded-2xl p-4 inline-block border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                  <QRCodeCanvas value={`${window.location.origin}/uno?code=${code}`} size={200} fgColor="#000000" bgColor="#ffffff" />
+                </div>
+                <p className="text-xs text-gray-500 font-bold break-all">{`${window.location.origin}/uno?code=${code}`}</p>
+              </div>
+            )}
             <div className="flex flex-wrap gap-3">
               {players.map(p => (
                 <div key={p.id} className={`comic-panel px-4 py-2 text-lg comic-font-thin font-bold ${p.id === me?.id ? 'bg-green-400 text-white' : 'bg-white text-black'}`}>

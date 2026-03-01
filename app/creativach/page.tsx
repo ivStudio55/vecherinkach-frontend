@@ -289,6 +289,11 @@ export default function CreativachEntryPage() {
           </div>
         )}
 
+        {/* ─── На главную ─── */}
+        <div className="text-center">
+          <a href="/" className="inline-block cartoon-panel px-6 py-3 font-black text-black hover:scale-105 transition-transform">← На главную</a>
+        </div>
+
         {/* ─── Правила ─── */}
         <div className="cartoon-panel p-6 space-y-4 text-sm text-gray-800 font-medium">
           <h3 className="text-xl font-black text-black">📋 Правила</h3>

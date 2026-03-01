@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { QRCodeCanvas } from 'qrcode.react';
 import {
   fetchDrawRoom,
   fetchDrawPlayers,
@@ -533,7 +534,9 @@ export default function DrawHostPage() {
         )}
 
         {/* ═══════════ LOBBY ═══════════ */}
-        {room.status === 'lobby' && (
+        {room.status === 'lobby' && (() => {
+          const joinUrl = typeof window !== 'undefined' ? `${window.location.origin}/draw?code=${code}` : '';
+          return (
           <div className="space-y-8">
             <section className="bg-white border-[6px] border-black p-10 text-center space-y-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transform rotate-1">
               <div>
@@ -541,7 +544,11 @@ export default function DrawHostPage() {
                   <p className="text-sm font-black uppercase tracking-widest text-white">Код для подключения</p>
                 </div>
                 <p className="text-8xl sm:text-9xl font-bangers tracking-widest text-[#FF69B4] drop-shadow-[4px_4px_0_#000]" style={{ WebkitTextStroke: '2px black' }}>{code}</p>
-                <p className="mt-4 text-lg font-bold bg-gray-100 border-[2px] border-black px-4 py-2 inline-block transform rotate-1">Игроки вводят этот код на своих телефонах</p>
+                <div className="bg-white rounded-2xl p-4 inline-block border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] mt-4">
+                  <QRCodeCanvas value={joinUrl} size={220} fgColor="#000000" bgColor="#ffffff" />
+                </div>
+                <p className="mt-2 text-xs text-gray-500 font-bold break-all">{joinUrl}</p>
+                <p className="mt-4 text-lg font-bold bg-gray-100 border-[2px] border-black px-4 py-2 inline-block transform rotate-1">Игроки вводят этот код или сканируют QR</p>
               </div>
 
               <div className="bg-gray-50 border-[4px] border-black p-6 shadow-[inset_4px_4px_0px_0px_rgba(0,0,0,0.1)]">
@@ -565,7 +572,8 @@ export default function DrawHostPage() {
               </button>
             </section>
           </div>
-        )}
+          );
+        })()}
 
         {/* ═══════════ PLAYING ═══════════ */}
         {room.status === 'playing' && (
