@@ -130,7 +130,7 @@ export const TOTAL_ROUNDS = 5;
 
 /* ─── Russian alphabet for abbreviations ─── */
 const RUSSIAN_CONSONANTS = 'БВГДЖЗКЛМНПРСТФХЦЧШЩ'.split('');
-const RUSSIAN_VOWELS = 'АЕИОУЫЭЮЯ'.split('');
+const RUSSIAN_VOWELS = 'АЕИОУЭЮЯ'.split(''); // Ы исключена — не может начинать слово
 const RUSSIAN_ALL = [...RUSSIAN_CONSONANTS, ...RUSSIAN_VOWELS];
 
 export function generateAbbreviation(): string {

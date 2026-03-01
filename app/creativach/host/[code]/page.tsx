@@ -181,6 +181,13 @@ export default function CreativachHostPage() {
     return () => unsubs.forEach(u => u());
   }, [room?.id]);
 
+  // Reset answers/votes immediately when round changes to avoid stale data triggering auto-skip
+  useEffect(() => {
+    if (!room?.current_round) return;
+    setAnswers([]);
+    setVotes([]);
+  }, [room?.current_round]);
+
   // Subscribe to answers and votes for current round
   useEffect(() => {
     if (!room?.id || !room.current_round) return;
@@ -342,6 +349,7 @@ export default function CreativachHostPage() {
       audioRef.current?.playVoiceRandom(CREATIVACH_AUDIO.congratulationsFolder);
       setShowConfetti(true);
     } else {
+      audioRef.current?.playBgm(CREATIVACH_AUDIO.betweenMusic, 0.3, false);
       audioRef.current?.playVoiceRandom(CREATIVACH_AUDIO.resultsFolder);
     }
     setResultsRevealed(true);

@@ -68,14 +68,14 @@ export default function HomePage() {
       title: 'UNO',
       subtitle: 'Карточная мини-игра',
       description: 'Два режима: классический и неправильные глаголы (TTS позже).',
-      badge: 'новое',
+      badge: 'beta',
     },
     {
       id: 'risunkach',
       title: 'Рисункач',
       subtitle: 'Мини-игра на рисунки',
       description: 'Рисуй, угадывай, голосуй! 3 раунда цепочек превращений.',
-      badge: 'новое',
+      badge: 'beta',
     },
     {
       id: 'jokester',
@@ -89,7 +89,7 @@ export default function HomePage() {
       title: 'Креативач',
       subtitle: 'Креативная битва',
       description: 'Расшифровки, оправдания, анти-реклама и комплименты!',
-      badge: 'новое',
+      badge: 'beta',
     },
   ];
 

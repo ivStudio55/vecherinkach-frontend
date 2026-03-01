@@ -98,11 +98,13 @@ export default function CreativachRoomPage() {
     return () => unsubs.forEach(u => u());
   }, [room?.id, room?.current_round]);
 
-  // Reset input on new round
+  // Reset input and clear stale answer/vote data when round changes
   useEffect(() => {
     setAnswerText('');
     setSubmitted(false);
     setVoted(false);
+    setAnswers([]);
+    setVotes([]);
   }, [room?.current_round]);
 
   // Check if already submitted/voted
