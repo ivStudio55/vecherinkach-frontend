@@ -56,7 +56,7 @@ export default function HomePage() {
   ];
 
   const miniGames: Array<{
-    id: 'uno' | 'risunkach' | 'jokester' | 'placeholder';
+    id: 'uno' | 'risunkach' | 'jokester' | 'creativach';
     title: string;
     subtitle: string;
     description: string;
@@ -85,11 +85,11 @@ export default function HomePage() {
       badge: 'тестирование',
     },
     {
-      id: 'placeholder',
-      title: '???',
-      subtitle: 'Скоро',
-      description: 'Разработчик думает, что бы сюда ещё влепить... 🤔',
-      isSoon: true,
+      id: 'creativach',
+      title: 'Креативач',
+      subtitle: 'Креативная битва',
+      description: 'Расшифровки, оправдания, анти-реклама и комплименты!',
+      badge: 'новое',
     },
   ];
 
@@ -98,13 +98,15 @@ export default function HomePage() {
     navigateWithExit(() => router.push('/host'));
   };
 
-  const handleMiniGameClick = (gameId: 'uno' | 'risunkach' | 'jokester' | 'placeholder') => {
+  const handleMiniGameClick = (gameId: 'uno' | 'risunkach' | 'jokester' | 'creativach') => {
     if (gameId === 'uno') {
       navigateWithExit(() => router.push('/uno'));
     } else if (gameId === 'risunkach') {
       navigateWithExit(() => router.push('/draw'));
     } else if (gameId === 'jokester') {
       navigateWithExit(() => router.push('/jokester'));
+    } else if (gameId === 'creativach') {
+      navigateWithExit(() => router.push('/creativach'));
     }
   };
 
@@ -563,10 +565,11 @@ export default function HomePage() {
                       // Для правых карточек (1, 3) переворачиваем ряд эмодзи+title
                       const rowReverse  = isMobile ? '' : (index === 1 || index === 3) ? 'flex-row-reverse' : '';
 
-                      const emoji = game.id === 'uno'      ? '🃏'
-                                  : game.id === 'risunkach' ? '🎨'
-                                  : game.id === 'jokester'  ? '🤡'
-                                  : null; // placeholder — без эмодзи
+                      const emoji = game.id === 'uno'        ? '🃏'
+                                  : game.id === 'risunkach'  ? '🎨'
+                                  : game.id === 'jokester'   ? '🤡'
+                                  : game.id === 'creativach' ? '✍️'
+                                  : null;
 
                       return (
                         <button
