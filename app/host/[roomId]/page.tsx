@@ -18,6 +18,7 @@ import { roundStateReducer } from '@/lib/roundStateMachine';
 import { WinnerBanner } from '@/shared/ui/WinnerBanner';
 import { BestQuestionCard } from '@/shared/ui/BestQuestionCard';
 import { JoinQrBlock } from '@/shared/ui/JoinQrBlock';
+import { QRCodeCanvas } from 'qrcode.react';
 import { isRealtimeEnabled } from '@/shared/logic/realtimeConfig';
 import { ROUND3_ANSWER_SECONDS, ROUND3_VOTE_COUNTDOWN_SECONDS, ROUND3_VOTE_SECONDS } from '@/shared/logic/roundConstants';
 import {
@@ -650,7 +651,7 @@ const HostStackedLayout = ({
   </div>
 );
 
-export default function HostRoomPage() {
+export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   const params = useParams();
   const router = useRouter();
   const roomId = params.roomId as string;
@@ -7515,7 +7516,7 @@ export default function HostRoomPage() {
           onClick={handleHostInteraction}
           className="px-8 py-4 comic-panel border-[4px] border-[#000] bg-[#ffde00] text-black comic-font text-2xl tracking-[0.2em] hover:bg-[#ff2a2a] hover:text-white transition-colors"
         >
-          ОТКРЫТЬ КОМНАТУ
+          {isMirror ? '📡 ОТКРЫТЬ ЗЕРКАЛО' : 'ОТКРЫТЬ КОМНАТУ'}
         </button>
       </div>
     );
@@ -7635,36 +7636,40 @@ export default function HostRoomPage() {
                   Комната {roomCode || '----'}
                 </h1>
               </div>
-                <HostControls
-                  primaryLabel={headerActionLabel}
-                  onPrimaryAction={handlePrimaryHeaderAction}
-                  onToggleLayout={setNextLayoutMode}
-                  layoutLabel={layoutModeLabel}
-                  compact={isCompactForcedLayout}
-                  isAnimationsDisabled={isAnimationsDisabled}
-                  onToggleAnimations={() => {
-                    const next = !isAnimationsDisabled;
-                    setIsAnimationsDisabled(next);
-                    localStorage.setItem('host_animations_disabled', String(next));
-                  }}
-                  isMusicMuted={isMusicMuted}
-                  onToggleMusicMute={() => {
-                    const next = !isMusicMuted;
-                    setIsMusicMuted(next);
-                    localStorage.setItem('host_bgm_muted', String(next));
-                  }}
-                  isVoiceMuted={isVoiceMuted}
-                  onToggleVoiceMute={() => {
-                    const next = !isVoiceMuted;
-                    setIsVoiceMuted(next);
-                    localStorage.setItem('host_voice_muted', String(next));
-                  }}
-                />
+                {isMirror ? (
+                  <span className="px-4 py-2 comic-panel border-[4px] border-[#000] bg-purple-600 text-white comic-font text-sm tracking-[0.2em] animate-pulse">📡 ЗЕРКАЛО</span>
+                ) : (
+                  <HostControls
+                    primaryLabel={headerActionLabel}
+                    onPrimaryAction={handlePrimaryHeaderAction}
+                    onToggleLayout={setNextLayoutMode}
+                    layoutLabel={layoutModeLabel}
+                    compact={isCompactForcedLayout}
+                    isAnimationsDisabled={isAnimationsDisabled}
+                    onToggleAnimations={() => {
+                      const next = !isAnimationsDisabled;
+                      setIsAnimationsDisabled(next);
+                      localStorage.setItem('host_animations_disabled', String(next));
+                    }}
+                    isMusicMuted={isMusicMuted}
+                    onToggleMusicMute={() => {
+                      const next = !isMusicMuted;
+                      setIsMusicMuted(next);
+                      localStorage.setItem('host_bgm_muted', String(next));
+                    }}
+                    isVoiceMuted={isVoiceMuted}
+                    onToggleVoiceMute={() => {
+                      const next = !isVoiceMuted;
+                      setIsVoiceMuted(next);
+                      localStorage.setItem('host_voice_muted', String(next));
+                    }}
+                  />
+                )}
             </div>
             </header>
           ) : null}
 
-        {showMobilePrompt ? (
+        {showMobilePrompt && !isMirror ? (
           <div className="comic-panel border-[#000]/30 bg-white px-4 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm comic-font text-black">Похоже, у вас мобильный экран. Переключиться на Mobile view?</p>
             <div className="flex gap-2">
@@ -7700,13 +7705,17 @@ export default function HostRoomPage() {
                   <p className="comic-font text-[11px] tracking-[0.5em] text-white/80">Панель ведущего</p>
                   <h2 className="text-2xl comic-font leading-tight text-white">Комната {roomCode || '----'}</h2>
                 </div>
-                <HostControls
-                  primaryLabel={headerActionLabel}
-                  onPrimaryAction={handlePrimaryHeaderAction}
-                  onToggleLayout={setNextLayoutMode}
-                  layoutLabel={layoutModeLabel}
-                  compact
-                />
+                {isMirror ? (
+                  <span className="px-4 py-2 comic-panel border-[4px] border-[#000] bg-purple-600 text-white comic-font text-sm tracking-[0.2em] animate-pulse">📡 ЗЕРКАЛО</span>
+                ) : (
+                  <HostControls
+                    primaryLabel={headerActionLabel}
+                    onPrimaryAction={handlePrimaryHeaderAction}
+                    onToggleLayout={setNextLayoutMode}
+                    layoutLabel={layoutModeLabel}
+                    compact
+                  />
+                )}
               </div>
             }
             questionView={(() => {
@@ -7728,14 +7737,32 @@ export default function HostRoomPage() {
                         qrWindowUrl={`/host/${roomId}/qr?code=${encodeURIComponent(roomCode)}`}
                         className="comic-panel bg-white"
                       />
+                      {!isMirror && (() => {
+                        const mirrorUrl = typeof window !== 'undefined' ? `${window.location.origin}/host/mirror/${roomId}` : '';
+                        return mirrorUrl ? (
+                          <div className="border-t-2 border-dashed border-black/20 pt-3 mt-3 space-y-2 text-center">
+                            <p className="text-sm comic-font text-purple-700 font-bold">📡 Зеркало трансляции</p>
+                            <div className="inline-block border-2 border-purple-400 rounded-xl p-2 bg-white">
+                              <QRCodeCanvas value={mirrorUrl} size={120} fgColor="#7c3aed" bgColor="#ffffff" />
+                            </div>
+                            <p className="text-xs text-purple-600 comic-font break-all">{mirrorUrl}</p>
+                          </div>
+                        ) : null;
+                      })()}
                     </div>
-                    <button
-                      onClick={handlePrepareRound}
-                      disabled={players.length === 0}
-                      className="comic-button hover:scale-105 hover: transition-all duration-200 w-full py-3 text-base bg-[#ffde00] text-black disabled:opacity-40 disabled:cursor-not-allowed host-start-blink"
-                    >
-                      Начать игру →
-                    </button>
+                    {!isMirror ? (
+                      <button
+                        onClick={handlePrepareRound}
+                        disabled={players.length === 0}
+                        className="comic-button hover:scale-105 hover: transition-all duration-200 w-full py-3 text-base bg-[#ffde00] text-black disabled:opacity-40 disabled:cursor-not-allowed host-start-blink"
+                      >
+                        Начать игру →
+                      </button>
+                    ) : (
+                      <div className="w-full py-3 comic-panel comic-font text-base tracking-[0.2em] text-center text-black/50 border-[4px] border-dashed border-black/20">
+                        ⏳ ОЖИДАЕМ НАЧАЛО...
+                      </div>
+                    )}
                     {players.length === 0 && <p className="text-xs text-black/60 comic-font">Нужно как минимум 1 игрок.</p>}
                   </div>
                 );
@@ -8229,14 +8256,20 @@ export default function HostRoomPage() {
             extraView={
               isWaiting ? (
                 <section className="comic-panel border-[#000] bg-white  p-4 space-y-3">
-                  <button
-                    type="button"
-                    onClick={handlePrepareRound}
-                    disabled={players.length === 0}
-                    className="w-full py-3 comic-panel comic-font text-sm tracking-[0.2em] bg-[#ff2a2a] text-white border-[4px] border-[#000] disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    Начать игру
-                  </button>
+                  {!isMirror ? (
+                    <button
+                      type="button"
+                      onClick={handlePrepareRound}
+                      disabled={players.length === 0}
+                      className="w-full py-3 comic-panel comic-font text-sm tracking-[0.2em] bg-[#ff2a2a] text-white border-[4px] border-[#000] disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Начать игру
+                    </button>
+                  ) : (
+                    <div className="w-full py-3 comic-panel comic-font text-sm tracking-[0.2em] text-center text-black/50 border-[4px] border-dashed border-black/20">
+                      ⏳ ОЖИДАЕМ...
+                    </div>
+                  )}
                   {players.length === 0 ? (
                     <p className="text-xs text-black/60 text-center">Нужно как минимум 1 игрок.</p>
                   ) : null}
@@ -8284,13 +8317,17 @@ export default function HostRoomPage() {
               </PlayersAccordion>
             }
             controlsView={
-              <HostControls
-                primaryLabel={headerActionLabel}
-                onPrimaryAction={handlePrimaryHeaderAction}
-                onToggleLayout={setNextLayoutMode}
-                layoutLabel={layoutModeLabel}
-                compact
-              />
+              isMirror ? (
+                <span className="px-4 py-2 comic-panel border-[4px] border-[#000] bg-purple-600 text-white comic-font text-sm tracking-[0.2em] animate-pulse">📡 ЗЕРКАЛО</span>
+              ) : (
+                <HostControls
+                  primaryLabel={headerActionLabel}
+                  onPrimaryAction={handlePrimaryHeaderAction}
+                  onToggleLayout={setNextLayoutMode}
+                  layoutLabel={layoutModeLabel}
+                  compact
+                />
+              )
             }
           />
         ) : (
@@ -8510,18 +8547,20 @@ export default function HostRoomPage() {
 
                 {roomStatus === 'final-results' ? (
                   <>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        hasUserInteractedRef.current = true;
-                        void endGame();
-                      }}
-                      className="w-full py-4 comic-panel comic-font text-xl tracking-[0.2em] bg-[#ff2a2a] text-white border-[4px] border-[#000] hover:scale-105 hover: transition-all duration-200"
-                    >
-                      Закрыть комнату
-                    </button>
+                    {!isMirror && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          hasUserInteractedRef.current = true;
+                          void endGame();
+                        }}
+                        className="w-full py-4 comic-panel comic-font text-xl tracking-[0.2em] bg-[#ff2a2a] text-white border-[4px] border-[#000] hover:scale-105 hover: transition-all duration-200"
+                      >
+                        Закрыть комнату
+                      </button>
+                    )}
                   </>
-                ) : isFinalRoundAvailable && (
+                ) : isFinalRoundAvailable && !isMirror && (
                   <button
                     type="button"
                     onClick={handleOpenRound5Rules}
@@ -8590,17 +8629,19 @@ export default function HostRoomPage() {
                   <span className="text-sm comic-font text-[#00c3ff]">Очки уже начислены игрокам</span>
                 </div>
                 <div className="flex flex-wrap justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setIsRatingVisible((prev) => !prev)}
-                    className={`px-4 py-2 comic-panel comic-font transition ${
-                      isRatingVisible
-                        ? 'border-[#000] bg-[#00c3ff] text-white'
-                        : 'border-[#000]/40 bg-white text-black'
-                    }`}
-                  >
+                  {!isMirror && (
+                    <button
+                      type="button"
+                      onClick={() => setIsRatingVisible((prev) => !prev)}
+                      className={`px-4 py-2 comic-panel comic-font transition ${
+                        isRatingVisible
+                          ? 'border-[#000] bg-[#00c3ff] text-white'
+                          : 'border-[#000]/40 bg-white text-black'
+                      }`}
+                    >
                     {isRatingVisible ? 'Скрыть рейтинг' : 'Рейтинг'}
                   </button>
+                  )}
                 </div>
                 <div className="space-y-4">
                   {questionsForSummary.map((summaryQuestion: Question) => {
@@ -8697,30 +8738,34 @@ export default function HostRoomPage() {
                 </div>
 
                 <div className="flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      hasUserInteractedRef.current = true;
-                      void (isLobbySoundOn ? stopLobby() : tryPlayLobby());
-                    }}
-                    className={`hover:scale-105 hover: transition-all duration-200 px-4 py-2 comic-panel comic-font ${
-                      isLobbySoundOn ? 'border-[#000] bg-[#00c3ff] text-white' : 'border-[#000] bg-[#ffde00]'
-                    }`}
-                  >
-                    {isLobbySoundOn ? '🔊 Джингл включён' : '🎵 Включить джингл'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      hasUserInteractedRef.current = true;
-                      setIsJoinSoundEnabled((prev) => !prev);
-                    }}
-                    className={`hover:scale-105 hover: transition-all duration-200 px-4 py-2 comic-panel comic-font ${
-                      isJoinSoundEnabled ? 'border-[#000] bg-white text-[#00c3ff]' : 'border-dashed border-[#000] bg-white'
-                    }`}
-                  >
-                    {isJoinSoundEnabled ? '🔔 Звук подключения' : '🔕 Включить звук подключения'}
-                  </button>
+                  {!isMirror && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          hasUserInteractedRef.current = true;
+                          void (isLobbySoundOn ? stopLobby() : tryPlayLobby());
+                        }}
+                        className={`hover:scale-105 hover: transition-all duration-200 px-4 py-2 comic-panel comic-font ${
+                          isLobbySoundOn ? 'border-[#000] bg-[#00c3ff] text-white' : 'border-[#000] bg-[#ffde00]'
+                        }`}
+                      >
+                        {isLobbySoundOn ? '🔊 Джингл включён' : '🎵 Включить джингл'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          hasUserInteractedRef.current = true;
+                          setIsJoinSoundEnabled((prev) => !prev);
+                        }}
+                        className={`hover:scale-105 hover: transition-all duration-200 px-4 py-2 comic-panel comic-font ${
+                          isJoinSoundEnabled ? 'border-[#000] bg-white text-[#00c3ff]' : 'border-dashed border-[#000] bg-white'
+                        }`}
+                      >
+                        {isJoinSoundEnabled ? '🔔 Звук подключения' : '🔕 Включить звук подключения'}
+                      </button>
+                    </>
+                  )}
                 </div>
                 {audioError && <p className="text-xs text-[#ff2a2a] comic-font">{audioError}</p>}
 
@@ -8730,13 +8775,32 @@ export default function HostRoomPage() {
                   className="comic-panel border-[#000]/15 bg-white"
                 />
 
-                <button
-                  onClick={handlePrepareRound}
-                  disabled={players.length === 0}
-                  className="hover:scale-105 hover: transition-all duration-200 w-full py-3 comic-panel comic-font text-base tracking-[0.2em] bg-[#ff2a2a] text-white border-[4px] border-[#000] disabled:opacity-40 disabled:cursor-not-allowed host-start-blink"
-                >
-                  Начать игру →
-                </button>
+                {!isMirror && (() => {
+                  const mirrorUrl = typeof window !== 'undefined' ? `${window.location.origin}/host/mirror/${roomId}` : '';
+                  return mirrorUrl ? (
+                    <div className="border-t-2 border-dashed border-black/20 pt-4 space-y-2 text-center">
+                      <p className="text-sm comic-font text-purple-700 font-bold">📡 Зеркало трансляции</p>
+                      <div className="inline-block border-2 border-purple-400 rounded-xl p-3 bg-white">
+                        <QRCodeCanvas value={mirrorUrl} size={140} fgColor="#7c3aed" bgColor="#ffffff" />
+                      </div>
+                      <p className="text-xs text-purple-600 comic-font break-all">{mirrorUrl}</p>
+                    </div>
+                  ) : null;
+                })()}
+
+                {!isMirror ? (
+                  <button
+                    onClick={handlePrepareRound}
+                    disabled={players.length === 0}
+                    className="hover:scale-105 hover: transition-all duration-200 w-full py-3 comic-panel comic-font text-base tracking-[0.2em] bg-[#ff2a2a] text-white border-[4px] border-[#000] disabled:opacity-40 disabled:cursor-not-allowed host-start-blink"
+                  >
+                    Начать игру →
+                  </button>
+                ) : (
+                  <div className="w-full py-3 comic-panel comic-font text-base tracking-[0.2em] text-center text-black/50 border-[4px] border-dashed border-black/20">
+                    ⏳ ОЖИДАЕМ НАЧАЛО...
+                  </div>
+                )}
                 {players.length === 0 && (
                   <p className="text-xs text-black/60">Нужно как минимум 1 игрок.</p>
                 )}
@@ -8955,7 +9019,7 @@ export default function HostRoomPage() {
                   </div>
                 )}
 
-                {round3AudioBlocked && (
+                {round3AudioBlocked && !isMirror && (
                   <button
                     type="button"
                     onClick={() => playRound3Audio(currentQuestionIndex)}
@@ -9369,7 +9433,7 @@ export default function HostRoomPage() {
       </div>
     </div>
 
-      {isWaiting && isPrestartVisible && (
+      {isWaiting && isPrestartVisible && !isMirror && (
         <div className="fixed inset-0 z-40 bg-[#ff2a2a]/70 backdrop-blur-sm flex items-center justify-center px-4">
           <div className="max-w-lg w-full comic-panel border-[4px] border-[#000] bg-white p-6 space-y-4 ">
             <div>
@@ -9421,7 +9485,7 @@ export default function HostRoomPage() {
         </div>
       )}
 
-      {shouldShowRulesModal && (
+      {shouldShowRulesModal && !isMirror && (
         <div className="fixed inset-0 z-40 bg-[#ff2a2a]/70 backdrop-blur-sm flex items-center justify-center px-4 transition-opacity duration-300">
           <div className="max-w-md w-full comic-panel border-[4px] border-[#000] bg-white p-6 space-y-4  transform transition-all duration-300 scale-100 opacity-100">
             {!isCompactForcedLayout && (
@@ -9487,7 +9551,7 @@ export default function HostRoomPage() {
         </div>
       )}
 
-      {isRound3RulesVisible && (
+      {isRound3RulesVisible && !isMirror && (
         <div className="fixed inset-0 z-50 bg-[#ff2a2a]/70 backdrop-blur-sm flex items-center justify-center px-4 transition-opacity duration-300">
           <div className="max-w-lg w-full comic-panel border-[4px] border-[#000] bg-white p-6 space-y-4  transform transition-all duration-300 scale-100 opacity-100">
             {!isCompactForcedLayout && (
@@ -9519,7 +9583,7 @@ export default function HostRoomPage() {
         </div>
       )}
 
-      {isRound2RulesVisible && (
+      {isRound2RulesVisible && !isMirror && (
         <div className="fixed inset-0 z-50 bg-[#ff2a2a]/70 backdrop-blur-sm flex items-center justify-center px-4 transition-opacity duration-300">
           <div className="max-w-lg w-full comic-panel border-[4px] border-[#000] bg-white p-6 space-y-4  transform transition-all duration-300 scale-100 opacity-100">
             {!isCompactForcedLayout && (
@@ -9562,7 +9626,7 @@ export default function HostRoomPage() {
         </div>
       )}
 
-      {isRound4RulesVisible && (
+      {isRound4RulesVisible && !isMirror && (
         <div className="fixed inset-0 z-50 bg-[#ff2a2a]/70 backdrop-blur-sm flex items-center justify-center px-4 transition-opacity duration-300">
           <div className="max-w-lg w-full comic-panel border-[4px] border-[#000] bg-white p-6 space-y-4  transform transition-all duration-300 scale-100 opacity-100">
             {!isCompactForcedLayout && (
@@ -9594,7 +9658,7 @@ export default function HostRoomPage() {
         </div>
       )}
 
-      {isRound5RulesVisible && (
+      {isRound5RulesVisible && !isMirror && (
         <div className="fixed inset-0 z-50 bg-[#ff2a2a]/70 backdrop-blur-sm flex items-center justify-center px-4 transition-opacity duration-300">
           <div className="max-w-lg w-full comic-panel border-[4px] border-[#000] bg-white p-6 space-y-4  transform transition-all duration-300 scale-100 opacity-100">
             {!isCompactForcedLayout && (
@@ -9628,4 +9692,8 @@ export default function HostRoomPage() {
       )}
     </div>
   );
+}
+
+export default function HostRoomPage() {
+  return <HostRoomContent />;
 }
