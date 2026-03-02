@@ -139,7 +139,7 @@ function DeadlineOverlay({ seconds }: { seconds: number }) {
 }
 
 /* ══════════════════════════════════════════════ */
-export default function JokesterHostPage() {
+export function JokesterHostContent({ isMirror: _isMirror = false }: { isMirror?: boolean }) {
   const params = useParams();
   const roomCode = params.code as string;
 
@@ -1900,6 +1900,10 @@ export default function JokesterHostPage() {
       `}</style>
     </div>
   );
+}
+
+export default function JokesterHostPage() {
+  return <JokesterHostContent />;
 }
 
 /* ══════════════════════════════════════════════

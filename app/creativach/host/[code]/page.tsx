@@ -114,7 +114,7 @@ function ConfettiCanvas() {
   return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-50" />;
 }
 
-export default function CreativachHostPage() {
+export function CreativachHostContent({ isMirror: _isMirror = false }: { isMirror?: boolean }) {
   const params = useParams();
   const router = useRouter();
   const code = (params?.code as string) || '';
@@ -956,4 +956,8 @@ export default function CreativachHostPage() {
       `}</style>
     </div>
   );
+}
+
+export default function CreativachHostPage() {
+  return <CreativachHostContent />;
 }
