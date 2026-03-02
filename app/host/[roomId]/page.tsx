@@ -114,6 +114,7 @@ const SKIP_AUDIO_FILES = [
 ] as const;
 const ROUND1_END_AUDIO_FILES: readonly string[] = Array.from({ length: 9 }, (_, i) => `round1end/${i + 1}.mp3`);
 const ROUND1_END_JINGLE_FILE = 'round1_end/jingle_(after_round1).mp3';
+const ROUND2_END_AUDIO_FILES: readonly string[] = Array.from({ length: 3 }, (_, i) => `round2end/${i + 1}.mp3`);
 const ROUND2_RULES_JINGLE_FILE = 'round2/explanation.mp3';
 const ROUND2_RULES_VOICE_FILES = ['round2/ruels/1.mp3', 'round2/ruels/2.mp3'] as const;
 const ROUND2_BETWEEN_AUDIO_VARIANTS = {
@@ -1703,7 +1704,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, []);
 
   const playRound2EndCeremony = useCallback(
-    (percent: number, key: string) => {
+    (_percent: number, key: string) => {
       if (!hasUserInteractedRef.current) {
         return;
       }
@@ -1716,30 +1717,10 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
       stopRound2EndCeremonyAudio();
       stopRound2Audio();
 
-      const normalized = Math.max(0, Math.min(100, Math.round(percent)));
-      const variants =
-        normalized === 100
-          ? ROUND2_BETWEEN_AUDIO_VARIANTS.full
-          : normalized >= 50
-            ? ROUND2_BETWEEN_AUDIO_VARIANTS.mid
-            : normalized >= 1
-              ? ROUND2_BETWEEN_AUDIO_VARIANTS.low
-              : ROUND2_BETWEEN_AUDIO_VARIANTS.zero;
-
-      const voiceRelative = variants.length ? `round2/${pickRandomItem(variants)}` : null;
-
-      const playVoice = () => {
-        if (!voiceRelative) {
-          return;
-        }
-        const voice = new Audio(buildAudioUrl(voiceRelative));
-        voice.volume = isVoiceMutedRef.current ? 0 : 0.95;
-        voice.loop = false;
-        round2EndVoiceAudioRef.current = voice;
-        voice.play().catch((err) => {
-          console.error('Не удалось проиграть диктора окончания Раунда 2', err);
-        });
-      };
+      const voice = new Audio(buildAudioUrl(pickRandomItem(ROUND2_END_AUDIO_FILES)));
+      voice.volume = isVoiceMutedRef.current ? 0 : 0.95;
+      voice.loop = false;
+      round2EndVoiceAudioRef.current = voice;
 
       const jingle = new Audio(buildAudioUrl(ROUND1_END_JINGLE_FILE));
       jingle.volume = 0.95;
@@ -1747,17 +1728,33 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
       round2EndJingleAudioRef.current = jingle;
 
       jingle.onended = () => {
-        round2EndJingleAudioRef.current = null;
-        playVoice();
+        if (round2EndJingleAudioRef.current === jingle) {
+          round2EndJingleAudioRef.current = null;
+        }
       };
       jingle.onerror = () => {
-        round2EndJingleAudioRef.current = null;
-        playVoice();
+        if (round2EndJingleAudioRef.current === jingle) {
+          round2EndJingleAudioRef.current = null;
+        }
+      };
+
+      voice.onended = () => {
+        if (round2EndVoiceAudioRef.current === voice) {
+          round2EndVoiceAudioRef.current = null;
+        }
+      };
+      voice.onerror = () => {
+        if (round2EndVoiceAudioRef.current === voice) {
+          round2EndVoiceAudioRef.current = null;
+        }
       };
 
       jingle.play().catch((err) => {
         console.error('Не удалось проиграть джингл окончания Раунда 2', err);
-        playVoice();
+      });
+
+      voice.play().catch((err) => {
+        console.error('Не удалось проиграть озвучку окончания Раунда 2', err);
       });
     },
     [stopRound2Audio, stopRound2EndCeremonyAudio]
@@ -5941,14 +5938,16 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
       lastRound4AnswerPlaybackKeyRef.current = null;
       return;
     }
-    if (!isMirrorRef.current || !round4CurrentPuzzle) {
-      return;
-    }
-    if (timeLeft <= 0 || serverAllPlayersAnswered) {
+    if (!round4CurrentPuzzle || !questionStartedAt) {
       return;
     }
 
-    const cueKey = `${round4CurrentPuzzle.id}-${questionStartedAt ?? 'na'}`;
+    const remaining = getRemainingSeconds(questionStartedAt, QUESTION_DURATION_SECONDS, timeOffsetMs);
+    if (remaining <= 0 || serverAllPlayersAnswered) {
+      return;
+    }
+
+    const cueKey = `${round4CurrentPuzzle.id}-${questionStartedAt}`;
     if (lastRound4CuePlaybackKeyRef.current === cueKey) {
       return;
     }
@@ -5964,25 +5963,30 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
     roomStatus,
     round4CurrentPuzzle,
     serverAllPlayersAnswered,
-    timeLeft,
+    timeOffsetMs,
   ]);
 
   useEffect(() => {
-    if (roomStatus !== 'round4-running' || !round4CurrentPuzzle || timeLeft > 0) {
+    if (roomStatus !== 'round4-running' || !round4CurrentPuzzle || !questionStartedAt) {
       return;
     }
     if (!isMirrorRef.current) {
       return;
     }
 
-    const answerKey = `${round4CurrentPuzzle.id}-answer`;
+    const remaining = getRemainingSeconds(questionStartedAt, QUESTION_DURATION_SECONDS, timeOffsetMs);
+    if (remaining > 0) {
+      return;
+    }
+
+    const answerKey = `${round4CurrentPuzzle.id}-${questionStartedAt}-answer`;
     if (lastRound4AnswerPlaybackKeyRef.current === answerKey) {
       return;
     }
 
     lastRound4AnswerPlaybackKeyRef.current = answerKey;
     playRound4AnswerAudio(round4CurrentPuzzle.id);
-  }, [playRound4AnswerAudio, roomStatus, round4CurrentPuzzle, timeLeft]);
+  }, [playRound4AnswerAudio, questionStartedAt, roomStatus, round4CurrentPuzzle, timeOffsetMs]);
 
   useEffect(() => {
     if (!timerActive || !questionStartedAt) {
@@ -7555,10 +7559,8 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
     updateRoomStatus('round4-running');
     syncTimerWithStart(startedAt, offset);
     setQuestionStartedAt(startedAt);
-    playRound4CategoryAudio(puzzle.category);
-    playRound4TimerAudio();
     round4StartLockRef.current = false;
-  }, [getServerIsoTimestamp, loadUsedRound4PuzzleIds, roomId, round4Puzzles, updateRoomStatus, syncTimerWithStart, playRound4CategoryAudio, playRound4TimerAudio]);
+  }, [getServerIsoTimestamp, loadUsedRound4PuzzleIds, roomId, round4Puzzles, updateRoomStatus, syncTimerWithStart]);
 
   const handleRound4Complete = useCallback(async () => {
     if (isMirrorRef.current) return;
@@ -7851,7 +7853,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
   useEffect(() => {
     const isRound1TransitionReady = roomStatus === 'running' && (effectiveTimeLeft === 0 || serverAllPlayersAnswered);
-    if (!question || !isRound1TransitionReady || totalPlayers === 0) {
+    if (!question || isLastQuestion || !isRound1TransitionReady || totalPlayers === 0) {
       return;
     }
 
@@ -7861,15 +7863,31 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
     }
 
     betweenCueQuestionRef.current = questionKey;
-    void playBetweenAudioForPercent(correctAnswerPercentage);
+    const playAndAdvance = () => {
+      void playBetweenAudioForPercent(correctAnswerPercentage, {
+        onEnded: () => {
+          if (roomStatusRef.current !== 'running') {
+            return;
+          }
+          if (isMirrorRef.current) {
+            return;
+          }
+          void nextQuestion();
+        },
+      });
+    };
+
+    playAndAdvance();
   }, [
     question,
+    isLastQuestion,
     roomStatus,
     effectiveTimeLeft,
     serverAllPlayersAnswered,
     totalPlayers,
     correctAnswerPercentage,
     playBetweenAudioForPercent,
+    nextQuestion,
   ]);
 
   useEffect(() => {
@@ -7934,6 +7952,13 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
       return;
     }
     if (isMirrorRef.current) return;
+
+    const questionKey = typeof question?.id === 'number' ? question.id : question?.order;
+    if (questionKey !== undefined && betweenCueQuestionRef.current === questionKey) {
+      clearAutoNextTimeout();
+      clearAutoFinishTimeout();
+      return;
+    }
 
     if (autoNextTimeoutRef.current) {
       return;
