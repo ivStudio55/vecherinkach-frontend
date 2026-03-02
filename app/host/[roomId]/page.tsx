@@ -1182,6 +1182,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   const isCountdownVisibleRef = useRef(isCountdownVisible);
   const round4AskedIdsRef = useRef<number[]>([]);
   const round4CurrentPuzzleIdRef = useRef<number | null>(null);
+  const isMirrorRef = useRef(isMirror);
   const playersRef = useRef<Player[]>(players);
   const hasUserInteractedRef = useRef(false);
   const lastJoinAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -1681,7 +1682,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
   const playRound2EndCeremony = useCallback(
     (percent: number, key: string) => {
-      if (!hasUserInteractedRef.current) {
+      if (!hasUserInteractedRef.current || isMirrorRef.current) {
         return;
       }
 
@@ -1770,7 +1771,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
 
   const playTournamentJingle = useCallback(() => {
-    if (!hasUserInteractedRef.current) {
+    if (!hasUserInteractedRef.current || isMirrorRef.current) {
       return;
     }
 
@@ -1786,7 +1787,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [stopTournamentJingle]);
 
   const playFinalNarratorAudio = useCallback(() => {
-    if (!hasUserInteractedRef.current) {
+    if (!hasUserInteractedRef.current || isMirrorRef.current) {
       return;
     }
 
@@ -1803,7 +1804,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [stopFinalNarratorAudio]);
 
   const playRound3EndAfterAudio = useCallback(() => {
-    if (!hasUserInteractedRef.current) {
+    if (!hasUserInteractedRef.current || isMirrorRef.current) {
       return;
     }
 
@@ -1818,7 +1819,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, []);
 
   const playRoundEndAudio = useCallback(() => {
-    if (!hasUserInteractedRef.current) {
+    if (!hasUserInteractedRef.current || isMirrorRef.current) {
       return;
     }
 
@@ -1840,7 +1841,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [stopRoundEndAudio]);
 
   const playRound1EndCeremonyAudio = useCallback(() => {
-    if (!hasUserInteractedRef.current) {
+    if (!hasUserInteractedRef.current || isMirrorRef.current) {
       return;
     }
 
@@ -1859,7 +1860,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
   const playRound4CategoryAudio = useCallback(
     (category: string) => {
-      if (!hasUserInteractedRef.current) {
+      if (!hasUserInteractedRef.current || isMirrorRef.current) {
         return;
       }
 
@@ -1881,7 +1882,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   );
 
   const playRound4TimerAudio = useCallback(() => {
-    if (!hasUserInteractedRef.current) {
+    if (!hasUserInteractedRef.current || isMirrorRef.current) {
       return;
     }
     const timer = new Audio(buildAudioUrl(QUESTION_JINGLE_FILE));
@@ -1894,7 +1895,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
   const playRound4AnswerAudio = useCallback(
     (puzzleId: number, options?: { onEnded?: () => void }) => {
-      if (!hasUserInteractedRef.current) {
+      if (!hasUserInteractedRef.current || isMirrorRef.current) {
         return;
       }
 
@@ -1930,7 +1931,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   );
 
   const playRound4EndAudio = useCallback(() => {
-    if (!hasUserInteractedRef.current) {
+    if (!hasUserInteractedRef.current || isMirrorRef.current) {
       return;
     }
     const variant = Math.floor(Math.random() * 5) + 1;
@@ -1943,7 +1944,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, []);
 
   const playRound2RulesAudio = useCallback(() => {
-    if (!hasUserInteractedRef.current) {
+    if (!hasUserInteractedRef.current || isMirrorRef.current) {
       return;
     }
     stopRound2RulesAudio();
@@ -1986,7 +1987,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [stopRound2RulesAudio]);
 
   const playRound3RulesAudio = useCallback(() => {
-    if (!hasUserInteractedRef.current) {
+    if (!hasUserInteractedRef.current || isMirrorRef.current) {
       return;
     }
 
@@ -2032,7 +2033,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [stopRound3RulesAudio]);
 
   const playRound4RulesAudio = useCallback(() => {
-    if (!hasUserInteractedRef.current) {
+    if (!hasUserInteractedRef.current || isMirrorRef.current) {
       return;
     }
 
@@ -2079,7 +2080,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [stopRound4RulesAudio]);
 
   const playRound5RulesAudio = useCallback((options?: { onEnded?: () => void }) => {
-    if (!hasUserInteractedRef.current) {
+    if (!hasUserInteractedRef.current || isMirrorRef.current) {
       return;
     }
 
@@ -2122,7 +2123,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
   const playRound5QuestionAudio = useCallback(
     async (bankIndex: number) => {
-      if (!hasUserInteractedRef.current) {
+      if (!hasUserInteractedRef.current || isMirrorRef.current) {
         return;
       }
 
@@ -2154,7 +2155,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
   const playRound5ExplanationAudio = useCallback(
     (bankIndex: number, options?: { onEnded?: () => void }) => {
-      if (!hasUserInteractedRef.current) {
+      if (!hasUserInteractedRef.current || isMirrorRef.current) {
         options?.onEnded?.();
         return;
       }
@@ -2398,7 +2399,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [isVoiceMuted]);
 
   const playRound3VoteVoiceAudio = useCallback(() => {
-    if (typeof window === 'undefined') {
+    if (typeof window === 'undefined' || isMirrorRef.current) {
       return;
     }
 
@@ -2560,6 +2561,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
   const playRound3Audio = useCallback(
     (index: number) => {
+      if (isMirrorRef.current) return;
       stopRound3Audio();
       setRound3AudioBlocked(false);
 
@@ -2847,7 +2849,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
   const playRound3VoteAudio = useCallback(
     (questionIndex: number) => {
-      if (typeof window === 'undefined') {
+      if (typeof window === 'undefined' || isMirrorRef.current) {
         return;
       }
       // Important: do NOT stop/cancel vote voice here.
@@ -2991,6 +2993,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
     if (!questionStartedAt) {
       return;
     }
+    if (isMirrorRef.current) return;
     const currentQ = currentRound3Question;
     if (!currentQ) {
       return;
@@ -3159,7 +3162,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
   const playRound3ResultsAudio = useCallback(
     (index: number) => {
-      if (!hasUserInteractedRef.current) {
+      if (!hasUserInteractedRef.current || isMirrorRef.current) {
         return;
       }
 
@@ -3913,7 +3916,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
   const playRound2FactAudio = useCallback(
     (index: number, isFact: boolean) => {
-      if (!hasUserInteractedRef.current) return;
+      if (!hasUserInteractedRef.current || isMirrorRef.current) return;
       stopRound2Audio();
 
       const folder = isFact ? 'round2/true' : 'round2/false';
@@ -3941,7 +3944,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
   const playRound2BetweenAudio = useCallback(
     (percent: number) => {
-      if (!hasUserInteractedRef.current) {
+      if (!hasUserInteractedRef.current || isMirrorRef.current) {
         return;
       }
 
@@ -3989,7 +3992,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
   const playRound2ExplanationAudio = useCallback(
     async (index: number) => {
-      if (!hasUserInteractedRef.current) return;
+      if (!hasUserInteractedRef.current || isMirrorRef.current) return;
       stopRound2Audio();
 
       const bg = new Audio(buildAudioUrl(ROUND2_EXPLANATION_BG_FILE));
@@ -4032,7 +4035,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
   const playRound2FictionExplanationAudio = useCallback(
     async (index: number) => {
-      if (!hasUserInteractedRef.current) return;
+      if (!hasUserInteractedRef.current || isMirrorRef.current) return;
       stopRound2Audio();
 
       const bg = new Audio(buildAudioUrl(ROUND2_EXPLANATION_BG_FILE));
@@ -4709,6 +4712,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, []);
 
   const playWelcomeSpeech = useCallback(async () => {
+    if (isMirrorRef.current) return;
     const file = pickRandomItem(MEET_AUDIO_FILES);
     const audio = new Audio(buildAudioUrl(file));
     audio.volume = 0.9;
@@ -4753,7 +4757,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [playWelcomeSpeech, playLobbyJingle]);
 
   const playJoinSound = useCallback(async () => {
-    if (!hasUserInteractedRef.current || !isJoinSoundEnabled) {
+    if (!hasUserInteractedRef.current || !isJoinSoundEnabled || isMirrorRef.current) {
       return;
     }
     const fileName = JOIN_SOUND_FILES[Math.floor(Math.random() * JOIN_SOUND_FILES.length)];
@@ -4800,7 +4804,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, []);
 
   const playAnswerDuckSound = useCallback(async () => {
-    if (!hasUserInteractedRef.current || isVoiceMutedRef.current) {
+    if (!hasUserInteractedRef.current || isVoiceMutedRef.current || isMirrorRef.current) {
       return;
     }
 
@@ -4829,7 +4833,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
   const playConnectAudio = useCallback(
     async (connectedPlayers: number) => {
-      if (!hasUserInteractedRef.current || connectedPlayers <= 0) {
+      if (!hasUserInteractedRef.current || connectedPlayers <= 0 || isMirrorRef.current) {
         return;
       }
 
@@ -4867,7 +4871,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, []);
 
   const playRulesAudio = useCallback(() => {
-    if (!hasUserInteractedRef.current) {
+    if (!hasUserInteractedRef.current || isMirrorRef.current) {
       return;
     }
 
@@ -4912,7 +4916,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, []);
 
   const playSkipAudio = useCallback(() => {
-    if (!hasUserInteractedRef.current) {
+    if (!hasUserInteractedRef.current || isMirrorRef.current) {
       return;
     }
 
@@ -4939,7 +4943,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
   const playBetweenAudioForPercent = useCallback(
     async (percent: number, options?: { onEnded?: () => void }) => {
-      if (!hasUserInteractedRef.current) {
+      if (!hasUserInteractedRef.current || isMirrorRef.current) {
         return;
       }
 
@@ -5113,7 +5117,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
   const playBeep = useCallback(
     async (frequency = 880) => {
-      if (!hasUserInteractedRef.current) {
+      if (!hasUserInteractedRef.current || isMirrorRef.current) {
         return;
       }
 
@@ -5190,7 +5194,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
   const playQuestionAudio = useCallback(
     async (questionId: number) => {
-      if (!hasUserInteractedRef.current) {
+      if (!hasUserInteractedRef.current || isMirrorRef.current) {
         return;
       }
 
@@ -5691,6 +5695,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
     if (!roomId || roomStatus !== 'running') {
       return;
     }
+    if (isMirrorRef.current) return;
 
     const totalPlayers = players.length;
     if (totalPlayers === 0) {
@@ -5722,6 +5727,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
     if (!roomId || roomStatus !== 'round2-running') {
       return;
     }
+    if (isMirrorRef.current) return;
 
     if (totalPlayerCount === 0) {
       return;
@@ -5752,6 +5758,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
     if (!roomId || roomStatus !== 'round5-running') {
       return;
     }
+    if (isMirrorRef.current) return;
 
     if (totalPlayerCount === 0) {
       return;
@@ -5929,6 +5936,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
 
   const finishRound = async () => {
+    if (isMirrorRef.current) return;
     if (isSummaryLoading) return;
     setIsSummaryLoading(true);
     stopQuestionAudio();
@@ -5952,6 +5960,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   };
 
   const startRound = async () => {
+    if (isMirrorRef.current) return;
     if (!isPackReady) {
       setError('Пакет вопросов ещё загружается. Подождите пару секунд и попробуйте снова.');
       return;
@@ -5998,6 +6007,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   };
 
   const nextQuestion = useCallback(async () => {
+    if (isMirrorRef.current) return;
     const newIndex = currentQuestionIndex + 1;
     const { iso: questionStartedAt, offset } = await getServerIsoTimestamp();
 
@@ -6023,6 +6033,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
   const runCountdownSequence = useCallback(
     function runCountdownSequence(stepIndex: number) {
+      if (isMirrorRef.current) return;
       const clampedIndex = Math.min(stepIndex, COUNTDOWN_STEPS.length - 1);
       const value = COUNTDOWN_STEPS[clampedIndex];
       const isFinal = clampedIndex === COUNTDOWN_STEPS.length - 1;
@@ -6114,6 +6125,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   };
 
   const endGame = async () => {
+    if (isMirrorRef.current) return;
     setIsTournamentVisible(false);
     stopAllAudio();
     const { error: updateError } = await supabase
@@ -6139,6 +6151,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
   const moveRound2ToExplanation = useCallback(
     async (index: number) => {
+      if (isMirrorRef.current) return;
       if (round2PhaseRef.current !== 'fact' || isTransitioningRound2Ref.current) {
         return;
       }
@@ -6244,6 +6257,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
     if (roomStatus !== 'round2-running' || round2Phase !== 'fact' || !serverAllPlayersAnswered || isTransitioningRound2Ref.current) {
       return;
     }
+    if (isMirrorRef.current) return;
     const currentIndex = round2CurrentIndexRef.current ?? round2CurrentIndex;
     if (currentIndex === null) {
       return;
@@ -6255,6 +6269,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
   const launchRound2Question = useCallback(
     async (index: number, showingFact: boolean, questionNumber: number, options?: { resetTrackers?: boolean }) => {
+      if (isMirrorRef.current) return;
       hasUserInteractedRef.current = true;
       clearRound2Timer();
       stopRound2Audio();
@@ -6432,6 +6447,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [startRound2]);
 
   const startRound3Countdown = useCallback(() => {
+    if (isMirrorRef.current) return;
     if (round3StartLockRef.current || isCountdownVisible) {
       return;
     }
@@ -6513,6 +6529,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [startRound3Countdown]);
 
   const handleRound3Complete = useCallback(async () => {
+    if (isMirrorRef.current) return;
     stopRound3Audio();
     stopRound3VoteAudio();
     stopRound3ResultsAudio();
@@ -6545,6 +6562,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [playTournamentJingle, roomId, setQuestion, stopRound3Audio, stopRound3ResultsAudio, stopRound3VoteAudio]);
 
   const handleRound3NextQuestion = useCallback(async () => {
+    if (isMirrorRef.current) return;
     if (roomStatus !== 'round3-running') {
       return;
     }
@@ -6590,6 +6608,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [handleRound3Complete]);
 
   const handleRound3BackToEndOfRound2 = useCallback(async () => {
+    if (isMirrorRef.current) return;
     stopRound3Audio();
     lastRound3PlaybackKeyRef.current = null;
     setIsTournamentVisible(false);
@@ -6636,6 +6655,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [roomId, setQuestion, stopRound3Audio, stopTournamentJingle]);
 
   const completeRound2 = useCallback(async () => {
+    if (isMirrorRef.current) return;
     handleRound2NextQuestionRef.current = null;
     clearRound2Timer();
     stopRound2Audio();
@@ -6676,6 +6696,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [clearRound2Timer, playRound2EndCeremony, roomId, setRound2CurrentIndex, setRound2Phase, stopRound2Audio, stopRound2RulesAudio, updateRound2Leaderboard]);
 
   const handleRound2NextQuestion = useCallback(async () => {
+    if (isMirrorRef.current) return;
     if (roomStatus !== 'round2-running') {
       return;
     }
@@ -6941,6 +6962,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, []);
 
   const startRound5Game = useCallback(async () => {
+    if (isMirrorRef.current) return;
     if (round5StartLockRef.current) {
       return;
     }
@@ -7004,6 +7026,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [getServerIsoTimestamp, roomId, stopAllAudioImmediate, syncTimerWithStart, updateRoomStatus]);
 
   const advanceRound5Tour = useCallback(async () => {
+    if (isMirrorRef.current) return;
     if (round5AdvanceLockRef.current) {
       return;
     }
@@ -7053,6 +7076,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [currentQuestionIndex, getServerIsoTimestamp, roomId, stopAllAudio, updateRoomStatus]);
 
   const scoreAndRevealRound5 = useCallback(async () => {
+    if (isMirrorRef.current) return;
     if (isRound5Scoring) {
       return;
     }
@@ -7135,6 +7159,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [calculateRound5Points, isRound5Scoring, roomId, round5CurrentBankIndex, round5CurrentQuestion]);
 
   const startRound4Game = useCallback(async () => {
+    if (isMirrorRef.current) return;
     const usedFromDb = await loadUsedRound4PuzzleIds();
     const mergedUsed = Array.from(
       new Set(
@@ -7208,6 +7233,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [getServerIsoTimestamp, loadUsedRound4PuzzleIds, roomId, round4Puzzles, updateRoomStatus, syncTimerWithStart, playRound4CategoryAudio, playRound4TimerAudio]);
 
   const handleRound4Complete = useCallback(async () => {
+    if (isMirrorRef.current) return;
     stopRound4Audio();
     setIsTournamentVisible(true);
     setIsFinalRoundAvailable(true);
@@ -7238,6 +7264,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [playTournamentJingle, playRound4EndAudio, roomId, setQuestion, stopRound4Audio]);
 
   const maybeAutoAdvanceRound4 = useCallback(() => {
+    if (isMirrorRef.current) return;
     if (roomStatusRef.current !== 'round4-running') {
       return;
     }
@@ -7255,6 +7282,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
   const scoreRound4Puzzle = useCallback(
     async (puzzle: Round4Puzzle) => {
+      if (isMirrorRef.current) return;
       if (!puzzle || isRound4Scoring) {
         return;
       }
@@ -7497,6 +7525,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
     if (!question || roomStatus !== 'running' || !canAdvance || totalPlayers === 0) {
       return;
     }
+    if (isMirrorRef.current) return;
 
     const questionKey = typeof question.id === 'number' ? question.id : question.order;
     if (betweenCueQuestionRef.current === questionKey) {
@@ -7511,6 +7540,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
     if (!question || roomStatus !== 'running' || !isLastQuestion || !canAdvance) {
       return;
     }
+    if (isMirrorRef.current) return;
 
     const questionKey = typeof question.id === 'number' ? question.id : question.order;
     if (roundEndLockQuestionRef.current === questionKey) {
@@ -7558,6 +7588,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
       clearAutoFinishTimeout();
       return;
     }
+    if (isMirrorRef.current) return;
 
     if (autoNextTimeoutRef.current) {
       return;
