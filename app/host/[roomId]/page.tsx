@@ -1231,6 +1231,10 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   const round3VoteVoiceBufferSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const round3VoteVoiceGainNodeRef = useRef<GainNode | null>(null);
   const lastRound3VoteAudioKeyRef = useRef<string | null>(null);
+  const lastRound2FactPlaybackKeyRef = useRef<string | null>(null);
+  const lastRound2ExplanationPlaybackKeyRef = useRef<string | null>(null);
+  const lastRound4CuePlaybackKeyRef = useRef<string | null>(null);
+  const lastRound4AnswerPlaybackKeyRef = useRef<string | null>(null);
   const handleRound3NextQuestionRef = useRef<(() => void) | null>(null);
   const autoNextTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const round1VariantsOutroTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -4600,6 +4604,22 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
       } else if (detectedStatus === 'round2-running') {
         setShowResults(false);
         setQuestion(null);
+        const usedRound2Indices = await loadUsedRound2ItemIndices();
+        const normalizedRound2Used = Array.from(
+          new Set([
+            ...usedRound2Indices,
+            ...(typeof nextRound2Index === 'number' && Number.isFinite(nextRound2Index) ? [nextRound2Index] : []),
+          ])
+        );
+        setRound2AskedIndices(normalizedRound2Used);
+        round2AskedIndicesRef.current = normalizedRound2Used;
+        const round2Total = Math.min(ROUND2_TOTAL_QUESTIONS, round2ItemsRef.current.length || ROUND2_TOTAL_QUESTIONS);
+        const nextRound2QuestionCounter = Math.min(
+          Math.max(normalizedRound2Used.length, typeof nextRound2Index === 'number' ? 1 : 0),
+          round2Total
+        );
+        setRound2QuestionCounter(nextRound2QuestionCounter);
+        round2QuestionCounterRef.current = nextRound2QuestionCounter;
         if (nextRound2Index !== round2CurrentIndexRef.current) {
           setAnswerCount(0);
           setCorrectAnswerCount(0);
@@ -4725,6 +4745,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
       loadAnswerCount,
       fetchSummaryData,
       loadRound2AnswerStats,
+      loadUsedRound2ItemIndices,
       loadPlayers,
       syncTimerWithStart,
       updateRoomStatus,
@@ -4961,6 +4982,15 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
       return;
     }
 
+    stopLobby();
+    stopConnectAudio();
+    const skip = skipAudioRef.current;
+    if (skip) {
+      skip.pause();
+      skip.currentTime = 0;
+      skip.onended = null;
+      skipAudioRef.current = null;
+    }
     stopRulesAudio();
     rulesAudioCompletedRef.current = false;
 
@@ -5026,7 +5056,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
       rulesAudioCompletedRef.current = true;
       console.error('Не удалось проиграть правила раунда', error);
     });
-  }, [stopRulesAudio]);
+  }, [stopConnectAudio, stopLobby, stopRulesAudio]);
 
   const stopSkipAudio = useCallback(() => {
     const audio = skipAudioRef.current;
@@ -5792,9 +5822,93 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
   useEffect(() => {
     if (roomStatus === 'running' && (serverAllPlayersAnswered || everyoneAnswered)) {
+      if (isMirrorRef.current) {
+        return;
+      }
       stopQuestionAudio();
     }
   }, [roomStatus, serverAllPlayersAnswered, everyoneAnswered, stopQuestionAudio]);
+
+  useEffect(() => {
+    if (roomStatus !== 'round2-running') {
+      lastRound2FactPlaybackKeyRef.current = null;
+      lastRound2ExplanationPlaybackKeyRef.current = null;
+      return;
+    }
+    if (!isMirrorRef.current || round2CurrentIndex === null) {
+      return;
+    }
+
+    if (round2Phase === 'fact') {
+      const factKey = `${round2CurrentIndex}-${round2ShowingFact ? 't' : 'f'}-${questionStartedAt ?? 'na'}`;
+      if (lastRound2FactPlaybackKeyRef.current === factKey) {
+        return;
+      }
+      lastRound2FactPlaybackKeyRef.current = factKey;
+      void playRound2FactAudio(round2CurrentIndex, round2ShowingFact);
+      return;
+    }
+
+    if (round2Phase === 'explanation') {
+      const explanationKey = `${round2CurrentIndex}-${round2ShowingFact ? 't' : 'f'}-explanation`;
+      if (lastRound2ExplanationPlaybackKeyRef.current === explanationKey) {
+        return;
+      }
+      lastRound2ExplanationPlaybackKeyRef.current = explanationKey;
+      if (round2ShowingFact) {
+        void playRound2ExplanationAudio(round2CurrentIndex);
+      } else {
+        void playRound2FictionExplanationAudio(round2CurrentIndex);
+      }
+    }
+  }, [
+    playRound2ExplanationAudio,
+    playRound2FactAudio,
+    playRound2FictionExplanationAudio,
+    questionStartedAt,
+    roomStatus,
+    round2CurrentIndex,
+    round2Phase,
+    round2ShowingFact,
+  ]);
+
+  useEffect(() => {
+    if (roomStatus !== 'round4-running') {
+      lastRound4CuePlaybackKeyRef.current = null;
+      lastRound4AnswerPlaybackKeyRef.current = null;
+      return;
+    }
+    if (!isMirrorRef.current || !round4CurrentPuzzle) {
+      return;
+    }
+
+    const cueKey = `${round4CurrentPuzzle.id}-${questionStartedAt ?? 'na'}`;
+    if (lastRound4CuePlaybackKeyRef.current === cueKey) {
+      return;
+    }
+
+    lastRound4CuePlaybackKeyRef.current = cueKey;
+    lastRound4AnswerPlaybackKeyRef.current = null;
+    playRound4CategoryAudio(round4CurrentPuzzle.category);
+    playRound4TimerAudio();
+  }, [playRound4CategoryAudio, playRound4TimerAudio, questionStartedAt, roomStatus, round4CurrentPuzzle]);
+
+  useEffect(() => {
+    if (roomStatus !== 'round4-running' || !round4CurrentPuzzle || timeLeft > 0) {
+      return;
+    }
+    if (!isMirrorRef.current) {
+      return;
+    }
+
+    const answerKey = `${round4CurrentPuzzle.id}-answer`;
+    if (lastRound4AnswerPlaybackKeyRef.current === answerKey) {
+      return;
+    }
+
+    lastRound4AnswerPlaybackKeyRef.current = answerKey;
+    playRound4AnswerAudio(round4CurrentPuzzle.id);
+  }, [playRound4AnswerAudio, roomStatus, round4CurrentPuzzle, timeLeft]);
 
   useEffect(() => {
     if (!timerActive || !questionStartedAt) {
@@ -7003,7 +7117,10 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
             ? 'Финал'
             : 'Раунд 2'
       : 'Закрыть комнату';
-  const round2QuestionNumber = round2QuestionCounter > 0 ? round2QuestionCounter : 1;
+  const round2QuestionNumber =
+    round2QuestionCounter > 0
+      ? round2QuestionCounter
+      : Math.max(round2AskedIndices.length, round2CurrentIndex !== null ? 1 : 0, 1);
   const effectiveRound2Total = Math.min(ROUND2_TOTAL_QUESTIONS, round2Items.length || ROUND2_TOTAL_QUESTIONS);
   const clampedRound2QuestionNumber = Math.min(round2QuestionNumber, effectiveRound2Total);
   const round1QuestionCount = totalQuestions;
@@ -7662,7 +7779,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
     if (!question || roomStatus !== 'running' || !canAdvance || totalPlayers === 0) {
       return;
     }
-    if (isMirrorRef.current) return;
 
     const questionKey = typeof question.id === 'number' ? question.id : question.order;
     if (betweenCueQuestionRef.current === questionKey) {
@@ -7677,7 +7793,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
     if (!question || roomStatus !== 'running' || !isLastQuestion || !canAdvance) {
       return;
     }
-    if (isMirrorRef.current) return;
 
     const questionKey = typeof question.id === 'number' ? question.id : question.order;
     if (roundEndLockQuestionRef.current === questionKey) {
@@ -7685,6 +7800,12 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
     }
 
     roundEndLockQuestionRef.current = questionKey;
+
+    if (isMirrorRef.current) {
+      playRound1EndCeremonyAudio();
+      return;
+    }
+
     roundEndButtonSetterRef.current(true);
     clearRoundEndDelayTimeout();
     clearRoundEndUnlockTimeout();
