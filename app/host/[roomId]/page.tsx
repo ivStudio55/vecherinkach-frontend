@@ -7920,8 +7920,13 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
     roundEndLockQuestionRef.current = questionKey;
 
     if (isMirrorRef.current) {
-      stopQuestionAudio();
-      playRound1EndCeremonyAudio();
+      // Mirror: play between audio first, then the round-end ceremony (round1end voice + jingle).
+      void playBetweenAudioForPercent(correctAnswerPercentage, {
+        onEnded: () => {
+          if (roundEndLockQuestionRef.current !== questionKey) return;
+          playRound1EndCeremonyAudio();
+        },
+      });
       return;
     }
 
@@ -7946,7 +7951,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
     timeLeft,
     everyoneAnswered,
     isLastQuestion,
-    stopQuestionAudio,
     playRound1EndCeremonyAudio,
     finishRound,
     clearRoundEndUnlockTimeout,
