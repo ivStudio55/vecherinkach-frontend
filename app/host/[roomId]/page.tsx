@@ -1253,6 +1253,13 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   const currentRound3Question =
     roomStatus === 'round3-running' ? round3Questions[currentQuestionIndex] ?? null : null;
 
+  useEffect(() => {
+    // Mirror не получает пользовательских кликов, поэтому сразу разрешаем авто-воспроизведение.
+    if (isMirror) {
+      hasUserInteractedRef.current = true;
+    }
+  }, [isMirror]);
+
   const currentLikeQuestionId = (() => {
     if (roomStatus === 'running' && question?.id) {
       return question.id;
