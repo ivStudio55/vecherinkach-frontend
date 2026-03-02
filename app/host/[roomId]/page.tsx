@@ -1886,6 +1886,19 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
         return;
       }
 
+      const previous = round4CategoryAudioRef.current;
+      if (previous) {
+        try {
+          previous.pause();
+          previous.currentTime = 0;
+        } catch {
+          // ignore
+        }
+        previous.onended = null;
+        previous.onerror = null;
+        round4CategoryAudioRef.current = null;
+      }
+
       const normalized = normalizeRound4Answer(category);
       const key = ROUND4_CATEGORY_AUDIO_MAP[normalized];
       if (!key) {
@@ -1907,6 +1920,20 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
     if (!hasUserInteractedRef.current) {
       return;
     }
+
+    const previous = round4TimerAudioRef.current;
+    if (previous) {
+      try {
+        previous.pause();
+        previous.currentTime = 0;
+      } catch {
+        // ignore
+      }
+      previous.onended = null;
+      previous.onerror = null;
+      round4TimerAudioRef.current = null;
+    }
+
     const timer = new Audio(buildAudioUrl(QUESTION_JINGLE_FILE));
     timer.volume = 0.55;
     round4TimerAudioRef.current = timer;
@@ -1919,6 +1946,32 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
     (puzzleId: number, options?: { onEnded?: () => void }) => {
       if (!hasUserInteractedRef.current) {
         return;
+      }
+
+      const category = round4CategoryAudioRef.current;
+      if (category) {
+        try {
+          category.pause();
+          category.currentTime = 0;
+        } catch {
+          // ignore
+        }
+        category.onended = null;
+        category.onerror = null;
+        round4CategoryAudioRef.current = null;
+      }
+
+      const timer = round4TimerAudioRef.current;
+      if (timer) {
+        try {
+          timer.pause();
+          timer.currentTime = 0;
+        } catch {
+          // ignore
+        }
+        timer.onended = null;
+        timer.onerror = null;
+        round4TimerAudioRef.current = null;
       }
 
       stopRound4AnswerAudio();
@@ -5101,6 +5154,19 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
         return;
       }
 
+      const questionJingle = questionJingleAudioRef.current;
+      if (questionJingle) {
+        questionJingle.pause();
+        questionJingle.currentTime = 0;
+        questionJingleAudioRef.current = null;
+      }
+      const questionVoice = questionVoiceAudioRef.current;
+      if (questionVoice) {
+        questionVoice.pause();
+        questionVoice.currentTime = 0;
+        questionVoiceAudioRef.current = null;
+      }
+
       const normalized = Math.max(0, Math.min(100, Math.round(percent)));
       const variants =
         normalized === 100
@@ -5822,9 +5888,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
   useEffect(() => {
     if (roomStatus === 'running' && (serverAllPlayersAnswered || everyoneAnswered)) {
-      if (isMirrorRef.current) {
-        return;
-      }
       stopQuestionAudio();
     }
   }, [roomStatus, serverAllPlayersAnswered, everyoneAnswered, stopQuestionAudio]);
@@ -5881,6 +5944,9 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
     if (!isMirrorRef.current || !round4CurrentPuzzle) {
       return;
     }
+    if (timeLeft <= 0 || serverAllPlayersAnswered) {
+      return;
+    }
 
     const cueKey = `${round4CurrentPuzzle.id}-${questionStartedAt ?? 'na'}`;
     if (lastRound4CuePlaybackKeyRef.current === cueKey) {
@@ -5891,7 +5957,15 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
     lastRound4AnswerPlaybackKeyRef.current = null;
     playRound4CategoryAudio(round4CurrentPuzzle.category);
     playRound4TimerAudio();
-  }, [playRound4CategoryAudio, playRound4TimerAudio, questionStartedAt, roomStatus, round4CurrentPuzzle]);
+  }, [
+    playRound4CategoryAudio,
+    playRound4TimerAudio,
+    questionStartedAt,
+    roomStatus,
+    round4CurrentPuzzle,
+    serverAllPlayersAnswered,
+    timeLeft,
+  ]);
 
   useEffect(() => {
     if (roomStatus !== 'round4-running' || !round4CurrentPuzzle || timeLeft > 0) {
@@ -7776,7 +7850,8 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [stopRound5RulesAudio]);
 
   useEffect(() => {
-    if (!question || roomStatus !== 'running' || !canAdvance || totalPlayers === 0) {
+    const isRound1TransitionReady = roomStatus === 'running' && (effectiveTimeLeft === 0 || serverAllPlayersAnswered);
+    if (!question || !isRound1TransitionReady || totalPlayers === 0) {
       return;
     }
 
@@ -7787,10 +7862,19 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
     betweenCueQuestionRef.current = questionKey;
     void playBetweenAudioForPercent(correctAnswerPercentage);
-  }, [question, roomStatus, canAdvance, totalPlayers, correctAnswerPercentage, playBetweenAudioForPercent]);
+  }, [
+    question,
+    roomStatus,
+    effectiveTimeLeft,
+    serverAllPlayersAnswered,
+    totalPlayers,
+    correctAnswerPercentage,
+    playBetweenAudioForPercent,
+  ]);
 
   useEffect(() => {
-    if (!question || roomStatus !== 'running' || !isLastQuestion || !canAdvance) {
+    const isRound1TransitionReady = roomStatus === 'running' && (effectiveTimeLeft === 0 || serverAllPlayersAnswered);
+    if (!question || !isLastQuestion || !isRound1TransitionReady) {
       return;
     }
 
@@ -7802,6 +7886,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
     roundEndLockQuestionRef.current = questionKey;
 
     if (isMirrorRef.current) {
+      stopQuestionAudio();
       playRound1EndCeremonyAudio();
       return;
     }
@@ -7824,8 +7909,10 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [
     question,
     roomStatus,
+    effectiveTimeLeft,
+    serverAllPlayersAnswered,
     isLastQuestion,
-    canAdvance,
+    stopQuestionAudio,
     playRound1EndCeremonyAudio,
     finishRound,
     clearRoundEndUnlockTimeout,
