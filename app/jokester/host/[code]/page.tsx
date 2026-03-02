@@ -139,7 +139,7 @@ function DeadlineOverlay({ seconds }: { seconds: number }) {
 }
 
 /* ══════════════════════════════════════════════ */
-export function JokesterHostContent({ isMirror = false }: { isMirror?: boolean }) {
+export default function JokesterHostPage() {
   const params = useParams();
   const roomCode = params.code as string;
 
@@ -160,6 +160,7 @@ export function JokesterHostContent({ isMirror = false }: { isMirror?: boolean }
   const [isBgmMuted, setIsBgmMuted] = useState(false);
   const [isVoiceMuted, setIsVoiceMuted] = useState(false);
   const [isAnimationsDisabled, setIsAnimationsDisabled] = useState(false);
+  const [isJoinQrModalOpen, setIsJoinQrModalOpen] = useState(false);
 
   useEffect(() => {
     setIsBgmMuted(localStorage.getItem('jokester_bgm_muted') === 'true');
@@ -1079,6 +1080,12 @@ export function JokesterHostContent({ isMirror = false }: { isMirror?: boolean }
           <span className="px-3 py-1 rounded-xl text-sm font-black bg-gray-200 text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
             {roomCode}
           </span>
+          <button
+            onClick={() => setIsJoinQrModalOpen(true)}
+            className="px-3 py-1 rounded-xl text-xs font-black border-2 border-black bg-cyan-300 text-black hover:bg-cyan-200 transition-transform transition hover:scale-105 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+          >
+            QR
+          </button>
           <a
             href="https://donatty.com/aleksandri"
             target="_blank"
@@ -1125,28 +1132,43 @@ export function JokesterHostContent({ isMirror = false }: { isMirror?: boolean }
           >
             ✨
           </button>
-          {isMirror && (
-            <span className="px-3 py-1 rounded-xl text-xs font-black bg-purple-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] animate-pulse">📡 ЗЕРКАЛО</span>
-          )}
-          {!isMirror && (
-            <>
-              <button
-                onClick={() => { void handleForceAdvance(); }}
-                className="px-3 py-1 rounded-xl text-xs bg-amber-500 hover:bg-amber-400 text-black font-black border-2 border-black transition-transform transition hover:scale-105 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
-                title="Ручной переход к следующему шагу"
-              >
-                → Дальше
-              </button>
-              <button
-                onClick={handleCloseRoom}
-                className="px-3 py-1 rounded-xl text-xs bg-red-600 hover:bg-red-500 text-white border-2 border-black transition-transform transition hover:scale-105 font-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
-              >
-                ✕ Закрыть
-              </button>
-            </>
-          )}
+          <button
+            onClick={() => { void handleForceAdvance(); }}
+            className="px-3 py-1 rounded-xl text-xs bg-amber-500 hover:bg-amber-400 text-black font-black border-2 border-black transition-transform transition hover:scale-105 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+            title="Ручной переход к следующему шагу"
+          >
+            → Дальше
+          </button>
+          <button
+            onClick={handleCloseRoom}
+            className="px-3 py-1 rounded-xl text-xs bg-red-600 hover:bg-red-500 text-white border-2 border-black transition-transform transition hover:scale-105 font-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+          >
+            ✕ Закрыть
+          </button>
         </div>
       </header>
+
+      {isJoinQrModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
+          <div className="w-full max-w-xl cartoon-panel p-6 space-y-4 text-center">
+            <div className="flex items-center justify-between">
+              <h3 className="text-2xl font-black text-black">QR для подключения</h3>
+              <button
+                onClick={() => setIsJoinQrModalOpen(false)}
+                className="px-3 py-2 rounded-xl text-xs border-2 bg-white text-black border-black"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="bg-white rounded-2xl p-4 inline-block border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+              <QRCodeCanvas value={joinUrl} size={240} fgColor="#000000" bgColor="#ffffff" />
+            </div>
+            <p className="font-mono text-5xl font-black tracking-[0.4em] text-black">{roomCode}</p>
+            <p className="text-sm text-gray-700 font-bold break-all">{joinUrl}</p>
+            <p className="text-xs text-gray-700">Подключаться могут новые игроки и зрители.</p>
+          </div>
+        </div>
+      )}
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 py-6 space-y-6">
 
@@ -1162,18 +1184,6 @@ export function JokesterHostContent({ isMirror = false }: { isMirror?: boolean }
                 </div>
                 <p className="font-mono text-5xl font-black tracking-[0.5em] text-black drop-shadow-[2px_2px_0_#fff]">{roomCode}</p>
                 <p className="text-sm text-gray-800 font-bold break-all">{joinUrl}</p>
-                {!isMirror && (() => {
-                  const mirrorUrl = typeof window !== 'undefined' ? `${window.location.origin}/jokester/mirror/${roomCode}` : '';
-                  return (
-                    <div className="border-t-2 border-dashed border-gray-300 pt-4 mt-4 space-y-2">
-                      <p className="text-sm font-black text-purple-700">📡 Зеркало трансляции</p>
-                      <div className="bg-white rounded-xl p-3 inline-block border-2 border-purple-400 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.3)]">
-                        <QRCodeCanvas value={mirrorUrl} size={140} fgColor="#7c3aed" bgColor="#ffffff" />
-                      </div>
-                      <p className="text-xs text-purple-600 font-bold break-all">{mirrorUrl}</p>
-                    </div>
-                  );
-                })()}
               </div>
 
               <div className="space-y-6">
@@ -1207,7 +1217,7 @@ export function JokesterHostContent({ isMirror = false }: { isMirror?: boolean }
               </div>
             </div>
 
-            {gamePlayers.length >= 4 && !isMirror && (
+            {gamePlayers.length >= 4 && (
               <button
                 onClick={(e) => {
                   unlockAudio();
@@ -1218,9 +1228,6 @@ export function JokesterHostContent({ isMirror = false }: { isMirror?: boolean }
               >
                 🎬 НАЧАТЬ ИГРУ
               </button>
-            )}
-            {gamePlayers.length >= 4 && isMirror && (
-              <div className="w-full py-6 rounded-3xl font-black text-2xl cartoon-panel text-center text-gray-500">⏳ Ожидаем запуска от ведущего…</div>
             )}
             {gamePlayers.length < 4 && (
               <div className="text-center text-white font-bold text-lg py-4 drop-shadow-[1px_1px_0_#000]">
@@ -1290,18 +1297,16 @@ export function JokesterHostContent({ isMirror = false }: { isMirror?: boolean }
                 </div>
               ))}
             </div>
-            {!isMirror && (
-              <button
+            <button
                 onClick={(e) => {
                   unlockAudio();
-                  triggerStartButtonEffects(e.currentTarget);
-                  void handleStartDuels();
-                }}
-                className="w-full py-6 rounded-3xl font-black text-3xl bg-purple-600 text-white border-4 border-black hover:bg-purple-500 transition-all shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
-              >
-                ▶ Начать дуэли
-              </button>
-            )}
+                triggerStartButtonEffects(e.currentTarget);
+                void handleStartDuels();
+              }}
+              className="w-full py-6 rounded-3xl font-black text-3xl bg-purple-600 text-white border-4 border-black hover:bg-purple-500 transition-all shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
+            >
+              ▶ Начать дуэли
+            </button>
           </div>
         )}
 
@@ -1674,7 +1679,7 @@ export function JokesterHostContent({ isMirror = false }: { isMirror?: boolean }
             )}
 
             {/* Actions */}
-            {room.status === 'round_results' && room.current_round < 3 && !isMirror && (
+            {room.status === 'round_results' && room.current_round < 3 && (
               <button
                 onClick={(e) => {
                   unlockAudio();
@@ -1686,7 +1691,7 @@ export function JokesterHostContent({ isMirror = false }: { isMirror?: boolean }
                 ▶ {room.current_round + 1} раунд
               </button>
             )}
-            {room.status === 'round_results' && room.current_round === 3 && !isMirror && (
+            {room.status === 'round_results' && room.current_round === 3 && (
               <button
                 onClick={(e) => {
                   unlockAudio();
@@ -1698,7 +1703,7 @@ export function JokesterHostContent({ isMirror = false }: { isMirror?: boolean }
                 🏆 ФИНАЛ
               </button>
             )}
-            {room.status === 'final_results' && !isMirror && (
+            {room.status === 'final_results' && (
               <button
                 onClick={() => { void handleShowCredits(); }}
                 className="w-full py-6 rounded-3xl font-black text-3xl bg-[#ffd700] text-black border-4 border-black hover:bg-[#ffe44d] transition-all shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
@@ -1780,25 +1785,21 @@ export function JokesterHostContent({ isMirror = false }: { isMirror?: boolean }
               <p className="text-lg text-white font-bold drop-shadow-[1px_1px_0_#000]">Пошути-кач · Вечеринкач</p>
             </div>
 
-            {!isMirror && (
-              <>
-                <div className="fixed inset-0 flex items-end justify-center pb-16 pointer-events-none">
-                  <button
-                    onClick={() => { void handleRestartGame(); }}
-                    className="pointer-events-auto px-10 py-6 rounded-3xl font-black text-2xl bg-[#ffd700] text-black border-4 border-black hover:bg-[#ffe44d] transition-all shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
-                  >
-                    Играть заново
-                  </button>
-                </div>
+            <div className="fixed inset-0 flex items-end justify-center pb-16 pointer-events-none">
+              <button
+                onClick={() => { void handleRestartGame(); }}
+                className="pointer-events-auto px-10 py-6 rounded-3xl font-black text-2xl bg-[#ffd700] text-black border-4 border-black hover:bg-[#ffe44d] transition-all shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
+              >
+                Играть заново
+              </button>
+            </div>
 
-                <button
-                  onClick={handleCloseRoom}
-                  className="fixed bottom-8 right-8 px-8 py-4 rounded-2xl font-black text-xl bg-red-600 text-white border-4 border-black hover:bg-red-500 transition z-50 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
-                >
-                  Закрыть комнату
-                </button>
-              </>
-            )}
+            <button
+              onClick={handleCloseRoom}
+              className="fixed bottom-8 right-8 px-8 py-4 rounded-2xl font-black text-xl bg-red-600 text-white border-4 border-black hover:bg-red-500 transition z-50 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+            >
+              Закрыть комнату
+            </button>
           </div>
         )}
 
@@ -1821,20 +1822,16 @@ export function JokesterHostContent({ isMirror = false }: { isMirror?: boolean }
                 </p>
               )}
             </div>
-            {!isMirror ? (
-              <button
-                onClick={(e) => {
-                  unlockAudio();
-                  triggerStartButtonEffects(e.currentTarget);
-                  void handleStartRound();
-                }}
-                className="px-12 py-6 rounded-3xl font-black text-3xl bg-[#ffd700] text-black border-4 border-black hover:bg-[#ffe44d] active:scale-95 transition-all shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
-              >
-                ▶ Начать
-              </button>
-            ) : (
-              <p className="text-2xl text-white font-bold drop-shadow-[2px_2px_0_#000] animate-pulse">⏳ Ведущий запускает раунд…</p>
-            )}
+            <button
+              onClick={(e) => {
+                unlockAudio();
+                triggerStartButtonEffects(e.currentTarget);
+                void handleStartRound();
+              }}
+              className="px-12 py-6 rounded-3xl font-black text-3xl bg-[#ffd700] text-black border-4 border-black hover:bg-[#ffe44d] active:scale-95 transition-all shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
+            >
+              ▶ Начать
+            </button>
           </div>
         )}
 
@@ -1903,10 +1900,6 @@ export function JokesterHostContent({ isMirror = false }: { isMirror?: boolean }
       `}</style>
     </div>
   );
-}
-
-export default function JokesterHostPage() {
-  return <JokesterHostContent />;
 }
 
 /* ══════════════════════════════════════════════

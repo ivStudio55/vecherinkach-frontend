@@ -467,6 +467,7 @@ type HostLayoutMode = 'default' | 'compact' | 'stacked' | 'mobile';
 const HostControls = ({
   primaryLabel,
   onPrimaryAction,
+  onOpenQr,
   onToggleLayout,
   layoutLabel,
   compact,
@@ -480,6 +481,7 @@ const HostControls = ({
 }: {
   primaryLabel: string;
   onPrimaryAction: () => void;
+  onOpenQr?: () => void;
   onToggleLayout: () => void;
   layoutLabel: string;
   compact?: boolean;
@@ -503,6 +505,16 @@ const HostControls = ({
     >
       {primaryLabel}
     </button>
+    {onOpenQr ? (
+      <button
+        type="button"
+        onClick={onOpenQr}
+        className={`${compact ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'} comic-panel border-[4px] border-[#000] text-white comic-font hover:bg-[#ffde00]/10 transition`}
+        title="Открыть QR для подключения"
+      >
+        QR
+      </button>
+    ) : null}
     <button
       type="button"
       onClick={onToggleLayout}
@@ -719,6 +731,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   const [layoutMode, setLayoutMode] = useState<HostLayoutMode>('default');
   const [forcedLayoutScale, setForcedLayoutScale] = useState(1);
   const [showMobilePrompt, setShowMobilePrompt] = useState(false);
+  const [isJoinQrModalOpen, setIsJoinQrModalOpen] = useState(false);
 
   useEffect(() => {
     try {
@@ -7823,6 +7836,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
                   <HostControls
                     primaryLabel={headerActionLabel}
                     onPrimaryAction={handlePrimaryHeaderAction}
+                    onOpenQr={() => setIsJoinQrModalOpen(true)}
                     onToggleLayout={setNextLayoutMode}
                     layoutLabel={layoutModeLabel}
                     compact={isCompactForcedLayout}
@@ -7896,6 +7910,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
                   <HostControls
                     primaryLabel={headerActionLabel}
                     onPrimaryAction={handlePrimaryHeaderAction}
+                    onOpenQr={() => setIsJoinQrModalOpen(true)}
                     onToggleLayout={setNextLayoutMode}
                     layoutLabel={layoutModeLabel}
                     compact
@@ -8520,6 +8535,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
                 <HostControls
                   primaryLabel={headerActionLabel}
                   onPrimaryAction={handlePrimaryHeaderAction}
+                  onOpenQr={() => setIsJoinQrModalOpen(true)}
                   onToggleLayout={setNextLayoutMode}
                   layoutLabel={layoutModeLabel}
                   compact
@@ -9682,6 +9698,36 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
                 )}
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {isJoinQrModalOpen && !isMirror && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center px-4">
+          <div className="max-w-xl w-full comic-panel border-[4px] border-[#000] bg-white p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="comic-font text-xs tracking-[0.35em] text-black/70">Подключение</p>
+                <h3 className="text-2xl comic-font text-black">QR для новых игроков</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsJoinQrModalOpen(false)}
+                className="px-3 py-2 comic-panel border-[4px] border-[#000] bg-white comic-font text-black"
+              >
+                ✕
+              </button>
+            </div>
+
+            <JoinQrBlock
+              roomCode={roomCode}
+              qrWindowUrl={`/host/${roomId}/qr?code=${encodeURIComponent(roomCode)}`}
+              className="comic-panel border-[#000]/15 bg-white"
+            />
+
+            <p className="text-xs text-black/70 text-center">
+              Если камера не сканирует QR: откройте <span className="font-semibold">/join</span> и введите код <span className="comic-font">{roomCode}</span>
+            </p>
           </div>
         </div>
       )}

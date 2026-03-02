@@ -114,7 +114,7 @@ function ConfettiCanvas() {
   return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-50" />;
 }
 
-export function CreativachHostContent({ isMirror = false }: { isMirror?: boolean }) {
+export default function CreativachHostPage() {
   const params = useParams();
   const router = useRouter();
   const code = (params?.code as string) || '';
@@ -125,6 +125,7 @@ export function CreativachHostContent({ isMirror = false }: { isMirror?: boolean
   const [votes, setVotes] = useState<CreativachVote[]>([]);
   const [timerSec, setTimerSec] = useState(0);
   const [showRulesModal, setShowRulesModal] = useState(false);
+  const [isJoinQrModalOpen, setIsJoinQrModalOpen] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [resultsRevealed, setResultsRevealed] = useState(false);
   const [excuses, setExcuses] = useState<string[]>([]);
@@ -561,6 +562,8 @@ export function CreativachHostContent({ isMirror = false }: { isMirror?: boolean
     );
   }
 
+  const joinUrl = typeof window !== 'undefined' ? `${window.location.origin}/creativach?code=${code}` : '';
+
   return (
     <div className="min-h-screen bg-[#FF6B35] text-white overflow-hidden relative">
       {showConfetti && <ConfettiCanvas />}
@@ -577,31 +580,47 @@ export function CreativachHostContent({ isMirror = false }: { isMirror?: boolean
           <span className="bg-white/20 px-3 py-1 rounded-full text-sm font-bold">#{code}</span>
         </div>
         <div className="flex gap-2">
-          {isMirror && (
-            <span className="px-3 py-1 rounded-xl text-xs font-black bg-purple-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] animate-pulse">📡 ЗЕРКАЛО</span>
-          )}
-          {!isMirror && (
-            <>
-              <button onClick={handleForceNext} className="px-3 py-1 rounded-xl text-xs border-2 bg-yellow-400 text-black border-black hover:scale-110 transition-transform shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]" title="Принудительный переход">
-                Дальше ⏩
-              </button>
-              <a href="https://donatty.com/aleksandri" target="_blank" rel="noopener noreferrer" className="px-3 py-1 rounded-xl text-xs border-2 bg-pink-400 text-black border-black hover:scale-110 transition-transform shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                Поддержать 💖
-              </a>
-              <button onClick={handleCloseRoom} className="px-3 py-1 rounded-xl text-xs border-2 bg-red-500 text-white border-black hover:scale-110 transition-transform shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                Закрыть ✕
-              </button>
-            </>
-          )}
+          <button onClick={() => setIsJoinQrModalOpen(true)} className="px-3 py-1 rounded-xl text-xs border-2 bg-[#00CED1] text-black border-black hover:scale-110 transition-transform shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+            QR
+          </button>
+          <button onClick={handleForceNext} className="px-3 py-1 rounded-xl text-xs border-2 bg-yellow-400 text-black border-black hover:scale-110 transition-transform shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]" title="Принудительный переход">
+            Дальше ⏩
+          </button>
+          <a href="https://donatty.com/aleksandri" target="_blank" rel="noopener noreferrer" className="px-3 py-1 rounded-xl text-xs border-2 bg-pink-400 text-black border-black hover:scale-110 transition-transform shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+            Поддержать 💖
+          </a>
+          <button onClick={handleCloseRoom} className="px-3 py-1 rounded-xl text-xs border-2 bg-red-500 text-white border-black hover:scale-110 transition-transform shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+            Закрыть ✕
+          </button>
         </div>
       </div>
+
+      {isJoinQrModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
+          <div className="w-full max-w-xl cartoon-panel p-6 text-center space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-2xl font-black text-black">QR для подключения</h3>
+              <button
+                onClick={() => setIsJoinQrModalOpen(false)}
+                className="px-3 py-2 rounded-xl text-xs border-2 bg-white text-black border-black"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="bg-white rounded-2xl p-4 inline-block border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+              <QRCodeCanvas value={joinUrl} size={240} fgColor="#000000" bgColor="#ffffff" />
+            </div>
+            <p className="text-4xl font-black text-black tracking-[0.3em]">{code}</p>
+            <p className="text-xs text-gray-600 font-bold break-all">{joinUrl}</p>
+            <p className="text-xs text-gray-700">Подключаться могут новые игроки и зрители.</p>
+          </div>
+        </div>
+      )}
 
       <div className="relative z-10 max-w-5xl mx-auto px-4 py-6 space-y-6">
 
         {/* ─── LOBBY ─── */}
         {room.status === 'lobby' && (() => {
-          const joinUrl = typeof window !== 'undefined' ? `${window.location.origin}/creativach?code=${code}` : '';
-          const mirrorUrl = typeof window !== 'undefined' ? `${window.location.origin}/creativach/mirror/${code}` : '';
           return (
           <div className="space-y-6 animate-[fadeIn_0.4s_ease]">
             <div className="cartoon-panel p-6 text-center space-y-4">
@@ -612,16 +631,6 @@ export function CreativachHostContent({ isMirror = false }: { isMirror?: boolean
               </div>
               <p className="text-xs text-gray-500 font-bold break-all">{joinUrl}</p>
               <p className="text-sm text-gray-600">Игроки: {gamePlayers.length}/{MIN_PLAYERS}+ | Зрители: {spectators.length}</p>
-
-              {!isMirror && (
-                <div className="border-t-2 border-dashed border-gray-300 pt-4 mt-4 space-y-2">
-                  <p className="text-sm font-black text-purple-700">📡 Зеркало трансляции</p>
-                  <div className="bg-white rounded-xl p-3 inline-block border-2 border-purple-400 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.3)]">
-                    <QRCodeCanvas value={mirrorUrl} size={140} fgColor="#7c3aed" bgColor="#ffffff" />
-                  </div>
-                  <p className="text-xs text-purple-600 font-bold break-all">{mirrorUrl}</p>
-                </div>
-              )}
             </div>
 
             {/* Players grid */}
@@ -634,17 +643,13 @@ export function CreativachHostContent({ isMirror = false }: { isMirror?: boolean
               ))}
             </div>
 
-            {!isMirror ? (
-              <button
-                onClick={startGame}
-                disabled={!canStart}
-                className={`w-full py-4 text-xl font-black ${canStart ? 'cartoon-button animate-pulse' : 'cartoon-panel opacity-50 cursor-not-allowed'}`}
-              >
-                {canStart ? '🎮 Начать Креативач' : `⏳ Ожидаем игроков (${gamePlayers.length}/${MIN_PLAYERS})`}
-              </button>
-            ) : (
-              <div className="w-full py-4 text-xl font-black cartoon-panel text-center text-gray-500">⏳ Ожидаем запуска от ведущего…</div>
-            )}
+            <button
+              onClick={startGame}
+              disabled={!canStart}
+              className={`w-full py-4 text-xl font-black ${canStart ? 'cartoon-button animate-pulse' : 'cartoon-panel opacity-50 cursor-not-allowed'}`}
+            >
+              {canStart ? '🎮 Начать Креативач' : `⏳ Ожидаем игроков (${gamePlayers.length}/${MIN_PLAYERS})`}
+            </button>
           </div>
           );
         })()}
@@ -680,13 +685,9 @@ export function CreativachHostContent({ isMirror = false }: { isMirror?: boolean
                 </div>
               )}
 
-              {!isMirror ? (
-                <button onClick={startAnswering} className="cartoon-button py-3 px-8 text-lg">
-                  🚀 Поехали!
-                </button>
-              ) : (
-                <p className="text-gray-500 font-bold">⏳ Ведущий запускает раунд…</p>
-              )}
+              <button onClick={startAnswering} className="cartoon-button py-3 px-8 text-lg">
+                🚀 Поехали!
+              </button>
             </div>
           </div>
         )}
@@ -808,7 +809,7 @@ export function CreativachHostContent({ isMirror = false }: { isMirror?: boolean
             </div>
 
             {/* Next round / finish buttons */}
-            {room.status === 'round_results' && room.current_round < TOTAL_ROUNDS && !isMirror && (
+            {room.status === 'round_results' && room.current_round < TOTAL_ROUNDS && (
               <button onClick={handleNextRound} className="w-full py-4 text-xl font-black cartoon-button">
                 {room.current_round === TOTAL_ROUNDS - 1 ? '🏆 Финал' : `▶ Раунд ${room.current_round + 1}`}
               </button>
@@ -830,19 +831,17 @@ export function CreativachHostContent({ isMirror = false }: { isMirror?: boolean
                   </div>
                 )}
 
-                {!isMirror && (
-                  <div className="flex gap-3">
-                    <button onClick={handleShowCredits} className="flex-1 py-4 text-lg font-black cartoon-button">
-                      🎬 Титры
-                    </button>
-                    <button onClick={handlePlayAgain} className="flex-1 py-4 text-lg font-black cartoon-button-blue">
-                      🔄 Играть ещё
-                    </button>
-                    <a href="https://donatty.com/aleksandri" target="_blank" rel="noopener noreferrer" className="flex-1 py-4 text-lg font-black cartoon-button-purple text-center">
-                      💖 Поддержать
-                    </a>
-                  </div>
-                )}
+                <div className="flex gap-3">
+                  <button onClick={handleShowCredits} className="flex-1 py-4 text-lg font-black cartoon-button">
+                    🎬 Титры
+                  </button>
+                  <button onClick={handlePlayAgain} className="flex-1 py-4 text-lg font-black cartoon-button-blue">
+                    🔄 Играть ещё
+                  </button>
+                  <a href="https://donatty.com/aleksandri" target="_blank" rel="noopener noreferrer" className="flex-1 py-4 text-lg font-black cartoon-button-purple text-center">
+                    💖 Поддержать
+                  </a>
+                </div>
               </div>
             )}
           </div>
@@ -916,18 +915,16 @@ export function CreativachHostContent({ isMirror = false }: { isMirror?: boolean
                 <p className="text-lg text-white font-bold drop-shadow-[1px_1px_0_#000]">Креативач · Вечеринкач</p>
               </div>
 
-              {!isMirror && (
-                <div className="fixed inset-0 flex items-end justify-center pb-16 pointer-events-none z-30">
-                  <div className="pointer-events-auto flex gap-4">
-                    <button onClick={handlePlayAgain} className="px-10 py-6 rounded-3xl font-black text-2xl bg-[#FFD700] text-black border-4 border-black hover:bg-[#ffe44d] transition-all shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
-                      🔄 Играть заново
-                    </button>
-                    <button onClick={handleCloseRoom} className="px-8 py-4 rounded-2xl font-black text-xl bg-red-600 text-white border-4 border-black hover:bg-red-500 transition shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                      Закрыть ✕
-                    </button>
-                  </div>
+              <div className="fixed inset-0 flex items-end justify-center pb-16 pointer-events-none z-30">
+                <div className="pointer-events-auto flex gap-4">
+                  <button onClick={handlePlayAgain} className="px-10 py-6 rounded-3xl font-black text-2xl bg-[#FFD700] text-black border-4 border-black hover:bg-[#ffe44d] transition-all shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+                    🔄 Играть заново
+                  </button>
+                  <button onClick={handleCloseRoom} className="px-8 py-4 rounded-2xl font-black text-xl bg-red-600 text-white border-4 border-black hover:bg-red-500 transition shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                    Закрыть ✕
+                  </button>
                 </div>
-              )}
+              </div>
             </div>
           );
         })()}
@@ -936,11 +933,9 @@ export function CreativachHostContent({ isMirror = false }: { isMirror?: boolean
         {room.status === 'finished' && (
           <div className="cartoon-panel p-8 text-center space-y-4 animate-[fadeIn_0.3s_ease]">
             <h2 className="text-3xl font-black text-black">Игра завершена</h2>
-            {!isMirror && (
-              <button onClick={handleExit} className="cartoon-button py-3 px-8 text-lg">
-                🏠 На главную
-              </button>
-            )}
+            <button onClick={handleExit} className="cartoon-button py-3 px-8 text-lg">
+              🏠 На главную
+            </button>
           </div>
         )}
       </div>
@@ -961,8 +956,4 @@ export function CreativachHostContent({ isMirror = false }: { isMirror?: boolean
       `}</style>
     </div>
   );
-}
-
-export default function CreativachHostPage() {
-  return <CreativachHostContent />;
 }
