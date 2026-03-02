@@ -69,14 +69,14 @@ type PillAnimationStyle = CSSProperties & {
 type LocalRoundPhase = 'loading' | 'waiting' | 'question' | 'transition' | 'calculating' | 'results';
 type ConnectionMode = 'realtime' | 'polling';
 const JOIN_SOUND_FILES = [
-  'sound/The_duck_quacked_fun_#1.mp3',
-  'sound/The_duck_quacked_fun_#2.mp3',
-  'sound/The_duck_quacked_fun_#3.mp3',
-  'sound/The_duck_quacked_fun_#4.mp3',
-  'sound/The_duk_quacked_funn_#1.mp3',
-  'sound/The_duk_quacked_funn_#2.mp3',
-  'sound/The_duk_quacked_funn_#3.mp3',
-  'sound/The_duk_quacked_funn_#4.mp3',
+  'sound/The_duck_quacked_fun_n1.mp3',
+  'sound/The_duck_quacked_fun_n2.mp3',
+  'sound/The_duck_quacked_fun_n3.mp3',
+  'sound/The_duck_quacked_fun_n4.mp3',
+  'sound/The_duk_quacked_funn_n1.mp3',
+  'sound/The_duk_quacked_funn_n2.mp3',
+  'sound/The_duk_quacked_funn_n3.mp3',
+  'sound/The_duk_quacked_funn_n4.mp3',
 ] as const;
 
 const ANSWER_DUCK_AUDIO_FILES: readonly string[] = Array.from({ length: 7 }, (_, i) => `duck/${i + 1}.mp3`);
