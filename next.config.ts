@@ -1,6 +1,4 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
+const nextConfig = {
   eslint: {
     // Skip lint errors during production builds to avoid deployment failures.
     ignoreDuringBuilds: true,
