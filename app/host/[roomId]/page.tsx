@@ -1777,7 +1777,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
     stopTournamentJingle();
     const audio = new Audio(buildAudioUrl(ROUND1_END_JINGLE_FILE));
     audio.loop = true;
-    audio.volume = 0.6;
+    audio.volume = isMusicMutedRef.current ? 0 : 0.6;
     tournamentJingleAudioRef.current = audio;
 
     audio.play().catch((error) => {
@@ -2350,6 +2350,12 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
       localStorage.setItem('host_bgm_muted', String(newMuted));
     }
 
+    // Mute/unmute the looping tournament jingle if playing
+    const jingle = tournamentJingleAudioRef.current;
+    if (jingle) {
+      jingle.volume = newMuted ? 0 : 0.95;
+    }
+
     const bgGain = round3BgGainNodeRef.current;
     if (bgGain) {
       bgGain.gain.value = newMuted ? 0 : ROUND3_BG_VOLUME;
@@ -2369,8 +2375,15 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   const toggleVoiceMute = useCallback(() => {
     const newMuted = !isVoiceMuted;
     setIsVoiceMuted(newMuted);
+    isVoiceMutedRef.current = newMuted;
     if (typeof window !== 'undefined') {
       localStorage.setItem('host_voice_muted', String(newMuted));
+    }
+
+    // Mute/unmute the round-end voice if playing
+    const roundEndVoice = roundEndAudioRef.current;
+    if (roundEndVoice) {
+      roundEndVoice.volume = newMuted ? 0 : 0.95;
     }
 
     const voiceGain = round3VoiceGainNodeRef.current;
@@ -3364,21 +3377,23 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   useEffect(() => {
     if (isRound2RulesVisible) {
       stopRoundEndAudio();
+      stopTournamentJingle();
       playRound2RulesAudio();
     } else {
       stopRound2RulesAudio();
     }
-  }, [isRound2RulesVisible, playRound2RulesAudio, stopRound2RulesAudio, stopRoundEndAudio]);
+  }, [isRound2RulesVisible, playRound2RulesAudio, stopRound2RulesAudio, stopRoundEndAudio, stopTournamentJingle]);
 
   useEffect(() => {
     if (isRound3RulesVisible) {
       stopRoundEndAudio();
+      stopTournamentJingle();
       stopRound2RulesAudio();
       playRound3RulesAudio();
     } else {
       stopRound3RulesAudio();
     }
-  }, [isRound3RulesVisible, playRound3RulesAudio, stopRound2RulesAudio, stopRound3RulesAudio, stopRoundEndAudio]);
+  }, [isRound3RulesVisible, playRound3RulesAudio, stopRound2RulesAudio, stopRound3RulesAudio, stopRoundEndAudio, stopTournamentJingle]);
 
   useEffect(() => {
     if (isRound4RulesVisible) {
@@ -3451,6 +3466,11 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
         if (payload.isRound4RulesVisible !== undefined) setIsRound4RulesVisible(payload.isRound4RulesVisible);
         if (payload.isRound5RulesVisible !== undefined) setIsRound5RulesVisible(payload.isRound5RulesVisible);
       });
+      channel.on('broadcast', { event: 'countdown-sync' }, ({ payload }: { payload: { visible: boolean; value?: string; context?: string } }) => {
+        setIsCountdownVisible(payload.visible);
+        if (payload.value !== undefined) setCountdownValue(payload.value);
+        if (payload.context !== undefined) setCountdownContext(payload.context as 'round1' | 'round2' | 'round3' | 'round4' | 'round5');
+      });
     }
 
     channel.subscribe();
@@ -3479,6 +3499,20 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
       },
     });
   }, [isMirror, isPrestartVisible, isRulesVisible, isRound2RulesVisible, isRound3RulesVisible, isRound4RulesVisible, isRound5RulesVisible]);
+
+  // Host: broadcast countdown state to mirror
+  useEffect(() => {
+    if (isMirror || !mirrorChannelRef.current) return;
+    void mirrorChannelRef.current.send({
+      type: 'broadcast',
+      event: 'countdown-sync',
+      payload: {
+        visible: isCountdownVisible,
+        value: countdownValue,
+        context: countdownContext,
+      },
+    });
+  }, [isMirror, isCountdownVisible, countdownValue, countdownContext]);
 
   const round2AwardedPointsRef = useRef<Map<string, number>>(new Map());
 
@@ -7750,17 +7784,9 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
                       localStorage.setItem('host_animations_disabled', String(next));
                     }}
                     isMusicMuted={isMusicMuted}
-                    onToggleMusicMute={() => {
-                      const next = !isMusicMuted;
-                      setIsMusicMuted(next);
-                      localStorage.setItem('host_bgm_muted', String(next));
-                    }}
+                    onToggleMusicMute={toggleMusicMute}
                     isVoiceMuted={isVoiceMuted}
-                    onToggleVoiceMute={() => {
-                      const next = !isVoiceMuted;
-                      setIsVoiceMuted(next);
-                      localStorage.setItem('host_voice_muted', String(next));
-                    }}
+                    onToggleVoiceMute={toggleVoiceMute}
                   />
                 ) : (
                   <HostControls
@@ -7776,17 +7802,9 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
                       localStorage.setItem('host_animations_disabled', String(next));
                     }}
                     isMusicMuted={isMusicMuted}
-                    onToggleMusicMute={() => {
-                      const next = !isMusicMuted;
-                      setIsMusicMuted(next);
-                      localStorage.setItem('host_bgm_muted', String(next));
-                    }}
+                    onToggleMusicMute={toggleMusicMute}
                     isVoiceMuted={isVoiceMuted}
-                    onToggleVoiceMute={() => {
-                      const next = !isVoiceMuted;
-                      setIsVoiceMuted(next);
-                      localStorage.setItem('host_voice_muted', String(next));
-                    }}
+                    onToggleVoiceMute={toggleVoiceMute}
                   />
                 )}
             </div>
@@ -7839,17 +7857,9 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
                       localStorage.setItem('host_animations_disabled', String(next));
                     }}
                     isMusicMuted={isMusicMuted}
-                    onToggleMusicMute={() => {
-                      const next = !isMusicMuted;
-                      setIsMusicMuted(next);
-                      localStorage.setItem('host_bgm_muted', String(next));
-                    }}
+                    onToggleMusicMute={toggleMusicMute}
                     isVoiceMuted={isVoiceMuted}
-                    onToggleVoiceMute={() => {
-                      const next = !isVoiceMuted;
-                      setIsVoiceMuted(next);
-                      localStorage.setItem('host_voice_muted', String(next));
-                    }}
+                    onToggleVoiceMute={toggleVoiceMute}
                   />
                 ) : (
                   <HostControls
@@ -8471,17 +8481,9 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
                     localStorage.setItem('host_animations_disabled', String(next));
                   }}
                   isMusicMuted={isMusicMuted}
-                  onToggleMusicMute={() => {
-                    const next = !isMusicMuted;
-                    setIsMusicMuted(next);
-                    localStorage.setItem('host_bgm_muted', String(next));
-                  }}
+                  onToggleMusicMute={toggleMusicMute}
                   isVoiceMuted={isVoiceMuted}
-                  onToggleVoiceMute={() => {
-                    const next = !isVoiceMuted;
-                    setIsVoiceMuted(next);
-                    localStorage.setItem('host_voice_muted', String(next));
-                  }}
+                  onToggleVoiceMute={toggleVoiceMute}
                 />
               ) : (
                 <HostControls
