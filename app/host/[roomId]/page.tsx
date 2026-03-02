@@ -556,6 +556,66 @@ const HostControls = ({
   </div>
 );
 
+const MirrorControls = ({
+  compact,
+  isAnimationsDisabled,
+  onToggleAnimations,
+  isMusicMuted,
+  onToggleMusicMute,
+  isVoiceMuted,
+  onToggleVoiceMute,
+}: {
+  compact?: boolean;
+  isAnimationsDisabled?: boolean;
+  onToggleAnimations?: () => void;
+  isMusicMuted?: boolean;
+  onToggleMusicMute?: () => void;
+  isVoiceMuted?: boolean;
+  onToggleVoiceMute?: () => void;
+}) => (
+  <div className="flex flex-wrap gap-3 items-center">
+    <span className={`${compact ? 'px-3 py-1 text-xs' : 'px-4 py-2 text-sm'} comic-panel border-[4px] border-[#000] bg-purple-600 text-white comic-font tracking-[0.2em] animate-pulse`}>📡 ЗЕРКАЛО</span>
+    {onToggleMusicMute && (
+      <button
+        type="button"
+        onClick={onToggleMusicMute}
+        className={`${compact ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'} comic-panel border-[4px] border-[#000] transition ${isMusicMuted ? 'bg-red-500 text-white' : 'text-white hover:bg-[#ffde00]/10'}`}
+        title={isMusicMuted ? 'Включить музыку' : 'Выключить музыку'}
+      >
+        🎵
+      </button>
+    )}
+    {onToggleVoiceMute && (
+      <button
+        type="button"
+        onClick={onToggleVoiceMute}
+        className={`${compact ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'} comic-panel border-[4px] border-[#000] transition ${isVoiceMuted ? 'bg-red-500 text-white' : 'text-white hover:bg-[#ffde00]/10'}`}
+        title={isVoiceMuted ? 'Включить озвучку' : 'Выключить озвучку'}
+      >
+        🎤
+      </button>
+    )}
+    {onToggleAnimations && (
+      <button
+        type="button"
+        onClick={onToggleAnimations}
+        className={`${compact ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'} comic-panel border-[4px] border-[#000] transition ${isAnimationsDisabled ? 'bg-yellow-400 text-black' : 'text-white hover:bg-[#ffde00]/10'}`}
+        title={isAnimationsDisabled ? 'Включить анимации' : 'Выключить анимации'}
+      >
+        ✨
+      </button>
+    )}
+    <a
+      href="https://donatty.com/aleksandri"
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`${compact ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'} comic-panel bg-[#ff2a2a] text-white comic-font border-[4px] border-[#000] hover:scale-105 transition-all duration-200 text-center`}
+    >
+      Поддержать
+    </a>
+  </div>
+);
+
 const PlayersAccordion = ({
   title,
   count,
@@ -3375,6 +3435,50 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   useEffect(() => {
     isCountdownVisibleRef.current = isCountdownVisible;
   }, [isCountdownVisible]);
+
+  // ─── Mirror broadcast channel: sync rules visibility between host & mirror ───
+  const mirrorChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  useEffect(() => {
+    const channel = supabase.channel(`mirror-sync-${roomId}`);
+
+    if (isMirror) {
+      channel.on('broadcast', { event: 'rules-sync' }, ({ payload }: { payload: Record<string, boolean> }) => {
+        if (payload.isPrestartVisible !== undefined) setIsPrestartVisible(payload.isPrestartVisible);
+        if (payload.isRulesVisible !== undefined) setIsRulesVisible(payload.isRulesVisible);
+        if (payload.isRound2RulesVisible !== undefined) setIsRound2RulesVisible(payload.isRound2RulesVisible);
+        if (payload.isRound3RulesVisible !== undefined) setIsRound3RulesVisible(payload.isRound3RulesVisible);
+        if (payload.isRound4RulesVisible !== undefined) setIsRound4RulesVisible(payload.isRound4RulesVisible);
+        if (payload.isRound5RulesVisible !== undefined) setIsRound5RulesVisible(payload.isRound5RulesVisible);
+      });
+    }
+
+    channel.subscribe();
+    mirrorChannelRef.current = channel;
+
+    return () => {
+      supabase.removeChannel(channel);
+      mirrorChannelRef.current = null;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId]);
+
+  // Host: broadcast rules state changes to mirror
+  useEffect(() => {
+    if (isMirror || !mirrorChannelRef.current) return;
+    void mirrorChannelRef.current.send({
+      type: 'broadcast',
+      event: 'rules-sync',
+      payload: {
+        isPrestartVisible,
+        isRulesVisible,
+        isRound2RulesVisible,
+        isRound3RulesVisible,
+        isRound4RulesVisible,
+        isRound5RulesVisible,
+      },
+    });
+  }, [isMirror, isPrestartVisible, isRulesVisible, isRound2RulesVisible, isRound3RulesVisible, isRound4RulesVisible, isRound5RulesVisible]);
 
   const round2AwardedPointsRef = useRef<Map<string, number>>(new Map());
 
@@ -7637,7 +7741,27 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
                 </h1>
               </div>
                 {isMirror ? (
-                  <span className="px-4 py-2 comic-panel border-[4px] border-[#000] bg-purple-600 text-white comic-font text-sm tracking-[0.2em] animate-pulse">📡 ЗЕРКАЛО</span>
+                  <MirrorControls
+                    compact={isCompactForcedLayout}
+                    isAnimationsDisabled={isAnimationsDisabled}
+                    onToggleAnimations={() => {
+                      const next = !isAnimationsDisabled;
+                      setIsAnimationsDisabled(next);
+                      localStorage.setItem('host_animations_disabled', String(next));
+                    }}
+                    isMusicMuted={isMusicMuted}
+                    onToggleMusicMute={() => {
+                      const next = !isMusicMuted;
+                      setIsMusicMuted(next);
+                      localStorage.setItem('host_bgm_muted', String(next));
+                    }}
+                    isVoiceMuted={isVoiceMuted}
+                    onToggleVoiceMute={() => {
+                      const next = !isVoiceMuted;
+                      setIsVoiceMuted(next);
+                      localStorage.setItem('host_voice_muted', String(next));
+                    }}
+                  />
                 ) : (
                   <HostControls
                     primaryLabel={headerActionLabel}
@@ -7706,7 +7830,27 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
                   <h2 className="text-2xl comic-font leading-tight text-white">Комната {roomCode || '----'}</h2>
                 </div>
                 {isMirror ? (
-                  <span className="px-4 py-2 comic-panel border-[4px] border-[#000] bg-purple-600 text-white comic-font text-sm tracking-[0.2em] animate-pulse">📡 ЗЕРКАЛО</span>
+                  <MirrorControls
+                    compact
+                    isAnimationsDisabled={isAnimationsDisabled}
+                    onToggleAnimations={() => {
+                      const next = !isAnimationsDisabled;
+                      setIsAnimationsDisabled(next);
+                      localStorage.setItem('host_animations_disabled', String(next));
+                    }}
+                    isMusicMuted={isMusicMuted}
+                    onToggleMusicMute={() => {
+                      const next = !isMusicMuted;
+                      setIsMusicMuted(next);
+                      localStorage.setItem('host_bgm_muted', String(next));
+                    }}
+                    isVoiceMuted={isVoiceMuted}
+                    onToggleVoiceMute={() => {
+                      const next = !isVoiceMuted;
+                      setIsVoiceMuted(next);
+                      localStorage.setItem('host_voice_muted', String(next));
+                    }}
+                  />
                 ) : (
                   <HostControls
                     primaryLabel={headerActionLabel}
@@ -8318,7 +8462,27 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
             }
             controlsView={
               isMirror ? (
-                <span className="px-4 py-2 comic-panel border-[4px] border-[#000] bg-purple-600 text-white comic-font text-sm tracking-[0.2em] animate-pulse">📡 ЗЕРКАЛО</span>
+                <MirrorControls
+                  compact
+                  isAnimationsDisabled={isAnimationsDisabled}
+                  onToggleAnimations={() => {
+                    const next = !isAnimationsDisabled;
+                    setIsAnimationsDisabled(next);
+                    localStorage.setItem('host_animations_disabled', String(next));
+                  }}
+                  isMusicMuted={isMusicMuted}
+                  onToggleMusicMute={() => {
+                    const next = !isMusicMuted;
+                    setIsMusicMuted(next);
+                    localStorage.setItem('host_bgm_muted', String(next));
+                  }}
+                  isVoiceMuted={isVoiceMuted}
+                  onToggleVoiceMute={() => {
+                    const next = !isVoiceMuted;
+                    setIsVoiceMuted(next);
+                    localStorage.setItem('host_voice_muted', String(next));
+                  }}
+                />
               ) : (
                 <HostControls
                   primaryLabel={headerActionLabel}
@@ -9433,7 +9597,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
       </div>
     </div>
 
-      {isWaiting && isPrestartVisible && !isMirror && (
+      {isWaiting && isPrestartVisible && (
         <div className="fixed inset-0 z-40 bg-[#ff2a2a]/70 backdrop-blur-sm flex items-center justify-center px-4">
           <div className="max-w-lg w-full comic-panel border-[4px] border-[#000] bg-white p-6 space-y-4 ">
             <div>
@@ -9461,31 +9625,35 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
               <p className="text-xs comic-font text-[#ff2a2a]">Предел — 10 игроков. Лишние участники не смогут войти.</p>
             )}
             <p className="text-xs text-black/70">Убедитесь, что все готовы. После продолжения прозвучат правила раунда.</p>
-            <div className="flex gap-3 flex-col sm:flex-row">
-              <button
-                type="button"
-                onClick={handlePrestartNext}
-                disabled={!isPrestartNextEnabled}
-                className="flex-1 py-3 comic-panel comic-font text-lg tracking-[0.25em] bg-[#ff2a2a] text-white border-[4px] border-[#000] transition disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                Далее →
-              </button>
-              <button
-                type="button"
-                onClick={handlePrestartCancel}
-                className="flex-1 py-3 comic-panel border-dashed border-[#000] bg-white comic-font text-black"
-              >
-                Отмена
-              </button>
-            </div>
-            {!isPrestartNextEnabled && (
-              <p className="text-xs text-black/60">Кнопка активируется через несколько секунд после сигнала подключения.</p>
+            {!isMirror && (
+              <>
+                <div className="flex gap-3 flex-col sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={handlePrestartNext}
+                    disabled={!isPrestartNextEnabled}
+                    className="flex-1 py-3 comic-panel comic-font text-lg tracking-[0.25em] bg-[#ff2a2a] text-white border-[4px] border-[#000] transition disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Далее →
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handlePrestartCancel}
+                    className="flex-1 py-3 comic-panel border-dashed border-[#000] bg-white comic-font text-black"
+                  >
+                    Отмена
+                  </button>
+                </div>
+                {!isPrestartNextEnabled && (
+                  <p className="text-xs text-black/60">Кнопка активируется через несколько секунд после сигнала подключения.</p>
+                )}
+              </>
             )}
           </div>
         </div>
       )}
 
-      {shouldShowRulesModal && !isMirror && (
+      {shouldShowRulesModal && (
         <div className="fixed inset-0 z-40 bg-[#ff2a2a]/70 backdrop-blur-sm flex items-center justify-center px-4 transition-opacity duration-300">
           <div className="max-w-md w-full comic-panel border-[4px] border-[#000] bg-white p-6 space-y-4  transform transition-all duration-300 scale-100 opacity-100">
             {!isCompactForcedLayout && (
@@ -9501,22 +9669,24 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
                 </ul>
               </>
             )}
-            <div className="space-y-3">
-              <button
-                type="button"
-                onClick={() => handleCountdownStart()}
-                className="hover:scale-105 hover: transition-all duration-200 w-full py-3 comic-panel comic-font text-lg tracking-[0.3em] bg-[#ff2a2a] text-white border-[4px] border-[#000]"
-              >
-                Старт
-              </button>
-              <button
-                type="button"
-                onClick={handleRulesCancel}
-                className="hover:scale-105 hover: transition-all duration-200 w-full py-3 comic-panel border-dashed border-[#000] bg-white comic-font text-black"
-              >
-                Отмена
-              </button>
-            </div>
+            {!isMirror && (
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  onClick={() => handleCountdownStart()}
+                  className="hover:scale-105 hover: transition-all duration-200 w-full py-3 comic-panel comic-font text-lg tracking-[0.3em] bg-[#ff2a2a] text-white border-[4px] border-[#000]"
+                >
+                  Старт
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRulesCancel}
+                  className="hover:scale-105 hover: transition-all duration-200 w-full py-3 comic-panel border-dashed border-[#000] bg-white comic-font text-black"
+                >
+                  Отмена
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -9551,7 +9721,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
         </div>
       )}
 
-      {isRound3RulesVisible && !isMirror && (
+      {isRound3RulesVisible && (
         <div className="fixed inset-0 z-50 bg-[#ff2a2a]/70 backdrop-blur-sm flex items-center justify-center px-4 transition-opacity duration-300">
           <div className="max-w-lg w-full comic-panel border-[4px] border-[#000] bg-white p-6 space-y-4  transform transition-all duration-300 scale-100 opacity-100">
             {!isCompactForcedLayout && (
@@ -9563,27 +9733,29 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
                 <div className="text-sm text-black/80 whitespace-pre-line leading-relaxed">{ROUND3_RULES_TEXT}</div>
               </>
             )}
-            <div className="space-y-3">
-              <button
-                type="button"
-                onClick={() => void startRound3Countdown()}
-                className="w-full py-3 comic-panel comic-font text-lg tracking-[0.3em] bg-[#ff2a2a] text-white border-[4px] border-[#000] hover:scale-105 hover: transition-all duration-200"
-              >
-                Старт
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsRound3RulesVisible(false)}
-                className="w-full py-3 comic-panel border-dashed border-[#000] bg-white comic-font text-black hover:scale-105 hover: transition-all duration-200"
-              >
-                Отмена
-              </button>
-            </div>
+            {!isMirror && (
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  onClick={() => void startRound3Countdown()}
+                  className="w-full py-3 comic-panel comic-font text-lg tracking-[0.3em] bg-[#ff2a2a] text-white border-[4px] border-[#000] hover:scale-105 hover: transition-all duration-200"
+                >
+                  Старт
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsRound3RulesVisible(false)}
+                  className="w-full py-3 comic-panel border-dashed border-[#000] bg-white comic-font text-black hover:scale-105 hover: transition-all duration-200"
+                >
+                  Отмена
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {isRound2RulesVisible && !isMirror && (
+      {isRound2RulesVisible && (
         <div className="fixed inset-0 z-50 bg-[#ff2a2a]/70 backdrop-blur-sm flex items-center justify-center px-4 transition-opacity duration-300">
           <div className="max-w-lg w-full comic-panel border-[4px] border-[#000] bg-white p-6 space-y-4  transform transition-all duration-300 scale-100 opacity-100">
             {!isCompactForcedLayout && (
@@ -9601,32 +9773,36 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
                 </ul>
               </>
             )}
-            <div className="space-y-3">
-              <button
-                type="button"
-                onClick={startRound2}
-                disabled={round2Items.length === 0}
-                className="w-full py-3 comic-panel comic-font text-lg tracking-[0.3em] bg-[#ff007f] text-white border-[4px] border-[#000] transition hover:scale-105 hover: transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                Запустить Раунд 2
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsRound2RulesVisible(false)}
-                className="w-full py-3 comic-panel border-dashed border-[#000] bg-white comic-font text-black hover:scale-105 hover: transition-all duration-200"
-              >
-                Отмена
-              </button>
-            </div>
-            {!isCompactForcedLayout &&
-              round2Items.length === 0 && (
-                <p className="text-xs text-[#ff2a2a] comic-font">Факты ещё загружаются — подождите пару секунд.</p>
-              )}
+            {!isMirror && (
+              <>
+                <div className="space-y-3">
+                  <button
+                    type="button"
+                    onClick={startRound2}
+                    disabled={round2Items.length === 0}
+                    className="w-full py-3 comic-panel comic-font text-lg tracking-[0.3em] bg-[#ff007f] text-white border-[4px] border-[#000] transition hover:scale-105 hover: transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Запустить Раунд 2
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsRound2RulesVisible(false)}
+                    className="w-full py-3 comic-panel border-dashed border-[#000] bg-white comic-font text-black hover:scale-105 hover: transition-all duration-200"
+                  >
+                    Отмена
+                  </button>
+                </div>
+                {!isCompactForcedLayout &&
+                  round2Items.length === 0 && (
+                    <p className="text-xs text-[#ff2a2a] comic-font">Факты ещё загружаются — подождите пару секунд.</p>
+                  )}
+              </>
+            )}
           </div>
         </div>
       )}
 
-      {isRound4RulesVisible && !isMirror && (
+      {isRound4RulesVisible && (
         <div className="fixed inset-0 z-50 bg-[#ff2a2a]/70 backdrop-blur-sm flex items-center justify-center px-4 transition-opacity duration-300">
           <div className="max-w-lg w-full comic-panel border-[4px] border-[#000] bg-white p-6 space-y-4  transform transition-all duration-300 scale-100 opacity-100">
             {!isCompactForcedLayout && (
@@ -9638,27 +9814,29 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
                 <div className="text-sm text-black/80 whitespace-pre-line leading-relaxed">{ROUND4_RULES_TEXT}</div>
               </>
             )}
-            <div className="space-y-3">
-              <button
-                type="button"
-                onClick={handleStartRound4Rules}
-                className="w-full py-3 comic-panel comic-font text-lg tracking-[0.3em] bg-[#ff007f] text-white border-[4px] border-[#000] hover:scale-105 hover: transition-all duration-200"
-              >
-                Старт
-              </button>
-              <button
-                type="button"
-                onClick={handleCancelRound4Rules}
-                className="w-full py-3 comic-panel border-dashed border-[#000] bg-white comic-font text-black hover:scale-105 hover: transition-all duration-200"
-              >
-                Отмена
-              </button>
-            </div>
+            {!isMirror && (
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  onClick={handleStartRound4Rules}
+                  className="w-full py-3 comic-panel comic-font text-lg tracking-[0.3em] bg-[#ff007f] text-white border-[4px] border-[#000] hover:scale-105 hover: transition-all duration-200"
+                >
+                  Старт
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancelRound4Rules}
+                  className="w-full py-3 comic-panel border-dashed border-[#000] bg-white comic-font text-black hover:scale-105 hover: transition-all duration-200"
+                >
+                  Отмена
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {isRound5RulesVisible && !isMirror && (
+      {isRound5RulesVisible && (
         <div className="fixed inset-0 z-50 bg-[#ff2a2a]/70 backdrop-blur-sm flex items-center justify-center px-4 transition-opacity duration-300">
           <div className="max-w-lg w-full comic-panel border-[4px] border-[#000] bg-white p-6 space-y-4  transform transition-all duration-300 scale-100 opacity-100">
             {!isCompactForcedLayout && (
@@ -9670,23 +9848,25 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
                 <div className="text-sm text-black/80 whitespace-pre-line leading-relaxed">{ROUND5_RULES_TEXT}</div>
               </>
             )}
-            <div className="space-y-3">
-              <button
-                type="button"
-                onClick={handleStartRound5Rules}
-                disabled={isRound5RulesAudioPlaying || isCountdownVisible}
-                className="w-full py-3 comic-panel comic-font text-lg tracking-[0.3em] bg-[#ff2a2a] text-white border-[4px] border-[#000] hover:scale-105 hover: transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {isRound5RulesAudioPlaying ? 'ОЗВУЧКА…' : 'СТАРТ'}
-              </button>
-              <button
-                type="button"
-                onClick={handleCancelRound5Rules}
-                className="w-full py-3 comic-panel border-dashed border-[#000] bg-white comic-font text-black hover:scale-105 hover: transition-all duration-200"
-              >
-                Отмена
-              </button>
-            </div>
+            {!isMirror && (
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  onClick={handleStartRound5Rules}
+                  disabled={isRound5RulesAudioPlaying || isCountdownVisible}
+                  className="w-full py-3 comic-panel comic-font text-lg tracking-[0.3em] bg-[#ff2a2a] text-white border-[4px] border-[#000] hover:scale-105 hover: transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {isRound5RulesAudioPlaying ? 'ОЗВУЧКА…' : 'СТАРТ'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancelRound5Rules}
+                  className="w-full py-3 comic-panel border-dashed border-[#000] bg-white comic-font text-black hover:scale-105 hover: transition-all duration-200"
+                >
+                  Отмена
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
