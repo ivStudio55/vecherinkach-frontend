@@ -4357,6 +4357,12 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
         setCorrectAnswerCount(0);
         return;
       }
+
+      // Ignore stale responses from previous question index (important for mirror stability).
+      if (questionIndex !== currentRound3QuestionIndexRef.current) {
+        return;
+      }
+
       setAnswerCount(count || 0);
       const rows = (data || []) as AnswerSummaryRow[];
       const answeredIds = Array.from(new Set(rows.map((answer) => answer.player_id)));
@@ -5864,7 +5870,10 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [ensureRealtimeAuth, realtimeEnabled, roomId]);
 
   const everyoneAnswered = players.length > 0 && answerCount >= players.length;
-  const shouldForceZero = serverAllPlayersAnswered || everyoneAnswered;
+  const shouldForceZero =
+    roomStatus === 'running'
+      ? everyoneAnswered
+      : serverAllPlayersAnswered || everyoneAnswered;
   const isRound2FactPhase = roomStatus === 'round2-running' && round2Phase === 'fact';
   const isTimerRoundActive =
     roomStatus === 'running' ||
@@ -5884,10 +5893,10 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [roomStatus, stopQuestionAudio]);
 
   useEffect(() => {
-    if (roomStatus === 'running' && (serverAllPlayersAnswered || everyoneAnswered)) {
+    if (roomStatus === 'running' && everyoneAnswered) {
       stopQuestionAudio();
     }
-  }, [roomStatus, serverAllPlayersAnswered, everyoneAnswered, stopQuestionAudio]);
+  }, [roomStatus, everyoneAnswered, stopQuestionAudio]);
 
   useEffect(() => {
     if (roomStatus !== 'round2-running') {
@@ -7852,7 +7861,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [stopRound5RulesAudio]);
 
   useEffect(() => {
-    const isRound1TransitionReady = roomStatus === 'running' && (effectiveTimeLeft === 0 || serverAllPlayersAnswered);
+    const isRound1TransitionReady = roomStatus === 'running' && (timeLeft <= 0 || everyoneAnswered);
     if (!question || isLastQuestion || !isRound1TransitionReady || totalPlayers === 0) {
       return;
     }
@@ -7882,8 +7891,8 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
     question,
     isLastQuestion,
     roomStatus,
-    effectiveTimeLeft,
-    serverAllPlayersAnswered,
+    timeLeft,
+    everyoneAnswered,
     totalPlayers,
     correctAnswerPercentage,
     playBetweenAudioForPercent,
@@ -7891,7 +7900,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   ]);
 
   useEffect(() => {
-    const isRound1TransitionReady = roomStatus === 'running' && (effectiveTimeLeft === 0 || serverAllPlayersAnswered);
+    const isRound1TransitionReady = roomStatus === 'running' && (timeLeft <= 0 || everyoneAnswered);
     if (!question || !isLastQuestion || !isRound1TransitionReady) {
       return;
     }
@@ -7927,8 +7936,8 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [
     question,
     roomStatus,
-    effectiveTimeLeft,
-    serverAllPlayersAnswered,
+    timeLeft,
+    everyoneAnswered,
     isLastQuestion,
     stopQuestionAudio,
     playRound1EndCeremonyAudio,
