@@ -1,8 +1,4 @@
 const nextConfig = {
-  eslint: {
-    // Skip lint errors during production builds to avoid deployment failures.
-    ignoreDuringBuilds: true,
-  },
   // Отключаем кеширование для API и realtime данных
   async headers() {
     return [
