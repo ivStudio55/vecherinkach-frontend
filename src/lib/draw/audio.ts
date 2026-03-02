@@ -30,7 +30,7 @@ export const AUDIO = {
   /** Host commentary for guessing phase (5 files) */
   guessDraw: () => randomFile('/audio/guess_draw', 'guess_draw', 5),
   /** After round - jingle */
-  afterRoundJingle: '/audio/round1_end/jingle_(after_round1).mp3',
+  afterRoundJingle: '/audio/round1_end/jingle_after_round1.mp3',
   /** Final host voice (5 files) */
   finalDraw: () => randomFile('/audio/final_draw', 'final_draw', 5),
 };

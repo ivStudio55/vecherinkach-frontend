@@ -1,13 +1,5 @@
 import { NextResponse } from 'next/server';
 import path from 'path';
-import { promises as fs } from 'fs';
-
-const AUDIO_ROOT = path.join(process.cwd(), 'public', 'audio');
-const MIME_TYPES: Record<string, string> = {
-  '.mp3': 'audio/mpeg',
-  '.wav': 'audio/wav',
-  '.ogg': 'audio/ogg',
-};
 
 const sanitizeRelativePath = (input: string) => {
   const normalized = path.posix.normalize(input.replace(/\\/g, '/'));
@@ -17,6 +9,12 @@ const sanitizeRelativePath = (input: string) => {
   return normalized.replace(/^\//, '');
 };
 
+/**
+ * Redirect to the static public/audio asset so the audio files are served
+ * directly from Vercel CDN instead of being read from disk inside the
+ * serverless function.  This avoids bundling 150+ MB of audio into the
+ * function package which would exceed Vercel's 250 MB limit.
+ */
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const requested = url.searchParams.get('file');
@@ -31,27 +29,13 @@ export async function GET(request: Request) {
   } catch {
     return NextResponse.json({ error: 'Invalid file path' }, { status: 400 });
   }
-  const resolvedPath = path.join(AUDIO_ROOT, safeRelativePath);
 
-  if (!resolvedPath.startsWith(AUDIO_ROOT)) {
-    return NextResponse.json({ error: 'Invalid file path' }, { status: 400 });
-  }
+  // Encode each path segment individually so spaces / parens / unicode are safe.
+  const encodedPath = safeRelativePath
+    .split('/')
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
 
-  try {
-    const buffer = await fs.readFile(resolvedPath);
-    const ext = path.extname(resolvedPath).toLowerCase();
-    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-
-    return new NextResponse(buffer, {
-      status: 200,
-      headers: {
-        'Content-Type': contentType,
-        'Cache-Control': 'no-store',
-        'Content-Length': buffer.length.toString(),
-      },
-    });
-  } catch (error) {
-    console.error('Failed to load audio file', error);
-    return NextResponse.json({ error: 'Audio file not found' }, { status: 404 });
-  }
+  const staticUrl = new URL(`/audio/${encodedPath}`, url);
+  return NextResponse.redirect(staticUrl, { status: 302 });
 }

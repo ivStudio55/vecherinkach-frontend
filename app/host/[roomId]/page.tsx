@@ -102,7 +102,7 @@ const CONNECT_AUDIO_CLIPS: Record<number, readonly string[]> = (() => {
 
   return base;
 })();
-const RULES_ROUND1_FILES = ['round1/rules/ruelsround(1)2.mp3', 'round1/rules/ruelsround(1)3.mp3'] as const;
+const RULES_ROUND1_FILES = ['round1/rules/ruelsround1_2.mp3', 'round1/rules/ruelsround1_3.mp3'] as const;
 const SKIP_AUDIO_FILES = [
   'skip/skip.mp3',
   'skip/skip2.mp3',
@@ -113,7 +113,7 @@ const SKIP_AUDIO_FILES = [
   'skip/skip8.mp3',
 ] as const;
 const ROUND1_END_AUDIO_FILES: readonly string[] = Array.from({ length: 9 }, (_, i) => `round1end/${i + 1}.mp3`);
-const ROUND1_END_JINGLE_FILE = 'round1_end/jingle_(after_round1).mp3';
+const ROUND1_END_JINGLE_FILE = 'round1_end/jingle_after_round1.mp3';
 const ROUND2_END_AUDIO_FILES: readonly string[] = Array.from({ length: 3 }, (_, i) => `round2end/${i + 1}.mp3`);
 const ROUND2_RULES_JINGLE_FILE = 'round2/explanation.mp3';
 const ROUND2_RULES_VOICE_FILES = ['round2/ruels/1.mp3', 'round2/ruels/2.mp3'] as const;
@@ -133,7 +133,7 @@ const ROUND2_EXPLANATION_FALLBACK = 'Без объяснения';
 const ROUND3_TOTAL_QUESTIONS = 6;
 const ROUND3_POINTS = 200;
 const ROUND3_QUESTIONS_AUDIO_DIR = 'round3/questions3';
-const ROUND3_BG_JINGLE_FILE = 'round2/jingle (5).mp3';
+const ROUND3_BG_JINGLE_FILE = 'round2/jingle_5.mp3';
 const ROUND3_ANSWER_TIMER_JINGLE_FILE = 'round3/60_sec.mp3';
 const ROUND3_VOTE_TIMER_JINGLE_FILE = 'sound/30_sec.mp3';
 const ROUND3_TIMER_JINGLE_FILE = ROUND3_ANSWER_TIMER_JINGLE_FILE;
