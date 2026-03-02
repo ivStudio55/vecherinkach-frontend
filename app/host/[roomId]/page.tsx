@@ -1104,6 +1104,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   const meetAudioRef = useRef<HTMLAudioElement | null>(null);
   const connectAudioRef = useRef<HTMLAudioElement | null>(null);
   const rulesAudioRef = useRef<HTMLAudioElement | null>(null);
+  const rulesBgAudioRef = useRef<HTMLAudioElement | null>(null);
   const skipAudioRef = useRef<HTMLAudioElement | null>(null);
   const questionJingleAudioRef = useRef<HTMLAudioElement | null>(null);
   const questionVoiceAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -1215,6 +1216,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   const previousPlayerIdsRef = useRef<Set<string>>(new Set());
   const hasSnapshotRef = useRef(false);
   const countdownTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastMirroredCountdownValueRef = useRef<string | null>(null);
   const prestartEnableTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const roundEndUnlockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const roundEndDelayTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -2373,6 +2375,11 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
       jingle.volume = newMuted ? 0 : 0.95;
     }
 
+    const rulesBg = rulesBgAudioRef.current;
+    if (rulesBg) {
+      rulesBg.volume = newMuted ? 0 : 0.35;
+    }
+
     const bgGain = round3BgGainNodeRef.current;
     if (bgGain) {
       bgGain.gain.value = newMuted ? 0 : ROUND3_BG_VOLUME;
@@ -2415,7 +2422,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [isVoiceMuted]);
 
   const playRound3VoteVoiceAudio = useCallback(() => {
-    if (typeof window === 'undefined' || isMirrorRef.current) {
+    if (typeof window === 'undefined') {
       return;
     }
 
@@ -2577,7 +2584,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
   const playRound3Audio = useCallback(
     (index: number) => {
-      if (isMirrorRef.current) return;
       stopRound3Audio();
       setRound3AudioBlocked(false);
 
@@ -2865,7 +2871,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
   const playRound3VoteAudio = useCallback(
     (questionIndex: number) => {
-      if (typeof window === 'undefined' || isMirrorRef.current) {
+      if (typeof window === 'undefined') {
         return;
       }
       // Important: do NOT stop/cancel vote voice here.
@@ -4623,6 +4629,15 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
       } else if (detectedStatus === 'round4-running') {
         const puzzleId = room.current_question_index;
         const puzzle = round4Puzzles.find((p) => p.id === puzzleId) ?? null;
+        const usedRound4Ids = await loadUsedRound4PuzzleIds();
+        const normalizedRound4AskedIds = Array.from(
+          new Set([
+            ...usedRound4Ids,
+            ...(typeof puzzleId === 'number' && Number.isFinite(puzzleId) ? [puzzleId] : []),
+          ])
+        );
+        setRound4AskedIds(normalizedRound4AskedIds);
+        round4AskedIdsRef.current = normalizedRound4AskedIds;
         round4CurrentPuzzleIdRef.current = puzzleId;
         setRound4CurrentPuzzle(puzzle ?? null);
         setShowResults(false);
@@ -4717,6 +4732,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
       setRound2CurrentIndex,
       setRound2Phase,
       round4Puzzles,
+      loadUsedRound4PuzzleIds,
       loadRound4AnswerStats,
       loadRound5AnswerStats,
       loadRound5AnswerRows,
@@ -4919,13 +4935,24 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
   const stopRulesAudio = useCallback(() => {
     const audio = rulesAudioRef.current;
-    if (!audio) {
+    const bg = rulesBgAudioRef.current;
+    if (!audio && !bg) {
       return;
     }
-    audio.pause();
-    audio.currentTime = 0;
-    audio.onended = null;
-    rulesAudioRef.current = null;
+    if (audio) {
+      audio.pause();
+      audio.currentTime = 0;
+      audio.onended = null;
+      audio.onerror = null;
+      rulesAudioRef.current = null;
+    }
+    if (bg) {
+      bg.pause();
+      bg.currentTime = 0;
+      bg.onended = null;
+      bg.onerror = null;
+      rulesBgAudioRef.current = null;
+    }
     rulesAudioCompletedRef.current = true;
   }, []);
 
@@ -4936,12 +4963,26 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
     stopRulesAudio();
     rulesAudioCompletedRef.current = false;
+
+    const bgAudio = new Audio(buildAudioUrl(ROUND2_EXPLANATION_BG_FILE));
+    bgAudio.volume = isMusicMutedRef.current ? 0 : 0.35;
+    bgAudio.loop = true;
+    rulesBgAudioRef.current = bgAudio;
+
     const file = pickRandomItem(RULES_ROUND1_FILES);
     const audio = new Audio(buildAudioUrl(file));
     audio.volume = 0.95;
     rulesAudioRef.current = audio;
 
     audio.onended = () => {
+      const bg = rulesBgAudioRef.current;
+      if (bg) {
+        bg.pause();
+        bg.currentTime = 0;
+        bg.onended = null;
+        bg.onerror = null;
+        rulesBgAudioRef.current = null;
+      }
       rulesAudioCompletedRef.current = true;
 
       // Auto-start Round 1 countdown when rules narration ends.
@@ -4957,7 +4998,31 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
       }
     };
 
+    audio.onerror = () => {
+      const bg = rulesBgAudioRef.current;
+      if (bg) {
+        bg.pause();
+        bg.currentTime = 0;
+        bg.onended = null;
+        bg.onerror = null;
+        rulesBgAudioRef.current = null;
+      }
+      rulesAudioCompletedRef.current = true;
+    };
+
+    bgAudio.play().catch((error) => {
+      console.error('Не удалось проиграть фон правил раунда', error);
+    });
+
     audio.play().catch((error) => {
+      const bg = rulesBgAudioRef.current;
+      if (bg) {
+        bg.pause();
+        bg.currentTime = 0;
+        bg.onended = null;
+        bg.onerror = null;
+        rulesBgAudioRef.current = null;
+      }
       rulesAudioCompletedRef.current = true;
       console.error('Не удалось проиграть правила раунда', error);
     });
@@ -5208,6 +5273,19 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
     },
     [ensureAudioContext]
   );
+
+  useEffect(() => {
+    if (!isMirror || !isCountdownVisible) {
+      lastMirroredCountdownValueRef.current = null;
+      return;
+    }
+    if (lastMirroredCountdownValueRef.current === countdownValue) {
+      return;
+    }
+    lastMirroredCountdownValueRef.current = countdownValue;
+    const isFinalStep = countdownValue === COUNTDOWN_STEPS[COUNTDOWN_STEPS.length - 1];
+    void playBeep(isFinalStep ? 1200 : 880);
+  }, [countdownValue, isCountdownVisible, isMirror, playBeep]);
 
   const stopQuestionAudio = useCallback(() => {
     const jingle = questionJingleAudioRef.current;
@@ -8284,7 +8362,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
                     <div className="flex justify-center">
                       <span className="px-4 py-2 comic-panel border-[4px] border-[#000] text-sm comic-font">
-                        Тур {round4CurrentPuzzle ? Math.min(Math.max(round4AskedIds.length, 1), ROUND4_TOTAL_TOURS) : 0} / {ROUND4_TOTAL_TOURS}
+                        Тур {currentRound4TourNumber} / {ROUND4_TOTAL_TOURS}
                       </span>
                     </div>
                   </div>
@@ -9364,7 +9442,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
                 <div className="flex justify-center">
                   <span className="px-4 py-2 comic-panel border-[4px] border-[#000] text-sm comic-font">
-                    Тур {round4CurrentPuzzle ? Math.min(Math.max(round4AskedIds.length, 1), ROUND4_TOTAL_TOURS) : 0} / {ROUND4_TOTAL_TOURS}
+                    Тур {currentRound4TourNumber} / {ROUND4_TOTAL_TOURS}
                   </span>
                 </div>
               </div>
