@@ -2,6 +2,7 @@
 // Вход в «Пошути-кач»
 'use client';
 
+import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import type { CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
@@ -329,7 +330,7 @@ export default function JokesterEntryPage() {
 
         {/* ─── На главную ─── */}
         <div className="text-center">
-          <a href="/" className="inline-block cartoon-panel px-6 py-3 font-black text-black hover:scale-105 transition-transform">← На главную</a>
+          <Link href="/" className="inline-block cartoon-panel px-6 py-3 font-black text-black hover:scale-105 transition-transform">← На главную</Link>
         </div>
 
         {/* ─── Правила ─── */}
