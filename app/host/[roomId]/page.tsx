@@ -4897,7 +4897,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
       previous.onended = null;
     }
 
-    const nextAudio = new Audio('/audio/sound/jingle-lobby.mp3');
+    const nextAudio = new Audio(buildAudioUrl('sound/jingle-lobby.mp3'));
     nextAudio.loop = true;
     nextAudio.volume = 0.3;
     meetAudioRef.current = nextAudio;
@@ -5894,10 +5894,8 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [ensureRealtimeAuth, realtimeEnabled, roomId]);
 
   const everyoneAnswered = players.length > 0 && answerCount >= players.length;
-  const shouldForceZero =
-    roomStatus === 'running'
-      ? everyoneAnswered
-      : serverAllPlayersAnswered || everyoneAnswered;
+  const allPlayersAnswered = serverAllPlayersAnswered || everyoneAnswered;
+  const shouldForceZero = allPlayersAnswered;
   const isRound2FactPhase = roomStatus === 'round2-running' && round2Phase === 'fact';
   const isTimerRoundActive =
     roomStatus === 'running' ||
@@ -5917,10 +5915,10 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [roomStatus, stopQuestionAudio]);
 
   useEffect(() => {
-    if (roomStatus === 'running' && everyoneAnswered) {
+    if (roomStatus === 'running' && allPlayersAnswered) {
       stopQuestionAudio();
     }
-  }, [roomStatus, everyoneAnswered, stopQuestionAudio]);
+  }, [roomStatus, allPlayersAnswered, stopQuestionAudio]);
 
   useEffect(() => {
     if (roomStatus !== 'round2-running') {
@@ -7885,7 +7883,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [stopRound5RulesAudio]);
 
   useEffect(() => {
-    const isRound1TransitionReady = roomStatus === 'running' && (timeLeft <= 0 || everyoneAnswered);
+    const isRound1TransitionReady = roomStatus === 'running' && (timeLeft <= 0 || allPlayersAnswered);
     if (!question || isLastQuestion || !isRound1TransitionReady || totalPlayers === 0) {
       return;
     }
@@ -7924,7 +7922,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   ]);
 
   useEffect(() => {
-    const isRound1TransitionReady = roomStatus === 'running' && (timeLeft <= 0 || everyoneAnswered);
+    const isRound1TransitionReady = roomStatus === 'running' && (timeLeft <= 0 || allPlayersAnswered);
     if (!question || !isLastQuestion || !isRound1TransitionReady) {
       return;
     }
