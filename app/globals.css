@@ -2,7 +2,7 @@
 
 @font-face {
   font-family: 'Adventure Indiana Jones';
-  src: url('https://storage.yandexcloud.net/vecherinkach/audio/sound/Jokester/font/Adventure_Indiana_Jones.ttf') format('truetype');
+  src: url('/fonts/Adventure_Indiana_Jones.ttf') format('truetype');
   font-weight: normal;
   font-style: normal;
   font-display: swap;
@@ -10,7 +10,7 @@
 
 @font-face {
   font-family: 'Comic CAT';
-  src: url('https://storage.yandexcloud.net/vecherinkach/audio/sound/Jokester/font/Comic_CAT.otf') format('opentype');
+  src: url('/fonts/Comic_CAT.otf') format('opentype');
   font-weight: normal;
   font-style: normal;
   font-display: swap;
@@ -183,7 +183,7 @@ body {
 
 @font-face {
   font-family: 'Renju';
-  src: url('https://storage.yandexcloud.net/vecherinkach/audio/sound/Jokester/font/Renju.otf') format('opentype');
+  src: url('/fonts/Renju.otf') format('opentype');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -191,7 +191,7 @@ body {
 
 @font-face {
   font-family: 'Jokester3D';
-  src: url('https://storage.yandexcloud.net/vecherinkach/audio/sound/Jokester/font/3DIsometric-Bold.otf') format('opentype');
+  src: url('/fonts/3DIsometric-Bold.otf') format('opentype');
   font-weight: 700;
   font-style: normal;
   font-display: swap;
@@ -199,7 +199,7 @@ body {
 
 @font-face {
   font-family: 'JokesterMoloko';
-  src: url('https://storage.yandexcloud.net/vecherinkach/audio/sound/Jokester/font/MOLOKO_by_Weekends.otf') format('opentype');
+  src: url('/fonts/MOLOKO_by_Weekends.otf') format('opentype');
   font-weight: 400;
   font-style: normal;
   font-display: swap;

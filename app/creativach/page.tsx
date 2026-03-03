@@ -15,7 +15,8 @@ import type { CreativachRole } from '@/lib/creativach/types';
 
 const AVATAR_COUNT = 14;
 const AVATARS = Array.from({ length: AVATAR_COUNT }, (_, i) => `${i + 1}.png`);
-const AVATAR_BASE = '/audio/sound/Jokester/ava/';
+const YANDEX_AUDIO_BASE = process.env.NEXT_PUBLIC_AUDIO_BASE ?? 'https://storage.yandexcloud.net/vecherinkach/audio';
+const AVATAR_BASE = `${YANDEX_AUDIO_BASE}/sound/Jokester/ava/`;
 
 function normalizeAvatarFile(value: string): string {
   const match = value.match(/^ava(\d+)\.png$/i);

@@ -36,6 +36,8 @@ import {
 } from '@/lib/creativach/types';
 import { CreativachAudioPlayer, CREATIVACH_AUDIO } from '@/lib/creativach/audio';
 
+const YANDEX_AUDIO_BASE = process.env.NEXT_PUBLIC_AUDIO_BASE ?? 'https://storage.yandexcloud.net/vecherinkach/audio';
+
 /* ─── Timer Circle ─── */
 function TimerCircle({ seconds, total, label }: { seconds: number; total: number; label?: string }) {
   const r = 54;
@@ -637,7 +639,7 @@ export function CreativachHostContent({ isMirror: _isMirror = false }: { isMirro
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
               {gamePlayers.map((p, i) => (
                 <div key={p.id} className="cartoon-panel p-3 text-center animate-[fadeIn_0.3s_ease]" style={{ animationDelay: `${i * 0.1}s` }}>
-                  <img src={`/audio/sound/Jokester/ava/${p.avatar}`} alt={p.name} className="w-16 h-16 mx-auto rounded-xl border-3 border-black shadow-[2px_2px_0_#000]" />
+                  <img src={`${YANDEX_AUDIO_BASE}/sound/Jokester/ava/${p.avatar}`} alt={p.name} className="w-16 h-16 mx-auto rounded-xl border-3 border-black shadow-[2px_2px_0_#000]" />
                   <p className="text-xs font-black text-black mt-2 truncate">{p.name}</p>
                 </div>
               ))}
@@ -772,7 +774,7 @@ export function CreativachHostContent({ isMirror: _isMirror = false }: { isMirro
                     {i + 1}
                   </div>
                   {a.player && (
-                    <img src={`/audio/sound/Jokester/ava/${a.player.avatar}`} alt={a.player.name} className="w-12 h-12 rounded-xl border-2 border-black" />
+                    <img src={`${YANDEX_AUDIO_BASE}/sound/Jokester/ava/${a.player.avatar}`} alt={a.player.name} className="w-12 h-12 rounded-xl border-2 border-black" />
                   )}
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-black truncate">{a.player?.name || '???'}</p>
@@ -800,7 +802,7 @@ export function CreativachHostContent({ isMirror: _isMirror = false }: { isMirro
                   <span className="font-black text-xl w-8 text-center">
                     {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
                   </span>
-                  <img src={`/audio/sound/Jokester/ava/${p.avatar}`} alt={p.name} className="w-10 h-10 rounded-xl border-2 border-black" />
+                  <img src={`${YANDEX_AUDIO_BASE}/sound/Jokester/ava/${p.avatar}`} alt={p.name} className="w-10 h-10 rounded-xl border-2 border-black" />
                   <span className="font-bold text-black flex-1 truncate">{p.name}</span>
                   <span className="font-black text-xl text-[#FF6B35]">{p.total_points}</span>
                   <span className="text-xs text-gray-500">очков</span>
@@ -822,7 +824,7 @@ export function CreativachHostContent({ isMirror: _isMirror = false }: { isMirro
                   <div className="cartoon-panel p-8 text-center space-y-4 !border-yellow-500 !bg-gradient-to-b from-yellow-50 to-white animate-[fadeIn_0.5s_ease]">
                     <p className="text-lg font-bold text-gray-600">🎉 Победитель</p>
                     <img
-                      src={`/audio/sound/Jokester/ava/${sortedByPoints[0].avatar}`}
+                      src={`${YANDEX_AUDIO_BASE}/sound/Jokester/ava/${sortedByPoints[0].avatar}`}
                       alt={sortedByPoints[0].name}
                       className="w-24 h-24 mx-auto rounded-2xl border-4 border-yellow-500 shadow-[4px_4px_0_#000]"
                     />
@@ -862,7 +864,7 @@ export function CreativachHostContent({ isMirror: _isMirror = false }: { isMirro
                 {winner && (
                   <div className="space-y-6">
                     <img
-                      src={`/audio/sound/Jokester/ava/${winner.avatar}`}
+                      src={`${YANDEX_AUDIO_BASE}/sound/Jokester/ava/${winner.avatar}`}
                       alt={winner.name}
                       className="w-48 h-48 rounded-full object-cover mx-auto border-8 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
                     />
@@ -892,7 +894,7 @@ export function CreativachHostContent({ isMirror: _isMirror = false }: { isMirro
                     <div className="flex items-center gap-4">
                       <span className="text-3xl font-black text-black w-10 text-center">{i + 1}</span>
                       <img
-                        src={`/audio/sound/Jokester/ava/${row.player.avatar}`}
+                        src={`${YANDEX_AUDIO_BASE}/sound/Jokester/ava/${row.player.avatar}`}
                         alt={row.player.name}
                         className="w-24 h-24 rounded-full object-cover border-4 border-black"
                       />

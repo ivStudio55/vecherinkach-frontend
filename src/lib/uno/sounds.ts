@@ -59,7 +59,8 @@ let _lobbyAudio: HTMLAudioElement | null = null;
 export function playLobbyMusic() {
   stopLobbyMusic();
   try {
-    _lobbyAudio = new Audio('/audio/sound/jingle_uno.mp3');
+    const base = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_AUDIO_BASE) || 'https://storage.yandexcloud.net/vecherinkach/audio';
+    _lobbyAudio = new Audio(`${base}/sound/jingle_uno.mp3`);
     _lobbyAudio.loop = true;
     _lobbyAudio.volume = 0.3;
     _lobbyAudio.play().catch(() => {});
@@ -78,8 +79,9 @@ export function stopLobbyMusic() {
 /** Play random duck sound (for player joins) */
 export function playDuckSound() {
   try {
+    const base = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_AUDIO_BASE) || 'https://storage.yandexcloud.net/vecherinkach/audio';
     const n = Math.floor(Math.random() * 7) + 1; // 1-7
-    const audio = new Audio(`/audio/duck/${n}.mp3`);
+    const audio = new Audio(`${base}/duck/${n}.mp3`);
     audio.volume = 0.5;
     audio.play().catch(() => {});
   } catch {}

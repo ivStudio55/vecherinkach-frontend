@@ -24,6 +24,8 @@ import type {
 } from '@/lib/creativach/types';
 import { ROUNDS, ANSWER_TIME_SEC, VOTE_TIME_SEC } from '@/lib/creativach/types';
 
+const YANDEX_AUDIO_BASE = process.env.NEXT_PUBLIC_AUDIO_BASE ?? 'https://storage.yandexcloud.net/vecherinkach/audio';
+
 /* ─── Timer Bar ─── */
 function TimerBar({ seconds, total }: { seconds: number; total: number }) {
   const pct = total > 0 ? (seconds / total) * 100 : 0;
@@ -267,7 +269,7 @@ export default function CreativachSpectatorPage() {
                   <span className="font-black w-6 text-center text-sm">
                     {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
                   </span>
-                  <img src={`/audio/sound/Jokester/ava/${p.avatar}`} alt={p.name} className="w-8 h-8 rounded-lg border-2 border-black" />
+                  <img src={`${YANDEX_AUDIO_BASE}/sound/Jokester/ava/${p.avatar}`} alt={p.name} className="w-8 h-8 rounded-lg border-2 border-black" />
                   <span className="font-bold text-black text-sm flex-1 truncate">{p.name}</span>
                   <span className="font-black text-purple-600">{p.total_points}</span>
                 </div>

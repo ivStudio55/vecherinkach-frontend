@@ -80,14 +80,15 @@ type CreditsPlayerBest = {
   bestAnswer: { question: string; answer: string; votes: number } | null;
 };
 
+const YANDEX_AUDIO_BASE = process.env.NEXT_PUBLIC_AUDIO_BASE ?? 'https://storage.yandexcloud.net/vecherinkach/audio';
 const START_DUCK_SOUNDS = [
-  '/audio/duck/1.mp3',
-  '/audio/duck/2.mp3',
-  '/audio/duck/3.mp3',
-  '/audio/duck/4.mp3',
-  '/audio/duck/5.mp3',
-  '/audio/duck/6.mp3',
-  '/audio/duck/7.mp3',
+  `${YANDEX_AUDIO_BASE}/duck/1.mp3`,
+  `${YANDEX_AUDIO_BASE}/duck/2.mp3`,
+  `${YANDEX_AUDIO_BASE}/duck/3.mp3`,
+  `${YANDEX_AUDIO_BASE}/duck/4.mp3`,
+  `${YANDEX_AUDIO_BASE}/duck/5.mp3`,
+  `${YANDEX_AUDIO_BASE}/duck/6.mp3`,
+  `${YANDEX_AUDIO_BASE}/duck/7.mp3`,
 ];
 
 const panelDelayStyle = (value: string): CSSProperties => ({ '--panel-delay': value } as CSSProperties);
@@ -188,9 +189,9 @@ export function JokesterHostContent({ isMirror: _isMirror = false }: { isMirror?
   const currentDuel = duels.find(d => d.duel_index === room?.current_duel_index && d.round === room?.current_round);
 
   const avatarSrc = useCallback((avatar?: string | null) => {
-    if (!avatar) return '/audio/sound/Jokester/ava/1.png';
+    if (!avatar) return `${YANDEX_AUDIO_BASE}/sound/Jokester/ava/1.png`;
     const normalized = avatar.replace(/^ava(\d+)\.png$/i, '$1.png');
-    return `/audio/sound/Jokester/ava/${normalized}`;
+    return `${YANDEX_AUDIO_BASE}/sound/Jokester/ava/${normalized}`;
   }, []);
 
   const categoryLabel = useCallback((categoryId?: string | null) => {
@@ -538,7 +539,7 @@ export function JokesterHostContent({ isMirror: _isMirror = false }: { isMirror?
       // Голосование за категории только перед первым раундом
       await updateJokesterRoom(effectiveRoom.id, { status: 'category_vote', state_version: effectiveRoom.state_version + 2 });
 
-      audioRef.current?.playBgm('/audio/sound/Jokester/soundTrack/category.mp3', 0.4);
+      audioRef.current?.playBgm(`${YANDEX_AUDIO_BASE}/sound/Jokester/soundTrack/category.mp3`, 0.4);
       void audioRef.current?.playVoiceRandom(JOKESTER_AUDIO.choosingCategoryFolder);
 
       startTimer(CATEGORY_VOTE_TIME_SEC, () => {
@@ -591,7 +592,7 @@ export function JokesterHostContent({ isMirror: _isMirror = false }: { isMirror?
     setDuels(freshDuels);
 
     // Фаза 1: все игроки отвечают одновременно (120 сек)
-    audioRef.current?.playBgm('/audio/sound/Jokester/soundTrack/120sec.mp3', 0.35, false);
+    audioRef.current?.playBgm(`${YANDEX_AUDIO_BASE}/sound/Jokester/soundTrack/120sec.mp3`, 0.35, false);
     audioRef.current?.playVoiceRandom(JOKESTER_AUDIO.roundFolder);
 
     await updateJokesterRoom(effectiveRoom.id, {
@@ -607,7 +608,7 @@ export function JokesterHostContent({ isMirror: _isMirror = false }: { isMirror?
     // По истечении 120 сек начинаем поочерёдные дуэли с голосованием
     startTimer(ANSWER_TIME_SEC, () => handleAnswerPhaseEnd(), {
       preEndSfxAtSec: 10,
-      preEndSfxFolder: '/audio/sound/Jokester/stop_timer',
+      preEndSfxFolder: `${YANDEX_AUDIO_BASE}/sound/Jokester/stop_timer`,
       preEndSfxCount: 10,
       preEndSfxVolume: 0.75,
     });
@@ -651,7 +652,7 @@ export function JokesterHostContent({ isMirror: _isMirror = false }: { isMirror?
       state_version: effectiveRoom.state_version + 10 + duelIndex,
     });
 
-    audioRef.current?.playBgm('/audio/sound/Jokester/soundTrack/vote30sec.mp3', 0.4, false);
+    audioRef.current?.playBgm(`${YANDEX_AUDIO_BASE}/sound/Jokester/soundTrack/vote30sec.mp3`, 0.4, false);
     audioRef.current?.playVoiceRandom(JOKESTER_AUDIO.voteFolder);
     setShowDeAnon(false);
 
@@ -659,7 +660,7 @@ export function JokesterHostContent({ isMirror: _isMirror = false }: { isMirror?
       void handleVoteEnd();
     }, {
       preEndSfxAtSec: 10,
-      preEndSfxFolder: '/audio/sound/Jokester/stop_vote_timer',
+      preEndSfxFolder: `${YANDEX_AUDIO_BASE}/sound/Jokester/stop_vote_timer`,
       preEndSfxCount: 8,
       preEndSfxVolume: 0.75,
     });
@@ -895,7 +896,7 @@ export function JokesterHostContent({ isMirror: _isMirror = false }: { isMirror?
     const freshDuels = await fetchJokesterDuels(room.id, 4);
     setDuels(prev => [...prev, ...freshDuels]);
 
-    audioRef.current?.playBgm('/audio/sound/Jokester/soundTrack/120sec.mp3', 0.35, false);
+    audioRef.current?.playBgm(`${YANDEX_AUDIO_BASE}/sound/Jokester/soundTrack/120sec.mp3`, 0.35, false);
     await updateJokesterRoom(room.id, {
       status: 'final_playing',
       current_duel_index: 0,
@@ -907,7 +908,7 @@ export function JokesterHostContent({ isMirror: _isMirror = false }: { isMirror?
     });
     startTimer(ANSWER_TIME_SEC, () => handleAnswerPhaseEnd(), {
       preEndSfxAtSec: 10,
-      preEndSfxFolder: '/audio/sound/Jokester/stop_timer',
+      preEndSfxFolder: `${YANDEX_AUDIO_BASE}/sound/Jokester/stop_timer`,
       preEndSfxCount: 10,
       preEndSfxVolume: 0.75,
     });
@@ -1979,9 +1980,9 @@ function DuelAnswerCard({
   idx?: number;
 }) {
   const avatarSrc = (avatar?: string | null) => {
-    if (!avatar) return '/audio/sound/Jokester/ava/1.png';
+    if (!avatar) return `${YANDEX_AUDIO_BASE}/sound/Jokester/ava/1.png`;
     const normalized = avatar.replace(/^ava(\d+)\.png$/i, '$1.png');
-    return `/audio/sound/Jokester/ava/${normalized}`;
+    return `${YANDEX_AUDIO_BASE}/sound/Jokester/ava/${normalized}`;
   };
   const duelist = answers.length > 0 ? players.find(p => p.id === answers[0].player_id) : null;
 
@@ -2050,9 +2051,9 @@ function VsScreen({
   showNames: boolean;
 }) {
   const avatarSrc = (avatar?: string | null) => {
-    if (!avatar) return '/audio/sound/Jokester/ava/1.png';
+    if (!avatar) return `${YANDEX_AUDIO_BASE}/sound/Jokester/ava/1.png`;
     const normalized = avatar.replace(/^ava(\d+)\.png$/i, '$1.png');
-    return `/audio/sound/Jokester/ava/${normalized}`;
+    return `${YANDEX_AUDIO_BASE}/sound/Jokester/ava/${normalized}`;
   };
 
   return (

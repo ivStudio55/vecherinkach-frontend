@@ -1,5 +1,7 @@
 /* ===== Drawinkach Audio Manager ===== */
 
+const AUDIO_BASE_URL = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_AUDIO_BASE) || 'https://storage.yandexcloud.net/vecherinkach/audio';
+
 /** Pick a random file from a numbered set */
 function randomFile(basePath: string, prefix: string, count: number, ext = '.mp3'): string {
   const idx = Math.floor(Math.random() * count) + 1;
@@ -10,29 +12,29 @@ function randomFile(basePath: string, prefix: string, count: number, ext = '.mp3
 
 export const AUDIO = {
   /** Random duck quack (7 files) */
-  duck: () => randomFile('/audio/duck', '', 7),
+  duck: () => randomFile(`${AUDIO_BASE_URL}/duck`, '', 7),
   /** Lobby jingle (loopable background) */
-  lobbyJingle: '/audio/sound/jingle_draw.mp3',
+  lobbyJingle: `${AUDIO_BASE_URL}/sound/jingle_draw.mp3`,
   /** Host greeting in lobby (3 files) */
-  meetDraw: () => randomFile('/audio/sound/meet_draw', 'meet_draw', 3),
+  meetDraw: () => randomFile(`${AUDIO_BASE_URL}/sound/meet_draw`, 'meet_draw', 3),
   /** Drawing timer background music (60 sec) */
-  drawTimer: '/audio/round3/60_sec.mp3',
+  drawTimer: `${AUDIO_BASE_URL}/round3/60_sec.mp3`,
   /** Host commentary round 1 drawing (5 files) */
-  draw1Comment: () => randomFile('/audio/draw1', 'draw', 5),
+  draw1Comment: () => randomFile(`${AUDIO_BASE_URL}/draw1`, 'draw', 5),
   /** Host commentary round 2 drawing (5 files) */
-  draw2Comment: () => randomFile('/audio/draw2', 'round2_draw', 5),
+  draw2Comment: () => randomFile(`${AUDIO_BASE_URL}/draw2`, 'round2_draw', 5),
   /** Host commentary round 3 drawing (5 files) */
-  draw3Comment: () => randomFile('/audio/draw3', 'round3_draw', 5),
+  draw3Comment: () => randomFile(`${AUDIO_BASE_URL}/draw3`, 'round3_draw', 5),
   /** Voting jingle (same as lobby) */
-  votingJingle: '/audio/sound/jingle_draw.mp3',
+  votingJingle: `${AUDIO_BASE_URL}/sound/jingle_draw.mp3`,
   /** Voting host commentary (5 files) */
-  voteDraw: () => randomFile('/audio/vote_draw', 'vote_draw', 5),
+  voteDraw: () => randomFile(`${AUDIO_BASE_URL}/vote_draw`, 'vote_draw', 5),
   /** Host commentary for guessing phase (5 files) */
-  guessDraw: () => randomFile('/audio/guess_draw', 'guess_draw', 5),
+  guessDraw: () => randomFile(`${AUDIO_BASE_URL}/guess_draw`, 'guess_draw', 5),
   /** After round - jingle */
-  afterRoundJingle: '/audio/round1_end/jingle_after_round1.mp3',
+  afterRoundJingle: `${AUDIO_BASE_URL}/round1_end/jingle_after_round1.mp3`,
   /** Final host voice (5 files) */
-  finalDraw: () => randomFile('/audio/final_draw', 'final_draw', 5),
+  finalDraw: () => randomFile(`${AUDIO_BASE_URL}/final_draw`, 'final_draw', 5),
 };
 
 /** Get host commentary for current round */

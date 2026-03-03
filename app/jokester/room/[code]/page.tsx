@@ -42,8 +42,9 @@ function normalizeAvatarFile(value?: string | null): string {
 
 const panelDelayStyle = (value: string): CSSProperties => ({ '--panel-delay': value } as CSSProperties);
 
+const YANDEX_AUDIO_BASE = process.env.NEXT_PUBLIC_AUDIO_BASE ?? 'https://storage.yandexcloud.net/vecherinkach/audio';
 function avatarSrc(value?: string | null): string {
-  return `/audio/sound/Jokester/ava/${normalizeAvatarFile(value)}`;
+  return `${YANDEX_AUDIO_BASE}/sound/Jokester/ava/${normalizeAvatarFile(value)}`;
 }
 
 function categoryLabel(categoryId?: string | null, categories: JokesterCategory[] = []): string {

@@ -143,10 +143,11 @@ export default function HomePage() {
     fadeStep();
   };
 
+  const YANDEX_AUDIO_BASE = process.env.NEXT_PUBLIC_AUDIO_BASE ?? 'https://storage.yandexcloud.net/vecherinkach/audio';
   const playRandomMeet = () => {
     const meetFiles = ['1.mp3', '2.mp3', '3.mp3', '4.mp3'];
     const randomFile = meetFiles[Math.floor(Math.random() * meetFiles.length)];
-    const audio = new Audio(`/audio/meet1/${randomFile}`);
+    const audio = new Audio(`${YANDEX_AUDIO_BASE}/meet1/${randomFile}`);
     audio.volume = 0.6;
     meetAudioRef.current = audio;
     setIsMeetPlaying(true);
@@ -277,7 +278,7 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    const audio = new Audio('/audio/sound/jingle-main.mp3');
+    const audio = new Audio(`${process.env.NEXT_PUBLIC_AUDIO_BASE ?? 'https://storage.yandexcloud.net/vecherinkach/audio'}/sound/jingle-main.mp3`);
     audio.loop = true;
     audio.volume = 0.45;
     audioRef.current = audio;

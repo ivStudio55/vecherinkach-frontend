@@ -1,6 +1,8 @@
 // src/lib/creativach/audio.ts
 // Аудио-менеджер для «Креативач»
 
+const AUDIO_BASE_URL = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_AUDIO_BASE) || 'https://storage.yandexcloud.net/vecherinkach/audio';
+
 /* ─── Утилита: случайный файл ─── */
 const voiceQueues = new Map<string, number[]>();
 
@@ -25,16 +27,16 @@ function nextVoiceIndex(folder: string, count: number): number {
 
 /* ─── Конфигурация папок с озвучкой ─── */
 const VOICE_COUNTS: Record<string, number> = {
-  '/audio/creativach/Greetings': 5,
-  '/audio/creativach/Round1_rules': 3,
-  '/audio/creativach/Round2_rules': 3,
-  '/audio/creativach/Round3_rules': 3,
-  '/audio/creativach/Round4_rules': 3,
-  '/audio/creativach/Round5_rules': 3,
-  '/audio/creativach/Motivation': 5,
-  '/audio/creativach/voting': 5,
-  '/audio/creativach/Results': 5,
-  '/audio/creativach/Congratulations': 3,
+  [`${AUDIO_BASE_URL}/creativach/Greetings`]: 5,
+  [`${AUDIO_BASE_URL}/creativach/Round1_rules`]: 3,
+  [`${AUDIO_BASE_URL}/creativach/Round2_rules`]: 3,
+  [`${AUDIO_BASE_URL}/creativach/Round3_rules`]: 3,
+  [`${AUDIO_BASE_URL}/creativach/Round4_rules`]: 3,
+  [`${AUDIO_BASE_URL}/creativach/Round5_rules`]: 3,
+  [`${AUDIO_BASE_URL}/creativach/Motivation`]: 5,
+  [`${AUDIO_BASE_URL}/creativach/voting`]: 5,
+  [`${AUDIO_BASE_URL}/creativach/Results`]: 5,
+  [`${AUDIO_BASE_URL}/creativach/Congratulations`]: 3,
 };
 
 function getVoiceCount(folder: string): number {
@@ -44,26 +46,26 @@ function getVoiceCount(folder: string): number {
 /* ─── Пути к аудио ─── */
 export const CREATIVACH_AUDIO = {
   // Саундтреки
-  lobbyMusic: '/audio/creativach/soundtrack/lobby_theme.mp3',
-  betweenMusic: '/audio/creativach/soundtrack/beetween.mp3',
-  timer60Music: '/audio/creativach/soundtrack/60_sec.mp3',
-  timer30Music: '/audio/creativach/soundtrack/30_sec.mp3',
-  finalMusic: '/audio/creativach/soundtrack/final.mp3',
+  lobbyMusic: `${AUDIO_BASE_URL}/creativach/soundtrack/lobby_theme.mp3`,
+  betweenMusic: `${AUDIO_BASE_URL}/creativach/soundtrack/beetween.mp3`,
+  timer60Music: `${AUDIO_BASE_URL}/creativach/soundtrack/60_sec.mp3`,
+  timer30Music: `${AUDIO_BASE_URL}/creativach/soundtrack/30_sec.mp3`,
+  finalMusic: `${AUDIO_BASE_URL}/creativach/soundtrack/final.mp3`,
 
   // Голос ведущего — папки
-  greetingsFolder: '/audio/creativach/Greetings',
-  round1RulesFolder: '/audio/creativach/Round1_rules',
-  round2RulesFolder: '/audio/creativach/Round2_rules',
-  round3RulesFolder: '/audio/creativach/Round3_rules',
-  round4RulesFolder: '/audio/creativach/Round4_rules',
-  round5RulesFolder: '/audio/creativach/Round5_rules',
-  motivationFolder: '/audio/creativach/Motivation',
-  votingFolder: '/audio/creativach/voting',
-  resultsFolder: '/audio/creativach/Results',
-  congratulationsFolder: '/audio/creativach/Congratulations',
+  greetingsFolder: `${AUDIO_BASE_URL}/creativach/Greetings`,
+  round1RulesFolder: `${AUDIO_BASE_URL}/creativach/Round1_rules`,
+  round2RulesFolder: `${AUDIO_BASE_URL}/creativach/Round2_rules`,
+  round3RulesFolder: `${AUDIO_BASE_URL}/creativach/Round3_rules`,
+  round4RulesFolder: `${AUDIO_BASE_URL}/creativach/Round4_rules`,
+  round5RulesFolder: `${AUDIO_BASE_URL}/creativach/Round5_rules`,
+  motivationFolder: `${AUDIO_BASE_URL}/creativach/Motivation`,
+  votingFolder: `${AUDIO_BASE_URL}/creativach/voting`,
+  resultsFolder: `${AUDIO_BASE_URL}/creativach/Results`,
+  congratulationsFolder: `${AUDIO_BASE_URL}/creativach/Congratulations`,
 
   // Звуки подключения (утки из общей папки)
-  duckFolder: '/audio/duck',
+  duckFolder: `${AUDIO_BASE_URL}/duck`,
 } as const;
 
 /**

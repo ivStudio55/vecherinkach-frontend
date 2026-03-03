@@ -221,7 +221,7 @@ const encodePathSegments = (relativePath: string) =>
     .map(segment => encodeURIComponent(segment))
     .join('/');
 
-const AUDIO_BASE = process.env.NEXT_PUBLIC_AUDIO_BASE ?? '/audio';
+const AUDIO_BASE = process.env.NEXT_PUBLIC_AUDIO_BASE ?? 'https://storage.yandexcloud.net/vecherinkach/audio';
 
 const buildAudioUrl = (relativePath: string) => `${AUDIO_BASE}/${encodePathSegments(relativePath)}?t=${Date.now()}`;
 

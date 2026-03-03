@@ -1,6 +1,8 @@
 // src/lib/jokester/audio.ts
 // Аудио-менеджер для «Пошути-кач»
 
+const AUDIO_BASE_URL = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_AUDIO_BASE) || 'https://storage.yandexcloud.net/vecherinkach/audio';
+
 /* ─── Утилита: случайный файл ─── */
 function randomIndex(count: number): number {
   return Math.floor(Math.random() * count) + 1;
@@ -12,27 +14,27 @@ function randomFile(basePath: string, count: number, ext = 'mp3'): string {
 
 // Настроенные размеры папок с озвучкой (чтобы не повторять файлы чаще чем нужно)
 const VOICE_COUNTS: Record<string, number> = {
-  '/audio/sound/Jokester/meet': 9,
-  '/audio/sound/Jokester/round': 10,
-  '/audio/sound/Jokester/round1': 5,
-  '/audio/sound/Jokester/round2': 5,
-  '/audio/sound/Jokester/round3': 5,
-  '/audio/sound/Jokester/round4': 5,
-  '/audio/sound/Jokester/choosing_category': 7,
-  '/audio/sound/Jokester/vote': 12,
-  '/audio/sound/Jokester/stop_timer': 10,
-  '/audio/sound/Jokester/stop_vote_timer': 8,
-  '/audio/sound/Jokester/after_1': 3,
-  '/audio/sound/Jokester/after_f': 10,
-  '/audio/sound/Jokester/vote_comment/50': 5,
-  '/audio/sound/Jokester/vote_comment/51-69': 5,
-  '/audio/sound/Jokester/vote_comment/70-99': 5,
-  '/audio/sound/Jokester/vote_comment/100': 5,
+  [`${AUDIO_BASE_URL}/sound/Jokester/meet`]: 9,
+  [`${AUDIO_BASE_URL}/sound/Jokester/round`]: 10,
+  [`${AUDIO_BASE_URL}/sound/Jokester/round1`]: 5,
+  [`${AUDIO_BASE_URL}/sound/Jokester/round2`]: 5,
+  [`${AUDIO_BASE_URL}/sound/Jokester/round3`]: 5,
+  [`${AUDIO_BASE_URL}/sound/Jokester/round4`]: 5,
+  [`${AUDIO_BASE_URL}/sound/Jokester/choosing_category`]: 7,
+  [`${AUDIO_BASE_URL}/sound/Jokester/vote`]: 12,
+  [`${AUDIO_BASE_URL}/sound/Jokester/stop_timer`]: 10,
+  [`${AUDIO_BASE_URL}/sound/Jokester/stop_vote_timer`]: 8,
+  [`${AUDIO_BASE_URL}/sound/Jokester/after_1`]: 3,
+  [`${AUDIO_BASE_URL}/sound/Jokester/after_f`]: 10,
+  [`${AUDIO_BASE_URL}/sound/Jokester/vote_comment/50`]: 5,
+  [`${AUDIO_BASE_URL}/sound/Jokester/vote_comment/51-69`]: 5,
+  [`${AUDIO_BASE_URL}/sound/Jokester/vote_comment/70-99`]: 5,
+  [`${AUDIO_BASE_URL}/sound/Jokester/vote_comment/100`]: 5,
 };
 
 function getVoiceCount(folder: string, fallback = 1): number {
   if (VOICE_COUNTS[folder]) return VOICE_COUNTS[folder];
-  if (folder.startsWith('/audio/sound/Jokester/connect/')) return 1; // по одному файлу на каждый размер комнаты
+  if (folder.startsWith(`${AUDIO_BASE_URL}/sound/Jokester/connect/`)) return 1; // по одному файлу на каждый размер комнаты
   return fallback;
 }
 
@@ -61,46 +63,46 @@ function nextVoiceIndex(folder: string, count: number): number {
 /* ─── Пути к аудио ─── */
 export const JOKESTER_AUDIO = {
   // Саундтреки
-  lobbyMusic: '/audio/sound/Jokester/soundTrack/lobby.mp3',
-  rulesMusic: '/audio/sound/Jokester/soundTrack/rules.mp3',
-  categoryMusic: '/audio/sound/Jokester/soundTrack/category.mp3',
-  timerMusic120: '/audio/sound/Jokester/soundTrack/120sec.mp3',
-  voteMusic30: '/audio/sound/Jokester/soundTrack/vote30sec.mp3',
-  betweenMusic: '/audio/sound/Jokester/soundTrack/beetween.mp3',
-  afterRoundMusic: '/audio/sound/Jokester/soundTrack/after_round.mp3',
-  finalMusic: '/audio/sound/Jokester/soundTrack/final.mp3',
+  lobbyMusic: `${AUDIO_BASE_URL}/sound/Jokester/soundTrack/lobby.mp3`,
+  rulesMusic: `${AUDIO_BASE_URL}/sound/Jokester/soundTrack/rules.mp3`,
+  categoryMusic: `${AUDIO_BASE_URL}/sound/Jokester/soundTrack/category.mp3`,
+  timerMusic120: `${AUDIO_BASE_URL}/sound/Jokester/soundTrack/120sec.mp3`,
+  voteMusic30: `${AUDIO_BASE_URL}/sound/Jokester/soundTrack/vote30sec.mp3`,
+  betweenMusic: `${AUDIO_BASE_URL}/sound/Jokester/soundTrack/beetween.mp3`,
+  afterRoundMusic: `${AUDIO_BASE_URL}/sound/Jokester/soundTrack/after_round.mp3`,
+  finalMusic: `${AUDIO_BASE_URL}/sound/Jokester/soundTrack/final.mp3`,
 
   // Голос ведущего — пути к папкам
-  meetFolder: '/audio/sound/Jokester/meet',
-  connectFolder: (count: number) => `/audio/sound/Jokester/connect/${count}`,
-  round1Folder: '/audio/sound/Jokester/round1',
-  round2Folder: '/audio/sound/Jokester/round2',
-  round3Folder: '/audio/sound/Jokester/round3',
-  round4Folder: '/audio/sound/Jokester/round4',
-  roundFolder: '/audio/sound/Jokester/round',
-  choosingCategoryFolder: '/audio/sound/Jokester/choosing_category',
-  voteFolder: '/audio/sound/Jokester/vote',
-  voteComment50: '/audio/sound/Jokester/vote_comment/50',
-  voteComment51_69: '/audio/sound/Jokester/vote_comment/51-69',
-  voteComment70_99: '/audio/sound/Jokester/vote_comment/70-99',
-  voteComment100: '/audio/sound/Jokester/vote_comment/100',
-  afterRound: (round: number) => `/audio/sound/Jokester/after_${round}`,
-  afterFinal: '/audio/sound/Jokester/after_f',
+  meetFolder: `${AUDIO_BASE_URL}/sound/Jokester/meet`,
+  connectFolder: (count: number) => `${AUDIO_BASE_URL}/sound/Jokester/connect/${count}`,
+  round1Folder: `${AUDIO_BASE_URL}/sound/Jokester/round1`,
+  round2Folder: `${AUDIO_BASE_URL}/sound/Jokester/round2`,
+  round3Folder: `${AUDIO_BASE_URL}/sound/Jokester/round3`,
+  round4Folder: `${AUDIO_BASE_URL}/sound/Jokester/round4`,
+  roundFolder: `${AUDIO_BASE_URL}/sound/Jokester/round`,
+  choosingCategoryFolder: `${AUDIO_BASE_URL}/sound/Jokester/choosing_category`,
+  voteFolder: `${AUDIO_BASE_URL}/sound/Jokester/vote`,
+  voteComment50: `${AUDIO_BASE_URL}/sound/Jokester/vote_comment/50`,
+  voteComment51_69: `${AUDIO_BASE_URL}/sound/Jokester/vote_comment/51-69`,
+  voteComment70_99: `${AUDIO_BASE_URL}/sound/Jokester/vote_comment/70-99`,
+  voteComment100: `${AUDIO_BASE_URL}/sound/Jokester/vote_comment/100`,
+  afterRound: (round: number) => `${AUDIO_BASE_URL}/sound/Jokester/after_${round}`,
+  afterFinal: `${AUDIO_BASE_URL}/sound/Jokester/after_f`,
 
   // Звуки подключения (утки)
   duckSounds: [
-    '/audio/sound/The_duck_quacked_fun_#1.mp3',
-    '/audio/sound/The_duck_quacked_fun_#2.mp3',
-    '/audio/sound/The_duck_quacked_fun_#3.mp3',
-    '/audio/sound/The_duck_quacked_fun_#4.mp3',
-    '/audio/sound/The_duk_quacked_funn_#1.mp3',
-    '/audio/sound/The_duk_quacked_funn_#2.mp3',
-    '/audio/sound/The_duk_quacked_funn_#3.mp3',
-    '/audio/sound/The_duk_quacked_funn_#4.mp3',
+    `${AUDIO_BASE_URL}/sound/The_duck_quacked_fun_#1.mp3`,
+    `${AUDIO_BASE_URL}/sound/The_duck_quacked_fun_#2.mp3`,
+    `${AUDIO_BASE_URL}/sound/The_duck_quacked_fun_#3.mp3`,
+    `${AUDIO_BASE_URL}/sound/The_duck_quacked_fun_#4.mp3`,
+    `${AUDIO_BASE_URL}/sound/The_duk_quacked_funn_#1.mp3`,
+    `${AUDIO_BASE_URL}/sound/The_duk_quacked_funn_#2.mp3`,
+    `${AUDIO_BASE_URL}/sound/The_duk_quacked_funn_#3.mp3`,
+    `${AUDIO_BASE_URL}/sound/The_duk_quacked_funn_#4.mp3`,
   ],
 
   // Звуки голосования
-  duckVote: '/audio/duck',
+  duckVote: `${AUDIO_BASE_URL}/duck`,
 } as const;
 
 /**
@@ -218,9 +220,9 @@ export class JokesterAudioPlayer {
   }
 
   playRandomDuckVote(volume = 0.4) {
-    // Duck quack from /audio/duck/ folder
+    // Duck quack from Yandex Cloud duck folder
     const idx = Math.floor(Math.random() * 5) + 1;
-    this.playSfx(`/audio/duck/${idx}.mp3`, volume);
+    this.playSfx(`${AUDIO_BASE_URL}/duck/${idx}.mp3`, volume);
   }
 
   playBeep(frequency = 440, durationMs = 200, volume = 0.1) {

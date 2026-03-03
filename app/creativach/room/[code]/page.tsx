@@ -25,6 +25,8 @@ import type {
 } from '@/lib/creativach/types';
 import { ROUNDS, ANSWER_TIME_SEC, VOTE_TIME_SEC, TOTAL_ROUNDS } from '@/lib/creativach/types';
 
+const YANDEX_AUDIO_BASE = process.env.NEXT_PUBLIC_AUDIO_BASE ?? 'https://storage.yandexcloud.net/vecherinkach/audio';
+
 /* ─── Timer Bar ─── */
 function TimerBar({ seconds, total }: { seconds: number; total: number }) {
   const pct = total > 0 ? (seconds / total) * 100 : 0;
@@ -206,7 +208,7 @@ export default function CreativachRoomPage() {
           <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs font-bold">#{code}</span>
         </div>
         <div className="flex items-center gap-2">
-          <img src={`/audio/sound/Jokester/ava/${me.avatar}`} alt={me.name} className="w-8 h-8 rounded-lg border-2 border-black" />
+          <img src={`${YANDEX_AUDIO_BASE}/sound/Jokester/ava/${me.avatar}`} alt={me.name} className="w-8 h-8 rounded-lg border-2 border-black" />
           <span className="font-bold text-sm">{me.name}</span>
           <span className="bg-[#FFD700] text-black px-2 py-0.5 rounded-full text-xs font-black border border-black">{me.total_points} оч.</span>
         </div>
@@ -371,7 +373,7 @@ export default function CreativachRoomPage() {
                   <span className="font-black w-6 text-center text-sm">
                     {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
                   </span>
-                  <img src={`/audio/sound/Jokester/ava/${p.avatar}`} alt={p.name} className="w-8 h-8 rounded-lg border-2 border-black" />
+                  <img src={`${YANDEX_AUDIO_BASE}/sound/Jokester/ava/${p.avatar}`} alt={p.name} className="w-8 h-8 rounded-lg border-2 border-black" />
                   <span className="font-bold text-black text-sm flex-1 truncate">{p.name}</span>
                   <span className="font-black text-[#FF6B35]">{p.total_points}</span>
                 </div>
@@ -383,7 +385,7 @@ export default function CreativachRoomPage() {
                 {sortedByPoints[0] && (
                   <div className="cartoon-panel p-6 text-center space-y-3 !border-yellow-500">
                     <p className="text-sm text-gray-600">🎉 Победитель</p>
-                    <img src={`/audio/sound/Jokester/ava/${sortedByPoints[0].avatar}`} alt="" className="w-20 h-20 mx-auto rounded-2xl border-4 border-yellow-500 shadow-[4px_4px_0_#000]" />
+                    <img src={`${YANDEX_AUDIO_BASE}/sound/Jokester/ava/${sortedByPoints[0].avatar}`} alt="" className="w-20 h-20 mx-auto rounded-2xl border-4 border-yellow-500 shadow-[4px_4px_0_#000]" />
                     <h2 className="text-3xl font-black text-black">{sortedByPoints[0].name}</h2>
                     <p className="text-xl font-black text-[#FF6B35]">{sortedByPoints[0].total_points} оч.</p>
                   </div>
@@ -417,7 +419,7 @@ export default function CreativachRoomPage() {
                   <span className="font-black w-6 text-center text-sm">
                     {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
                   </span>
-                  <img src={`/audio/sound/Jokester/ava/${p.avatar}`} alt={p.name} className="w-8 h-8 rounded-lg border-2 border-black" />
+                  <img src={`${YANDEX_AUDIO_BASE}/sound/Jokester/ava/${p.avatar}`} alt={p.name} className="w-8 h-8 rounded-lg border-2 border-black" />
                   <span className="font-bold text-black text-sm flex-1 truncate">{p.name}</span>
                   <span className="font-black text-[#FF6B35]">{p.total_points}</span>
                 </div>
