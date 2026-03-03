@@ -18,7 +18,6 @@ import { roundStateReducer } from '@/lib/roundStateMachine';
 import { WinnerBanner } from '@/shared/ui/WinnerBanner';
 import { BestQuestionCard } from '@/shared/ui/BestQuestionCard';
 import { JoinQrBlock } from '@/shared/ui/JoinQrBlock';
-import { QRCodeCanvas } from 'qrcode.react';
 import { isRealtimeEnabled } from '@/shared/logic/realtimeConfig';
 import { ROUND3_ANSWER_SECONDS, ROUND3_VOTE_COUNTDOWN_SECONDS, ROUND3_VOTE_SECONDS } from '@/shared/logic/roundConstants';
 import {
@@ -597,66 +596,6 @@ const HostControls = ({
   </div>
 );
 
-const MirrorControls = ({
-  compact,
-  isAnimationsDisabled,
-  onToggleAnimations,
-  isMusicMuted,
-  onToggleMusicMute,
-  isVoiceMuted,
-  onToggleVoiceMute,
-}: {
-  compact?: boolean;
-  isAnimationsDisabled?: boolean;
-  onToggleAnimations?: () => void;
-  isMusicMuted?: boolean;
-  onToggleMusicMute?: () => void;
-  isVoiceMuted?: boolean;
-  onToggleVoiceMute?: () => void;
-}) => (
-  <div className="flex flex-wrap gap-3 items-center">
-    <span className={`${compact ? 'px-3 py-1 text-xs' : 'px-4 py-2 text-sm'} comic-panel border-[4px] border-[#000] bg-purple-600 text-white comic-font tracking-[0.2em] animate-pulse`}>📡 ЗЕРКАЛО</span>
-    {onToggleMusicMute && (
-      <button
-        type="button"
-        onClick={onToggleMusicMute}
-        className={`${compact ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'} comic-panel border-[4px] border-[#000] transition ${isMusicMuted ? 'bg-red-500 text-white' : 'text-white hover:bg-[#ffde00]/10'}`}
-        title={isMusicMuted ? 'Включить музыку' : 'Выключить музыку'}
-      >
-        🎵
-      </button>
-    )}
-    {onToggleVoiceMute && (
-      <button
-        type="button"
-        onClick={onToggleVoiceMute}
-        className={`${compact ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'} comic-panel border-[4px] border-[#000] transition ${isVoiceMuted ? 'bg-red-500 text-white' : 'text-white hover:bg-[#ffde00]/10'}`}
-        title={isVoiceMuted ? 'Включить озвучку' : 'Выключить озвучку'}
-      >
-        🎤
-      </button>
-    )}
-    {onToggleAnimations && (
-      <button
-        type="button"
-        onClick={onToggleAnimations}
-        className={`${compact ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'} comic-panel border-[4px] border-[#000] transition ${isAnimationsDisabled ? 'bg-yellow-400 text-black' : 'text-white hover:bg-[#ffde00]/10'}`}
-        title={isAnimationsDisabled ? 'Включить анимации' : 'Выключить анимации'}
-      >
-        ✨
-      </button>
-    )}
-    <a
-      href="https://donatty.com/aleksandri"
-      target="_blank"
-      rel="noopener noreferrer"
-      className={`${compact ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'} comic-panel bg-[#ff2a2a] text-white comic-font border-[4px] border-[#000] hover:scale-105 transition-all duration-200 text-center`}
-    >
-      Поддержать
-    </a>
-  </div>
-);
-
 const PlayersAccordion = ({
   title,
   count,
@@ -752,7 +691,7 @@ const HostStackedLayout = ({
   </div>
 );
 
-export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
+export function HostRoomContent() {
   const params = useParams();
   const router = useRouter();
   const roomId = params.roomId as string;
@@ -981,7 +920,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   const [isCountdownVisible, setIsCountdownVisible] = useState(false);
   const [countdownContext, setCountdownContext] = useState<'round1' | 'round2' | 'round3' | 'round4' | 'round5'>('round1');
   const [countdownValue, setCountdownValue] = useState<string>(COUNTDOWN_STEPS[0]);
-  const [isRoomOpened, setIsRoomOpened] = useState(isMirror);
+  const [isRoomOpened, setIsRoomOpened] = useState(false);
   const [isPrestartNextEnabled, setIsPrestartNextEnabled] = useState(true);
   const [isPlayerLimitReached, setIsPlayerLimitReached] = useState(false);
   const [isRoundEndButtonLocked, setIsRoundEndButtonLocked] = useState(false);
@@ -1231,7 +1170,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   const countdownContextRef = useRef(countdownContext);
   const round4AskedIdsRef = useRef<number[]>([]);
   const round4CurrentPuzzleIdRef = useRef<number | null>(null);
-  const isMirrorRef = useRef(isMirror);
   const playersRef = useRef<Player[]>(players);
   const hasUserInteractedRef = useRef(false);
   const lastJoinAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -1248,7 +1186,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   const previousPlayerIdsRef = useRef<Set<string>>(new Set());
   const hasSnapshotRef = useRef(false);
   const countdownTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastMirroredCountdownValueRef = useRef<string | null>(null);
   const prestartEnableTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const roundEndUnlockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const roundEndDelayTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1283,13 +1220,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   const round3QuestionCount = Math.min(ROUND3_TOTAL_QUESTIONS, round3Questions.length);
   const currentRound3Question =
     roomStatus === 'round3-running' ? round3Questions[currentQuestionIndex] ?? null : null;
-
-  useEffect(() => {
-    // Mirror не получает пользовательских кликов, поэтому сразу разрешаем авто-воспроизведение.
-    if (isMirror) {
-      hasUserInteractedRef.current = true;
-    }
-  }, [isMirror]);
 
   const currentLikeQuestionId = (() => {
     if (roomStatus === 'running' && question?.id) {
@@ -3356,7 +3286,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
     if (!questionStartedAt) {
       return;
     }
-    if (isMirrorRef.current) return;
     const currentQ = currentRound3Question;
     if (!currentQ) {
       return;
@@ -3828,101 +3757,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   useEffect(() => {
     countdownContextRef.current = countdownContext;
   }, [countdownContext]);
-
-  // ─── Mirror broadcast channel: sync rules visibility between host & mirror ───
-  const mirrorChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-
-  useEffect(() => {
-    const channel = supabase.channel(`mirror-sync-${roomId}`);
-
-    if (isMirror) {
-      channel.on('broadcast', { event: 'rules-sync' }, ({ payload }: { payload: Record<string, boolean> }) => {
-        if (payload.isPrestartVisible !== undefined) setIsPrestartVisible(payload.isPrestartVisible);
-        if (payload.isRulesVisible !== undefined) setIsRulesVisible(payload.isRulesVisible);
-        if (payload.isRound2RulesVisible !== undefined) setIsRound2RulesVisible(payload.isRound2RulesVisible);
-        if (payload.isRound3RulesVisible !== undefined) setIsRound3RulesVisible(payload.isRound3RulesVisible);
-        if (payload.isRound4RulesVisible !== undefined) setIsRound4RulesVisible(payload.isRound4RulesVisible);
-        if (payload.isRound5RulesVisible !== undefined) setIsRound5RulesVisible(payload.isRound5RulesVisible);
-      });
-      channel.on('broadcast', { event: 'countdown-sync' }, ({ payload }: { payload: { visible: boolean; value?: string; context?: string } }) => {
-        setIsCountdownVisible(payload.visible);
-        if (payload.value !== undefined) setCountdownValue(payload.value);
-        if (payload.context !== undefined) setCountdownContext(payload.context as 'round1' | 'round2' | 'round3' | 'round4' | 'round5');
-      });
-    } else {
-      channel.on('broadcast', { event: 'mirror-sync-request' }, () => {
-        void channel.send({
-          type: 'broadcast',
-          event: 'rules-sync',
-          payload: {
-            isPrestartVisible: isPrestartVisibleRef.current,
-            isRulesVisible: isRulesVisibleRef.current,
-            isRound2RulesVisible: isRound2RulesVisibleRef.current,
-            isRound3RulesVisible: isRound3RulesVisibleRef.current,
-            isRound4RulesVisible: isRound4RulesVisibleRef.current,
-            isRound5RulesVisible: isRound5RulesVisibleRef.current,
-          },
-        });
-        void channel.send({
-          type: 'broadcast',
-          event: 'countdown-sync',
-          payload: {
-            visible: isCountdownVisibleRef.current,
-            value: countdownValueRef.current,
-            context: countdownContextRef.current,
-          },
-        });
-      });
-    }
-
-    channel.subscribe((status) => {
-      if (status === 'SUBSCRIBED' && isMirror) {
-        void channel.send({
-          type: 'broadcast',
-          event: 'mirror-sync-request',
-          payload: { requestedAt: Date.now() },
-        });
-      }
-    });
-    mirrorChannelRef.current = channel;
-
-    return () => {
-      supabase.removeChannel(channel);
-      mirrorChannelRef.current = null;
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roomId]);
-
-  // Host: broadcast rules state changes to mirror
-  useEffect(() => {
-    if (isMirror || !mirrorChannelRef.current) return;
-    void mirrorChannelRef.current.send({
-      type: 'broadcast',
-      event: 'rules-sync',
-      payload: {
-        isPrestartVisible,
-        isRulesVisible,
-        isRound2RulesVisible,
-        isRound3RulesVisible,
-        isRound4RulesVisible,
-        isRound5RulesVisible,
-      },
-    });
-  }, [isMirror, isPrestartVisible, isRulesVisible, isRound2RulesVisible, isRound3RulesVisible, isRound4RulesVisible, isRound5RulesVisible]);
-
-  // Host: broadcast countdown state to mirror
-  useEffect(() => {
-    if (isMirror || !mirrorChannelRef.current) return;
-    void mirrorChannelRef.current.send({
-      type: 'broadcast',
-      event: 'countdown-sync',
-      payload: {
-        visible: isCountdownVisible,
-        value: countdownValue,
-        context: countdownContext,
-      },
-    });
-  }, [isMirror, isCountdownVisible, countdownValue, countdownContext]);
 
   const round2AwardedPointsRef = useRef<Map<string, number>>(new Map());
 
@@ -5631,19 +5465,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
     [ensureAudioContext]
   );
 
-  useEffect(() => {
-    if (!isMirror || !isCountdownVisible) {
-      lastMirroredCountdownValueRef.current = null;
-      return;
-    }
-    if (lastMirroredCountdownValueRef.current === countdownValue) {
-      return;
-    }
-    lastMirroredCountdownValueRef.current = countdownValue;
-    const isFinalStep = countdownValue === COUNTDOWN_STEPS[COUNTDOWN_STEPS.length - 1];
-    void playBeep(isFinalStep ? 1200 : 880);
-  }, [countdownValue, isCountdownVisible, isMirror, playBeep]);
-
   const stopQuestionAudio = useCallback(() => {
     const jingle = questionJingleAudioRef.current;
     if (jingle) {
@@ -5847,13 +5668,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
     }
   }, [tryPlayLobby]);
 
-  useEffect(() => {
-    if (isMirror && !isRoomOpened) {
-      // Mirror не требует явного клика, открываем сразу
-      hasUserInteractedRef.current = true;
-      setIsRoomOpened(true);
-    }
-  }, [isMirror, isRoomOpened]);
 
   useEffect(() => {
     let cancelled = false;
@@ -6163,48 +5977,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
     }
   }, [roomStatus, allPlayersAnswered, stopQuestionAudio]);
 
-  useEffect(() => {
-    if (roomStatus !== 'round2-running') {
-      lastRound2FactPlaybackKeyRef.current = null;
-      lastRound2ExplanationPlaybackKeyRef.current = null;
-      return;
-    }
-    if (!isMirrorRef.current || round2CurrentIndex === null) {
-      return;
-    }
-
-    if (round2Phase === 'fact') {
-      const factKey = `${round2CurrentIndex}-${round2ShowingFact ? 't' : 'f'}-${questionStartedAt ?? 'na'}`;
-      if (lastRound2FactPlaybackKeyRef.current === factKey) {
-        return;
-      }
-      lastRound2FactPlaybackKeyRef.current = factKey;
-      void playRound2FactAudio(round2CurrentIndex, round2ShowingFact);
-      return;
-    }
-
-    if (round2Phase === 'explanation') {
-      const explanationKey = `${round2CurrentIndex}-${round2ShowingFact ? 't' : 'f'}-explanation`;
-      if (lastRound2ExplanationPlaybackKeyRef.current === explanationKey) {
-        return;
-      }
-      lastRound2ExplanationPlaybackKeyRef.current = explanationKey;
-      if (round2ShowingFact) {
-        void playRound2ExplanationAudio(round2CurrentIndex);
-      } else {
-        void playRound2FictionExplanationAudio(round2CurrentIndex);
-      }
-    }
-  }, [
-    playRound2ExplanationAudio,
-    playRound2FactAudio,
-    playRound2FictionExplanationAudio,
-    questionStartedAt,
-    roomStatus,
-    round2CurrentIndex,
-    round2Phase,
-    round2ShowingFact,
-  ]);
 
   useEffect(() => {
     if (roomStatus !== 'round4-running') {
@@ -6240,27 +6012,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
     timeOffsetMs,
   ]);
 
-  useEffect(() => {
-    if (roomStatus !== 'round4-running' || !round4CurrentPuzzle || !questionStartedAt) {
-      return;
-    }
-    if (!isMirrorRef.current) {
-      return;
-    }
-
-    const remaining = getRemainingSeconds(questionStartedAt, QUESTION_DURATION_SECONDS, timeOffsetMs);
-    if (remaining > 0) {
-      return;
-    }
-
-    const answerKey = `${round4CurrentPuzzle.id}-${questionStartedAt}-answer`;
-    if (lastRound4AnswerPlaybackKeyRef.current === answerKey) {
-      return;
-    }
-
-    lastRound4AnswerPlaybackKeyRef.current = answerKey;
-    playRound4AnswerAudio(round4CurrentPuzzle.id);
-  }, [playRound4AnswerAudio, questionStartedAt, roomStatus, round4CurrentPuzzle, timeOffsetMs]);
 
   useEffect(() => {
     if (!timerActive || !questionStartedAt) {
@@ -6298,7 +6049,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
     if (!roomId || roomStatus !== 'running') {
       return;
     }
-    if (isMirrorRef.current) return;
 
     const totalPlayers = players.length;
     if (totalPlayers === 0) {
@@ -6330,7 +6080,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
     if (!roomId || roomStatus !== 'round2-running') {
       return;
     }
-    if (isMirrorRef.current) return;
 
     if (totalPlayerCount === 0) {
       return;
@@ -6361,7 +6110,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
     if (!roomId || roomStatus !== 'round5-running') {
       return;
     }
-    if (isMirrorRef.current) return;
 
     if (totalPlayerCount === 0) {
       return;
@@ -6539,7 +6287,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
 
   const finishRound = async () => {
-    if (isMirrorRef.current) return;
     if (isSummaryLoading) return;
     setIsSummaryLoading(true);
     stopQuestionAudio();
@@ -6563,7 +6310,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   };
 
   const startRound = async () => {
-    if (isMirrorRef.current) return;
     if (!isPackReady) {
       setError('Пакет вопросов ещё загружается. Подождите пару секунд и попробуйте снова.');
       return;
@@ -6610,7 +6356,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   };
 
   const nextQuestion = useCallback(async () => {
-    if (isMirrorRef.current) return;
     const newIndex = currentQuestionIndex + 1;
     const { iso: questionStartedAt, offset } = await getServerIsoTimestamp();
 
@@ -6636,7 +6381,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
   const runCountdownSequence = useCallback(
     function runCountdownSequence(stepIndex: number) {
-      if (isMirrorRef.current) return;
       const clampedIndex = Math.min(stepIndex, COUNTDOWN_STEPS.length - 1);
       const value = COUNTDOWN_STEPS[clampedIndex];
       const isFinal = clampedIndex === COUNTDOWN_STEPS.length - 1;
@@ -6728,7 +6472,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   };
 
   const endGame = async () => {
-    if (isMirrorRef.current) return;
     setIsTournamentVisible(false);
     stopAllAudio();
     const { error: updateError } = await supabase
@@ -6754,7 +6497,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
   const moveRound2ToExplanation = useCallback(
     async (index: number) => {
-      if (isMirrorRef.current) return;
       if (round2PhaseRef.current !== 'fact' || isTransitioningRound2Ref.current) {
         return;
       }
@@ -6860,7 +6602,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
     if (roomStatus !== 'round2-running' || round2Phase !== 'fact' || !serverAllPlayersAnswered || isTransitioningRound2Ref.current) {
       return;
     }
-    if (isMirrorRef.current) return;
     const currentIndex = round2CurrentIndexRef.current ?? round2CurrentIndex;
     if (currentIndex === null) {
       return;
@@ -6872,7 +6613,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
   const launchRound2Question = useCallback(
     async (index: number, showingFact: boolean, questionNumber: number, options?: { resetTrackers?: boolean }) => {
-      if (isMirrorRef.current) return;
       hasUserInteractedRef.current = true;
       clearRound2Timer();
       stopRound2Audio();
@@ -7050,7 +6790,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [startRound2]);
 
   const startRound3Countdown = useCallback(() => {
-    if (isMirrorRef.current) return;
     if (round3StartLockRef.current || isCountdownVisible) {
       return;
     }
@@ -7132,7 +6871,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [startRound3Countdown]);
 
   const handleRound3Complete = useCallback(async () => {
-    if (isMirrorRef.current) return;
     stopRound3Audio();
     stopRound3VoteAudio();
     stopRound3ResultsAudio();
@@ -7165,7 +6903,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [playTournamentJingle, roomId, setQuestion, stopRound3Audio, stopRound3ResultsAudio, stopRound3VoteAudio]);
 
   const handleRound3NextQuestion = useCallback(async () => {
-    if (isMirrorRef.current) return;
     if (roomStatus !== 'round3-running') {
       return;
     }
@@ -7211,7 +6948,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [handleRound3Complete]);
 
   const handleRound3BackToEndOfRound2 = useCallback(async () => {
-    if (isMirrorRef.current) return;
     stopRound3Audio();
     lastRound3PlaybackKeyRef.current = null;
     setIsTournamentVisible(false);
@@ -7258,7 +6994,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [roomId, setQuestion, stopRound3Audio, stopTournamentJingle]);
 
   const completeRound2 = useCallback(async () => {
-    if (isMirrorRef.current) return;
     handleRound2NextQuestionRef.current = null;
     clearRound2Timer();
     stopRound2Audio();
@@ -7299,7 +7034,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [clearRound2Timer, playRound2EndCeremony, roomId, setRound2CurrentIndex, setRound2Phase, stopRound2Audio, stopRound2RulesAudio, updateRound2Leaderboard]);
 
   const handleRound2NextQuestion = useCallback(async () => {
-    if (isMirrorRef.current) return;
     if (roomStatus !== 'round2-running') {
       return;
     }
@@ -7567,7 +7301,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, []);
 
   const startRound5Game = useCallback(async () => {
-    if (isMirrorRef.current) return;
     if (round5StartLockRef.current) {
       return;
     }
@@ -7631,7 +7364,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [getServerIsoTimestamp, roomId, stopAllAudioImmediate, syncTimerWithStart, updateRoomStatus]);
 
   const advanceRound5Tour = useCallback(async () => {
-    if (isMirrorRef.current) return;
     if (round5AdvanceLockRef.current) {
       return;
     }
@@ -7681,7 +7413,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [currentQuestionIndex, getServerIsoTimestamp, roomId, stopAllAudio, updateRoomStatus]);
 
   const scoreAndRevealRound5 = useCallback(async () => {
-    if (isMirrorRef.current) return;
     if (isRound5Scoring) {
       return;
     }
@@ -7764,7 +7495,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [calculateRound5Points, isRound5Scoring, roomId, round5CurrentBankIndex, round5CurrentQuestion]);
 
   const startRound4Game = useCallback(async () => {
-    if (isMirrorRef.current) return;
     const usedFromDb = await loadUsedRound4PuzzleIds();
     const mergedUsed = Array.from(
       new Set(
@@ -7836,7 +7566,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [getServerIsoTimestamp, loadUsedRound4PuzzleIds, roomId, round4Puzzles, updateRoomStatus, syncTimerWithStart]);
 
   const handleRound4Complete = useCallback(async () => {
-    if (isMirrorRef.current) return;
     stopRound4Audio();
     setIsTournamentVisible(true);
     setIsFinalRoundAvailable(true);
@@ -7867,7 +7596,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   }, [playTournamentJingle, playRound4EndAudio, roomId, setQuestion, stopRound4Audio]);
 
   const maybeAutoAdvanceRound4 = useCallback(() => {
-    if (isMirrorRef.current) return;
     if (roomStatusRef.current !== 'round4-running') {
       return;
     }
@@ -7885,7 +7613,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
   const scoreRound4Puzzle = useCallback(
     async (puzzle: Round4Puzzle) => {
-      if (isMirrorRef.current) return;
       if (!puzzle || isRound4Scoring) {
         return;
       }
@@ -8142,9 +7869,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
           if (roomStatusRef.current !== 'running') {
             return;
           }
-          if (isMirrorRef.current) {
-            return;
-          }
           void nextQuestion();
         },
       });
@@ -8175,17 +7899,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
     }
 
     roundEndLockQuestionRef.current = questionKey;
-
-    if (isMirrorRef.current) {
-      // Mirror: play between audio first, then the round-end ceremony (round1end voice + jingle).
-      void playBetweenAudioForPercent(correctAnswerPercentage, {
-        onEnded: () => {
-          if (roundEndLockQuestionRef.current !== questionKey) return;
-          playRound1EndCeremonyAudio();
-        },
-      });
-      return;
-    }
 
     roundEndButtonSetterRef.current(true);
     clearRoundEndDelayTimeout();
@@ -8228,7 +7941,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
       clearAutoFinishTimeout();
       return;
     }
-    if (isMirrorRef.current) return;
 
     const questionKey = typeof question?.id === 'number' ? question.id : question?.order;
     if (questionKey !== undefined && betweenCueQuestionRef.current === questionKey) {
@@ -8332,7 +8044,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
           onClick={handleHostInteraction}
           className="px-8 py-4 comic-panel border-[4px] border-[#000] bg-[#ffde00] text-black comic-font text-2xl tracking-[0.2em] hover:bg-[#ff2a2a] hover:text-white transition-colors"
         >
-          {isMirror ? '📡 ОТКРЫТЬ ЗЕРКАЛО' : 'ОТКРЫТЬ КОМНАТУ'}
+          'ОТКРЫТЬ КОМНАТУ'
         </button>
       </div>
     );
@@ -8452,21 +8164,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
                   Комната {roomCode || '----'}
                 </h1>
               </div>
-                {isMirror ? (
-                  <MirrorControls
-                    compact={isCompactForcedLayout}
-                    isAnimationsDisabled={isAnimationsDisabled}
-                    onToggleAnimations={() => {
-                      const next = !isAnimationsDisabled;
-                      setIsAnimationsDisabled(next);
-                      localStorage.setItem('host_animations_disabled', String(next));
-                    }}
-                    isMusicMuted={isMusicMuted}
-                    onToggleMusicMute={toggleMusicMute}
-                    isVoiceMuted={isVoiceMuted}
-                    onToggleVoiceMute={toggleVoiceMute}
-                  />
-                ) : (
                   <HostControls
                     primaryLabel={headerActionLabel}
                     onPrimaryAction={handlePrimaryHeaderAction}
@@ -8485,12 +8182,11 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
                     isVoiceMuted={isVoiceMuted}
                     onToggleVoiceMute={toggleVoiceMute}
                   />
-                )}
             </div>
             </header>
           ) : null}
 
-        {showMobilePrompt && !isMirror ? (
+        {showMobilePrompt ? (
           <div className="comic-panel border-[#000]/30 bg-white px-4 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm comic-font text-black">Похоже, у вас мобильный экран. Переключиться на Mobile view?</p>
             <div className="flex gap-2">
@@ -8526,21 +8222,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
                   <p className="comic-font text-[11px] tracking-[0.5em] text-white/80">Панель ведущего</p>
                   <h2 className="text-2xl comic-font leading-tight text-white">Комната {roomCode || '----'}</h2>
                 </div>
-                {isMirror ? (
-                  <MirrorControls
-                    compact
-                    isAnimationsDisabled={isAnimationsDisabled}
-                    onToggleAnimations={() => {
-                      const next = !isAnimationsDisabled;
-                      setIsAnimationsDisabled(next);
-                      localStorage.setItem('host_animations_disabled', String(next));
-                    }}
-                    isMusicMuted={isMusicMuted}
-                    onToggleMusicMute={toggleMusicMute}
-                    isVoiceMuted={isVoiceMuted}
-                    onToggleVoiceMute={toggleVoiceMute}
-                  />
-                ) : (
                   <HostControls
                     primaryLabel={headerActionLabel}
                     onPrimaryAction={handlePrimaryHeaderAction}
@@ -8549,7 +8230,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
                     layoutLabel={layoutModeLabel}
                     compact
                   />
-                )}
               </div>
             }
             questionView={(() => {
@@ -8571,32 +8251,15 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
                         qrWindowUrl={`/host/${roomId}/qr?code=${encodeURIComponent(roomCode)}`}
                         className="comic-panel bg-white"
                       />
-                      {!isMirror && (() => {
-                        const mirrorUrl = typeof window !== 'undefined' ? `${window.location.origin}/host/mirror/${roomId}` : '';
-                        return mirrorUrl ? (
-                          <div className="border-t-2 border-dashed border-black/20 pt-3 mt-3 space-y-2 text-center">
-                            <p className="text-sm comic-font text-purple-700 font-bold">📡 Зеркало трансляции</p>
-                            <div className="inline-block border-2 border-purple-400 rounded-xl p-2 bg-white">
-                              <QRCodeCanvas value={mirrorUrl} size={120} fgColor="#7c3aed" bgColor="#ffffff" />
-                            </div>
-                            <p className="text-xs text-purple-600 comic-font break-all">{mirrorUrl}</p>
-                          </div>
-                        ) : null;
-                      })()}
+
                     </div>
-                    {!isMirror ? (
-                      <button
-                        onClick={handlePrepareRound}
-                        disabled={players.length === 0}
-                        className="comic-button hover:scale-105 hover: transition-all duration-200 w-full py-3 text-base bg-[#ffde00] text-black disabled:opacity-40 disabled:cursor-not-allowed host-start-blink"
-                      >
-                        Начать игру →
-                      </button>
-                    ) : (
-                      <div className="w-full py-3 comic-panel comic-font text-base tracking-[0.2em] text-center text-black/50 border-[4px] border-dashed border-black/20">
-                        ⏳ ОЖИДАЕМ НАЧАЛО...
-                      </div>
-                    )}
+                    <button
+                      onClick={handlePrepareRound}
+                      disabled={players.length === 0}
+                      className="comic-button hover:scale-105 hover: transition-all duration-200 w-full py-3 text-base bg-[#ffde00] text-black disabled:opacity-40 disabled:cursor-not-allowed host-start-blink"
+                    >
+                      Начать игру →
+                    </button>
                     {players.length === 0 && <p className="text-xs text-black/60 comic-font">Нужно как минимум 1 игрок.</p>}
                   </div>
                 );
@@ -9090,20 +8753,14 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
             extraView={
               isWaiting ? (
                 <section className="comic-panel border-[#000] bg-white  p-4 space-y-3">
-                  {!isMirror ? (
-                    <button
-                      type="button"
-                      onClick={handlePrepareRound}
-                      disabled={players.length === 0}
-                      className="w-full py-3 comic-panel comic-font text-sm tracking-[0.2em] bg-[#ff2a2a] text-white border-[4px] border-[#000] disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      Начать игру
-                    </button>
-                  ) : (
-                    <div className="w-full py-3 comic-panel comic-font text-sm tracking-[0.2em] text-center text-black/50 border-[4px] border-dashed border-black/20">
-                      ⏳ ОЖИДАЕМ...
-                    </div>
-                  )}
+                  <button
+                    type="button"
+                    onClick={handlePrepareRound}
+                    disabled={players.length === 0}
+                    className="w-full py-3 comic-panel comic-font text-sm tracking-[0.2em] bg-[#ff2a2a] text-white border-[4px] border-[#000] disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Начать игру
+                  </button>
                   {players.length === 0 ? (
                     <p className="text-xs text-black/60 text-center">Нужно как минимум 1 игрок.</p>
                   ) : null}
@@ -9151,30 +8808,14 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
               </PlayersAccordion>
             }
             controlsView={
-              isMirror ? (
-                <MirrorControls
-                  compact
-                  isAnimationsDisabled={isAnimationsDisabled}
-                  onToggleAnimations={() => {
-                    const next = !isAnimationsDisabled;
-                    setIsAnimationsDisabled(next);
-                    localStorage.setItem('host_animations_disabled', String(next));
-                  }}
-                  isMusicMuted={isMusicMuted}
-                  onToggleMusicMute={toggleMusicMute}
-                  isVoiceMuted={isVoiceMuted}
-                  onToggleVoiceMute={toggleVoiceMute}
-                />
-              ) : (
-                <HostControls
-                  primaryLabel={headerActionLabel}
-                  onPrimaryAction={handlePrimaryHeaderAction}
-                  onOpenQr={() => setIsJoinQrModalOpen(true)}
-                  onToggleLayout={setNextLayoutMode}
-                  layoutLabel={layoutModeLabel}
-                  compact
-                />
-              )
+              <HostControls
+                primaryLabel={headerActionLabel}
+                onPrimaryAction={handlePrimaryHeaderAction}
+                onOpenQr={() => setIsJoinQrModalOpen(true)}
+                onToggleLayout={setNextLayoutMode}
+                layoutLabel={layoutModeLabel}
+                compact
+              />
             }
           />
         ) : (
@@ -9394,20 +9035,18 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
                 {roomStatus === 'final-results' ? (
                   <>
-                    {!isMirror && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          hasUserInteractedRef.current = true;
-                          void endGame();
-                        }}
-                        className="w-full py-4 comic-panel comic-font text-xl tracking-[0.2em] bg-[#ff2a2a] text-white border-[4px] border-[#000] hover:scale-105 hover: transition-all duration-200"
-                      >
-                        Закрыть комнату
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        hasUserInteractedRef.current = true;
+                        void endGame();
+                      }}
+                      className="w-full py-4 comic-panel comic-font text-xl tracking-[0.2em] bg-[#ff2a2a] text-white border-[4px] border-[#000] hover:scale-105 hover: transition-all duration-200"
+                    >
+                      Закрыть комнату
+                    </button>
                   </>
-                ) : isFinalRoundAvailable && !isMirror && (
+                ) : isFinalRoundAvailable && (
                   <button
                     type="button"
                     onClick={handleOpenRound5Rules}
@@ -9476,19 +9115,17 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
                   <span className="text-sm comic-font text-[#00c3ff]">Очки уже начислены игрокам</span>
                 </div>
                 <div className="flex flex-wrap justify-end gap-3">
-                  {!isMirror && (
-                    <button
-                      type="button"
-                      onClick={() => setIsRatingVisible((prev) => !prev)}
-                      className={`px-4 py-2 comic-panel comic-font transition ${
-                        isRatingVisible
-                          ? 'border-[#000] bg-[#00c3ff] text-white'
-                          : 'border-[#000]/40 bg-white text-black'
-                      }`}
-                    >
-                    {isRatingVisible ? 'Скрыть рейтинг' : 'Рейтинг'}
-                  </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => setIsRatingVisible((prev) => !prev)}
+                    className={`px-4 py-2 comic-panel comic-font transition ${
+                      isRatingVisible
+                        ? 'border-[#000] bg-[#00c3ff] text-white'
+                        : 'border-[#000]/40 bg-white text-black'
+                    }`}
+                  >
+                  {isRatingVisible ? 'Скрыть рейтинг' : 'Рейтинг'}
+                </button>
                 </div>
                 <div className="space-y-4">
                   {questionsForSummary.map((summaryQuestion: Question) => {
@@ -9585,34 +9222,30 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
                 </div>
 
                 <div className="flex flex-wrap gap-3">
-                  {!isMirror && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          hasUserInteractedRef.current = true;
-                          void (isLobbySoundOn ? stopLobby() : tryPlayLobby());
-                        }}
-                        className={`hover:scale-105 hover: transition-all duration-200 px-4 py-2 comic-panel comic-font ${
-                          isLobbySoundOn ? 'border-[#000] bg-[#00c3ff] text-white' : 'border-[#000] bg-[#ffde00]'
-                        }`}
-                      >
-                        {isLobbySoundOn ? '🔊 Джингл включён' : '🎵 Включить джингл'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          hasUserInteractedRef.current = true;
-                          setIsJoinSoundEnabled((prev) => !prev);
-                        }}
-                        className={`hover:scale-105 hover: transition-all duration-200 px-4 py-2 comic-panel comic-font ${
-                          isJoinSoundEnabled ? 'border-[#000] bg-white text-[#00c3ff]' : 'border-dashed border-[#000] bg-white'
-                        }`}
-                      >
-                        {isJoinSoundEnabled ? '🔔 Звук подключения' : '🔕 Включить звук подключения'}
-                      </button>
-                    </>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      hasUserInteractedRef.current = true;
+                      void (isLobbySoundOn ? stopLobby() : tryPlayLobby());
+                    }}
+                    className={`hover:scale-105 hover: transition-all duration-200 px-4 py-2 comic-panel comic-font ${
+                      isLobbySoundOn ? 'border-[#000] bg-[#00c3ff] text-white' : 'border-[#000] bg-[#ffde00]'
+                    }`}
+                  >
+                    {isLobbySoundOn ? '🔊 Джингл включён' : '🎵 Включить джингл'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      hasUserInteractedRef.current = true;
+                      setIsJoinSoundEnabled((prev) => !prev);
+                    }}
+                    className={`hover:scale-105 hover: transition-all duration-200 px-4 py-2 comic-panel comic-font ${
+                      isJoinSoundEnabled ? 'border-[#000] bg-white text-[#00c3ff]' : 'border-dashed border-[#000] bg-white'
+                    }`}
+                  >
+                    {isJoinSoundEnabled ? '🔔 Звук подключения' : '🔕 Включить звук подключения'}
+                  </button>
                 </div>
                 {audioError && <p className="text-xs text-[#ff2a2a] comic-font">{audioError}</p>}
 
@@ -9622,32 +9255,14 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
                   className="comic-panel border-[#000]/15 bg-white"
                 />
 
-                {!isMirror && (() => {
-                  const mirrorUrl = typeof window !== 'undefined' ? `${window.location.origin}/host/mirror/${roomId}` : '';
-                  return mirrorUrl ? (
-                    <div className="border-t-2 border-dashed border-black/20 pt-4 space-y-2 text-center">
-                      <p className="text-sm comic-font text-purple-700 font-bold">📡 Зеркало трансляции</p>
-                      <div className="inline-block border-2 border-purple-400 rounded-xl p-3 bg-white">
-                        <QRCodeCanvas value={mirrorUrl} size={140} fgColor="#7c3aed" bgColor="#ffffff" />
-                      </div>
-                      <p className="text-xs text-purple-600 comic-font break-all">{mirrorUrl}</p>
-                    </div>
-                  ) : null;
-                })()}
 
-                {!isMirror ? (
-                  <button
-                    onClick={handlePrepareRound}
-                    disabled={players.length === 0}
-                    className="hover:scale-105 hover: transition-all duration-200 w-full py-3 comic-panel comic-font text-base tracking-[0.2em] bg-[#ff2a2a] text-white border-[4px] border-[#000] disabled:opacity-40 disabled:cursor-not-allowed host-start-blink"
-                  >
-                    Начать игру →
-                  </button>
-                ) : (
-                  <div className="w-full py-3 comic-panel comic-font text-base tracking-[0.2em] text-center text-black/50 border-[4px] border-dashed border-black/20">
-                    ⏳ ОЖИДАЕМ НАЧАЛО...
-                  </div>
-                )}
+                <button
+                  onClick={handlePrepareRound}
+                  disabled={players.length === 0}
+                  className="hover:scale-105 hover: transition-all duration-200 w-full py-3 comic-panel comic-font text-base tracking-[0.2em] bg-[#ff2a2a] text-white border-[4px] border-[#000] disabled:opacity-40 disabled:cursor-not-allowed host-start-blink"
+                >
+                  Начать игру →
+                </button>
                 {players.length === 0 && (
                   <p className="text-xs text-black/60">Нужно как минимум 1 игрок.</p>
                 )}
@@ -9866,7 +9481,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
                   </div>
                 )}
 
-                {round3AudioBlocked && !isMirror && (
+                {round3AudioBlocked && (
                   <button
                     type="button"
                     onClick={() => playRound3Audio(currentQuestionIndex)}
@@ -10308,9 +9923,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
               <p className="text-xs comic-font text-[#ff2a2a]">Предел — 10 игроков. Лишние участники не смогут войти.</p>
             )}
             <p className="text-xs text-black/70">Убедитесь, что все готовы. После продолжения прозвучат правила раунда.</p>
-            {!isMirror && (
-              <>
-                <div className="flex gap-3 flex-col sm:flex-row">
+            <div className="flex gap-3 flex-col sm:flex-row">
                   <button
                     type="button"
                     onClick={handlePrestartNext}
@@ -10330,13 +9943,11 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
                 {!isPrestartNextEnabled && (
                   <p className="text-xs text-black/60">Кнопка активируется через несколько секунд после сигнала подключения.</p>
                 )}
-              </>
-            )}
           </div>
         </div>
       )}
 
-      {isJoinQrModalOpen && !isMirror && (
+      {isJoinQrModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center px-4">
           <div className="max-w-xl w-full comic-panel border-[4px] border-[#000] bg-white p-5 space-y-4">
             <div className="flex items-center justify-between">
@@ -10382,8 +9993,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
                 </ul>
               </>
             )}
-            {!isMirror && (
-              <div className="space-y-3">
+            <div className="space-y-3">
                 <button
                   type="button"
                   onClick={() => handleCountdownStart()}
@@ -10399,7 +10009,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
                   Отмена
                 </button>
               </div>
-            )}
           </div>
         </div>
       )}
@@ -10446,8 +10055,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
                 <div className="text-sm text-black/80 whitespace-pre-line leading-relaxed">{ROUND3_RULES_TEXT}</div>
               </>
             )}
-            {!isMirror && (
-              <div className="space-y-3">
+            <div className="space-y-3">
                 <button
                   type="button"
                   onClick={() => void startRound3Countdown()}
@@ -10463,7 +10071,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
                   Отмена
                 </button>
               </div>
-            )}
           </div>
         </div>
       )}
@@ -10486,9 +10093,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
                 </ul>
               </>
             )}
-            {!isMirror && (
-              <>
-                <div className="space-y-3">
+              <div className="space-y-3">
                   <button
                     type="button"
                     onClick={startRound2}
@@ -10509,8 +10114,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
                   round2Items.length === 0 && (
                     <p className="text-xs text-[#ff2a2a] comic-font">Факты ещё загружаются — подождите пару секунд.</p>
                   )}
-              </>
-            )}
           </div>
         </div>
       )}
@@ -10527,8 +10130,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
                 <div className="text-sm text-black/80 whitespace-pre-line leading-relaxed">{ROUND4_RULES_TEXT}</div>
               </>
             )}
-            {!isMirror && (
-              <div className="space-y-3">
+            <div className="space-y-3">
                 <button
                   type="button"
                   onClick={handleStartRound4Rules}
@@ -10544,7 +10146,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
                   Отмена
                 </button>
               </div>
-            )}
           </div>
         </div>
       )}
@@ -10561,8 +10162,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
                 <div className="text-sm text-black/80 whitespace-pre-line leading-relaxed">{ROUND5_RULES_TEXT}</div>
               </>
             )}
-            {!isMirror && (
-              <div className="space-y-3">
+            <div className="space-y-3">
                 <button
                   type="button"
                   onClick={handleStartRound5Rules}
@@ -10579,7 +10179,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
                   Отмена
                 </button>
               </div>
-            )}
           </div>
         </div>
       )}

@@ -1,0 +1,169 @@
+﻿
+> vecherinkach-frontend@0.1.0 build
+> next build
+
+node.exe : [baseline-browser-mapping] The data in this module is over two month
+s old.  To ensure accurate Baseline data, please update: `npm i baseline-browse
+r-mapping@latest -D`
+строка:1 знак:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([baseline-brows...ping@latest -D` 
+   :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+   тЦ▓ Next.js 16.0.8 (Turbopack)
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+[baseline-browser-mapping] The data in this module is over two months old.  To 
+ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@l
+atest -D`
+Found 1 warning while optimizing generated CSS:
+
+[2mтФВ     animation: moveDots 4s linear infinite;[22m
+[2mтФВ   }[22m
+[2mтФВ[22m   @property --ray-angle {
+[2mтФЖ[22m            [33m[2m^--[22m Unknown at rule: @property[39m
+[2mтФЖ[22m
+[2mтФВ     syntax: '<angle>';[22m
+[2mтФВ     initial-value: 0deg;[22m
+
+ тЬУ Compiled successfully in 4.1s
+   Running TypeScript ...
+   Collecting page data using 15 workers ...
+[baseline-browser-mapping] The data in this module is over two months old.  To 
+ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@l
+atest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To 
+ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@l
+atest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To 
+ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@l
+atest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To 
+ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@l
+atest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To 
+ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@l
+atest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To 
+ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@l
+atest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To 
+ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@l
+atest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To 
+ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@l
+atest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To 
+ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@l
+atest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To 
+ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@l
+atest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To 
+ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@l
+atest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To 
+ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@l
+atest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To 
+ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@l
+atest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To 
+ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@l
+atest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To 
+ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@l
+atest -D`
+   Generating static pages using 15 workers (0/25) ...
+[baseline-browser-mapping] The data in this module is over two months old.  To 
+ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@l
+atest -D`
+   Generating static pages using 15 workers (6/25) 
+   Generating static pages using 15 workers (12/25) 
+   Generating static pages using 15 workers (18/25) 
+ тЬУ Generating static pages using 15 workers (25/25) in 752.6ms
+   Finalizing page optimization ...
+
+Route (app)
+тФМ тЧЛ /
+тФЬ тЧЛ /_not-found
+тФЬ тЧЛ /admin
+тФЬ тЧЛ /admin/creativach
+тФЬ тЧЛ /admin/draw
+тФЬ тЧЛ /admin/jokester
+тФЬ тЧЛ /admin/rooms
+тФЬ ╞Т /admin/rooms/[roomId]
+тФЬ тЧЛ /admin/uno
+тФЬ тЧЛ /admin/vecherinkach
+тФЬ ╞Т /api/admin/analytics
+тФЬ ╞Т /api/admin/creativach-analytics
+тФЬ ╞Т /api/admin/creativach-rooms
+тФЬ ╞Т /api/admin/draw-analytics
+тФЬ ╞Т /api/admin/draw-room-details
+тФЬ ╞Т /api/admin/draw-rooms
+тФЬ ╞Т /api/admin/export/logs
+тФЬ ╞Т /api/admin/export/players
+тФЬ ╞Т /api/admin/export/room
+тФЬ ╞Т /api/admin/export/stats
+тФЬ ╞Т /api/admin/get-answers
+тФЬ ╞Т /api/admin/get-logs
+тФЬ ╞Т /api/admin/get-players
+тФЬ ╞Т /api/admin/get-room
+тФЬ ╞Т /api/admin/jokester-analytics
+тФЬ ╞Т /api/admin/jokester-room-details
+тФЬ ╞Т /api/admin/jokester-rooms
+тФЬ ╞Т /api/admin/leaderboard
+тФЬ ╞Т /api/admin/likes
+тФЬ ╞Т /api/admin/logs
+тФЬ ╞Т /api/admin/room/close
+тФЬ ╞Т /api/admin/room/delete
+тФЬ ╞Т /api/admin/room/details
+тФЬ ╞Т /api/admin/room/force-end
+тФЬ ╞Т /api/admin/room/next-question
+тФЬ ╞Т /api/admin/room/restart
+тФЬ ╞Т /api/admin/room/start-round3
+тФЬ ╞Т /api/admin/room/summary
+тФЬ ╞Т /api/admin/rooms
+тФЬ ╞Т /api/admin/rooms/active
+тФЬ ╞Т /api/admin/stats
+тФЬ ╞Т /api/admin/uno-analytics
+тФЬ ╞Т /api/admin/uno-rooms
+тФЬ ╞Т /api/admin/vecherinkach-analytics
+тФЬ ╞Т /api/admin/vecherinkach-room-details
+тФЬ ╞Т /api/admin/vecherinkach-rooms
+тФЬ ╞Т /api/audio
+тФЬ ╞Т /api/health
+тФЬ ╞Т /api/jingle/audio
+тФЬ ╞Т /api/room-token
+тФЬ ╞Т /api/round3/questions
+тФЬ тЧЛ /creativach
+тФЬ ╞Т /creativach/host/[code]
+тФЬ ╞Т /creativach/room/[code]
+тФЬ ╞Т /creativach/spectator/[code]
+тФЬ тЧЛ /draw
+тФЬ ╞Т /draw/host/[code]
+тФЬ ╞Т /draw/room/[code]
+тФЬ тЧЛ /health
+тФЬ тЧЛ /host
+тФЬ ╞Т /host/[roomId]
+тФЬ ╞Т /host/[roomId]/qr
+тФЬ тЧЛ /icon.png
+тФЬ тЧЛ /join
+тФЬ тЧЛ /jokester
+тФЬ ╞Т /jokester/host/[code]
+тФЬ ╞Т /jokester/room/[code]
+тФЬ ╞Т /jokester/spectator/[code]
+тФЬ ╞Т /room/[code]
+тФЬ тЧЛ /test
+тФЬ тЧЛ /uno
+тФФ ╞Т /uno/room/[code]
+
+
+╞Т Proxy (Middleware)
+
+тЧЛ  (Static)   prerendered as static content
+╞Т  (Dynamic)  server-rendered on demand
+

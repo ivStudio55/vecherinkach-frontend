@@ -1,0 +1,75 @@
+﻿3350: if (isMirrorRef.current) return;
+3824: const mirrorChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+3829: if (isMirror) {
+3870: if (status === 'SUBSCRIBED' && isMirror) {
+3878: mirrorChannelRef.current = channel;
+3882: mirrorChannelRef.current = null;
+3889: if (isMirror || !mirrorChannelRef.current) return;
+3890: void mirrorChannelRef.current.send({
+3902: }, [isMirror, isPrestartVisible, isRulesVisible, isRound2RulesVisible, isRound3RulesVisible, isRound4RulesVisible, isRound5RulesVisible]);
+3906: if (isMirror || !mirrorChannelRef.current) return;
+3907: void mirrorChannelRef.current.send({
+3916: }, [isMirror, isCountdownVisible, countdownValue, countdownContext]);
+5626: if (!isMirror || !isCountdownVisible) {
+5636: }, [countdownValue, isCountdownVisible, isMirror, playBeep]);
+5842: if (isMirror && !isRoomOpened) {
+5847: }, [isMirror, isRoomOpened]);
+6163: if (!isMirrorRef.current || round2CurrentIndex === null) {
+6238: if (!isMirrorRef.current) {
+6292: if (isMirrorRef.current) return;
+6324: if (isMirrorRef.current) return;
+6355: if (isMirrorRef.current) return;
+6533: if (isMirrorRef.current) return;
+6557: if (isMirrorRef.current) return;
+6604: if (isMirrorRef.current) return;
+6630: if (isMirrorRef.current) return;
+6722: if (isMirrorRef.current) return;
+6748: if (isMirrorRef.current) return;
+6854: if (isMirrorRef.current) return;
+6866: if (isMirrorRef.current) return;
+7044: if (isMirrorRef.current) return;
+7126: if (isMirrorRef.current) return;
+7159: if (isMirrorRef.current) return;
+7205: if (isMirrorRef.current) return;
+7252: if (isMirrorRef.current) return;
+7293: if (isMirrorRef.current) return;
+7561: if (isMirrorRef.current) return;
+7625: if (isMirrorRef.current) return;
+7675: if (isMirrorRef.current) return;
+7758: if (isMirrorRef.current) return;
+7830: if (isMirrorRef.current) return;
+7861: if (isMirrorRef.current) return;
+7879: if (isMirrorRef.current) return;
+8136: if (isMirrorRef.current) {
+8170: if (isMirrorRef.current) {
+8222: if (isMirrorRef.current) return;
+8326: {isMirror ? 'рџ“Ў РћРўРљР Р«РўР¬ Р—Р•Р РљРђР›Рћ' : 'РћРўРљР Р«РўР¬ РљРћРњРќРђРўРЈ'}
+8446: {isMirror ? (
+8484: {showMobilePrompt && !isMirror ? (
+8520: {isMirror ? (
+8565: {!isMirror && (() => {
+8566: const mirrorUrl = typeof window !== 'undefined' ? `${window.location.origin}/host/mirror/${roomId}` : '';
+8567: return mirrorUrl ? (
+8571: <QRCodeCanvas value={mirrorUrl} size={120} fgColor="#7c3aed" bgColor="#ffffff" />
+8573: <p className="text-xs text-purple-600 comic-font break-all">{mirrorUrl}</p>
+8578: {!isMirror ? (
+9084: {!isMirror ? (
+9145: isMirror ? (
+9388: {!isMirror && (
+9401: ) : isFinalRoundAvailable && !isMirror && (
+9470: {!isMirror && (
+9579: {!isMirror && (
+9616: {!isMirror && (() => {
+9617: const mirrorUrl = typeof window !== 'undefined' ? `${window.location.origin}/host/mirror/${roomId}` : '';
+9618: return mirrorUrl ? (
+9622: <QRCodeCanvas value={mirrorUrl} size={140} fgColor="#7c3aed" bgColor="#ffffff" />
+9624: <p className="text-xs text-purple-600 comic-font break-all">{mirrorUrl}</p>
+9629: {!isMirror ? (
+9860: {round3AudioBlocked && !isMirror && (
+10302: {!isMirror && (
+10330: {isJoinQrModalOpen && !isMirror && (
+10376: {!isMirror && (
+10440: {!isMirror && (
+10480: {!isMirror && (
+10521: {!isMirror && (
+10555: {!isMirror && (

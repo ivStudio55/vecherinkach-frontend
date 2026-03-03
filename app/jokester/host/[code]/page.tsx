@@ -140,7 +140,7 @@ function DeadlineOverlay({ seconds }: { seconds: number }) {
 }
 
 /* ══════════════════════════════════════════════ */
-export function JokesterHostContent({ isMirror: _isMirror = false }: { isMirror?: boolean }) {
+export function JokesterHostContent() {
   const params = useParams();
   const roomCode = params.code as string;
 

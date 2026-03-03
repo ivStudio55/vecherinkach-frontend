@@ -1,0 +1,2 @@
+﻿21: import { QRCodeCanvas } from 'qrcode.react';
+600: const MirrorControls = ({

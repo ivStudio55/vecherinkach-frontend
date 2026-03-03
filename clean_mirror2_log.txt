@@ -1,0 +1,52 @@
+﻿Initial: 391670
+1: removed isMirrorRef round-end block
+2: open room button. Length change: -36
+powershell : Исключение при вызове "Substring" с "2" аргументами: "Индекс и дли
+на должны ука
+строка:1 знак:1
++ powershell -ExecutionPolicy Bypass -File "c:\Users\Alekzander\apps\ve ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Исключение при ...лина должны ука 
+   :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+зывать на позицию в строке.
+Имя параметра: length"
+C:\Users\Alekzander\apps\vecherinkach-frontend\clean_mirror2.ps1:25 знак:29
++     Write-Host "Replaced: $($pair[0].Substring(0, 60))"
++                             ~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:) [], MethodInvocationException
+    + FullyQualifiedErrorId : ArgumentOutOfRangeException
+ 
+Replaced: 
+Исключение при вызове "Substring" с "2" аргументами: "Индекс и длина должны ука
+зывать на позицию в строке.
+Имя параметра: length"
+C:\Users\Alekzander\apps\vecherinkach-frontend\clean_mirror2.ps1:25 знак:29
++     Write-Host "Replaced: $($pair[0].Substring(0, 60))"
++                             ~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:) [], MethodInvocationException
+    + FullyQualifiedErrorId : ArgumentOutOfRangeException
+ 
+Replaced: 
+Исключение при вызове "Substring" с "2" аргументами: "Индекс и длина должны ука
+зывать на позицию в строке.
+Имя параметра: length"
+C:\Users\Alekzander\apps\vecherinkach-frontend\clean_mirror2.ps1:25 знак:29
++     Write-Host "Replaced: $($pair[0].Substring(0, 60))"
++                             ~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:) [], MethodInvocationException
+    + FullyQualifiedErrorId : ArgumentOutOfRangeException
+ 
+Replaced: 
+Исключение при вызове "Substring" с "2" аргументами: "Индекс и длина должны ука
+зывать на позицию в строке.
+Имя параметра: length"
+C:\Users\Alekzander\apps\vecherinkach-frontend\clean_mirror2.ps1:25 знак:29
++     Write-Host "Replaced: $($pair[0].Substring(0, 60))"
++                             ~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:) [], MethodInvocationException
+    + FullyQualifiedErrorId : ArgumentOutOfRangeException
+ 
+Replaced: 
+Final: 391198

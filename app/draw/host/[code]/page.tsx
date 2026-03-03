@@ -29,7 +29,7 @@ import { DrawAudioPlayer, AUDIO, getDrawCommentary } from '@/lib/draw/audio';
 
 import ComicBackground from '@/components/draw/ComicBackground';
 
-export function DrawHostContent({ isMirror: _isMirror = false }: { isMirror?: boolean }) {
+export function DrawHostContent() {
   const params = useParams<{ code: string }>();
   const code = (params?.code || '').toString().toUpperCase();
 
