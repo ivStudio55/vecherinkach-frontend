@@ -155,7 +155,7 @@ export async function joinCreativachRoom(
 
     const { data: occupied } = await supabase
       .from('creativach_players')
-      .select('avatar')
+      .select('avatar, name')
       .eq('room_id', room.id)
       .eq('role', 'player')
       .eq('is_host', false)
@@ -164,6 +164,11 @@ export async function joinCreativachRoom(
       (p: { avatar: string }) => normalizeAvatarFile(p.avatar) === resolvedAvatar,
     );
     if (avatarTaken) throw new Error('AVATAR_TAKEN');
+    // Проверка дубликата имени
+    const nameTaken = (occupied || []).some(
+      (p: { name: string }) => p.name.trim().toLowerCase() === resolvedName.toLowerCase(),
+    );
+    if (nameTaken) throw new Error('NAME_TAKEN');
   }
 
   const { count: totalCount } = await supabase

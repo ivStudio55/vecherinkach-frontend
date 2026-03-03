@@ -173,7 +173,7 @@ export async function joinJokesterRoom(
     // Проверка занятой аватарки среди игроков
     const { data: occupied } = await supabase
       .from('jokester_players')
-      .select('avatar')
+      .select('avatar, name')
       .eq('room_id', room.id)
       .eq('role', 'player')
       .eq('is_host', false)
@@ -181,6 +181,13 @@ export async function joinJokesterRoom(
     const avatarTaken = (occupied || []).some((p: { avatar: string }) => normalizeAvatarFile(p.avatar) === resolvedAvatar);
     if (avatarTaken) {
       throw new Error('AVATAR_TAKEN');
+    }
+    // Проверка дубликата имени
+    const nameTaken = (occupied || []).some(
+      (p: { name: string }) => p.name.trim().toLowerCase() === resolvedName.toLowerCase(),
+    );
+    if (nameTaken) {
+      throw new Error('NAME_TAKEN');
     }
   }
 

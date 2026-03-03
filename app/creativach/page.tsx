@@ -104,6 +104,8 @@ export default function CreativachEntryPage() {
         setJoinRole('spectator');
       } else if (e instanceof Error && e.message === 'AVATAR_TAKEN') {
         setError('Эта аватарка уже занята, выбери другую');
+      } else if (e instanceof Error && e.message === 'NAME_TAKEN') {
+        setError('Игрок с таким именем уже есть в комнате. Выберите другое имя.');
       } else {
         setError(e instanceof Error ? e.message : 'Ошибка подключения');
       }

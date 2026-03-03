@@ -50,6 +50,25 @@ export async function createUnoRoom(params: { mode: UnoMode; verbCount?: number;
 }
 
 export async function joinUnoRoom(params: { code: string; name: string }) {
+  // Проверка дубликата имени до вызова RPC
+  const { data: unoRoom } = await supabase
+    .from('uno_rooms')
+    .select('id')
+    .eq('code', params.code.toUpperCase())
+    .maybeSingle();
+  if (unoRoom) {
+    const trimmedName = params.name.trim();
+    const { data: existingPlayers } = await supabase
+      .from('uno_players')
+      .select('id')
+      .eq('room_id', unoRoom.id)
+      .ilike('name', trimmedName)
+      .limit(1);
+    if (existingPlayers && existingPlayers.length > 0) {
+      throw new Error('Игрок с таким именем уже есть в комнате. Выберите другое имя.');
+    }
+  }
+
   const { data, error } = await supabase.rpc('uno_join_room', {
     p_room_code: params.code,
     p_player_name: params.name,

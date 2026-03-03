@@ -67,6 +67,18 @@ export async function joinDrawRoom(roomCode: string, playerName: string): Promis
 
   if (room.status !== 'lobby') throw new Error('Игра уже началась');
 
+  // Проверка дубликата имени
+  const finalPlayerName = playerName || 'Игрок';
+  const { data: existingPlayers } = await supabase
+    .from('draw_players')
+    .select('id, name')
+    .eq('room_id', room.id)
+    .ilike('name', finalPlayerName)
+    .limit(1);
+  if (existingPlayers && existingPlayers.length > 0) {
+    throw new Error('Игрок с таким именем уже есть в комнате. Выберите другое имя.');
+  }
+
   const { count } = await supabase
     .from('draw_players')
     .select('*', { count: 'exact', head: true })
@@ -75,7 +87,7 @@ export async function joinDrawRoom(roomCode: string, playerName: string): Promis
 
   const { data: playerData, error: playerErr } = await supabase
     .from('draw_players')
-    .insert({ room_id: room.id, name: playerName || 'Игрок', is_host: false, seat })
+    .insert({ room_id: room.id, name: finalPlayerName, is_host: false, seat })
     .select()
     .single();
   if (playerErr) throw playerErr;

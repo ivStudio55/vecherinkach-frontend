@@ -66,6 +66,21 @@ export default function JoinClient() {
 
       const finalName = playerName.trim() || generateRandomName();
 
+      // Check for duplicate name in this room
+      const { data: existingPlayers } = await supabase
+        .from('players')
+        .select('id, name')
+        .eq('room_id', room.id)
+        .ilike('name', finalName)
+        .limit(1);
+
+      if (existingPlayers && existingPlayers.length > 0) {
+        trackGameEvent('join_failed', { reason: 'duplicate_name' });
+        setError('Игрок с таким именем уже есть в комнате. Выберите другое имя.');
+        setIsLoading(false);
+        return;
+      }
+
       const { data: player, error: playerError } = await supabase
         .from('players')
         .insert({

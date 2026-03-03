@@ -403,6 +403,31 @@ export function JokesterHostContent() {
     return () => {};
   }, [room?.status]);
 
+  /* ─── Polling fallback + visibility sync ─── */
+  useEffect(() => {
+    if (!room?.id || !room?.code) return;
+    const isActive =
+      room.status === 'round_playing' ||
+      room.status === 'final_playing' ||
+      room.status === 'category_vote';
+    if (!isActive) return;
+    const id = setInterval(async () => {
+      const fresh = await fetchJokesterRoom(room.code);
+      if (fresh) setRoom(fresh);
+    }, 5000);
+    return () => clearInterval(id);
+  }, [room?.status, room?.id, room?.code]);
+
+  useEffect(() => {
+    const handleVisible = async () => {
+      if (document.visibilityState !== 'visible' || !room?.code) return;
+      const fresh = await fetchJokesterRoom(room.code);
+      if (fresh) setRoom(fresh);
+    };
+    document.addEventListener('visibilitychange', handleVisible);
+    return () => document.removeEventListener('visibilitychange', handleVisible);
+  }, [room?.code]);
+
   /* ─── Timer logic ─── */
   const startTimer = useCallback((
     seconds: number,
@@ -604,6 +629,7 @@ export function JokesterHostContent() {
       timer_started_at: new Date().toISOString(),
       state_version: effectiveRoom.state_version + 3,
     });
+    setRoom(prev => prev ? { ...prev, status: 'round_playing', current_duel_index: 0, current_question: 0, voting_phase: 'answering' } : prev);
 
     // По истечении 120 сек начинаем поочерёдные дуэли с голосованием
     startTimer(ANSWER_TIME_SEC, () => handleAnswerPhaseEnd(), {
@@ -636,6 +662,7 @@ export function JokesterHostContent() {
     const duel = duelList[duelIndex];
     if (!duel) {
       await updateJokesterRoom(effectiveRoom.id, { status: 'round_results', voting_phase: 'results', state_version: effectiveRoom.state_version + 100 });
+      setRoom(prev => prev ? { ...prev, status: 'round_results', voting_phase: 'results' } : prev);
       audioRef.current?.stopBgm();
       return;
     }
@@ -651,6 +678,7 @@ export function JokesterHostContent() {
       timer_duration_sec: VOTE_TIME_SEC,
       state_version: effectiveRoom.state_version + 10 + duelIndex,
     });
+    setRoom(prev => prev ? { ...prev, current_duel_index: duelIndex, current_question: 0, voting_phase: 'voting' } : prev);
 
     audioRef.current?.playBgm(`${YANDEX_AUDIO_BASE}/sound/Jokester/soundTrack/vote30sec.mp3`, 0.4, false);
     audioRef.current?.playVoiceRandom(JOKESTER_AUDIO.voteFolder);
@@ -683,6 +711,7 @@ export function JokesterHostContent() {
 
       if (!duel) {
         await updateJokesterRoom(roomSnapshot.id, { status: 'round_results', voting_phase: 'results', state_version: roomSnapshot.state_version + 500 });
+        setRoom(prev => prev ? { ...prev, status: 'round_results', voting_phase: 'results' } : prev);
         return;
       }
 
@@ -747,6 +776,7 @@ export function JokesterHostContent() {
       await supabase.from('jokester_duels').update({ winner_id: winnerId, status: 'done' }).eq('id', duel.id);
 
       await updateJokesterRoom(roomSnapshot.id, { voting_phase: 'results', state_version: roomSnapshot.state_version + 5 });
+      setRoom(prev => prev ? { ...prev, voting_phase: 'results' } : prev);
 
       const duelAnswers = currentAnswers.length > 0
         ? currentAnswers.filter(a => a.duel_id === duel.id)
@@ -816,6 +846,7 @@ export function JokesterHostContent() {
         status: isFinal ? 'final_results' : 'round_results',
         state_version: effectiveRoom.state_version + 7,
       });
+      setRoom(prev => prev ? { ...prev, status: isFinal ? 'final_results' : 'round_results' } : prev);
 
       // Рефетч игроков для рейтинга
       const freshPlayers = await fetchJokesterPlayers(effectiveRoom.id);

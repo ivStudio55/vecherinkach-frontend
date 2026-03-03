@@ -2641,6 +2641,11 @@ export function HostRoomContent() {
         };
       } catch (err) {
         console.error('Не удалось воспроизвести голос для голосования Раунда 3', err);
+        try {
+          playHtmlFallback();
+        } catch {
+          // ignore
+        }
       }
     })();
   }, [ensureAudioContext]);
@@ -5993,7 +5998,9 @@ export function HostRoomContent() {
       return;
     }
 
-    const cueKey = `${round4CurrentPuzzle.id}-${questionStartedAt}`;
+    // Use only puzzle ID as key — questionStartedAt can arrive in different
+    // timestamp formats from REST vs Realtime, causing a spurious second play.
+    const cueKey = String(round4CurrentPuzzle.id);
     if (lastRound4CuePlaybackKeyRef.current === cueKey) {
       return;
     }
