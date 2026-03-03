@@ -7169,7 +7169,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   const totalPlayers = players.length;
   const correctAnswerPercentage = totalPlayers > 0 ? (correctAnswerCount / totalPlayers) * 100 : 0;
   const totalQuestions = selectedQuestionIds.length || ROUND1_TOTAL_QUESTIONS;
-  const allPlayersAnswered = serverAllPlayersAnswered || (totalPlayers > 0 && answeredCount >= totalPlayers);
   const isLastQuestion = totalQuestions > 0 ? currentQuestionIndex >= totalQuestions - 1 : false;
   const isRound1Active = roomStatus === 'running';
   const isRound2Running = roomStatus === 'round2-running';
