@@ -227,6 +227,26 @@ const buildAudioUrl = (relativePath: string) => `${AUDIO_BASE}/${encodePathSegme
 
 const buildJingleUrl = buildAudioUrl;
 
+const playAudioWithUnmuteFallback = async (audio: HTMLAudioElement, volume: number) => {
+  audio.volume = volume;
+  try {
+    await audio.play();
+    return;
+  } catch (err) {
+    try {
+      audio.muted = true;
+      audio.volume = 0;
+      await audio.play();
+      audio.muted = false;
+      audio.volume = volume;
+    } catch {
+      audio.muted = false;
+      audio.volume = volume;
+      throw err;
+    }
+  }
+};
+
 const getRemainingSeconds = (startedAt: string | null, durationSeconds: number, offsetMs = 0): number => {
   if (!startedAt) {
     return durationSeconds;
@@ -1157,6 +1177,9 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   const round3VoiceBufferSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const round3AnswerTimerBufferSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const round3VoteTimerBufferSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const round3AnswerTimerAudioRef = useRef<HTMLAudioElement | null>(null);
+  const round3VoteTimerAudioRef = useRef<HTMLAudioElement | null>(null);
+  const round3VoteVoiceAudioRef = useRef<HTMLAudioElement | null>(null);
   const round3BgGainNodeRef = useRef<GainNode | null>(null);
   const round3VoiceGainNodeRef = useRef<GainNode | null>(null);
   const round3AnswerTimerGainNodeRef = useRef<GainNode | null>(null);
@@ -2367,6 +2390,9 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
     const voice = round3VoiceAudioRef.current;
     const bg = round3BgAudioRef.current;
+    const voteTimerHtml = round3VoteTimerAudioRef.current;
+    const answerTimerHtml = round3AnswerTimerAudioRef.current;
+    const voteVoiceHtml = round3VoteVoiceAudioRef.current;
 
     if (voice) {
       try {
@@ -2389,6 +2415,42 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
       }
       bg.onended = null;
       round3BgAudioRef.current = null;
+    }
+
+    if (voteTimerHtml) {
+      try {
+        voteTimerHtml.pause();
+        voteTimerHtml.currentTime = 0;
+      } catch {
+        // ignore
+      }
+      voteTimerHtml.onended = null;
+      voteTimerHtml.onerror = null;
+      round3VoteTimerAudioRef.current = null;
+    }
+
+    if (answerTimerHtml) {
+      try {
+        answerTimerHtml.pause();
+        answerTimerHtml.currentTime = 0;
+      } catch {
+        // ignore
+      }
+      answerTimerHtml.onended = null;
+      answerTimerHtml.onerror = null;
+      round3AnswerTimerAudioRef.current = null;
+    }
+
+    if (voteVoiceHtml) {
+      try {
+        voteVoiceHtml.pause();
+        voteVoiceHtml.currentTime = 0;
+      } catch {
+        // ignore
+      }
+      voteVoiceHtml.onended = null;
+      voteVoiceHtml.onerror = null;
+      round3VoteVoiceAudioRef.current = null;
     }
 
     setRound3AudioBlocked(false);
@@ -2490,6 +2552,35 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
     }
   }, [isVoiceMuted]);
 
+  const ensureAudioContext = useCallback(async (): Promise<AudioContext | null> => {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
+    const AudioContextCtor =
+      window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+
+    if (!AudioContextCtor) {
+      return null;
+    }
+
+    let context = audioContextRef.current;
+    if (!context) {
+      context = new AudioContextCtor();
+      audioContextRef.current = context;
+    }
+
+    if (context.state === 'suspended') {
+      try {
+        await context.resume();
+      } catch {
+        return null;
+      }
+    }
+
+    return context;
+  }, []);
+
   const playRound3VoteVoiceAudio = useCallback(() => {
     if (typeof window === 'undefined') {
       return;
@@ -2501,27 +2592,30 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
     const voteVariant = Math.floor(Math.random() * 9) + 1;
     const voteUrl = buildAudioUrl(`${ROUND3_VOTE_AUDIO_DIR}/${voteVariant}.mp3`);
 
+    const playHtmlFallback = () => {
+      const voteVoice = new Audio(voteUrl);
+      voteVoice.volume = isVoiceMutedRef.current ? 0 : 0.95;
+      round3VoteVoiceAudioRef.current = voteVoice;
+
+      const clear = () => {
+        if (round3VoteVoiceAudioRef.current === voteVoice) {
+          round3VoteVoiceAudioRef.current = null;
+        }
+      };
+
+      voteVoice.onended = clear;
+      voteVoice.onerror = clear;
+      playAudioWithUnmuteFallback(voteVoice, isVoiceMutedRef.current ? 0 : 0.95).catch(() =>
+        setRound3AudioBlocked(true)
+      );
+    };
+
     void (async () => {
-      const AudioContextCtor =
-        window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      if (!AudioContextCtor) {
+      const context = await ensureAudioContext();
+      if (!context) {
+        playHtmlFallback();
         setRound3AudioBlocked(true);
         return;
-      }
-
-      let context = audioContextRef.current;
-      if (!context) {
-        context = new AudioContextCtor();
-        audioContextRef.current = context;
-      }
-
-      if (context.state === 'suspended') {
-        try {
-          await context.resume();
-        } catch {
-          setRound3AudioBlocked(true);
-          return;
-        }
       }
 
       if (round3VoteVoicePlaybackTokenRef.current !== token) {
@@ -2619,7 +2713,72 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
         console.error('Не удалось воспроизвести голос для голосования Раунда 3', err);
       }
     })();
-  }, []);
+  }, [ensureAudioContext]);
+
+  const startRound3TimerAfterVoice = useCallback(
+    async (token: number) => {
+      if (round3PlaybackTokenRef.current !== token) {
+        return null;
+      }
+      if (roomStatusRef.current !== 'round3-running') {
+        return null;
+      }
+
+      let offset = timeOffsetMs;
+      try {
+        const { data } = await supabase.rpc('get_server_time');
+        if (data) {
+          const serverNow = new Date(data as string).getTime();
+          const nextOffset = Date.now() - serverNow;
+          offset = nextOffset;
+          setTimeOffsetMs(nextOffset);
+        }
+      } catch (error) {
+        console.error('Не удалось синхронизировать время сервера (round3 timer start)', error);
+      }
+
+      if (round3PlaybackTokenRef.current !== token) {
+        return null;
+      }
+
+      const startedAt = new Date(Date.now() - offset).toISOString();
+
+      const { error: updateError } = await supabase
+        .from('rooms')
+        .update({
+          question_started_at: startedAt,
+          all_players_answered: false,
+        })
+        .eq('id', roomId);
+
+      if (updateError) {
+        console.error('Не удалось установить question_started_at для таймера Раунда 3', updateError);
+        return null;
+      }
+
+      setQuestionStartedAt(startedAt);
+      const totalRound3Seconds = ROUND3_ANSWER_SECONDS + ROUND3_VOTE_COUNTDOWN_SECONDS + ROUND3_VOTE_SECONDS;
+      setTimeLeft(getRemainingSeconds(startedAt, totalRound3Seconds, offset));
+
+      if (round3AnswerTimerVoteVoiceTimeoutRef.current) {
+        clearTimeout(round3AnswerTimerVoteVoiceTimeoutRef.current);
+        round3AnswerTimerVoteVoiceTimeoutRef.current = null;
+      }
+
+      round3AnswerTimerVoteVoiceTimeoutRef.current = setTimeout(() => {
+        if (round3PlaybackTokenRef.current !== token) {
+          return;
+        }
+        if (roomStatusRef.current !== 'round3-running') {
+          return;
+        }
+        playRound3VoteVoiceAudio();
+      }, Math.max(0, ROUND3_ANSWER_SECONDS * 1000));
+
+      return { startedAt, totalRound3Seconds } as const;
+    },
+    [playRound3VoteVoiceAudio, roomId, timeOffsetMs]
+  );
 
   const stopRound3VoteTimerAudio = useCallback(() => {
     round3VoteTimerPlaybackTokenRef.current += 1;
@@ -2666,34 +2825,109 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
       const voiceUrl = buildAudioUrl(`${round3Dir}/${voiceFileNumber}.mp3`);
       const timerUrl = buildAudioUrl(ROUND3_ANSWER_TIMER_JINGLE_FILE);
 
+      const playHtmlFallback = async () => {
+        const bg = new Audio(bgUrl);
+        bg.loop = true;
+        bg.volume = isMusicMutedRef.current ? 0 : ROUND3_BG_VOLUME;
+        round3BgAudioRef.current = bg;
+
+        const voice = new Audio(voiceUrl);
+        voice.loop = false;
+        voice.volume = isVoiceMutedRef.current ? 0 : 0.95;
+        round3VoiceAudioRef.current = voice;
+
+        const startTimer = async () => {
+          if (round3PlaybackTokenRef.current !== token) {
+            return;
+          }
+          const started = await startRound3TimerAfterVoice(token);
+          if (!started) {
+            return;
+          }
+
+          const timer = new Audio(timerUrl);
+          timer.loop = false;
+          timer.volume = isMusicMutedRef.current ? 0 : ROUND3_TIMER_VOLUME;
+          round3AnswerTimerAudioRef.current = timer;
+
+          const cleanup = () => {
+            if (round3AnswerTimerAudioRef.current === timer) {
+              round3AnswerTimerAudioRef.current = null;
+            }
+          };
+
+          timer.onended = cleanup;
+          timer.onerror = cleanup;
+
+          try {
+            timer.playbackRate = 1;
+          } catch {
+            // ignore
+          }
+
+          playAudioWithUnmuteFallback(timer, isMusicMutedRef.current ? 0 : ROUND3_TIMER_VOLUME).catch(() =>
+            setRound3AudioBlocked(true)
+          );
+
+          setTimeout(() => {
+            if (round3PlaybackTokenRef.current !== token) {
+              return;
+            }
+            cleanup();
+            try {
+              timer.pause();
+              timer.currentTime = 0;
+            } catch {
+              // ignore
+            }
+          }, started.totalRound3Seconds * 1000);
+        };
+
+        const finishVoice = () => {
+          if (round3PlaybackTokenRef.current !== token) {
+            return;
+          }
+          try {
+            bg.pause();
+            bg.currentTime = 0;
+          } catch {
+            // ignore
+          }
+          round3BgAudioRef.current = null;
+          void startTimer();
+        };
+
+        voice.onended = finishVoice;
+        voice.onerror = finishVoice;
+
+        try {
+          await playAudioWithUnmuteFallback(bg, isMusicMutedRef.current ? 0 : ROUND3_BG_VOLUME);
+        } catch {
+          // ignore background failure
+        }
+
+        try {
+          await playAudioWithUnmuteFallback(voice, isVoiceMutedRef.current ? 0 : 0.95);
+        } catch (err) {
+          console.error('Не удалось воспроизвести озвучку Раунда 3 (fallback)', err);
+          finishVoice();
+        }
+      };
+
       void (async () => {
         if (typeof window === 'undefined') {
           setRound3AudioBlocked(true);
           return;
         }
 
-        const AudioContextCtor =
-          window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-
-        if (!AudioContextCtor) {
-          setRound3AudioBlocked(true);
-          return;
-        }
-
-        let context = audioContextRef.current;
+        const context = await ensureAudioContext();
         if (!context) {
-          context = new AudioContextCtor();
-          audioContextRef.current = context;
-        }
-
-        if (context.state === 'suspended') {
           try {
-            await context.resume();
-          } catch (error) {
-            console.error('Не удалось активировать аудиоконтекст для Раунда 3', error);
+            await playHtmlFallback();
+          } catch {
             setRound3AudioBlocked(true);
-            return;
           }
+          return;
         }
 
         if (round3PlaybackTokenRef.current !== token) {
@@ -2896,11 +3130,15 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
           voiceSource.start(startAt);
         } catch (err) {
           console.error('Не удалось воспроизвести аудио Раунда 3 через AudioContext', err);
-          setRound3AudioBlocked(true);
+          try {
+            await playHtmlFallback();
+          } catch {
+            setRound3AudioBlocked(true);
+          }
         }
       })();
     },
-    [playRound3VoteVoiceAudio, roomId, round3Questions, stopRound3Audio, timeOffsetMs]
+    [ensureAudioContext, playRound3VoteVoiceAudio, roomId, round3Questions, startRound3TimerAfterVoice, stopRound3Audio, timeOffsetMs]
   );
 
   const stopRound3VoteAudio = useCallback(() => {
@@ -2954,25 +3192,54 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
       // Голос диктора (vote/*.mp3) стартует на фазе обратного отсчёта,
       // чтобы игроки слышали подготовку к голосованию.
 
-      void (async () => {
-        const AudioContextCtor =
-          window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-        if (!AudioContextCtor) {
-          return;
+      const playHtmlFallback = () => {
+        const voteTimer = new Audio(timerUrl);
+        voteTimer.loop = false;
+        voteTimer.volume = isMusicMutedRef.current ? 0 : ROUND3_TIMER_VOLUME;
+        round3VoteTimerAudioRef.current = voteTimer;
+
+        const cleanup = () => {
+          if (round3VoteTimerAudioRef.current === voteTimer) {
+            round3VoteTimerAudioRef.current = null;
+          }
+        };
+
+        voteTimer.onended = cleanup;
+        voteTimer.onerror = cleanup;
+
+        try {
+          voteTimer.playbackRate = 2;
+        } catch {
+          // ignore
         }
 
-        let context = audioContextRef.current;
-        if (!context) {
-          context = new AudioContextCtor();
-          audioContextRef.current = context;
-        }
+        playAudioWithUnmuteFallback(voteTimer, isMusicMutedRef.current ? 0 : ROUND3_TIMER_VOLUME).catch(() =>
+          setRound3AudioBlocked(true)
+        );
 
-        if (context.state === 'suspended') {
-          try {
-            await context.resume();
-          } catch {
+        setTimeout(() => {
+          if (round3VoteTimerPlaybackTokenRef.current !== token) {
             return;
           }
+          cleanup();
+          try {
+            voteTimer.pause();
+            voteTimer.currentTime = 0;
+          } catch {
+            // ignore
+          }
+        }, ROUND3_VOTE_SECONDS * 1000);
+      };
+
+      void (async () => {
+        const context = await ensureAudioContext();
+        if (!context) {
+          try {
+            playHtmlFallback();
+          } catch {
+            setRound3AudioBlocked(true);
+          }
+          return;
         }
 
         if (round3VoteTimerPlaybackTokenRef.current !== token) {
@@ -3043,10 +3310,15 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
           };
         } catch (err) {
           console.error('Не удалось воспроизвести аудио голосования Раунда 3', err);
+          try {
+            playHtmlFallback();
+          } catch {
+            setRound3AudioBlocked(true);
+          }
         }
       })();
     },
-    [stopRound3VoteTimerAudio]
+    [ensureAudioContext, stopRound3VoteTimerAudio]
   );
 
   const loadRound3VoteAnswers = useCallback(async () => {
@@ -5323,35 +5595,6 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
     clearRoundEndDelayTimeout();
     roundEndLockQuestionRef.current = null;
   }, [question?.id, stopRoundEndAudio, clearRoundEndUnlockTimeout, clearRoundEndDelayTimeout]);
-
-  const ensureAudioContext = useCallback(async () => {
-    if (typeof window === 'undefined') {
-      return null;
-    }
-
-    let context = audioContextRef.current;
-    const AudioContextCtor =
-      window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-
-    if (!context) {
-      if (!AudioContextCtor) {
-        return null;
-      }
-      context = new AudioContextCtor();
-      audioContextRef.current = context;
-    }
-
-    if (context.state === 'suspended') {
-      try {
-        await context.resume();
-      } catch (error) {
-        console.error('Не удалось активировать аудиоконтекст', error);
-        return null;
-      }
-    }
-
-    return context;
-  }, []);
 
   const playBeep = useCallback(
     async (frequency = 880) => {

@@ -49,6 +49,8 @@ html {
   --accent-red: #f1532f;
   --accent-blue: #1f6ac6;
   --accent-green: #65b058;
+  --font-bangers: 'Adventure Indiana Jones', system-ui, sans-serif;
+  --font-comic-cat: 'Comic CAT', system-ui, sans-serif;
 }
 
 body {
