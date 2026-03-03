@@ -215,7 +215,15 @@ const ROUND4_CATEGORY_VARIANTS: Record<string, number> = {
   soviet_cinema: 1,
 };
 
-const buildAudioUrl = (relativePath: string) => `/api/audio?file=${encodeURIComponent(relativePath)}&t=${Date.now()}`;
+const encodePathSegments = (relativePath: string) =>
+  relativePath
+    .split('/')
+    .map(segment => encodeURIComponent(segment))
+    .join('/');
+
+const AUDIO_BASE = process.env.NEXT_PUBLIC_AUDIO_BASE ?? '/audio';
+
+const buildAudioUrl = (relativePath: string) => `${AUDIO_BASE}/${encodePathSegments(relativePath)}?t=${Date.now()}`;
 
 const buildJingleUrl = buildAudioUrl;
 
@@ -854,7 +862,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
 
   const buildAudioUrl = useCallback((relativePath: string) => {
     const resolved = withAudioPackPrefixIfNeeded(packIdRef.current, relativePath);
-    return `/api/audio?file=${encodeURIComponent(resolved)}&t=${Date.now()}`;
+    return `${AUDIO_BASE}/${encodePathSegments(resolved)}?t=${Date.now()}`;
   }, []);
 
   useEffect(() => {
@@ -953,7 +961,7 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   const [isCountdownVisible, setIsCountdownVisible] = useState(false);
   const [countdownContext, setCountdownContext] = useState<'round1' | 'round2' | 'round3' | 'round4' | 'round5'>('round1');
   const [countdownValue, setCountdownValue] = useState<string>(COUNTDOWN_STEPS[0]);
-  const [isRoomOpened, setIsRoomOpened] = useState(false);
+  const [isRoomOpened, setIsRoomOpened] = useState(isMirror);
   const [isPrestartNextEnabled, setIsPrestartNextEnabled] = useState(true);
   const [isPlayerLimitReached, setIsPlayerLimitReached] = useState(false);
   const [isRoundEndButtonLocked, setIsRoundEndButtonLocked] = useState(false);
@@ -5586,14 +5594,23 @@ export function HostRoomContent({ isMirror = false }: { isMirror?: boolean }) {
   ]);
 
   const handleHostInteraction = useCallback(() => {
-    if (!hasUserInteractedRef.current) {
-      hasUserInteractedRef.current = true;
-      setIsRoomOpened(true);
-      if (roomStatusRef.current === 'waiting') {
-        void tryPlayLobby();
-      }
+    if (hasUserInteractedRef.current && isRoomOpened) {
+      return;
+    }
+    hasUserInteractedRef.current = true;
+    setIsRoomOpened(true);
+    if (roomStatusRef.current === 'waiting') {
+      void tryPlayLobby();
     }
   }, [tryPlayLobby]);
+
+  useEffect(() => {
+    if (isMirror && !isRoomOpened) {
+      // Mirror не требует явного клика, открываем сразу
+      hasUserInteractedRef.current = true;
+      setIsRoomOpened(true);
+    }
+  }, [isMirror, isRoomOpened]);
 
   useEffect(() => {
     let cancelled = false;
