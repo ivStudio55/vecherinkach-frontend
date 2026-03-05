@@ -535,10 +535,13 @@ export function JokesterHostContent() {
     // Предыгровой экран
     await updateJokesterRoom(room.id, { status: 'starting', state_version: room.state_version + 1 });
 
-    // Голос по количеству игроков
+    // Голос по количеству игроков (не блокируем — запускаем фоном)
     const count = gamePlayers.length;
     const folder = JOKESTER_AUDIO.connectFolder(Math.min(Math.max(count, 4), 10));
-    await audioRef.current?.playVoiceRandom(folder);
+    void audioRef.current?.playVoiceRandom(folder);
+
+    // Короткая пауза, затем переходим на экран правил
+    await new Promise<void>(resolve => setTimeout(resolve, 1500));
 
     // Переход к голосованию за категории
     await updateJokesterRoom(room.id, {
