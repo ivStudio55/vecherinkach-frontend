@@ -115,13 +115,7 @@ export default function JokesterPlayerPage() {
       subscribeJokesterPlayers(room.id, setPlayers),
       subscribeJokesterDuels(room.id, async d => {
         setDuels(d);
-        // Reset answers for new duel
-        setAnswer1('');
-        setAnswer2('');
-        setSubmitted1(false);
-        setSubmitted2(false);
-        setMyVote(null);
-        setDuelAnswers([]);
+        // Resets are handled by a separate useEffect keyed on currentDuel?.id
       }),
     ];
     return () => unsubs.forEach(fn => fn());
@@ -177,6 +171,18 @@ export default function JokesterPlayerPage() {
     return t;
   });
   const currentTarget = pendingTargets[0] || null;
+
+  /* ─── Reset state when current duel changes ─── */
+  useEffect(() => {
+    if (!currentDuel) return;
+    setAnswer1('');
+    setAnswer2('');
+    setSubmitted1(false);
+    setSubmitted2(false);
+    setMyVote(null);
+    setDuelAnswers([]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDuel?.id]);
 
   /* ─── Category vote handler ─── */
   const handleCategoryVote = async (catId: string) => {

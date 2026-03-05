@@ -33,7 +33,7 @@ export default function HostQrPage({
           />
           <div className="px-6 pb-8">
             <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-[#fff6da] px-4 py-3 text-sm text-[#142a45]/80 text-center">
-              Если QR не работает — откройте <span className="font-semibold">https://vecherinkach.vercel.app/join</span> и введите код комнаты: <span className="font-black">{roomCode}</span>
+              Если QR не работает — откройте <span className="font-semibold">vecherinkach.ru/join</span> и введите код комнаты: <span className="font-black">{roomCode}</span>
             </div>
           </div>
         </div>

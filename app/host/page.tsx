@@ -294,7 +294,7 @@ export default function HostPage() {
                     </li>
                     <li className="flex gap-3">
                       <span className="w-9 h-9 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">2</span>
-                      Игроки открывают vecherinkach.vercel.app/join на телефонах, вводят код комнаты и своё имя.
+                      Игроки открывают vecherinkach.ru/join на телефонах, вводят код комнаты и своё имя.
                     </li>
                     <li className="flex gap-3">
                       <span className="w-9 h-9 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">3</span>

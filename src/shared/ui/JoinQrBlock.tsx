@@ -3,7 +3,7 @@
 import React, { useMemo } from 'react';
 import { JoinQrCode } from '@/shared/ui/JoinQrCode';
 
-const DEFAULT_JOIN_URL = 'https://vecherinkach.vercel.app/join';
+const DEFAULT_JOIN_URL = 'https://vecherinkach.ru/join';
 
 const sizeStyles = {
   md: {

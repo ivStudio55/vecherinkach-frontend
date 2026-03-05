@@ -1022,7 +1022,7 @@ export function JokesterHostContent() {
     await updateJokesterRoom(room.id, { status: 'finished', state_version: room.state_version + 12 });
     setTimeout(() => {
       // Redirect hosts to the Jokester landing page after closing the room
-      window.location.href = 'https://vecherinkach.vercel.app/jokester';
+      window.location.href = '/jokester';
     }, 200);
   };
 
