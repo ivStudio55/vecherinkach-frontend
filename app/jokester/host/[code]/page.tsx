@@ -184,6 +184,7 @@ export function JokesterHostContent() {
   const selectedTopCategoriesRef = useRef<string[]>([]);
   const duelsRef = useRef<JokesterDuel[]>([]);
   const featherEmitterRef = useRef<((spawn: FeatherSpawn) => void) | null>(null);
+  const featherRevealFiredRef = useRef(false);
   const answeredDoneRef = useRef<Set<string>>(new Set());
   const winnerPanelRef = useRef<HTMLDivElement | null>(null);
   const roomIntroPlayedRef = useRef(false);
@@ -681,8 +682,7 @@ export function JokesterHostContent() {
     if (!effectiveRoom) return;
     audioRef.current?.stopBgm();
     setVoteReveal(null);
-
-    // Рефетч ответов текущей дуэли для отображения на экране
+    featherRevealFiredRef.current = false;
     const duelList = await fetchJokesterDuels(effectiveRoom.id, effectiveRoom.current_round);
     setDuels(duelList);
     const duel = duelList[duelIndex];
@@ -804,9 +804,7 @@ export function JokesterHostContent() {
       await updateJokesterRoom(roomSnapshot.id, { voting_phase: 'results', state_version: roomSnapshot.state_version + 5 });
       setRoom(prev => prev ? { ...prev, voting_phase: 'results' } : prev);
 
-      const duelAnswers = currentAnswers.length > 0
-        ? currentAnswers.filter(a => a.duel_id === duel.id)
-        : await fetchDuelAnswers(duel.id);
+      const duelAnswers = await fetchDuelAnswers(duel.id);
       setCurrentAnswers(duelAnswers);
 
       if (winnerId) {
@@ -1035,6 +1033,8 @@ export function JokesterHostContent() {
 
   useEffect(() => {
     if (room?.voting_phase !== 'results' || !voteReveal) return;
+    if (featherRevealFiredRef.current) return;
+    featherRevealFiredRef.current = true;
     emitAtElement(winnerPanelRef.current, { count: 50, spread: 220, speed: 8 });
     playRandomSound(START_DUCK_SOUNDS, 0.6);
   }, [room?.voting_phase, voteReveal, emitAtElement, playRandomSound]);
