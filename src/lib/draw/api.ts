@@ -1,4 +1,5 @@
 import { supabase } from '../supabase';
+import { subscribeChannel } from '../centrifuge';
 import type { DrawRoom, DrawPlayer, DrawChain, DrawStep, DrawVote, DrawWord, DrawGameMode } from './types';
 import { FALLBACK_WORDS, FALLBACK_WORDS_EN, pickRandomWords } from './words';
 
@@ -406,34 +407,39 @@ export async function awardVotePoints(roomId: string, round: number): Promise<vo
 /* ============ Realtime ============ */
 
 export function subscribeDrawRoom(roomId: string, onChange: (room: DrawRoom) => void) {
-  const channel = supabase
-    .channel(`draw-room-${roomId}`)
-    .on(
-      'postgres_changes',
-      { event: 'UPDATE', schema: 'public', table: 'draw_rooms', filter: `id=eq.${roomId}` },
-      payload => onChange(payload.new as DrawRoom),
-    )
-    .subscribe();
-  return () => void supabase.removeChannel(channel);
+  return subscribeChannel(
+    `draw:${roomId}`,
+    (payload) => {
+      if (payload.table === 'draw_rooms') onChange(payload.data as unknown as DrawRoom);
+    },
+    async () => {
+      const { data } = await supabase.from('draw_rooms').select('*').eq('id', roomId).single();
+      if (data) onChange(data as DrawRoom);
+    },
+    3000,
+  );
 }
 
 export function subscribeDrawPlayers(roomId: string, onChange: () => void) {
-  const channel = supabase
-    .channel(`draw-players-${roomId}`)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'draw_players', filter: `room_id=eq.${roomId}` }, () => onChange())
-    .subscribe();
-  return () => void supabase.removeChannel(channel);
+  return subscribeChannel(
+    `draw:${roomId}`,
+    (payload) => {
+      if (payload.table === 'draw_players') onChange();
+    },
+    onChange,
+    3000,
+  );
 }
 
 export function subscribeDrawSteps(roomId: string, onChange: () => void) {
-  const channel = supabase
-    .channel(`draw-steps-${roomId}`)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'draw_steps' }, (payload) => {
-      // We listen to all draw_steps changes and filter client-side
-      onChange();
-    })
-    .subscribe();
-  return () => void supabase.removeChannel(channel);
+  return subscribeChannel(
+    `draw:${roomId}`,
+    (payload) => {
+      if (payload.table === 'draw_steps') onChange();
+    },
+    onChange,
+    3000,
+  );
 }
 
 /* ============ Room Management ============ */

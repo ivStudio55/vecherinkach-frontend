@@ -1,7 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 
 export function getSupabaseAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  // SUPABASE_INTERNAL_URL используется для server-side вызовов из Docker контейнера
+  // (прямой доступ к PostgREST без nginx, быстрее и надёжнее)
+  const url =
+    process.env.SUPABASE_INTERNAL_URL ||
+    process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    process.env.SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url) {

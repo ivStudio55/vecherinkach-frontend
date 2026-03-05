@@ -256,6 +256,26 @@ export default function RoomPage() {
   const round3VoiceRef = useRef<HTMLAudioElement | null>(null);
   const round3BgRef = useRef<HTMLAudioElement | null>(null);
   const lastRound3PlaybackKeyRef = useRef<string | null>(null);
+  const answerDuckAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Воспроизводит рандомный duck-звук при подтверждении ответа игрока
+  const playAnswerDuckSound = useCallback(() => {
+    try {
+      const base = process.env.NEXT_PUBLIC_AUDIO_BASE || 'https://storage.yandexcloud.net/vecherinkach/audio';
+      const index = Math.floor(Math.random() * 7) + 1; // duck/1.mp3 … duck/7.mp3
+      const url = `${base}/duck/${index}.mp3`;
+      if (answerDuckAudioRef.current) {
+        answerDuckAudioRef.current.pause();
+        answerDuckAudioRef.current = null;
+      }
+      const audio = new Audio(url);
+      audio.volume = 0.7;
+      answerDuckAudioRef.current = audio;
+      void audio.play().catch(() => { /* autoplay blocked — ignore */ });
+    } catch {
+      // ignore audio errors
+    }
+  }, []);
   const round4LoadAttemptRef = useRef(0);
   const round5QuestionsRef = useRef<Round5Question[]>([]);
 
@@ -1822,13 +1842,14 @@ export default function RoomPage() {
       }
 
       setHasAnswered(true);
+      playAnswerDuckSound();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
       setError(`Ошибка: ${message}`);
     } finally {
       setIsSubmitting(false);
     }
-  }, [allPlayersAnswered, isSubmitting, playerId, roomId, round4AnswerText, round4PuzzleId, roomStatus, timeLeft]);
+  }, [allPlayersAnswered, isSubmitting, playAnswerDuckSound, playerId, roomId, round4AnswerText, round4PuzzleId, roomStatus, timeLeft]);
 
   const submitRound5Answer = useCallback(async () => {
     if (isSubmitting) {
@@ -1880,13 +1901,14 @@ export default function RoomPage() {
       }
 
       setHasAnswered(true);
+      playAnswerDuckSound();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
       setError(`Ошибка: ${message}`);
     } finally {
       setIsSubmitting(false);
     }
-  }, [allPlayersAnswered, isSubmitting, playerId, roomId, roomStatus, round5AnswerValue, round5CurrentBankIndex, timeLeft]);
+  }, [allPlayersAnswered, isSubmitting, playAnswerDuckSound, playerId, roomId, roomStatus, round5AnswerValue, round5CurrentBankIndex, timeLeft]);
 
   useEffect(() => {
     if (roomStatus !== 'round3-running') {

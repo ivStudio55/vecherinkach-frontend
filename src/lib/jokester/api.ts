@@ -2,6 +2,7 @@
 // Supabase CRUD + realtime для «Пошути-кач»
 
 import { supabase } from '../supabase';
+import { subscribeChannel } from '../centrifuge';
 import type {
   JokesterRoom,
   JokesterPlayer,
@@ -226,6 +227,11 @@ export async function joinJokesterRoom(
 /* ══════════════════════════════════════════════
    Fetch helpers
    ══════════════════════════════════════════════ */
+
+export async function fetchJokesterRoomById(roomId: string): Promise<JokesterRoom | null> {
+  const { data } = await supabase.from('jokester_rooms').select('*').eq('id', roomId).maybeSingle();
+  return (data as JokesterRoom | null) ?? null;
+}
 
 export async function fetchJokesterRoom(code: string): Promise<JokesterRoom | null> {
   const { data } = await supabase
@@ -538,123 +544,74 @@ export function subscribeJokesterRoom(
   roomId: string,
   onChange: (room: JokesterRoom) => void,
 ) {
-  const channel = supabase
-    .channel(`jokester-room-${roomId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'jokester_rooms',
-        filter: `id=eq.${roomId}`,
-      },
-      payload => onChange(payload.new as JokesterRoom),
-    )
-    .subscribe();
-  return () => {
-    supabase.removeChannel(channel);
-  };
+  return subscribeChannel(
+    `jokester:${roomId}`,
+    (payload) => {
+      if (payload.table === 'jokester_rooms') onChange(payload.data as unknown as JokesterRoom);
+    },
+    async () => {
+      const room = await fetchJokesterRoomById(roomId);
+      if (room) onChange(room);
+    },
+    3000,
+  );
 }
 
 export function subscribeJokesterPlayers(
   roomId: string,
   onChange: (players: JokesterPlayer[]) => void,
 ) {
-  const channel = supabase
-    .channel(`jokester-players-${roomId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'jokester_players',
-        filter: `room_id=eq.${roomId}`,
-      },
-      async () => {
-        // Рефетч всех игроков
-        const players = await fetchJokesterPlayers(roomId);
-        onChange(players);
-      },
-    )
-    .subscribe();
-  return () => {
-    supabase.removeChannel(channel);
-  };
+  return subscribeChannel(
+    `jokester:${roomId}`,
+    (payload) => {
+      if (payload.table === 'jokester_players') {
+        fetchJokesterPlayers(roomId).then(onChange).catch(() => {});
+      }
+    },
+    () => { fetchJokesterPlayers(roomId).then(onChange).catch(() => {}); },
+    3000,
+  );
 }
 
 export function subscribeJokesterDuels(
   roomId: string,
   onChange: (duels: JokesterDuel[]) => void,
 ) {
-  const channel = supabase
-    .channel(`jokester-duels-${roomId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'jokester_duels',
-        filter: `room_id=eq.${roomId}`,
-      },
-      async () => {
-        const duels = await fetchJokesterDuels(roomId);
-        onChange(duels);
-      },
-    )
-    .subscribe();
-  return () => {
-    supabase.removeChannel(channel);
-  };
+  return subscribeChannel(
+    `jokester:${roomId}`,
+    (payload) => {
+      if (payload.table === 'jokester_duels') {
+        fetchJokesterDuels(roomId).then(onChange).catch(() => {});
+      }
+    },
+    () => { fetchJokesterDuels(roomId).then(onChange).catch(() => {}); },
+    3000,
+  );
 }
 
 export function subscribeJokesterAnswers(
   duelId: string,
   onChange: (answers: JokesterAnswer[]) => void,
 ) {
-  const channel = supabase
-    .channel(`jokester-answers-${duelId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'jokester_answers',
-        filter: `duel_id=eq.${duelId}`,
-      },
-      async () => {
-        const answers = await fetchDuelAnswers(duelId);
-        onChange(answers);
-      },
-    )
-    .subscribe();
-  return () => {
-    supabase.removeChannel(channel);
-  };
+  // Polling fallback — no roomId available at this call site
+  return subscribeChannel(
+    null,
+    () => {},
+    () => { fetchDuelAnswers(duelId).then(onChange).catch(() => {}); },
+    2000,
+  );
 }
 
 export function subscribeJokesterVotes(
   duelId: string,
   onChange: (votes: JokesterVote[]) => void,
 ) {
-  const channel = supabase
-    .channel(`jokester-votes-${duelId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'jokester_votes',
-        filter: `duel_id=eq.${duelId}`,
-      },
-      async () => {
-        const votes = await fetchDuelVotes(duelId);
-        onChange(votes);
-      },
-    )
-    .subscribe();
-  return () => {
-    supabase.removeChannel(channel);
-  };
+  return subscribeChannel(
+    null,
+    () => {},
+    () => { fetchDuelVotes(duelId).then(onChange).catch(() => {}); },
+    2000,
+  );
 }
 
 export function subscribeJokesterCategoryVotes(
@@ -662,23 +619,14 @@ export function subscribeJokesterCategoryVotes(
   round: number,
   onChange: (votes: JokesterCategoryVote[]) => void,
 ) {
-  const channel = supabase
-    .channel(`jokester-catvotes-${roomId}-${round}`)
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'jokester_category_votes',
-        filter: `room_id=eq.${roomId}`,
-      },
-      async () => {
-        const votes = await fetchCategoryVotes(roomId, round);
-        onChange(votes);
-      },
-    )
-    .subscribe();
-  return () => {
-    supabase.removeChannel(channel);
-  };
+  return subscribeChannel(
+    `jokester:${roomId}`,
+    (payload) => {
+      if (payload.table === 'jokester_category_votes') {
+        fetchCategoryVotes(roomId, round).then(onChange).catch(() => {});
+      }
+    },
+    () => { fetchCategoryVotes(roomId, round).then(onChange).catch(() => {}); },
+    3000,
+  );
 }

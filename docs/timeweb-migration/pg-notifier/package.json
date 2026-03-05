@@ -1,0 +1,12 @@
+{
+  "name": "pg-notifier",
+  "version": "1.0.0",
+  "description": "PostgreSQL LISTEN/NOTIFY → Centrifugo bridge for Vecherinkach",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "pg": "^8.16.0"
+  }
+}

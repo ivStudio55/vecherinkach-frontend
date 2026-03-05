@@ -1,0 +1,121 @@
+# ================================================================
+# PostgREST + Centrifugo на Timeweb Cloud
+# docker-compose для запуска API-слоя на том же сервере или отдельно
+#
+# PostgREST предоставляет тот же REST API, что и Supabase,
+# поэтому изменения в коде фронтенда — МИНИМАЛЬНЫЕ (только URL).
+# ================================================================
+
+services:
+  # ----------------------------------------------------------------
+  # PostgREST — REST API поверх PostgreSQL
+  # Полностью совместим с @supabase/supabase-js клиентом
+  # ----------------------------------------------------------------
+  postgrest:
+    image: postgrest/postgrest:v12.2.3
+    restart: unless-stopped
+    environment:
+      # Строка подключения к Timeweb PostgreSQL
+      PGRST_DB_URI: "postgres://gen_user:3WdY%29K%3C%7B%3DMc%3DrJ@5.42.107.149:5432/default_db?sslmode=require"
+      PGRST_DB_SCHEMA: "public"
+      # Timeweb managed PostgreSQL не позволяет CREATE ROLE —
+      # используем gen_user как единственную роль для anon и authenticated запросов.
+      PGRST_DB_ANON_ROLE: "gen_user"
+      # JWT_SECRET — ДОЛЖЕН СОВПАДАТЬ с SUPABASE_JWT_SECRET
+      PGRST_JWT_SECRET: "${POSTGREST_JWT_SECRET}"
+      PGRST_SERVER_PORT: "3000"
+      PGRST_DB_POOL: "10"
+      PGRST_DB_POOL_ACQUISITION_TIMEOUT: "10"
+      PGRST_LOG_LEVEL: "warn"
+      # Allow all origins for CORS (PostgREST v12+ supports this)
+      PGRST_SERVER_CORS_ALLOWED_ORIGINS: "*"
+    ports:
+      - "3000:3000"
+
+  # ----------------------------------------------------------------
+  # Centrifugo — WebSocket для Realtime (замена Supabase Realtime)
+  # ----------------------------------------------------------------
+  centrifugo:
+    image: centrifugo/centrifugo:v5
+    restart: unless-stopped
+    volumes:
+      - ./centrifugo-config.json:/centrifugo/config.json:ro
+    command: centrifugo -c config.json
+    ports:
+      - "8000:8000"
+    environment:
+      CENTRIFUGO_TOKEN_HMAC_SECRET_KEY: "${CENTRIFUGO_SECRET}"
+      CENTRIFUGO_API_KEY: "${CENTRIFUGO_API_KEY}"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ----------------------------------------------------------------
+  # PG → Centrifugo bridge
+  # Слушает PostgreSQL NOTIFY и публикует в Centrifugo каналы
+  # ----------------------------------------------------------------
+  pg-notifier:
+    build: ./pg-notifier
+    restart: unless-stopped
+    environment:
+      PG_URL: "postgres://gen_user:3WdY%29K%3C%7B%3DMc%3DrJ@5.42.107.149:5432/default_db?sslmode=require"
+      CENTRIFUGO_API_URL: "http://centrifugo:8000/api"
+      CENTRIFUGO_API_KEY: "${CENTRIFUGO_API_KEY}"
+      NODE_TLS_REJECT_UNAUTHORIZED: "0"
+    depends_on:
+      - centrifugo
+    healthcheck:
+      test: ["CMD", "node", "-e", "process.exit(0)"]
+      interval: 60s
+
+  # ----------------------------------------------------------------
+  # Next.js — основной фронтенд + API routes
+  # Собирается из исходников (git clone в /opt/vecherinkach-app)
+  # ----------------------------------------------------------------
+  nextjs:
+    build:
+      context: /opt/vecherinkach-app
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: "http://89.169.2.83"
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: "${SUPABASE_ANON_KEY}"
+        NEXT_PUBLIC_CENTRIFUGO_URL: "ws://89.169.2.83:8000/connection/websocket"
+        NEXT_PUBLIC_AUDIO_BASE: "https://storage.yandexcloud.net/vecherinkach/audio"
+    restart: unless-stopped
+    environment:
+      NODE_ENV: "production"
+      # Server-side only: direct PostgREST access (bypasses nginx)
+      SUPABASE_INTERNAL_URL: "http://postgrest:3000"
+      SUPABASE_SERVICE_ROLE_KEY: "${SUPABASE_SERVICE_ROLE_KEY}"
+      SUPABASE_JWT_SECRET: "${POSTGREST_JWT_SECRET}"
+      DB_JWT_ROLE: "gen_user"
+      DATABASE_URL: "${DATABASE_URL}"
+      ADMIN_USER: "${ADMIN_USER}"
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD}"
+    depends_on:
+      - postgrest
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ----------------------------------------------------------------
+  # Nginx — reverse proxy, TLS termination
+  # ----------------------------------------------------------------
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/www/certbot:/var/www/certbot:ro
+    depends_on:
+      - postgrest
+      - centrifugo
+      - nextjs

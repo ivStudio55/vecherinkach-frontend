@@ -2,6 +2,7 @@
 // Supabase CRUD + realtime для «Креативач»
 
 import { supabase } from '../supabase';
+import { subscribeChannel } from '../centrifuge';
 import type {
   CreativachRoom,
   CreativachPlayer,
@@ -348,47 +349,33 @@ export function subscribeCreativachRoom(
   roomId: string,
   onChange: (room: CreativachRoom) => void,
 ) {
-  const channel = supabase
-    .channel(`creativach-room-${roomId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'creativach_rooms',
-        filter: `id=eq.${roomId}`,
-      },
-      payload => onChange(payload.new as CreativachRoom),
-    )
-    .subscribe();
-  return () => {
-    supabase.removeChannel(channel);
-  };
+  return subscribeChannel(
+    `creativach:${roomId}`,
+    (payload) => {
+      if (payload.table === 'creativach_rooms') onChange(payload.data as unknown as CreativachRoom);
+    },
+    async () => {
+      const room = await fetchCreativachRoomById(roomId);
+      if (room) onChange(room);
+    },
+    3000,
+  );
 }
 
 export function subscribeCreativachPlayers(
   roomId: string,
   onChange: (players: CreativachPlayer[]) => void,
 ) {
-  const channel = supabase
-    .channel(`creativach-players-${roomId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'creativach_players',
-        filter: `room_id=eq.${roomId}`,
-      },
-      async () => {
-        const players = await fetchCreativachPlayers(roomId);
-        onChange(players);
-      },
-    )
-    .subscribe();
-  return () => {
-    supabase.removeChannel(channel);
-  };
+  return subscribeChannel(
+    `creativach:${roomId}`,
+    (payload) => {
+      if (payload.table === 'creativach_players') {
+        fetchCreativachPlayers(roomId).then(onChange).catch(() => {});
+      }
+    },
+    () => { fetchCreativachPlayers(roomId).then(onChange).catch(() => {}); },
+    3000,
+  );
 }
 
 export function subscribeCreativachAnswers(
@@ -396,25 +383,16 @@ export function subscribeCreativachAnswers(
   round: number,
   onChange: (answers: CreativachAnswer[]) => void,
 ) {
-  const channel = supabase
-    .channel(`creativach-answers-${roomId}-${round}`)
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'creativach_answers',
-        filter: `room_id=eq.${roomId}`,
-      },
-      async () => {
-        const answers = await fetchCreativachAnswers(roomId, round);
-        onChange(answers);
-      },
-    )
-    .subscribe();
-  return () => {
-    supabase.removeChannel(channel);
-  };
+  return subscribeChannel(
+    `creativach:${roomId}`,
+    (payload) => {
+      if (payload.table === 'creativach_answers') {
+        fetchCreativachAnswers(roomId, round).then(onChange).catch(() => {});
+      }
+    },
+    () => { fetchCreativachAnswers(roomId, round).then(onChange).catch(() => {}); },
+    3000,
+  );
 }
 
 export function subscribeCreativachVotes(
@@ -422,23 +400,14 @@ export function subscribeCreativachVotes(
   round: number,
   onChange: (votes: CreativachVote[]) => void,
 ) {
-  const channel = supabase
-    .channel(`creativach-votes-${roomId}-${round}`)
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'creativach_votes',
-        filter: `room_id=eq.${roomId}`,
-      },
-      async () => {
-        const votes = await fetchCreativachVotes(roomId, round);
-        onChange(votes);
-      },
-    )
-    .subscribe();
-  return () => {
-    supabase.removeChannel(channel);
-  };
+  return subscribeChannel(
+    `creativach:${roomId}`,
+    (payload) => {
+      if (payload.table === 'creativach_votes') {
+        fetchCreativachVotes(roomId, round).then(onChange).catch(() => {});
+      }
+    },
+    () => { fetchCreativachVotes(roomId, round).then(onChange).catch(() => {}); },
+    3000,
+  );
 }

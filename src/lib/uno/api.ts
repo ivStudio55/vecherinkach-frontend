@@ -1,4 +1,5 @@
 import { supabase } from '../supabase';
+import { subscribeChannel } from '../centrifuge';
 import type { UnoMode, UnoRoom, UnoPlayer, UnoCard, UnoColor } from './types';
 
 /* ============ localStorage session ============ */
@@ -133,23 +134,28 @@ export async function playUnoCard(params: {
 /* ============ Realtime subscriptions ============ */
 
 export function subscribeUnoRoom(roomId: string, onChange: (room: UnoRoom) => void) {
-  const channel = supabase
-    .channel(`uno-room-${roomId}`)
-    .on(
-      'postgres_changes',
-      { event: 'UPDATE', schema: 'public', table: 'uno_rooms', filter: `id=eq.${roomId}` },
-      payload => onChange(payload.new as UnoRoom),
-    )
-    .subscribe();
-  return () => void supabase.removeChannel(channel);
+  return subscribeChannel(
+    `uno:${roomId}`,
+    (payload) => {
+      if (payload.table === 'uno_rooms') onChange(payload.data as UnoRoom);
+    },
+    async () => {
+      const { data } = await supabase.from('uno_rooms').select('*').eq('id', roomId).single();
+      if (data) onChange(data as UnoRoom);
+    },
+    3000,
+  );
 }
 
 export function subscribeUnoPlayers(roomId: string, onChange: () => void) {
-  const channel = supabase
-    .channel(`uno-players-${roomId}`)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'uno_players', filter: `room_id=eq.${roomId}` }, () => onChange())
-    .subscribe();
-  return () => void supabase.removeChannel(channel);
+  return subscribeChannel(
+    `uno:${roomId}`,
+    (payload) => {
+      if (payload.table === 'uno_players') onChange();
+    },
+    onChange,
+    3000,
+  );
 }
 
 /* ============ Card helpers ============ */

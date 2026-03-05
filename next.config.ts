@@ -1,4 +1,6 @@
 const nextConfig = {
+  // Standalone output для Docker деплоя
+  output: 'standalone',
   // Отключаем кеширование для API и realtime данных
   async headers() {
     return [

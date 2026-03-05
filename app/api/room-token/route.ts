@@ -5,6 +5,8 @@ import { getSupabaseAdminClient } from '@/lib/supabaseAdmin.server';
 export const runtime = 'nodejs';
 
 const JWT_SECRET = process.env.SUPABASE_JWT_SECRET;
+// На Supabase: 'authenticated'. На Timeweb (gen_user-only): 'gen_user'
+const DB_JWT_ROLE = process.env.DB_JWT_ROLE ?? 'authenticated';
 
 type RoomTokenPayload = { roomId?: string; roomCode?: string; playerId?: string };
 
@@ -49,11 +51,11 @@ const createRoomTokenResponse = async (payload: RoomTokenPayload) => {
   const now = Math.floor(Date.now() / 1000);
   const token = jwt.sign(
     {
-      aud: 'authenticated',
+      aud: DB_JWT_ROLE,
       exp: now + 60 * 60 * 24,
       iat: now,
       iss: 'supabase',
-      role: 'authenticated',
+      role: DB_JWT_ROLE,
       room_id: room.id,
       room_code: room.code,
       player_id: playerId ?? null,

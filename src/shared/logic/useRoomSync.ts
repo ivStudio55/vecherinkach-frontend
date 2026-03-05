@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getCentrifugeClient, type CentrifugoPayload } from '@/lib/centrifuge';
 import { logError, logEvent } from './logger';
 import { isRealtimeEnabled } from './realtimeConfig';
 import { ROOM_SELECT_FIELDS, getRoomStateVersion, shouldApplyRoomUpdate } from './roomEventUtils';
@@ -131,6 +132,68 @@ export const useRoomSync = (roomId?: string | null, options?: UseRoomSyncOptions
     }
 
     let mounted = true;
+
+    // ----------------------------------------------------------------
+    // Centrifugo path (используется когда NEXT_PUBLIC_CENTRIFUGO_URL задан)
+    // ----------------------------------------------------------------
+    const centrifugeClient = getCentrifugeClient();
+    if (centrifugeClient) {
+      const sub = centrifugeClient.newSubscription(`room:${roomId}`);
+
+      sub.on('publication', (ctx) => {
+        if (!mounted) return;
+        const payload = ctx.data as CentrifugoPayload<RoomSyncRow>;
+        if (payload?.data) {
+          throttledApply(payload.data);
+        }
+      });
+
+      sub.on('subscribed', () => {
+        if (!mounted) return;
+        setConnectionStatus((prev) => ({ ...prev, mode: 'realtime', lastEventAt: Date.now() }));
+        stopPolling();
+      });
+
+      sub.on('error', (ctx) => {
+        if (!mounted) return;
+        logEvent('warn', 'room-sync', 'Centrifugo subscription error', {
+          roomId,
+          error: String((ctx as { error?: { message?: string } })?.error?.message ?? ctx),
+        });
+        setConnectionStatus((prev) => ({
+          ...prev,
+          mode: 'polling',
+          reconnectCount: (prev.reconnectCount ?? 0) + 1,
+        }));
+        startPolling();
+      });
+
+      sub.on('unsubscribed', (ctx) => {
+        if (!mounted) return;
+        // code 0 = clean unsubscribe by client; non-zero means unexpected
+        if ((ctx as { code?: number }).code !== 0) {
+          setConnectionStatus((prev) => ({ ...prev, mode: 'reconnecting' }));
+          startPolling();
+        }
+      });
+
+      sub.subscribe();
+
+      return () => {
+        mounted = false;
+        stopPolling();
+        if (heartbeatIntervalRef.current) {
+          clearInterval(heartbeatIntervalRef.current);
+          heartbeatIntervalRef.current = null;
+        }
+        sub.unsubscribe();
+        centrifugeClient.removeSubscription(sub);
+      };
+    }
+
+    // ----------------------------------------------------------------
+    // Supabase Realtime fallback (когда NEXT_PUBLIC_CENTRIFUGO_URL не задан)
+    // ----------------------------------------------------------------
     const channelId = `${roomId}-${Date.now()}`;
 
     const roomChannel = supabase

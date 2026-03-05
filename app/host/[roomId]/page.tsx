@@ -19,6 +19,7 @@ import { WinnerBanner } from '@/shared/ui/WinnerBanner';
 import { BestQuestionCard } from '@/shared/ui/BestQuestionCard';
 import { JoinQrBlock } from '@/shared/ui/JoinQrBlock';
 import { isRealtimeEnabled } from '@/shared/logic/realtimeConfig';
+import { subscribeChannel, type CentrifugoPayload } from '@/lib/centrifuge';
 import { ROUND3_ANSWER_SECONDS, ROUND3_VOTE_COUNTDOWN_SECONDS, ROUND3_VOTE_SECONDS } from '@/shared/logic/roundConstants';
 import {
   buildRound2LikeId,
@@ -5734,8 +5735,8 @@ export function HostRoomContent() {
     let playersChannel: ReturnType<typeof supabase.channel> | null = null;
     let answersChannel: ReturnType<typeof supabase.channel> | null = null;
     let round2AnswersChannel: ReturnType<typeof supabase.channel> | null = null;
-    let round4AnswersChannel: ReturnType<typeof supabase.channel> | null = null;
-    let round5AnswersChannel: ReturnType<typeof supabase.channel> | null = null;
+    let unsubRound4Answers: (() => void) | null = null;
+    let unsubRound5Answers: (() => void) | null = null;
     let playersPollId: ReturnType<typeof setInterval> | null = null;
 
     const startRealtime = async () => {
@@ -5849,75 +5850,54 @@ export function HostRoomContent() {
         )
         .subscribe();
 
-      round4AnswersChannel = supabase
-        .channel(`host-round4-answers-${roomId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'round4_answers',
-            filter: `room_id=eq.${roomId}`,
-          },
-          async (payload: Round4AnswerInsertPayload) => {
-            if (!mounted) return;
-            if (roomStatusRef.current !== 'round4-running') {
-              return;
-            }
+      // Round 4 + Round 5 answers — единая Centrifugo подписка answers:{roomId}
+      // pg-notifier публикует сюда при INSERT/UPDATE в round4_answers и round5_answers
+      // Один подписчик обрабатывает оба типа событий по полю table
+      unsubRound4Answers = subscribeChannel(
+        `answers:${roomId}`,
+        async (payload: CentrifugoPayload) => {
+          if (!mounted) return;
+
+          if (payload.table === 'round4_answers') {
+            if (roomStatusRef.current !== 'round4-running') return;
             const currentPuzzleId = round4CurrentPuzzleIdRef.current;
-            if (currentPuzzleId === null) {
-              return;
-            }
-            if (payload.new.puzzle_id === currentPuzzleId) {
+            if (currentPuzzleId === null) return;
+            const answerData = payload.data as { puzzle_id?: number };
+            if (answerData.puzzle_id === currentPuzzleId) {
               await loadRound4AnswerStatsRef.current?.(currentPuzzleId);
             }
+            return;
           }
-        )
-        .subscribe();
 
-      round5AnswersChannel = supabase
-        .channel(`host-round5-answers-${roomId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'round5_answers',
-            filter: `room_id=eq.${roomId}`,
-          },
-          async (payload: { new: { question_index: number } }) => {
-            if (!mounted) return;
+          if (payload.table === 'round5_answers') {
             const currentBankIndex = round5CurrentBankIndexRef.current;
-            if (currentBankIndex === null) {
-              return;
-            }
-            if (payload.new.question_index === currentBankIndex) {
+            if (currentBankIndex === null) return;
+            const answerData = payload.data as { question_index?: number };
+            if (answerData.question_index === currentBankIndex) {
               await loadRound5AnswerStatsRef.current?.(currentBankIndex);
               await loadRound5AnswerRowsRef.current?.(currentBankIndex);
             }
           }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'round5_answers',
-            filter: `room_id=eq.${roomId}`,
-          },
-          async (payload: { new: { question_index: number } }) => {
-            if (!mounted) return;
-            const currentBankIndex = round5CurrentBankIndexRef.current;
-            if (currentBankIndex === null) {
-              return;
+        },
+        // fallback polling: опрашивает и r4 и r5 каждые 2.5 сек
+        async () => {
+          if (!mounted) return;
+          if (roomStatusRef.current === 'round4-running') {
+            const currentPuzzleId = round4CurrentPuzzleIdRef.current;
+            if (currentPuzzleId !== null) {
+              await loadRound4AnswerStatsRef.current?.(currentPuzzleId);
             }
-            if (payload.new.question_index === currentBankIndex) {
+          } else if (roomStatusRef.current === 'round5-running' || roomStatusRef.current === 'round5-explanation') {
+            const currentBankIndex = round5CurrentBankIndexRef.current;
+            if (currentBankIndex !== null) {
               await loadRound5AnswerStatsRef.current?.(currentBankIndex);
-              await loadRound5AnswerRowsRef.current?.(currentBankIndex);
             }
           }
-        )
-        .subscribe();
+        },
+        2500,
+      );
+      // unsubRound5Answers unused — handled by the combined subscription above
+      unsubRound5Answers = null;
     };
 
     void startRealtime();
@@ -5942,15 +5922,13 @@ export function HostRoomContent() {
           if (round2AnswersChannel) supabase.removeChannel(round2AnswersChannel);
         });
       }
-      if (round4AnswersChannel) {
-        round4AnswersChannel.unsubscribe().then(() => {
-          if (round4AnswersChannel) supabase.removeChannel(round4AnswersChannel);
-        });
+      if (unsubRound4Answers) {
+        unsubRound4Answers();
+        unsubRound4Answers = null;
       }
-      if (round5AnswersChannel) {
-        round5AnswersChannel.unsubscribe().then(() => {
-          if (round5AnswersChannel) supabase.removeChannel(round5AnswersChannel);
-        });
+      if (unsubRound5Answers) {
+        unsubRound5Answers();
+        unsubRound5Answers = null;
       }
     };
   }, [ensureRealtimeAuth, realtimeEnabled, roomId]);
