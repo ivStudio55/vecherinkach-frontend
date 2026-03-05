@@ -182,6 +182,7 @@ export function JokesterHostContent() {
   const prevAnswerCountRef = useRef(0);
   const voteEndLockRef = useRef(false);
   const selectedTopCategoriesRef = useRef<string[]>([]);
+  const duelsRef = useRef<JokesterDuel[]>([]);
   const featherEmitterRef = useRef<((spawn: FeatherSpawn) => void) | null>(null);
   const answeredDoneRef = useRef<Set<string>>(new Set());
   const winnerPanelRef = useRef<HTMLDivElement | null>(null);
@@ -386,12 +387,16 @@ export function JokesterHostContent() {
     setTimerTickKey(prev => prev + 1);
   }, [timer]);
 
+  // Keep duelsRef in sync so the answer-poll interval can read latest duels without restarting
+  useEffect(() => { duelsRef.current = duels; }, [duels]);
+
   useEffect(() => {
     if (!room || room.voting_phase !== 'answering') return;
-    let cancelled = false;
+    // Reset counter only when we enter a fresh answering phase
     prevAnswerCountRef.current = 0;
+    let cancelled = false;
     const tick = async () => {
-      const roundDuels = duels.filter(d => d.round === room.current_round);
+      const roundDuels = duelsRef.current.filter(d => d.round === room.current_round);
       const all = await Promise.all(roundDuels.map(d => fetchDuelAnswers(d.id)));
       if (!cancelled) {
         const flat = all.flat();
@@ -408,7 +413,8 @@ export function JokesterHostContent() {
       cancelled = true;
       clearInterval(iv);
     };
-  }, [room?.id, room?.voting_phase, room?.current_round, duels]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room?.id, room?.voting_phase, room?.current_round]);
 
   /* ─── Lobby music ─── */
   useEffect(() => {
