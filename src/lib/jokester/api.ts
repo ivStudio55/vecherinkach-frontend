@@ -411,7 +411,10 @@ export async function submitAnswer(
     },
     { onConflict: 'duel_id,player_id,question_index' },
   );
-  if (error) console.error('submitAnswer error:', error);
+  if (error) {
+    console.error('submitAnswer error:', error);
+    throw new Error(error.message);
+  }
 }
 
 /* ══════════════════════════════════════════════

@@ -172,13 +172,17 @@ export default function JokesterPlayerPage() {
   });
   const currentTarget = pendingTargets[0] || null;
 
-  /* ─── Reset state when current duel changes ─── */
+  /* ─── Reset ANSWER state when player's target duel changes ─── */
   useEffect(() => {
-    if (!currentDuel) return;
     setAnswer1('');
     setAnswer2('');
     setSubmitted1(false);
     setSubmitted2(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentTarget?.duel.id]);
+
+  /* ─── Reset VOTE state when room's active voting duel changes ─── */
+  useEffect(() => {
     setMyVote(null);
     setDuelAnswers([]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -198,12 +202,17 @@ export default function JokesterPlayerPage() {
     if (!currentTarget) return;
     const text = answer1;
     if (!text.trim()) return;
-    await submitAnswer(currentTarget.duel.id, myId, qIndex, text.trim());
-    const updated = await fetchDuelAnswers(currentTarget.duel.id);
-    const others = myRoundAnswers.filter(a => a.duel_id !== currentTarget.duel.id);
-    setMyRoundAnswers([...others, ...updated]);
-    setSubmitted1(true);
-    setAnswer1('');
+    try {
+      await submitAnswer(currentTarget.duel.id, myId, qIndex, text.trim());
+      const updated = await fetchDuelAnswers(currentTarget.duel.id);
+      const others = myRoundAnswers.filter(a => a.duel_id !== currentTarget.duel.id);
+      setMyRoundAnswers([...others, ...updated]);
+      setSubmitted1(true);
+      setAnswer1('');
+    } catch (err) {
+      console.error('handleSubmitAnswer failed:', err);
+      alert('Не удалось отправить ответ. Попробуй ещё раз.');
+    }
   };
 
   useEffect(() => {

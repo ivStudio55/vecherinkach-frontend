@@ -324,10 +324,14 @@ export async function advanceVotingChain(room: DrawRoom): Promise<void> {
 
 /** Submit drawing for step 1 (no guess) */
 export async function submitDrawingStep1(stepId: string, drawingData: string): Promise<void> {
-  await supabase.from('draw_steps').update({
+  const { error } = await supabase.from('draw_steps').update({
     drawing_data: drawingData,
     submitted: true,
   }).eq('id', stepId);
+  if (error) {
+    console.error('submitDrawingStep1 error:', error);
+    throw new Error(error.message);
+  }
 }
 
 /** Submit guess + drawing for step >= 2 */

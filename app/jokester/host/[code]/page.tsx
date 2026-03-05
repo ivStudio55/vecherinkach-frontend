@@ -365,6 +365,23 @@ export function JokesterHostContent() {
     return subscribeJokesterCategoryVotes(room.id, room.current_round, setCategoryVotes);
   }, [room?.id, room?.status, room?.current_round]);
 
+  /* ─── Auto-advance when ALL players have cast ALL their category votes ─── */
+  useEffect(() => {
+    if (!room || room.status !== 'category_vote') return;
+    if (categoryVotes.length === 0 || players.length === 0) return;
+    const gPlayers = players.filter(p => p.role === 'player' && !p.is_host);
+    if (gPlayers.length === 0) return;
+    const maxVotesEach = gPlayers.length;
+    const allDone = gPlayers.every(
+      p => categoryVotes.filter(v => v.voter_id === p.id).length >= maxVotesEach,
+    );
+    if (!allDone || autoStartingDuelsRef.current) return;
+    autoStartingDuelsRef.current = true;
+    stopTimer();
+    void handleStartDuels(room);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoryVotes.length, players.length, room?.status]);
+
   useEffect(() => {
     setTimerTickKey(prev => prev + 1);
   }, [timer]);

@@ -173,15 +173,25 @@ export default function CreativachRoomPage() {
 
   const handleSubmitAnswer = useCallback(async () => {
     if (!room || !myId || !answerText.trim()) return;
-    await submitCreativachAnswer(room.id, room.current_round, myId, answerText.trim());
-    setSubmitted(true);
+    try {
+      await submitCreativachAnswer(room.id, room.current_round, myId, answerText.trim());
+      setSubmitted(true);
+    } catch (err) {
+      console.error('handleSubmitAnswer failed:', err);
+      alert('Не удалось отправить ответ. Попробуй ещё раз.');
+    }
   }, [room, myId, answerText]);
 
   const handleVote = useCallback(async (votedForId: string) => {
     if (!room || !myId || voted) return;
     const myRole = me?.role || 'player';
-    await submitCreativachVote(room.id, room.current_round, myId, votedForId, myRole);
-    setVoted(true);
+    try {
+      await submitCreativachVote(room.id, room.current_round, myId, votedForId, myRole);
+      setVoted(true);
+    } catch (err) {
+      console.error('handleVote failed:', err);
+      alert('Не удалось зарегистрировать голос. Попробуй ещё раз.');
+    }
   }, [room, myId, voted, me]);
 
   if (!room || !me) {

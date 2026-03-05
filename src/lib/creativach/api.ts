@@ -289,7 +289,10 @@ export async function submitCreativachAnswer(
     },
     { onConflict: 'room_id,round,player_id' },
   );
-  if (error) console.error('submitCreativachAnswer error:', error);
+  if (error) {
+    console.error('submitCreativachAnswer error:', error);
+    throw new Error(error.message);
+  }
 }
 
 /* ══════════════════════════════════════════════
@@ -313,7 +316,10 @@ export async function submitCreativachVote(
     },
     { onConflict: 'room_id,round,voter_id' },
   );
-  if (error) console.error('submitCreativachVote error:', error);
+  if (error) {
+    console.error('submitCreativachVote error:', error);
+    throw new Error(error.message);
+  }
 }
 
 /* ══════════════════════════════════════════════
