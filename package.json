@@ -11,7 +11,6 @@
   "dependencies": {
     "@fontsource/bangers": "^5.2.8",
     "@supabase/supabase-js": "^2.84.0",
-    "@vercel/analytics": "^1.6.1",
     "centrifuge": "^5.5.3",
     "jsonwebtoken": "^9.0.3",
     "next": "^16.0.8",

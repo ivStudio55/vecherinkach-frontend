@@ -1,4 +1,24 @@
+import crypto from 'crypto';
+
+function verifySessionCookie(cookieHeader: string | null): boolean {
+  if (!cookieHeader) return false;
+  const expected = process.env.ADMIN_SESSION_SECRET ?? '';
+  if (!expected) return false;
+  const match = cookieHeader.split(';').map(c => c.trim()).find(c => c.startsWith('admin_session='));
+  if (!match) return false;
+  const value = match.slice('admin_session='.length);
+  if (value.length !== expected.length) return false;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(value), Buffer.from(expected));
+  } catch {
+    return false;
+  }
+}
+
 export function requireAdminBasicAuth(request: Request): Response | null {
+  // First try session cookie (used by browser-based admin UI)
+  if (verifySessionCookie(request.headers.get('cookie'))) return null;
+
   const expectedUser = process.env.ADMIN_USER;
   const expectedPassword = process.env.ADMIN_PASSWORD;
 
