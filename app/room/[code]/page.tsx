@@ -37,7 +37,7 @@ import {
   type QuestionBank,
 } from '@/lib/questions';
 
-import { DEFAULT_PACK_ID, getQuestionsBaseUrl, getRound2QuestionUrls, normalizePackId, type PackId } from '@/lib/questionPacks';
+import { DEFAULT_PACK_ID, getQuestionsBaseUrl, getRound2QuestionUrls, normalizePackId, resolvePackConfig, setPacksCache, type PackId, type QuestionPack } from '@/lib/questionPacks';
 
 const QUESTION_DURATION_SECONDS = 30;
 const ROUND3_TOTAL_QUESTIONS = 6;
@@ -187,6 +187,8 @@ export default function RoomPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [roomId, setRoomId] = useState('');
   const [packId, setPackId] = useState<PackId>(DEFAULT_PACK_ID);
+  const [packConfigReady, setPackConfigReady] = useState(true);
+  const packConfigReadyRef = useRef(true);
   const [isPackReady, setIsPackReady] = useState(true);
   const [questionStartedAt, setQuestionStartedAt] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState(QUESTION_DURATION_SECONDS);
@@ -218,6 +220,7 @@ export default function RoomPage() {
   const [round3AnswerText, setRound3AnswerText] = useState('');
   const [round3AnswerOptions, setRound3AnswerOptions] = useState<Round3AnswerRow[]>([]);
   const [round3HasVoted, setRound3HasVoted] = useState(false);
+  const [isVoteSubmitting, setIsVoteSubmitting] = useState(false);
   const roomIdRef = useRef('');
   const playerIdRef = useRef('');
   const round2ShowingFactRef = useRef(round2ShowingFact);
@@ -329,8 +332,10 @@ export default function RoomPage() {
   }, [playerId, roomId]);
 
   useEffect(() => {
+    if (!packConfigReadyRef.current) return;
+    const targetPack = packId;
     const loadRound2Data = async () => {
-      const urls = getRound2QuestionUrls(packId);
+      const urls = getRound2QuestionUrls(targetPack);
       for (const url of urls) {
         try {
           const bust = url.includes('?') ? `&t=${Date.now()}` : `?t=${Date.now()}`;
@@ -338,8 +343,9 @@ export default function RoomPage() {
           if (!res.ok) continue;
           const json = await res.json();
           const normalized = normalizeTrueFalseItems(json);
-          const filtered = filterTrueFalseItemsForPack(normalized, packId);
+          const filtered = filterTrueFalseItemsForPack(normalized, targetPack);
           if (filtered.length === 0) continue;
+          if (packIdRef.current !== targetPack) return; // stale
           setRound2Items(filtered);
           return;
         } catch (e) {
@@ -348,39 +354,43 @@ export default function RoomPage() {
       }
     };
     void loadRound2Data();
-  }, [packId]);
+  }, [packId, packConfigReady]);
 
   useEffect(() => {
+    const targetPack = packId;
     const loadRound4Data = async () => {
       try {
-        const res = await fetch(`${getQuestionsBaseUrl(packId)}/4round.json?t=${Date.now()}`, { cache: 'no-store' });
+        const res = await fetch(`${getQuestionsBaseUrl(targetPack)}/4round.json?t=${Date.now()}`, { cache: 'no-store' });
         if (!res.ok) return;
         const payload = await res.json();
         const puzzles = Array.isArray(payload?.puzzles) ? (payload.puzzles as Round4Puzzle[]) : [];
+        if (packIdRef.current !== targetPack) return; // stale
         setRound4Puzzles(puzzles);
       } catch (e) {
         console.error('Failed to load round4 data', e);
       }
     };
-    void loadRound4Data();
-  }, [packId]);
+    if (packConfigReadyRef.current) void loadRound4Data();
+  }, [packId, packConfigReady]);
 
   useEffect(() => {
+    const targetPack = packId;
     const loadRound5Data = async () => {
       try {
-        const res = await fetch(`${getQuestionsBaseUrl(packId)}/5round_question.json?t=${Date.now()}`, { cache: 'no-store' });
+        const res = await fetch(`${getQuestionsBaseUrl(targetPack)}/5round_question.json?t=${Date.now()}`, { cache: 'no-store' });
         if (!res.ok) {
           return;
         }
         const payload = (await res.json()) as unknown;
         const questions = Array.isArray(payload) ? (payload as Round5Question[]) : [];
+        if (packIdRef.current !== targetPack) return; // stale
         setRound5Questions(questions);
       } catch (e) {
         console.error('Failed to load round5 questions', e);
       }
     };
-    void loadRound5Data();
-  }, [packId]);
+    if (packConfigReadyRef.current) void loadRound5Data();
+  }, [packId, packConfigReady]);
 
   const loadPlayerStanding = useCallback(async () => {
     if (!roomId || !playerId) {
@@ -481,7 +491,7 @@ export default function RoomPage() {
     }, 300);
 
     return () => window.clearTimeout(timeoutId);
-  }, [packId, roomStatus, round4PuzzleId, round4Puzzles.length]);
+  }, [packId, packConfigReady, roomStatus, round4PuzzleId, round4Puzzles.length]);
 
   useEffect(() => {
     if (round4PuzzleId === null || !round4Puzzles.length) {
@@ -493,11 +503,12 @@ export default function RoomPage() {
   }, [round4PuzzleId, round4Puzzles]);
 
   useEffect(() => {
-    if (!roomId) return;
+    if (!roomId || !packConfigReadyRef.current) return;
+    const targetPack = packId;
 
     const loadRound3Data = async () => {
       try {
-        const url = `/api/round3/questions?roomId=${encodeURIComponent(roomId)}&count=${ROUND3_TOTAL_QUESTIONS}&packId=${encodeURIComponent(packId)}`;
+        const url = `/api/round3/questions?roomId=${encodeURIComponent(roomId)}&count=${ROUND3_TOTAL_QUESTIONS}&packId=${encodeURIComponent(targetPack)}`;
         const res = await fetch(url, { cache: 'no-store' });
         if (!res.ok) {
           return;
@@ -508,6 +519,7 @@ export default function RoomPage() {
           ...q,
           originalIndex: typeof q.originalIndex === 'number' ? q.originalIndex : i,
         }));
+        if (packIdRef.current !== targetPack) return; // stale
         // Используем порядок из API, чтобы совпадал у всех игроков и ведущего.
         setRound3Questions(withIndex);
       } catch (e) {
@@ -516,7 +528,7 @@ export default function RoomPage() {
     };
 
     void loadRound3Data();
-  }, [packId, roomId]);
+  }, [packId, roomId, packConfigReady]);
 
   const stopRound3Audio = useCallback(() => {
     const voice = round3VoiceRef.current;
@@ -630,6 +642,20 @@ export default function RoomPage() {
 
   useEffect(() => {
     packIdRef.current = packId;
+    if (packId !== 'classic') {
+      const cached = resolvePackConfig(packId);
+      if (cached.label === packId && !['classic', '03012026'].includes(packId)) {
+        packConfigReadyRef.current = false;
+        setPackConfigReady(false);
+        fetch(`/api/packs?include=${encodeURIComponent(packId)}`)
+          .then(r => r.json())
+          .then((packs: QuestionPack[]) => { if (Array.isArray(packs)) setPacksCache(packs); packConfigReadyRef.current = true; setPackConfigReady(true); })
+          .catch(() => { packConfigReadyRef.current = true; setPackConfigReady(true); });
+        return;
+      }
+    }
+    packConfigReadyRef.current = true;
+    setPackConfigReady(true);
   }, [packId]);
 
   const loadQuestionFromSelection = useCallback(
@@ -711,25 +737,20 @@ export default function RoomPage() {
       setPackId(nextPack);
       packIdRef.current = nextPack;
 
-      if (nextPack === 'classic') {
-        round1BankRef.current = DEFAULT_QUESTION_BANK;
-        setIsPackReady(true);
-      } else {
-        setIsPackReady(false);
-        try {
-          const res = await fetch(`${getQuestionsBaseUrl(nextPack)}/round1.json?t=${Date.now()}`, { cache: 'no-store' });
-          if (!res.ok) {
-            throw new Error(`round1.json fetch failed: ${res.status}`);
-          }
-          const payload = (await res.json()) as unknown;
-          round1BankRef.current = createQuestionBank(payload);
-          setIsPackReady(true);
-        } catch (e) {
-          console.error('Failed to load round1 question bank', e);
-          setError('Не удалось загрузить пакет вопросов. Попробуйте зайти ещё раз.');
-          router.push('/join');
-          return;
+      setIsPackReady(false);
+      try {
+        const res = await fetch(`${getQuestionsBaseUrl(nextPack)}/round1.json?t=${Date.now()}`, { cache: 'no-store' });
+        if (!res.ok) {
+          throw new Error(`round1.json fetch failed: ${res.status}`);
         }
+        const payload = (await res.json()) as unknown;
+        round1BankRef.current = createQuestionBank(payload);
+        setIsPackReady(true);
+      } catch (e) {
+        console.error('Failed to load round1 question bank', e);
+        setError('Не удалось загрузить пакет вопросов. Попробуйте зайти ещё раз.');
+        router.push('/join');
+        return;
       }
 
       setRoomId(room.id);
@@ -1685,11 +1706,13 @@ export default function RoomPage() {
       setRound3AnswerText('');
       setRound3AnswerOptions([]);
       setRound3HasVoted(false);
+      setIsVoteSubmitting(false);
       return;
     }
     setRound3AnswerText('');
     setRound3AnswerOptions([]);
     setRound3HasVoted(false);
+    setIsVoteSubmitting(false);
   }, [roomStatus, round3QuestionIndex]);
 
   const getRound3Phase = useCallback(() => {
@@ -1922,6 +1945,10 @@ export default function RoomPage() {
     }
 
     // Авто-фиксация ответа на границе перехода к голосованию.
+    // Не отправляем пустой текст — это создаёт записи, которые отфильтровываются при голосовании.
+    if (round3AnswerText.trim().length === 0) {
+      return;
+    }
     void submitRound3Answer(round3AnswerText);
   }, [hasAnswered, roomStatus, round3AnswerText, round3Phase, submitRound3Answer]);
 
@@ -2212,7 +2239,7 @@ export default function RoomPage() {
 
   const submitRound3Vote = useCallback(
     async (answerId: string) => {
-      if (isSubmitting || round3HasVoted) {
+      if (isVoteSubmitting || round3HasVoted) {
         return;
       }
       if (!roomId || !playerId) {
@@ -2229,7 +2256,7 @@ export default function RoomPage() {
       }
 
       setError('');
-      setIsSubmitting(true);
+      setIsVoteSubmitting(true);
       try {
         const { error } = await supabase
           .from('round3_votes')
@@ -2249,10 +2276,10 @@ export default function RoomPage() {
         }
         setRound3HasVoted(true);
       } finally {
-        setIsSubmitting(false);
+        setIsVoteSubmitting(false);
       }
     },
-    [isSubmitting, playerId, roomId, roomStatus, round3HasVoted, round3Phase, round3QuestionIndex]
+    [isVoteSubmitting, playerId, roomId, roomStatus, round3HasVoted, round3Phase, round3QuestionIndex]
   );
 
   const submitAnswer = async (optionKey: string) => {
@@ -3118,7 +3145,7 @@ export default function RoomPage() {
                         <button
                           key={row.id}
                           onClick={() => void submitRound3Vote(row.id)}
-                          disabled={isSubmitting || round3HasVoted}
+                          disabled={isVoteSubmitting || round3HasVoted}
                           className="w-full comic-panel border-[#000] bg-white px-4 py-3 text-left text-sm comic-font hover:bg-white transition disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           {row.text}

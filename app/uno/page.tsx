@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createUnoRoom, joinUnoRoom } from '@/lib/uno/api';
 import type { UnoMode } from '@/lib/uno/types';
 
@@ -17,6 +17,17 @@ const modes = [
     borderColor: 'border-[#f1362f]',
     bgActive: 'bg-[#f1362f]/20',
     needsVerbs: false,
+  },
+  {
+    id: 'classic-verbs' as UnoMode,
+    title: 'Классика + Глаголы',
+    description: 'Классические правила UNO, но на картах с числами дополнительно отображаются неправильные глаголы.',
+    bullets: ['108 карт с классическими правилами', 'Неправильные глаголы на картах', 'Учись играя!'],
+    badge: 'новинка',
+    badgeColor: 'bg-[#10b981]',
+    borderColor: 'border-[#10b981]',
+    bgActive: 'bg-[#10b981]/20',
+    needsVerbs: true,
   },
   {
     id: 'irregular-verbs' as UnoMode,
@@ -34,7 +45,7 @@ const modes = [
     title: 'Угадай глагол',
     description: 'На каждой карте только ОДНО слово: перевод или одна из форм глагола. Надо знать, какие карты одного глагола!',
     bullets: ['1 карта = 1 слово (RU или EN)', 'Совпадение по глаголу = один номинал', 'Самый сложный режим!'],
-    badge: 'новинка',
+    badge: 'сложно',
     badgeColor: 'bg-[#a78bfa]',
     borderColor: 'border-[#a78bfa]',
     bgActive: 'bg-[#a78bfa]/15',
@@ -51,6 +62,17 @@ export default function UnoPage() {
   const [joinName, setJoinName] = useState('Игрок');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
+  const [isAnimationsDisabled, setIsAnimationsDisabled] = useState(false);
+
+  useEffect(() => {
+    setIsAnimationsDisabled(localStorage.getItem('vecherinkach_animations_disabled') === 'true');
+  }, []);
+
+  const toggleAnimations = () => {
+    const next = !isAnimationsDisabled;
+    setIsAnimationsDisabled(next);
+    localStorage.setItem('vecherinkach_animations_disabled', String(next));
+  };
 
   const selectedMode = modes.find(m => m.id === createMode)!;
 
@@ -82,7 +104,7 @@ export default function UnoPage() {
   };
 
   return (
-    <div className="min-h-screen comic-bg-dots-blue text-black overflow-hidden relative">
+    <div className={`min-h-screen comic-bg-dots-blue text-black overflow-hidden relative ${isAnimationsDisabled ? 'disable-animations' : ''}`}>
       {/* Decorative background elements */}
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] comic-bg-rays-yellow-red rounded-full opacity-30 blur-3xl mix-blend-overlay pointer-events-none"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] comic-bg-rays-pink-purple rounded-full opacity-30 blur-3xl mix-blend-overlay pointer-events-none"></div>
@@ -93,19 +115,28 @@ export default function UnoPage() {
           <div className="absolute -top-6 -right-6 rotate-12 comic-speech-bubble bg-yellow-400 text-black font-black text-xl px-4 py-2 z-20">
             BETA!
           </div>
+          <div className="absolute top-4 right-4 z-30 flex">
+            <button
+              type="button"
+              onClick={toggleAnimations}
+              className={`comic-button px-4 py-2 text-sm bg-white text-black border-2 border-black shadow-[3px_3px_0_#000] hover:-translate-y-0.5 transition ${isAnimationsDisabled ? 'bg-yellow-300' : ''}`}
+            >
+              {isAnimationsDisabled ? 'Анимации выкл' : 'Отключить анимации'}
+            </button>
+          </div>
           <div className="flex flex-col gap-2">
             <p className="comic-font-thin text-sm tracking-widest text-gray-500 font-bold">МИНИ-ИГРА</p>
             <h1 className="comic-font text-5xl sm:text-6xl text-red-500 drop-shadow-[3px_3px_0_#000]">UNO ДЛЯ ВЕЧЕРИНКИ</h1>
           </div>
           <p className="mt-4 text-lg comic-font-thin font-bold text-gray-800">
-            Три режима: классический, «Все формы» и «Угадай глагол». Мультиплеер через Supabase Realtime.
+            Четыре режима: классический, классика+глаголы, «Все формы» и «Угадай глагол». Мультиплеер через Supabase Realtime.
           </p>
         </header>
 
         {/* Mode cards */}
-        <section className="grid gap-6 md:grid-cols-3">
+        <section className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           {modes.map((mode, i) => {
-            const bgColors = ['bg-yellow-300', 'bg-pink-400', 'bg-green-400'];
+            const bgColors = ['bg-yellow-300', 'bg-green-400', 'bg-pink-400', 'bg-purple-400'];
             const cardBg = bgColors[i % bgColors.length];
             return (
               <article
@@ -163,8 +194,8 @@ export default function UnoPage() {
                   placeholder="ИМЯ ВЕДУЩЕГО"
                 />
 
-                {/* Mode selector — 3 options */}
-                <div className="grid grid-cols-3 gap-3 text-sm">
+                {/* Mode selector — 4 options */}
+                <div className="grid grid-cols-2 gap-3 text-sm">
                   {modes.map(m => (
                     <label
                       key={m.id}

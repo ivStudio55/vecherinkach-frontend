@@ -43,3 +43,12 @@ next-env.d.ts
 
 .vercel
 .env*.local
+
+# deploy artifacts
+deploy.tar.gz
+deploy_restart.py
+deploy_ssh.js
+fix_ssh.js
+upload_deploy.js
+test_vote.js
+tmp_chunk.js

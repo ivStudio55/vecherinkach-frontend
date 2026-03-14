@@ -10,6 +10,7 @@ import {
   normalizeTrueFalseItems,
   filterTrueFalseItemsForPack,
   resolveRound2AudioOrdinal,
+  getRound2AudioBounds,
 } from '@/lib/round2';
 import { Round1VariantsPanel, Round1VariantsPanelHandle } from '@/components/Round1VariantsPanel';
 import { AnimatedText } from '@/components/AnimatedText';
@@ -50,7 +51,10 @@ import {
   getQuestionsBaseUrl,
   getRound2QuestionUrls,
   normalizePackId,
+  resolvePackConfig,
+  setPacksCache,
   type PackId,
+  type QuestionPack,
   withAudioPackPrefixIfNeeded,
 } from '@/lib/questionPacks';
 
@@ -190,30 +194,8 @@ const ROUND5_EXPLANATION_AUDIO_DIR = 'round5/explanation';
 const ROUND5_FINAL_NARRATOR_AUDIO_DIR = 'round5/final';
 const ROUND5_FINAL_NARRATOR_VARIANTS = 7;
 
-const PACK_03012026_ROUND2_AUDIO_START = 82;
-const PACK_03012026_ROUND3_AUDIO_START = 67;
-const PACK_03012026_ROUND5_AUDIO_START = 68;
-
-const ROUND4_CATEGORY_AUDIO_MAP: Record<string, string> = {
-  'новый год': 'new_year',
-  дисней: 'disney',
-  'американский кинематограф': 'american_cinema',
-  'американские мультфильмы': 'american_cartoons',
-  сериалы: 'series',
-  'зарубежная эстрада': 'foreign_bandstand',
-  'русский рок': 'russian_rock',
-  'советская эстрада': 'soviet_bandstand',
-  'советский мультфильм': 'soviet_cartoon',
-  'советский кинематограф': 'soviet_cinema',
-  классика: 'classic',
-  сказка: 'fairy_tale',
-  'современная отечественная эстрада': 'modern_russian_bandstand',
-  'русская литература': 'russian_literature',
-};
-
-const ROUND4_CATEGORY_VARIANTS: Record<string, number> = {
-  soviet_cinema: 1,
-};
+// Round4 category map is now loaded dynamically from /api/round4-categories
+type Round4CategoryEntry = { folder_key: string; audio_variants: number };
 
 const encodePathSegments = (relativePath: string) =>
   relativePath
@@ -499,6 +481,7 @@ const HostControls = ({
   onOpenQr,
   onToggleLayout,
   layoutLabel,
+  onForceNext,
   compact,
   showDonate = true,
   isAnimationsDisabled,
@@ -513,6 +496,7 @@ const HostControls = ({
   onOpenQr?: () => void;
   onToggleLayout: () => void;
   layoutLabel: string;
+  onForceNext?: () => void;
   compact?: boolean;
   showDonate?: boolean;
   isAnimationsDisabled?: boolean;
@@ -530,7 +514,7 @@ const HostControls = ({
         compact
           ? 'px-3 py-2 comic-panel border-[4px] text-xs tracking-[0.14em]'
           : 'px-5 py-3 comic-panel text-base tracking-[0.2em]'
-      } border-[#000] text-white comic-font hover:bg-[#ffde00]/10 transition`}
+      } border-[#000] bg-[#ffde00] !text-black comic-font shadow-[4px_4px_0px_rgba(0,0,0,0.35)] hover:-translate-y-0.5 transition`}
     >
       {primaryLabel}
     </button>
@@ -538,7 +522,7 @@ const HostControls = ({
       <button
         type="button"
         onClick={onOpenQr}
-        className={`${compact ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'} comic-panel border-[4px] border-[#000] text-white comic-font hover:bg-[#ffde00]/10 transition`}
+        className={`${compact ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'} comic-panel border-[4px] border-[#000] bg-[#00e5ff] !text-black comic-font shadow-[4px_4px_0px_rgba(0,0,0,0.35)] hover:-translate-y-0.5 transition`}
         title="Открыть QR для подключения"
       >
         QR
@@ -547,16 +531,28 @@ const HostControls = ({
     <button
       type="button"
       onClick={onToggleLayout}
-      className={`${compact ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'} comic-panel border-[4px] border-[#000] text-white comic-font hover:bg-[#ffde00]/10 transition`}
+      className={`${compact ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'} comic-panel border-[4px] border-[#000] bg-white !text-black comic-font shadow-[4px_4px_0px_rgba(0,0,0,0.35)] hover:-translate-y-0.5 transition`}
       title="Не нравится текущий вид? Нажмите, чтобы переключить отображение"
     >
       Вид: {layoutLabel}
     </button>
+    {onForceNext ? (
+      <button
+        type="button"
+        onClick={onForceNext}
+        className={`${compact ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'} comic-panel border-[4px] border-[#000] bg-[#ff6600] !text-white comic-font shadow-[4px_4px_0px_rgba(0,0,0,0.35)] hover:-translate-y-0.5 transition flex items-center gap-1`}
+        title="Принудительно перейти к следующему вопросу"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={compact ? 'w-4 h-4' : 'w-5 h-5'}>
+          <path fillRule="evenodd" d="M2 10a.75.75 0 01.75-.75h12.59l-2.1-1.95a.75.75 0 111.02-1.1l3.5 3.25a.75.75 0 010 1.1l-3.5 3.25a.75.75 0 11-1.02-1.1l2.1-1.95H2.75A.75.75 0 012 10z" clipRule="evenodd" />
+        </svg>
+      </button>
+    ) : null}
     {onToggleMusicMute && (
       <button
         type="button"
         onClick={onToggleMusicMute}
-        className={`${compact ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'} comic-panel border-[4px] border-[#000] transition ${isMusicMuted ? 'bg-red-500 text-white' : 'text-white hover:bg-[#ffde00]/10'}`}
+        className={`${compact ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'} comic-panel border-[4px] border-[#000] transition ${isMusicMuted ? 'bg-red-500 !text-white' : 'bg-white !text-black shadow-[4px_4px_0px_rgba(0,0,0,0.35)] hover:-translate-y-0.5'}`}
         title={isMusicMuted ? 'Включить музыку' : 'Выключить музыку'}
       >
         🎵
@@ -566,7 +562,7 @@ const HostControls = ({
       <button
         type="button"
         onClick={onToggleVoiceMute}
-        className={`${compact ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'} comic-panel border-[4px] border-[#000] transition ${isVoiceMuted ? 'bg-red-500 text-white' : 'text-white hover:bg-[#ffde00]/10'}`}
+        className={`${compact ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'} comic-panel border-[4px] border-[#000] transition ${isVoiceMuted ? 'bg-red-500 !text-white' : 'bg-white !text-black shadow-[4px_4px_0px_rgba(0,0,0,0.35)] hover:-translate-y-0.5'}`}
         title={isVoiceMuted ? 'Включить озвучку' : 'Выключить озвучку'}
       >
         🎤
@@ -576,7 +572,7 @@ const HostControls = ({
       <button
         type="button"
         onClick={onToggleAnimations}
-        className={`${compact ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'} comic-panel border-[4px] border-[#000] transition ${isAnimationsDisabled ? 'bg-yellow-400 text-black' : 'text-white hover:bg-[#ffde00]/10'}`}
+        className={`${compact ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'} comic-panel border-[4px] border-[#000] transition ${isAnimationsDisabled ? 'bg-yellow-400 !text-black' : 'bg-white !text-black shadow-[4px_4px_0px_rgba(0,0,0,0.35)] hover:-translate-y-0.5'}`}
         title={isAnimationsDisabled ? 'Включить анимации' : 'Выключить анимации'}
       >
         ✨
@@ -589,7 +585,7 @@ const HostControls = ({
         rel="noopener noreferrer"
         className={`${
           compact ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'
-        } comic-panel bg-[#ff2a2a] text-white comic-font border-[4px] border-[#000] hover:scale-105 transition-all duration-200 text-center`}
+        } comic-panel bg-[#ff2a2a] !text-white comic-font border-[4px] border-[#000] hover:scale-105 transition-all duration-200 text-center`}
       >
         Поддержать
       </a>
@@ -817,8 +813,29 @@ export function HostRoomContent() {
 
   const [packId, setPackId] = useState<PackId>(DEFAULT_PACK_ID);
   const packIdRef = useRef<PackId>(DEFAULT_PACK_ID);
+  const [packConfigReady, setPackConfigReady] = useState(true);
+  const packConfigReadyRef = useRef(true);
   const [isPackReady, setIsPackReady] = useState(true);
   const round1BankRef = useRef<QuestionBank>(DEFAULT_QUESTION_BANK);
+
+  // Dynamic Round4 categories from DB
+  const round4CategoryMapRef = useRef<Record<string, Round4CategoryEntry>>({});
+  useEffect(() => {
+    fetch('/api/round4-categories')
+      .then(r => r.json())
+      .then((rows: { name: string; folder_key: string; audio_variants: number }[]) => {
+        if (!Array.isArray(rows)) return;
+        const map: Record<string, Round4CategoryEntry> = {};
+        for (const r of rows) {
+          map[r.name.toLowerCase().replace('ё', 'е').replace(/\s+/g, ' ').trim()] = {
+            folder_key: r.folder_key,
+            audio_variants: r.audio_variants,
+          };
+        }
+        round4CategoryMapRef.current = map;
+      })
+      .catch(() => { /* ignore — will play no category audio */ });
+  }, []);
 
   const buildAudioUrl = useCallback((relativePath: string) => {
     const resolved = withAudioPackPrefixIfNeeded(packIdRef.current, relativePath);
@@ -827,61 +844,84 @@ export function HostRoomContent() {
 
   useEffect(() => {
     packIdRef.current = packId;
+    console.log('[PACK] config effect fired, packId=', packId);
+    // Ensure pack config is loaded from API for correct audio offsets
+    if (packId !== 'classic') {
+      const cached = resolvePackConfig(packId);
+      console.log('[PACK] cached config:', cached.label, 'id:', cached.id, 'r2start:', cached.audio_round2_start);
+      // If we got a fallback (label === packId), the real config isn't cached yet
+      if (cached.label === packId && !['classic', '03012026'].includes(packId)) {
+        // Ref blocks effects in the SAME render cycle (synchronous)
+        packConfigReadyRef.current = false;
+        setPackConfigReady(false);
+        console.log('[PACK] fetching config from API for', packId);
+        fetch(`/api/packs?include=${encodeURIComponent(packId)}`)
+          .then(r => r.json())
+          .then((packs: QuestionPack[]) => {
+            console.log('[PACK] API returned', Array.isArray(packs) ? packs.length : 'non-array', 'packs');
+            if (Array.isArray(packs)) setPacksCache(packs);
+            const after = resolvePackConfig(packId);
+            console.log('[PACK] after cache: label=', after.label, 'r2start=', after.audio_round2_start, 'r3start=', after.audio_round3_start, 'r5start=', after.audio_round5_start);
+            packConfigReadyRef.current = true;
+            setPackConfigReady(true);
+          })
+          .catch((err) => { console.error('[PACK] fetch failed', err); packConfigReadyRef.current = true; setPackConfigReady(true); });
+        return;
+      }
+    }
+    packConfigReadyRef.current = true;
+    setPackConfigReady(true);
   }, [packId]);
 
   const getRound1AudioPath = (questionId: number) =>
-    packIdRef.current === '03012026'
-      ? `packs/03012026/round1/${questionId}.mp3`
-      : `round1/questions/${questionId}.mp3`;
+    packIdRef.current === 'classic'
+      ? `round1/questions/${questionId}.mp3`
+      : `packs/${packIdRef.current}/round1/${questionId}.mp3`;
 
   const getRound2AudioOrdinal = (index: number, isFact: boolean) => {
     const item = round2ItemsRef.current[index];
     return resolveRound2AudioOrdinal(item, index, packIdRef.current, isFact);
   };
 
-  const getRound3AudioOrdinal = (index: number) =>
-    packIdRef.current === '03012026' ? PACK_03012026_ROUND3_AUDIO_START + index : index + 1;
+  const getRound3AudioOrdinal = (index: number) => {
+    const cfg = resolvePackConfig(packIdRef.current);
+    return cfg.audio_round3_start + index;
+  };
 
-  const getRound5AudioOrdinal = (index: number) =>
-    packIdRef.current === '03012026' ? PACK_03012026_ROUND5_AUDIO_START + index : index + 1;
+  const getRound5AudioOrdinal = (index: number) => {
+    const cfg = resolvePackConfig(packIdRef.current);
+    return cfg.audio_round5_start + index;
+  };
 
   useEffect(() => {
-    let cancelled = false;
+    console.log('[PACK] round1 effect: packId=', packId, 'readyRef=', packConfigReadyRef.current, 'readyState=', packConfigReady);
+    if (!packConfigReadyRef.current) return;
+    const targetPack = packId;
 
     const loadPackQuestions = async () => {
-      if (packId === 'classic') {
-        round1BankRef.current = DEFAULT_QUESTION_BANK;
-        setIsPackReady(true);
-        return;
-      }
-
       setIsPackReady(false);
       try {
-        const url = `${getQuestionsBaseUrl(packId)}/round1.json?t=${Date.now()}`;
+        const url = `${getQuestionsBaseUrl(targetPack)}/round1.json?t=${Date.now()}`;
+        console.log('[PACK] loading round1 from:', url);
         const res = await fetch(url, { cache: 'no-store' });
         if (!res.ok) {
           throw new Error(`Round1 questions fetch failed (${res.status} ${res.statusText})`);
         }
         const payload = (await res.json()) as unknown;
         const bank = createQuestionBank(payload);
+        if (packIdRef.current !== targetPack) return; // stale
         round1BankRef.current = bank;
-        if (!cancelled) {
-          setIsPackReady(true);
-        }
+        setIsPackReady(true);
       } catch (err) {
         console.error('Failed to load question pack round1 bank', err);
-        if (!cancelled) {
+        if (packIdRef.current === targetPack) {
           setIsPackReady(false);
         }
       }
     };
 
     void loadPackQuestions();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [packId]);
+  }, [packId, packConfigReady]);
 
   const [roomCode, setRoomCode] = useState('');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -1866,13 +1906,13 @@ export function HostRoomContent() {
       }
 
       const normalized = normalizeRound4Answer(category);
-      const key = ROUND4_CATEGORY_AUDIO_MAP[normalized];
-      if (!key) {
+      const entry = round4CategoryMapRef.current[normalized];
+      if (!entry) {
         return;
       }
-      const maxVariants = ROUND4_CATEGORY_VARIANTS[key] ?? 3;
+      const maxVariants = entry.audio_variants;
       const variant = Math.floor(Math.random() * maxVariants) + 1;
-      const cue = new Audio(buildAudioUrl(`round4/category/${key}/${variant}.mp3`));
+      const cue = new Audio(buildAudioUrl(`category_of_round4/${entry.folder_key}/${variant}.mp3`));
       cue.volume = 0.95;
       round4CategoryAudioRef.current = cue;
       cue.play().catch((err) => {
@@ -2757,7 +2797,7 @@ export function HostRoomContent() {
       const bgUrl = buildAudioUrl(ROUND3_BG_JINGLE_FILE);
       const currentQ = round3Questions[index];
       const voiceFileNumber = getRound3AudioOrdinal(currentQ?.originalIndex ?? index);
-      const round3Dir = packIdRef.current === '03012026' ? 'round3/questions' : ROUND3_QUESTIONS_AUDIO_DIR;
+      const round3Dir = packIdRef.current === 'classic' ? ROUND3_QUESTIONS_AUDIO_DIR : 'round3/questions';
       const voiceUrl = buildAudioUrl(`${round3Dir}/${voiceFileNumber}.mp3`);
       const timerUrl = buildAudioUrl(ROUND3_ANSWER_TIMER_JINGLE_FILE);
 
@@ -3596,17 +3636,25 @@ export function HostRoomContent() {
   }, [currentQuestionIndex, currentRound3Question, playRound3Audio, roomStatus]);
 
   useEffect(() => {
+    console.log('[PACK] round2 effect: packId=', packId, 'readyRef=', packConfigReadyRef.current);
+    if (!packConfigReadyRef.current) return;
+    const targetPack = packId;
     const loadRound2Data = async () => {
-      const urls = getRound2QuestionUrls(packId);
+      const urls = getRound2QuestionUrls(targetPack);
+      console.log('[PACK] round2 URLs:', urls);
       for (const url of urls) {
         try {
           const bust = url.includes('?') ? `&t=${Date.now()}` : `?t=${Date.now()}`;
           const res = await fetch(`${url}${bust}`, { cache: 'no-store' });
-          if (!res.ok) continue;
+          if (!res.ok) { console.log('[PACK] round2 url failed:', url, res.status); continue; }
           const json = await res.json();
           const normalized = normalizeTrueFalseItems(json);
-          const filtered = filterTrueFalseItemsForPack(normalized, packId);
+          const bounds = getRound2AudioBounds(targetPack);
+          console.log('[PACK] round2 normalized:', normalized.length, 'bounds:', bounds);
+          const filtered = filterTrueFalseItemsForPack(normalized, targetPack);
+          console.log('[PACK] round2 filtered:', filtered.length, 'factIds:', filtered.map(i => i.factId));
           if (filtered.length === 0) continue;
+          if (packIdRef.current !== targetPack) return; // stale
           setRound2Items(filtered);
           return;
         } catch (e) {
@@ -3615,12 +3663,13 @@ export function HostRoomContent() {
       }
     };
     loadRound2Data();
-  }, [packId]);
+  }, [packId, packConfigReady]);
 
   useEffect(() => {
+    const targetPack = packId;
     const loadRound3Data = async () => {
       try {
-        const url = `/api/round3/questions?roomId=${encodeURIComponent(roomId)}&count=${ROUND3_TOTAL_QUESTIONS}&packId=${encodeURIComponent(packId)}&t=${Date.now()}`;
+        const url = `/api/round3/questions?roomId=${encodeURIComponent(roomId)}&count=${ROUND3_TOTAL_QUESTIONS}&packId=${encodeURIComponent(targetPack)}&t=${Date.now()}`;
         const res = await fetch(url, { cache: 'no-store' });
         if (!res.ok) return;
         const payload = (await res.json()) as Round3QuestionsPayload;
@@ -3629,6 +3678,7 @@ export function HostRoomContent() {
           ...q,
           originalIndex: typeof q.originalIndex === 'number' ? q.originalIndex : i,
         }));
+        if (packIdRef.current !== targetPack) return; // stale
         // Используем порядок из API, чтобы он совпадал с экранами игроков.
         setRound3Questions(withIndex);
       } catch (e) {
@@ -3636,44 +3686,50 @@ export function HostRoomContent() {
       }
     };
 
-    if (roomId) {
+    console.log('[PACK] round3 effect: packId=', packId, 'readyRef=', packConfigReadyRef.current, 'roomId=', roomId);
+    if (roomId && packConfigReadyRef.current) {
       void loadRound3Data();
     }
-  }, [packId, roomId]);
+  }, [packId, roomId, packConfigReady]);
 
   useEffect(() => {
+    const targetPack = packId;
     const loadRound4Data = async () => {
       try {
-        const res = await fetch(`${getQuestionsBaseUrl(packId)}/4round.json?t=${Date.now()}`, { cache: 'no-store' });
+        const res = await fetch(`${getQuestionsBaseUrl(targetPack)}/4round.json?t=${Date.now()}`, { cache: 'no-store' });
         if (!res.ok) return;
         const payload = await res.json();
         const puzzles = Array.isArray(payload?.puzzles) ? (payload.puzzles as Round4Puzzle[]) : [];
+        if (packIdRef.current !== targetPack) return; // stale
         setRound4Puzzles(puzzles);
       } catch (e) {
         console.error('Failed to load round4 data', e);
       }
     };
 
-    void loadRound4Data();
-  }, [packId]);
+    if (packConfigReadyRef.current) void loadRound4Data();
+  }, [packId, packConfigReady]);
 
   useEffect(() => {
+    const targetPack = packId;
     const loadRound5Data = async () => {
       try {
-        const res = await fetch(`${getQuestionsBaseUrl(packId)}/5round_question.json?t=${Date.now()}`, { cache: 'no-store' });
+        const res = await fetch(`${getQuestionsBaseUrl(targetPack)}/5round_question.json?t=${Date.now()}`, { cache: 'no-store' });
         if (!res.ok) {
           return;
         }
         const payload = (await res.json()) as unknown;
         const questions = Array.isArray(payload) ? (payload as Round5Question[]) : [];
+        if (packIdRef.current !== targetPack) return; // stale
         setRound5Questions(questions);
       } catch (e) {
         console.error('Failed to load round5 questions', e);
       }
     };
 
-    void loadRound5Data();
-  }, [packId]);
+    console.log('[PACK] round5 effect: packId=', packId, 'readyRef=', packConfigReadyRef.current, 'url=', `${getQuestionsBaseUrl(packId)}/5round_question.json`);
+    if (packConfigReadyRef.current) void loadRound5Data();
+  }, [packId, packConfigReady]);
 
   useEffect(() => {
     if (isRound2RulesVisible) {
@@ -5941,6 +5997,7 @@ export function HostRoomContent() {
     roomStatus === 'running' ||
     isRound2FactPhase ||
     roomStatus === 'round3-running' ||
+    roomStatus === 'round4-running' ||
     roomStatus === 'round5-running';
   const timerActive =
     isTimerRoundActive &&
@@ -5959,6 +6016,19 @@ export function HostRoomContent() {
       stopQuestionAudio();
     }
   }, [roomStatus, allPlayersAnswered, stopQuestionAudio]);
+
+  useEffect(() => {
+    if (!allPlayersAnswered) {
+      return;
+    }
+    if (roomStatus === 'round4-running') {
+      stopRound4Audio();
+      setTimeLeft(0);
+    } else if (roomStatus === 'round5-running') {
+      stopRound5Audio();
+      setTimeLeft(0);
+    }
+  }, [allPlayersAnswered, roomStatus, stopRound4Audio, stopRound5Audio]);
 
 
   useEffect(() => {
@@ -6113,6 +6183,36 @@ export function HostRoomContent() {
 
       if (error) {
         console.error('Не удалось обновить статус ответов финала', error);
+        return;
+      }
+      setServerAllPlayersAnswered(everyoneAnswered);
+    };
+
+    updateFlag();
+  }, [answerCount, roomId, roomStatus, serverAllPlayersAnswered, totalPlayerCount]);
+
+  useEffect(() => {
+    if (!roomId || roomStatus !== 'round4-running') {
+      return;
+    }
+
+    if (totalPlayerCount === 0) {
+      return;
+    }
+
+    const everyoneAnswered = answerCount >= totalPlayerCount;
+    if (everyoneAnswered === serverAllPlayersAnswered) {
+      return;
+    }
+
+    const updateFlag = async () => {
+      const { error } = await supabase
+        .from('rooms')
+        .update({ all_players_answered: everyoneAnswered })
+        .eq('id', roomId);
+
+      if (error) {
+        console.error('Не удалось обновить статус ответов Раунда 4', error);
         return;
       }
       setServerAllPlayersAnswered(everyoneAnswered);
@@ -7139,7 +7239,7 @@ export function HostRoomContent() {
   const canAdvance = isRound1Active && (effectiveTimeLeft === 0 || allPlayersAnswered);
   const nextButtonDisabled = !canAdvance || (isLastQuestion && (isSummaryLoading || isRoundEndButtonLocked));
   const progressPercent = Math.max(0, Math.min(100, (effectiveTimeLeft / QUESTION_DURATION_SECONDS) * 100));
-  const round4ProgressPercent = Math.max(0, Math.min(100, (timeLeft / QUESTION_DURATION_SECONDS) * 100));
+  const round4ProgressPercent = Math.max(0, Math.min(100, (effectiveTimeLeft / QUESTION_DURATION_SECONDS) * 100));
   const round3ElapsedSeconds = isRound3Running ? getRound3ElapsedSeconds(questionStartedAt) : null;
 
   const round3TotalSeconds = ROUND3_ANSWER_SECONDS + ROUND3_VOTE_COUNTDOWN_SECONDS + ROUND3_VOTE_SECONDS;
@@ -7534,6 +7634,7 @@ export function HostRoomContent() {
 
     round4ScoredPuzzleIdsRef.current.delete(puzzle.id);
     setRound4CurrentPuzzle(puzzle);
+    round4CurrentPuzzleIdRef.current = puzzle.id;
     setRound4AnswerRows([]);
     const nextAsked = Array.from(new Set([...mergedUsed, puzzle.id]));
     round4AskedIdsRef.current = nextAsked;
@@ -7595,6 +7696,32 @@ export function HostRoomContent() {
     round4StartLockRef.current = true;
     void startRound4Game();
   }, [handleRound4Complete, startRound4Game]);
+
+  const handleForceNext = useCallback(() => {
+    hasUserInteractedRef.current = true;
+    if (roomStatus === 'running') {
+      void nextQuestion();
+      return;
+    }
+    if (roomStatus === 'round2-running') {
+      handleRound2NextQuestionRef.current?.();
+      return;
+    }
+    if (roomStatus === 'round3-running') {
+      const advance = handleRound3NextQuestionRef.current;
+      if (advance) {
+        void advance();
+      }
+      return;
+    }
+    if (roomStatus === 'round4-running') {
+      maybeAutoAdvanceRound4();
+      return;
+    }
+    if (roomStatus === 'round5-running' || roomStatus === 'round5-explanation') {
+      void advanceRound5Tour();
+    }
+  }, [advanceRound5Tour, maybeAutoAdvanceRound4, nextQuestion, roomStatus]);
 
   const scoreRound4Puzzle = useCallback(
     async (puzzle: Round4Puzzle) => {
@@ -8155,6 +8282,7 @@ export function HostRoomContent() {
                     onOpenQr={() => setIsJoinQrModalOpen(true)}
                     onToggleLayout={setNextLayoutMode}
                     layoutLabel={layoutModeLabel}
+                    onForceNext={handleForceNext}
                     compact={isCompactForcedLayout}
                     isAnimationsDisabled={isAnimationsDisabled}
                     onToggleAnimations={() => {
@@ -8213,6 +8341,7 @@ export function HostRoomContent() {
                     onOpenQr={() => setIsJoinQrModalOpen(true)}
                     onToggleLayout={setNextLayoutMode}
                     layoutLabel={layoutModeLabel}
+                    onForceNext={handleForceNext}
                     compact
                   />
               </div>
@@ -8474,20 +8603,20 @@ export function HostRoomContent() {
                     <div>
                       <div className="flex justify-between text-xs text-black/70 mb-1">
                         <span>Таймер · 30 сек</span>
-                        <span className={`comic-font ${timeLeft <= 0 ? 'text-[#ff007f]' : 'text-black'}`}>
-                          {timeLeft > 0 ? `${timeLeft} c` : 'Время истекло'}
+                        <span className={`comic-font ${effectiveTimeLeft <= 0 ? 'text-[#ff007f]' : 'text-black'}`}>
+                          {effectiveTimeLeft > 0 ? `${effectiveTimeLeft} c` : 'Время истекло'}
                         </span>
                       </div>
                       <div className="h-3 comic-panel bg-[#ffde00] overflow-hidden">
                         <div
-                          className={`h-full ${timeLeft > 5 ? 'bg-[#00c3ff]' : 'bg-[#ff007f]'}`}
+                          className={`h-full ${effectiveTimeLeft > 5 ? 'bg-[#00c3ff]' : 'bg-[#ff007f]'}`}
                           style={{ width: `${round4ProgressPercent}%` }}
                         />
                       </div>
-                      {timeLeft <= 0 && <p className="text-xs text-[#00c3ff] comic-font mt-2">Время истекло — озвучиваем ответ.</p>}
+                      {effectiveTimeLeft <= 0 && <p className="text-xs text-[#00c3ff] comic-font mt-2">Время истекло — озвучиваем ответ.</p>}
                     </div>
 
-                    {timeLeft <= 0 && round4CurrentPuzzle && (
+                    {effectiveTimeLeft <= 0 && round4CurrentPuzzle && (
                       <div className="comic-panel border-[#000]/15 bg-white p-5 space-y-2 text-center animate-correct-reveal">
                         <p className="comic-font text-[11px] tracking-[0.5em] text-black/70">Правильный ответ</p>
                         <p className="text-4xl comic-font text-[#00c3ff]">{round4CurrentPuzzle.answers?.[0] ?? '—'}</p>
@@ -8560,8 +8689,8 @@ export function HostRoomContent() {
                       <div className="flex justify-between text-xs text-black/70 mb-1">
                         <span>Таймер · 30 сек</span>
                         {roomStatus === 'round5-running' ? (
-                          <span className={`comic-font ${timeLeft <= 0 ? 'text-[#ff007f]' : 'text-black'}`}>
-                            {timeLeft > 0 ? `${timeLeft} c` : 'Время истекло'}
+                          <span className={`comic-font ${effectiveTimeLeft <= 0 ? 'text-[#ff007f]' : 'text-black'}`}>
+                            {effectiveTimeLeft > 0 ? `${effectiveTimeLeft} c` : 'Время истекло'}
                           </span>
                         ) : (
                           <span className="comic-font text-[#00c3ff]">Ответ открыт</span>
@@ -8569,11 +8698,11 @@ export function HostRoomContent() {
                       </div>
                       <div className="h-3 comic-panel bg-[#ffde00] overflow-hidden">
                         <div
-                          className={`h-full ${timeLeft > 5 ? 'bg-[#00c3ff]' : 'bg-[#ff007f]'}`}
-                          style={{ width: `${Math.max(0, Math.min(100, (timeLeft / QUESTION_DURATION_SECONDS) * 100))}%` }}
+                          className={`h-full ${effectiveTimeLeft > 5 ? 'bg-[#00c3ff]' : 'bg-[#ff007f]'}`}
+                          style={{ width: `${Math.max(0, Math.min(100, (effectiveTimeLeft / QUESTION_DURATION_SECONDS) * 100))}%` }}
                         />
                       </div>
-                      {roomStatus === 'round5-running' && timeLeft <= 0 && (
+                      {roomStatus === 'round5-running' && effectiveTimeLeft <= 0 && (
                         <p className="text-xs text-[#00c3ff] comic-font mt-2">Время истекло — начисляем очки и показываем ответ.</p>
                       )}
                     </div>
@@ -8799,6 +8928,7 @@ export function HostRoomContent() {
                 onOpenQr={() => setIsJoinQrModalOpen(true)}
                 onToggleLayout={setNextLayoutMode}
                 layoutLabel={layoutModeLabel}
+                onForceNext={handleForceNext}
                 compact
               />
             }
@@ -8929,6 +9059,14 @@ export function HostRoomContent() {
                                     </p>
                                   ) : roomStatus === 'round3-running' ? (
                                     <p className="text-xs comic-font text-black/50">Раунд 3</p>
+                                  ) : roomStatus === 'round4-running' ? (
+                                    <p className={`text-xs comic-font ${hasAnswered ? 'text-[#00c3ff]' : 'text-black/50'}`}>
+                                      {hasAnswered ? 'Ответ получен' : 'Ждём ответ'}
+                                    </p>
+                                  ) : roomStatus === 'round5-running' ? (
+                                    <p className={`text-xs comic-font ${hasAnswered ? 'text-[#00c3ff]' : 'text-black/50'}`}>
+                                      {hasAnswered ? 'Ответ получен' : 'Ждём ответ'}
+                                    </p>
                                   ) : null}
                                 </div>
                               </div>
@@ -9479,7 +9617,7 @@ export function HostRoomContent() {
               </div>
             ) : roomStatus === 'round4-running' ? (
               <div
-                key={`round4-panel-${round4CurrentPuzzle?.id ?? 'none'}-${timeLeft <= 0 ? 'reveal' : 'run'}`}
+                key={`round4-panel-${round4CurrentPuzzle?.id ?? 'none'}-${effectiveTimeLeft <= 0 ? 'reveal' : 'run'}`}
                 className="comic-panel bg-white p-6 space-y-5 animate-round4-panel"
               >
                 <div className="text-center space-y-3">
@@ -9501,22 +9639,22 @@ export function HostRoomContent() {
                 <div>
                   <div className="flex justify-between text-xs text-black/70 mb-1">
                     <span>Таймер · 30 сек</span>
-                    <span className={`comic-font ${timeLeft <= 0 ? 'text-[#ff007f]' : 'text-black'}`}>
-                      {timeLeft > 0 ? `${timeLeft} c` : 'Время истекло'}
+                    <span className={`comic-font ${effectiveTimeLeft <= 0 ? 'text-[#ff007f]' : 'text-black'}`}>
+                      {effectiveTimeLeft > 0 ? `${effectiveTimeLeft} c` : 'Время истекло'}
                     </span>
                   </div>
                   <div className="h-3 comic-panel bg-[#ffde00] overflow-hidden">
                     <div
-                      className={`h-full ${timeLeft > 5 ? 'bg-[#00c3ff]' : 'bg-[#ff007f]'}`}
+                      className={`h-full ${effectiveTimeLeft > 5 ? 'bg-[#00c3ff]' : 'bg-[#ff007f]'}`}
                       style={{ width: `${round4ProgressPercent}%` }}
                     />
                   </div>
-                  {timeLeft <= 0 && (
+                  {effectiveTimeLeft <= 0 && (
                     <p className="text-xs text-[#00c3ff] comic-font mt-2">Время истекло — озвучиваем ответ.</p>
                   )}
                 </div>
 
-                {timeLeft <= 0 && round4CurrentPuzzle && (
+                {effectiveTimeLeft <= 0 && round4CurrentPuzzle && (
                   <div
                     key={`round4-correct-${round4CurrentPuzzle.id}`}
                     className="comic-panel border-[#000]/15 bg-white p-5 space-y-2 text-center animate-correct-reveal"
@@ -9592,8 +9730,8 @@ export function HostRoomContent() {
                   <div className="flex justify-between text-xs text-black/70 mb-1">
                     <span>Таймер · 30 сек</span>
                     {roomStatus === 'round5-running' ? (
-                      <span className={`comic-font ${timeLeft <= 0 ? 'text-[#ff007f]' : 'text-black'}`}>
-                        {timeLeft > 0 ? `${timeLeft} c` : 'Время истекло'}
+                      <span className={`comic-font ${effectiveTimeLeft <= 0 ? 'text-[#ff007f]' : 'text-black'}`}>
+                        {effectiveTimeLeft > 0 ? `${effectiveTimeLeft} c` : 'Время истекло'}
                       </span>
                     ) : (
                       <span className="comic-font text-[#00c3ff]">Ответ открыт</span>
@@ -9601,11 +9739,11 @@ export function HostRoomContent() {
                   </div>
                   <div className="h-3 comic-panel bg-[#ffde00] overflow-hidden">
                     <div
-                      className={`h-full ${timeLeft > 5 ? 'bg-[#00c3ff]' : 'bg-[#ff007f]'}`}
-                      style={{ width: `${Math.max(0, Math.min(100, (timeLeft / QUESTION_DURATION_SECONDS) * 100))}%` }}
+                      className={`h-full ${effectiveTimeLeft > 5 ? 'bg-[#00c3ff]' : 'bg-[#ff007f]'}`}
+                      style={{ width: `${Math.max(0, Math.min(100, (effectiveTimeLeft / QUESTION_DURATION_SECONDS) * 100))}%` }}
                     />
                   </div>
-                  {roomStatus === 'round5-running' && timeLeft <= 0 && (
+                  {roomStatus === 'round5-running' && effectiveTimeLeft <= 0 && (
                     <p className="text-xs text-[#00c3ff] comic-font mt-2">Время истекло — начисляем очки и показываем ответ.</p>
                   )}
                 </div>

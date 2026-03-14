@@ -70,7 +70,7 @@ function normalizeAvatarFile(value: string): string {
   return value;
 }
 
-export async function createJokesterRoom(hostName: string): Promise<{
+export async function createJokesterRoom(hostName: string, packId: string = 'classic'): Promise<{
   room: JokesterRoom;
   player: JokesterPlayer;
 }> {
@@ -82,7 +82,7 @@ export async function createJokesterRoom(hostName: string): Promise<{
     code = generateCode();
     const { data, error } = await supabase
       .from('jokester_rooms')
-      .insert({ code, status: 'lobby', state_version: 1 })
+      .insert({ code, status: 'lobby', state_version: 1, pack_id: packId })
       .select()
       .single();
     if (!error && data) {
@@ -227,6 +227,19 @@ export async function joinJokesterRoom(
 /* ══════════════════════════════════════════════
    Fetch helpers
    ══════════════════════════════════════════════ */
+
+const DEFAULT_JOKESTER_QUESTIONS_URL = 'https://storage.yandexcloud.net/vecherinkach/json/main_questions/jokester_questions.json';
+
+export async function fetchJokesterPackUrl(packId: string): Promise<string> {
+  if (!packId || packId === 'classic') return DEFAULT_JOKESTER_QUESTIONS_URL;
+  const { data } = await supabase
+    .from('jokester_question_packs')
+    .select('json_url')
+    .eq('id', packId)
+    .eq('is_active', true)
+    .maybeSingle();
+  return (data as { json_url: string } | null)?.json_url || DEFAULT_JOKESTER_QUESTIONS_URL;
+}
 
 export async function fetchJokesterRoomById(roomId: string): Promise<JokesterRoom | null> {
   const { data } = await supabase.from('jokester_rooms').select('*').eq('id', roomId).maybeSingle();
@@ -537,6 +550,22 @@ export function selectQuestions(
     [pool[i], pool[j]] = [pool[j], pool[i]];
   }
   return pool.slice(0, count);
+}
+
+/**
+ * Выбирает вопрос из категории "final" (если есть).
+ * Возвращает null, если такой категории нет или вопросы исчерпаны.
+ */
+export function selectFinalQuestion(
+  categories: JokesterCategory[],
+  usedTexts: string[],
+): { text: string; category: string } | null {
+  const finalCat = categories.find(c => c.id === 'final');
+  if (!finalCat) return null;
+  const available = finalCat.questions.filter(q => !usedTexts.includes(q));
+  if (available.length === 0) return null;
+  const idx = Math.floor(Math.random() * available.length);
+  return { text: available[idx], category: finalCat.id };
 }
 
 /* ══════════════════════════════════════════════

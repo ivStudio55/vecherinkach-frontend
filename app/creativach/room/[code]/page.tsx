@@ -24,6 +24,7 @@ import type {
   CreativachVote,
 } from '@/lib/creativach/types';
 import { ROUNDS, ANSWER_TIME_SEC, VOTE_TIME_SEC, TOTAL_ROUNDS } from '@/lib/creativach/types';
+import { supabase } from '@/lib/supabase';
 
 const YANDEX_AUDIO_BASE = process.env.NEXT_PUBLIC_AUDIO_BASE ?? 'https://storage.yandexcloud.net/vecherinkach/audio';
 
@@ -56,11 +57,18 @@ export default function CreativachRoomPage() {
   const [voted, setVoted] = useState(false);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timeOffsetRef = useRef(0);
 
   // Load session
   useEffect(() => {
     const session = creativachStorage.get();
     if (session.playerId) setMyId(session.playerId);
+  }, []);
+
+  useEffect(() => {
+    supabase.rpc('get_server_time').then(({ data }) => {
+      if (data) timeOffsetRef.current = Date.now() - new Date(data as string).getTime();
+    });
   }, []);
 
   // Initial fetch
@@ -124,7 +132,7 @@ export default function CreativachRoomPage() {
     if (!room?.timer_started_at || !room.timer_duration_sec) return;
 
     const updateTimer = () => {
-      const elapsed = Math.floor((Date.now() - new Date(room.timer_started_at!).getTime()) / 1000);
+      const elapsed = Math.floor((Date.now() - timeOffsetRef.current - new Date(room.timer_started_at!).getTime()) / 1000);
       const remaining = Math.max(0, room.timer_duration_sec - elapsed);
       setTimerSec(remaining);
     };

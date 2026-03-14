@@ -131,18 +131,34 @@ export async function playUnoCard(params: {
   return data as { room: UnoRoom };
 }
 
+export async function zwischenzugUnoCard(params: {
+  roomCode: string;
+  playerId: string;
+  cardId: string;
+}) {
+  const { data, error } = await supabase.rpc('uno_zwischenzug', {
+    p_room_code: params.roomCode,
+    p_player_id: params.playerId,
+    p_card_id: params.cardId,
+  });
+  if (error) throw error;
+  return data as { room: UnoRoom };
+}
+
 /* ============ Realtime subscriptions ============ */
 
 export function subscribeUnoRoom(roomId: string, onChange: (room: UnoRoom) => void) {
+  const fetchAndNotify = async () => {
+    const { data } = await supabase.from('uno_rooms').select('*').eq('id', roomId).single();
+    if (data) onChange(data as UnoRoom);
+  };
+
   return subscribeChannel(
     `uno:${roomId}`,
     (payload) => {
-      if (payload.table === 'uno_rooms') onChange(payload.data as UnoRoom);
+      if (payload.table === 'uno_rooms') fetchAndNotify();
     },
-    async () => {
-      const { data } = await supabase.from('uno_rooms').select('*').eq('id', roomId).single();
-      if (data) onChange(data as UnoRoom);
-    },
+    fetchAndNotify,
     3000,
   );
 }
@@ -172,6 +188,18 @@ export function cardPlayable(card: UnoCard, top: UnoCard | null): boolean {
   if (card.kind === 'number' && top.kind === 'number' && card.value === top.value) return true;
   if (card.kind === top.kind && ['skip', 'reverse', 'draw2'].includes(card.kind)) return true;
   return false;
+}
+
+/** Can this card be used for Zwischenzug (jump-in)? Exact duplicate of top card. */
+export function isZwischenzugPlayable(card: UnoCard, top: UnoCard | null): boolean {
+  if (!top) return false;
+  if (card.kind === 'wild' || card.kind === 'wild4') return false;
+  if (card.color !== top.color || card.kind !== top.kind) return false;
+  if (card.kind === 'number') return card.value === top.value;
+  if (card.kind === 'verb' && card.verb && top.verb) return card.verb.id === top.verb.id;
+  if (card.kind === 'verb-match') return card.verb_id === top.verb_id && card.form === top.form;
+  // action cards: same color + same kind
+  return ['skip', 'reverse', 'draw2'].includes(card.kind);
 }
 
 /** Human-readable card label */

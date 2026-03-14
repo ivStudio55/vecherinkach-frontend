@@ -40,6 +40,15 @@ const nextConfig = {
           },
         ],
       },
+      {
+        source: '/ctrl-8f2q9z/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+          },
+        ],
+      },
     ];
   },
   env: {

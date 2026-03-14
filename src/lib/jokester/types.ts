@@ -35,6 +35,7 @@ export interface JokesterRoom {
   timer_started_at: string | null;
   timer_duration_sec: number;
   host_id: string | null;
+  pack_id: string;
   state_version: number;
   created_at: string;
   updated_at: string;

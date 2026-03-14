@@ -1,4 +1,4 @@
-export type UnoMode = 'classic' | 'irregular-verbs' | 'verb-match';
+export type UnoMode = 'classic' | 'irregular-verbs' | 'verb-match' | 'classic-verbs';
 export type UnoColor = 'red' | 'yellow' | 'green' | 'blue' | 'wild';
 export type UnoKind = 'number' | 'verb' | 'verb-match' | 'skip' | 'reverse' | 'draw2' | 'wild' | 'wild4';
 export type VerbForm = 'infinitive' | 'past_simple' | 'past_participle' | 'translation';
@@ -24,6 +24,8 @@ export type UnoCard = {
   form?: VerbForm | null;
   /** verb-match mode: verb id for matching (same verb = same nominal) */
   verb_id?: string | null;
+  /** classic-verbs mode: verb text displayed on numbered card */
+  verb_display?: string | null;
 };
 
 export type UnoPlayer = {

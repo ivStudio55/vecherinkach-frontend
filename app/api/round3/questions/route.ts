@@ -1,5 +1,4 @@
-import { readFile } from 'node:fs/promises';
-import path from 'node:path';
+import { getQuestionsBaseUrl, normalizePackId } from '@/lib/questionPacks';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -41,16 +40,16 @@ export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
     const roomId = url.searchParams.get('roomId') || url.searchParams.get('seed');
-    const packId = url.searchParams.get('packId');
+    const packId = normalizePackId(url.searchParams.get('packId'));
     const countParam = url.searchParams.get('count');
     const requestedCount = countParam ? Number.parseInt(countParam, 10) : NaN;
 
-    const jsonPath =
-      packId === '03012026'
-        ? path.join(process.cwd(), 'public', 'packs', '03012026', 'questions', '3round_questions.json')
-        : path.join(process.cwd(), 'public', 'questions', '3round_questions.json');
-    const raw = await readFile(jsonPath, 'utf-8');
-    const parsed = JSON.parse(raw) as { questions?: unknown[] } | null;
+    const jsonUrl = `${getQuestionsBaseUrl(packId)}/3round_questions.json`;
+    const fetchRes = await fetch(jsonUrl, { cache: 'no-store' });
+    if (!fetchRes.ok) {
+      throw new Error(`Failed to fetch round3 questions from ${jsonUrl}: ${fetchRes.status}`);
+    }
+    const parsed = (await fetchRes.json()) as { questions?: unknown[] } | null;
 
     const questions = Array.isArray(parsed?.questions) ? parsed!.questions : [];
     const indexed = questions.map((q, index) => {

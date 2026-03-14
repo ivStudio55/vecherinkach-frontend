@@ -35,6 +35,7 @@ import {
   generateAbbreviation,
 } from '@/lib/creativach/types';
 import { CreativachAudioPlayer, CREATIVACH_AUDIO } from '@/lib/creativach/audio';
+import { supabase } from '@/lib/supabase';
 
 const YANDEX_AUDIO_BASE = process.env.NEXT_PUBLIC_AUDIO_BASE ?? 'https://storage.yandexcloud.net/vecherinkach/audio';
 
@@ -143,6 +144,9 @@ export function CreativachHostContent() {
   const audioRef = useRef<CreativachAudioPlayer | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const motivationPlayedRef = useRef(false);
+  const timeOffsetRef = useRef(0);
+  const prevAnswerCountRef = useRef(0);
+  const allAnsweredTriggeredRef = useRef(false);
 
   // Audio init
   useEffect(() => {
@@ -150,12 +154,19 @@ export function CreativachHostContent() {
     return () => { audioRef.current?.destroy(); };
   }, []);
 
+  useEffect(() => {
+    supabase.rpc('get_server_time').then(({ data }) => {
+      if (data) timeOffsetRef.current = Date.now() - new Date(data as string).getTime();
+    });
+  }, []);
+
   // Load question data
   useEffect(() => {
+    const base = 'https://storage.yandexcloud.net/vecherinkach/json/main_questions';
     Promise.all([
-      fetch('/questions/excuses.json').then(r => r.json()),
-      fetch('/questions/brands.json').then(r => r.json()),
-      fetch('/questions/themes.json').then(r => r.json()),
+      fetch(`${base}/excuses.json`).then(r => r.json()),
+      fetch(`${base}/brands.json`).then(r => r.json()),
+      fetch(`${base}/themes.json`).then(r => r.json()),
     ]).then(([e, b, t]) => {
       setExcuses(e);
       setBrands(b);
@@ -226,13 +237,39 @@ export function CreativachHostContent() {
     prevPlayerCountRef.current = playerCount;
   }, [players, room?.status]);
 
+  // Fast polling for answers during answering phase (ensures mobile submissions are caught quickly)
+  useEffect(() => {
+    if (!room?.id || !room.current_round) return;
+    if (room.voting_phase !== 'answering') return;
+
+    const poll = () => {
+      fetchCreativachAnswers(room.id, room.current_round)
+        .then(fresh => setAnswers(fresh))
+        .catch(() => {});
+    };
+    const id = setInterval(poll, 1500);
+    return () => clearInterval(id);
+  }, [room?.id, room?.current_round, room?.voting_phase]);
+
+  // Play duck sound when a new answer arrives during answering phase
+  useEffect(() => {
+    if (room?.voting_phase !== 'answering') {
+      prevAnswerCountRef.current = 0;
+      return;
+    }
+    if (answers.length > prevAnswerCountRef.current && prevAnswerCountRef.current >= 0) {
+      audioRef.current?.playRandomDuck();
+    }
+    prevAnswerCountRef.current = answers.length;
+  }, [answers.length, room?.voting_phase]);
+
   // Timer logic
   useEffect(() => {
     if (timerRef.current) clearInterval(timerRef.current);
     if (!room?.timer_started_at || !room.timer_duration_sec) return;
 
     const updateTimer = () => {
-      const elapsed = Math.floor((Date.now() - new Date(room.timer_started_at!).getTime()) / 1000);
+      const elapsed = Math.floor((Date.now() - timeOffsetRef.current - new Date(room.timer_started_at!).getTime()) / 1000);
       const remaining = Math.max(0, room.timer_duration_sec - elapsed);
       setTimerSec(remaining);
 
@@ -298,7 +335,7 @@ export function CreativachHostContent() {
       // Переход к голосованию
       await updateCreativachRoom(room.id, {
         voting_phase: 'voting',
-        timer_started_at: new Date().toISOString(),
+        timer_started_at: new Date(Date.now() - timeOffsetRef.current).toISOString(),
         timer_duration_sec: VOTE_TIME_SEC,
       });
       audioRef.current?.stopBgm();
@@ -459,7 +496,7 @@ export function CreativachHostContent() {
     await updateCreativachRoom(room.id, {
       status: isFinal ? 'final_playing' : 'round_playing',
       voting_phase: 'answering',
-      timer_started_at: new Date().toISOString(),
+      timer_started_at: new Date(Date.now() - timeOffsetRef.current).toISOString(),
       timer_duration_sec: ANSWER_TIME_SEC,
     });
     audioRef.current?.stopBgm();
@@ -482,7 +519,7 @@ export function CreativachHostContent() {
     if (room.voting_phase === 'answering') {
       await updateCreativachRoom(room.id, {
         voting_phase: 'voting',
-        timer_started_at: new Date().toISOString(),
+        timer_started_at: new Date(Date.now() - timeOffsetRef.current).toISOString(),
         timer_duration_sec: VOTE_TIME_SEC,
       });
     } else if (room.voting_phase === 'voting') {
@@ -530,11 +567,17 @@ export function CreativachHostContent() {
     router.push('/creativach');
   }, [router]);
 
+  // Reset allAnsweredTriggeredRef when round or voting phase changes
+  useEffect(() => {
+    allAnsweredTriggeredRef.current = false;
+  }, [room?.current_round, room?.voting_phase]);
+
   // Check all players submitted
   useEffect(() => {
     if (!room || room.voting_phase !== 'answering') return;
+    if (allAnsweredTriggeredRef.current) return;
     if (answers.length >= gamePlayers.length && gamePlayers.length > 0) {
-      // All submitted, skip to voting early
+      allAnsweredTriggeredRef.current = true;
       handleTimerEnd();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -1,19 +1,51 @@
 // app/page.tsx
 'use client';
 
-import { useEffect, useRef, useState, useCallback, CSSProperties } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useEffect, useRef, useState, useCallback, CSSProperties } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../src/lib/supabase';
-import { normalizePackId, type PackId } from '@/lib/questionPacks';
+import { normalizePackId, setPacksCache, type PackId, type QuestionPack } from '@/lib/questionPacks';
 import { ComicBackground } from '@/components/ComicBackground';
 import { trackGameEvent } from '@/lib/analytics';
 
+interface StreamItem {
+  id: string;
+  title: string;
+  url: string;
+  scheduled_at: string;
+  is_live: boolean;
+}
+
+function formatStreamDate(iso: string) {
+  const d = new Date(iso);
+  const now = new Date();
+  const isToday = d.toDateString() === now.toDateString();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const isTomorrow = d.toDateString() === tomorrow.toDateString();
+  const dayLabel = isToday ? 'Сегодня' : isTomorrow ? 'Завтра' : d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+  const time = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  return `${dayLabel}, ${time}`;
+}
+
 export default function HomePage() {
+  return (
+    <Suspense>
+      <HomePageInner />
+    </Suspense>
+  );
+}
+
+function HomePageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [cardsVisible, setCardsVisible] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
   const [isSoundOn, setIsSoundOn] = useState(false);
   const [audioError, setAudioError] = useState('');
+  const [showStreamsModal, setShowStreamsModal] = useState(false);
+  const [streams, setStreams] = useState<StreamItem[]>([]);
+  const [streamsLoading, setStreamsLoading] = useState(false);
   const [hasUserInteracted, setHasUserInteracted] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
   const [panelStage, setPanelStage] = useState<0 | 1 | 2 | 3>(0);
@@ -42,19 +74,38 @@ export default function HomePage() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  const packCards: Array<{ id: PackId; title: string; description: string; badge?: string }> = [
-    {
-      id: 'classic',
-      title: 'Классический',
-      description: 'Оригинальный пакет вопросов.',
-    },
-    {
-      id: '03012026',
-      title: 'Пакет от 16.01.2026',
-      description: 'Свежий пакет вопросов',
-      badge: 'бесплатно',
-    },
-  ];
+  const [packCards, setPackCards] = useState<Array<{ id: PackId; title: string; description: string; badge?: string }>>([
+    { id: 'classic', title: 'Классический', description: 'Оригинальный пакет вопросов.', badge: 'бесплатно' },
+    { id: '03012026', title: 'Пакет от 16.01.2026', description: 'Альтернативный пакет вопросов', badge: 'бесплатно' },
+  ]);
+
+  // Load packs from API and handle ?pack= query param
+  useEffect(() => {
+    fetch('/api/packs')
+      .then(r => r.json())
+      .then((data: QuestionPack[]) => {
+        if (!Array.isArray(data) || data.length === 0) return;
+        setPacksCache(data);
+        const publicPacks = data.filter(p => p.is_public);
+        if (publicPacks.length > 0) {
+          setPackCards(publicPacks.map(p => ({
+            id: p.id,
+            title: p.label,
+            description: p.description || '',
+            badge: 'бесплатно',
+          })));
+        }
+      })
+      .catch(() => {});
+
+    const packParam = searchParams.get('pack');
+    if (packParam) {
+      const pid = normalizePackId(packParam);
+      trackGameEvent('home_pack_deeplink', { packId: pid });
+      localStorage.setItem('hostPackId', pid);
+      router.push('/host');
+    }
+  }, [searchParams, router]);
 
   const miniGames: Array<{
     id: 'uno' | 'risunkach' | 'jokester' | 'creativach';
@@ -68,7 +119,7 @@ export default function HomePage() {
       id: 'uno',
       title: 'UNO',
       subtitle: 'Карточная мини-игра',
-      description: 'Два режима: классический и неправильные глаголы (TTS позже).',
+      description: 'Четыре режима: классика, классика+глаголы, все формы, угадай глагол (TTS позже).',
       badge: 'beta',
     },
     {
@@ -338,6 +389,26 @@ export default function HomePage() {
     return '😄';
   })();
 
+  const openStreamsModal = async () => {
+    setShowStreamsModal(true);
+    setStreamsLoading(true);
+    try {
+      const res = await fetch('/api/streams');
+      if (res.ok) setStreams(await res.json());
+    } catch (e) {
+      console.error('Failed to load streams:', e);
+    } finally {
+      setStreamsLoading(false);
+    }
+  };
+
+  const hasLiveStream = streams.some(s => s.is_live);
+
+  useEffect(() => {
+    // Pre-fetch streams for live badge
+    fetch('/api/streams').then(r => r.ok ? r.json() : []).then(setStreams).catch(() => {});
+  }, []);
+
   useEffect(() => {
     const loadStats = async () => {
       try {
@@ -407,7 +478,7 @@ export default function HomePage() {
                 <p className="comic-font text-xs tracking-[0.5em]">Редактор квиза</p>
                 <h1 className="text-3xl sm:text-4xl comic-font leading-tight text-stroke-black">Когнитивное программирование вечеринки</h1>
               </div>
-              <div className="text-sm comic-font uppercase tracking-[0.3em]">v 1.3.1</div>
+              <div className="text-sm comic-font uppercase tracking-[0.3em]">v 2.0</div>
             </header>
           </div>
 
@@ -418,13 +489,22 @@ export default function HomePage() {
                 <div className="comic-panel bg-[#fff] p-4 space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="comic-font text-xs tracking-[0.4em] text-[#142a45]/70">вечеринкач классический режим</p>
-                      <p className="text-2xl comic-font text-[#142a45]">Вечеринкач · Раунд 1</p>
+                      <p className="comic-font text-xs tracking-[0.4em] text-[#142a45]/70">вечеринкач</p>
+                      <p className="text-2xl comic-font text-[#142a45]">Панель управления</p>
                     </div>
                     <span className="px-3 py-1 rounded-full text-xs comic-font tracking-[0.3em] bg-[#ffde00] text-[#000] border-2 border-black animate-pulse">LIVE</span>
                   </div>
                   <div className="flex flex-wrap gap-3 text-sm comic-font">
-                    <button type="button" className="comic-button px-4 py-2 bg-white">Общее</button>
+                    <button
+                      type="button"
+                      onClick={openStreamsModal}
+                      className="px-4 py-2 rounded-full border-2 border-[#142a45] bg-white hover:bg-[#ffe184] transition-colors relative"
+                    >
+                      📺 Трансляции
+                      {hasLiveStream && (
+                        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500 border border-black animate-pulse" />
+                      )}
+                    </button>
                     <button
                       type="button"
                       onClick={playRandomMeet}
@@ -632,10 +712,10 @@ export default function HomePage() {
                               {/* Action label */}
                               <div className={`flex items-center gap-1 text-xs font-semibold text-[#1f6ac6] ${rowReverse}`}>
                                 <span>
-                                  {game.id === 'uno'       ? 'два режима: классический и irregular verbs'
-                                    : game.id === 'risunkach' ? '3 режима'
-                                    : game.id === 'jokester'  ? 'перейти к тестированию'
-                                    : 'готовим концепт'}
+                                  {game.id === 'uno'       ? '4 режима: классика, +глаголы, все формы, угадай'
+                                    : game.id === 'risunkach' ? '3 уровня'
+                                    : game.id === 'jokester'  ? 'играть'
+                                    : 'играть'}
                                 </span>
                                 <span>{game.isSoon ? '🔒' : '▶'}</span>
                               </div>
@@ -649,6 +729,53 @@ export default function HomePage() {
                 </div>
               </section>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Streams modal */}
+      {showStreamsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowStreamsModal(false)}>
+          <div className="absolute inset-0 bg-black/60" />
+          <div
+            className="relative w-full max-w-lg rounded-3xl border-[4px] border-[#142a45] bg-white shadow-2xl p-6 space-y-4 max-h-[80vh] overflow-y-auto"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-black text-[#142a45]">📺 Трансляции</h2>
+              <button onClick={() => setShowStreamsModal(false)} className="text-2xl text-[#142a45] hover:text-red-500 transition-colors">✕</button>
+            </div>
+
+            {streamsLoading ? (
+              <div className="text-center py-8 text-[#142a45]/60 font-semibold">Загрузка...</div>
+            ) : streams.length === 0 ? (
+              <div className="text-center py-8 text-[#142a45]/60 font-semibold">Пока нет запланированных трансляций</div>
+            ) : (
+              <div className="space-y-3">
+                {streams.map(s => (
+                  <a
+                    key={s.id}
+                    href={s.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block rounded-2xl border-[3px] border-[#142a45] p-4 hover:bg-[#f0f0ff] transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-black text-[#142a45] text-lg">{s.title}</span>
+                          {s.is_live && (
+                            <span className="px-2 py-0.5 rounded-full text-xs font-black bg-red-500 text-white border-2 border-black animate-pulse">LIVE</span>
+                          )}
+                        </div>
+                        <div className="text-sm text-[#142a45]/70 mt-1">{formatStreamDate(s.scheduled_at)}</div>
+                        <div className="text-xs text-blue-600 underline mt-1 truncate">{s.url}</div>
+                      </div>
+                      <span className="text-xl shrink-0">▶</span>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

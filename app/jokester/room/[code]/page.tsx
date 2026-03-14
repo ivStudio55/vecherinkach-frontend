@@ -21,6 +21,7 @@ import {
   submitAnswer,
   submitDuelVote,
   jokesterStorage,
+  fetchJokesterPackUrl,
 } from '@/lib/jokester/api';
 import type {
   JokesterRoom,
@@ -32,6 +33,7 @@ import type {
   JokesterCategory,
 } from '@/lib/jokester/types';
 import { ANSWER_TIME_SEC, VOTE_TIME_SEC, roundMultiplier } from '@/lib/jokester/types';
+import { supabase } from '@/lib/supabase';
 
 function normalizeAvatarFile(value?: string | null): string {
   if (!value) return '1.png';
@@ -79,6 +81,7 @@ export default function JokesterPlayerPage() {
   const [isAnimationsDisabled, setIsAnimationsDisabled] = useState(false);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timeOffsetRef = useRef(0);
   const session = jokesterStorage.get();
   const myId = session.playerId;
 
@@ -86,13 +89,25 @@ export default function JokesterPlayerPage() {
     setIsAnimationsDisabled(localStorage.getItem('jokester_animations_disabled') === 'true');
   }, []);
 
-  /* ─── Load categories ─── */
   useEffect(() => {
-    fetch('/questions/jokester_questions.json')
-      .then(r => r.json())
-      .then((data: JokesterQuestionPack) => setCategories(data.categories))
-      .catch(console.error);
+    supabase.rpc('get_server_time').then(({ data }) => {
+      if (data) timeOffsetRef.current = Date.now() - new Date(data as string).getTime();
+    });
   }, []);
+
+  /* ─── Load categories (pack-aware) ─── */
+  useEffect(() => {
+    if (!room) return;
+    let cancelled = false;
+    (async () => {
+      const url = await fetchJokesterPackUrl(room.pack_id);
+      if (cancelled) return;
+      const res = await fetch(url);
+      const data: JokesterQuestionPack = await res.json();
+      if (!cancelled) setCategories(data.categories);
+    })().catch(console.error);
+    return () => { cancelled = true; };
+  }, [room?.pack_id]);
 
   /* ─── Initial fetch ─── */
   useEffect(() => {
@@ -137,7 +152,7 @@ export default function JokesterPlayerPage() {
     if (timerRef.current) clearInterval(timerRef.current);
 
     const tick = () => {
-      const elapsed = Date.now() - started;
+      const elapsed = Date.now() - timeOffsetRef.current - started;
       const remaining = Math.max(0, Math.ceil((duration - elapsed) / 1000));
       setTimer(remaining);
       if (remaining <= 0 && timerRef.current) {
@@ -371,7 +386,7 @@ export default function JokesterPlayerPage() {
               ({myCatVotes.size}/{gamePlayers.length})
             </p>
             <div className="grid grid-cols-2 gap-3">
-              {categories.map(cat => {
+              {categories.filter(c => c.id !== 'final').map(cat => {
                 const voted = myCatVotes.has(cat.id);
                 return (
                   <button
@@ -410,7 +425,28 @@ export default function JokesterPlayerPage() {
         )}
 
         {/* ═══ ROUND PLAYING — ANSWERING ═══ */}
-        {(room.status === 'round_playing' || room.status === 'final_playing') && room.voting_phase === 'answering' && (
+        {(room.status === 'round_playing' || room.status === 'final_playing') && room.voting_phase === 'answering' && (() => {
+          // В финале показываем спец-экран для игроков, которые не прошли в финал
+          const isFinal = room.status === 'final_playing';
+          const isFinalist = isFinal && myRoundDuels.length > 0;
+          const isEliminated = isFinal && !isFinalist;
+
+          if (isEliminated) {
+            return (
+              <div className="cartoon-panel p-8 text-center space-y-5 animate-[fadeIn_0.5s_ease]">
+                <div className="text-7xl drop-shadow-[2px_2px_0_#000]">🏆</div>
+                <h2 className="text-3xl font-black text-black">ФИНАЛ</h2>
+                <p className="text-lg font-bold text-gray-800">Два лучших игрока сражаются за победу!</p>
+                <div className="bg-white border-4 border-black rounded-2xl p-4 space-y-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                  <p className="text-sm font-bold text-gray-800">Финалисты отвечают на вопрос...</p>
+                  <PlayerTimerBar seconds={timer} total={ANSWER_TIME_SEC} />
+                </div>
+                <p className="text-sm text-gray-800 font-bold">Скоро ты сможешь проголосовать за лучший ответ!</p>
+              </div>
+            );
+          }
+
+          return (
           <div className="space-y-5 animate-[fadeIn_0.5s_ease]">
             {/* Category scroll animation */}
             {showCategoryScroll && (
@@ -470,7 +506,8 @@ export default function JokesterPlayerPage() {
               </div>
             )}
           </div>
-        )}
+        );
+        })()}
 
         {/* ═══ VOTING ═══ */}
         {(room.status === 'round_playing' || room.status === 'final_playing') && room.voting_phase === 'voting' && (

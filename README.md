@@ -2,14 +2,15 @@
 
 ## Deployment
 
-This project is configured for deployment on Vercel.
+Automated Vercel builds have been disabled to keep this repo as a backup. Deploy manually when needed:
 
-1. Connect your GitHub repository to Vercel.
-2. Vercel will automatically detect Next.js and deploy using the configuration in `vercel.json`.
-3. Set the following environment variables in Vercel dashboard:
-   - `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase project URL
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Your Supabase anonymous key
-4. Deploy!
+1. Build locally: `npm run build`
+2. Start locally for smoke tests: `npm run start`
+3. Deploy with your chosen target (e.g., `npx vercel --prod --yes` with the required env vars set, or your own host).
+
+Environment variables required at deploy time:
+- `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase project URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Your Supabase anonymous key
 
 ## Local Development
 

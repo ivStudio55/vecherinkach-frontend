@@ -19,6 +19,7 @@ import {
   submitCategoryVote,
   submitDuelVote,
   jokesterStorage,
+  fetchJokesterPackUrl,
 } from '@/lib/jokester/api';
 import type {
   JokesterRoom,
@@ -30,6 +31,7 @@ import type {
   JokesterCategory,
 } from '@/lib/jokester/types';
 import { VOTE_TIME_SEC, ANSWER_TIME_SEC } from '@/lib/jokester/types';
+import { supabase } from '@/lib/supabase';
 
 function normalizeAvatarFile(value?: string | null): string {
   if (!value) return '1.png';
@@ -62,6 +64,7 @@ export default function JokesterSpectatorPage() {
   const [isAnimationsDisabled, setIsAnimationsDisabled] = useState(false);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timeOffsetRef = useRef(0);
   const session = jokesterStorage.get();
   const myId = session.playerId;
 
@@ -69,13 +72,25 @@ export default function JokesterSpectatorPage() {
     setIsAnimationsDisabled(localStorage.getItem('jokester_animations_disabled') === 'true');
   }, []);
 
-  /* ─── Load categories ─── */
   useEffect(() => {
-    fetch('/questions/jokester_questions.json')
-      .then(r => r.json())
-      .then((data: JokesterQuestionPack) => setCategories(data.categories))
-      .catch(console.error);
+    supabase.rpc('get_server_time').then(({ data }) => {
+      if (data) timeOffsetRef.current = Date.now() - new Date(data as string).getTime();
+    });
   }, []);
+
+  /* ─── Load categories (pack-aware) ─── */
+  useEffect(() => {
+    if (!room) return;
+    let cancelled = false;
+    (async () => {
+      const url = await fetchJokesterPackUrl(room.pack_id);
+      if (cancelled) return;
+      const res = await fetch(url);
+      const data: JokesterQuestionPack = await res.json();
+      if (!cancelled) setCategories(data.categories);
+    })().catch(console.error);
+    return () => { cancelled = true; };
+  }, [room?.pack_id]);
 
   /* ─── Initial fetch ─── */
   useEffect(() => {
@@ -118,7 +133,7 @@ export default function JokesterSpectatorPage() {
     const duration = room.timer_duration_sec * 1000;
     if (timerRef.current) clearInterval(timerRef.current);
     const tick = () => {
-      const remaining = Math.max(0, Math.ceil((duration - (Date.now() - started)) / 1000));
+      const remaining = Math.max(0, Math.ceil((duration - (Date.now() - timeOffsetRef.current - started)) / 1000));
       setTimer(remaining);
       if (remaining <= 0 && timerRef.current) {
         clearInterval(timerRef.current);
@@ -260,7 +275,7 @@ export default function JokesterSpectatorPage() {
               ({myCatVotes.size}/{gamePlayers.length})
             </p>
             <div className="grid grid-cols-2 gap-3">
-              {categories.map(cat => {
+              {categories.filter(c => c.id !== 'final').map(cat => {
                 const voted = myCatVotes.has(cat.id);
                 return (
                   <button
@@ -356,8 +371,10 @@ export default function JokesterSpectatorPage() {
         {(room.status === 'round_playing' || room.status === 'final_playing') && room.voting_phase === 'answering' && (
           <div className="text-center py-12 space-y-4 animate-[fadeIn_0.5s_ease]">
             <SpectatorTimerBar seconds={timer} total={ANSWER_TIME_SEC} />
-            <div className="text-6xl animate-[bounce_2s_infinite] drop-shadow-[2px_2px_0_#000]">⏳</div>
-            <p className="text-xl font-black text-white drop-shadow-[2px_2px_0_#000]">Дуэлянты отвечают на вопросы...</p>
+            <div className="text-6xl animate-[bounce_2s_infinite] drop-shadow-[2px_2px_0_#000]">{room.status === 'final_playing' ? '🏆' : '⏳'}</div>
+            <p className="text-xl font-black text-white drop-shadow-[2px_2px_0_#000]">
+              {room.status === 'final_playing' ? 'ФИНАЛ! Два лучших игрока сражаются!' : 'Дуэлянты отвечают на вопросы...'}
+            </p>
             <p className="text-sm font-bold text-white drop-shadow-[1px_1px_0_#000]">Скоро голосование!</p>
           </div>
         )}

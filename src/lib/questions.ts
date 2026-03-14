@@ -1,5 +1,3 @@
-import round1 from '../../public/questions/round1.json';
-
 export const ROUND_QUESTION_COUNT = 6;
 
 export const OPTION_KEYS = ['a', 'b', 'c', 'd'] as const;
@@ -86,7 +84,13 @@ export const createQuestionBank = (payload: unknown): QuestionBank => {
   };
 };
 
-export const DEFAULT_QUESTION_BANK: QuestionBank = createQuestionBank(round1);
+export const DEFAULT_QUESTION_BANK: QuestionBank = {
+  name: '',
+  description: '',
+  questions: [],
+  questionMap: new Map(),
+  allQuestionIds: [],
+};
 
 export const hasEnoughQuestions = (count: number, bank: QuestionBank = DEFAULT_QUESTION_BANK) =>
   bank.questions.length >= count;

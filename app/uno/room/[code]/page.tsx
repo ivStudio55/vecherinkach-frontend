@@ -6,10 +6,12 @@ import Link from 'next/link';
 import { QRCodeCanvas } from 'qrcode.react';
 import {
   cardPlayable,
+  isZwischenzugPlayable,
   drawUnoCard,
   fetchUnoPlayers,
   fetchUnoRoomByCode,
   playUnoCard,
+  zwischenzugUnoCard,
   startUnoGame,
   subscribeUnoPlayers,
   subscribeUnoRoom,
@@ -64,6 +66,7 @@ export default function UnoRoomPage() {
 
   const myTurn = room?.status === 'playing' && !!me && room.current_player_id === me.id;
   const hasPlayable = useMemo(() => myHand.some(c => cardPlayable(c, topCard)), [myHand, topCard]);
+  const hasZwischenzug = useMemo(() => !myTurn && room?.status === 'playing' && myHand.some(c => isZwischenzugPlayable(c, topCard)), [myTurn, room?.status, myHand, topCard]);
   const isFinished = room?.status === 'finished';
   const winnerName = useMemo(() => {
     if (!room?.winner_id) return null;
@@ -171,12 +174,33 @@ export default function UnoRoomPage() {
     finally { setPending(false); }
   };
 
+  const handleZwischenzug = async (card: UnoCard) => {
+    if (!room || !me) return;
+    setPending(true);
+    setError('');
+    try {
+      const res = await zwischenzugUnoCard({
+        roomCode: room.code,
+        playerId: me.id,
+        cardId: card.id,
+      });
+      sfxPlayCard();
+      setLastEvent(`⚡ ЦВИШЕНЦУГ!`);
+      if (res?.room) setRoom(res.room);
+    } catch (e: any) { setError(e?.message ?? 'Нельзя сыграть эту карту вне очереди'); }
+    finally { setPending(false); }
+  };
+
   const onCardClick = (card: UnoCard) => {
-    if (card.kind === 'wild' || card.kind === 'wild4') {
-      setPickingColor(card);
-      return;
+    if (myTurn) {
+      if (card.kind === 'wild' || card.kind === 'wild4') {
+        setPickingColor(card);
+        return;
+      }
+      handlePlay(card);
+    } else if (isZwischenzugPlayable(card, topCard)) {
+      handleZwischenzug(card);
     }
-    handlePlay(card);
   };
 
   const currentPlayerName = useMemo(() => {
@@ -270,7 +294,7 @@ export default function UnoRoomPage() {
                 <span className={`inline-block w-3 h-3 rounded-full border-2 border-black ${room.status === 'playing' ? 'bg-green-400 animate-pulse' : room.status === 'finished' ? 'bg-red-400' : 'bg-yellow-400'}`} />
                 <span className="uppercase">{room.status === 'lobby' ? 'ЛОББИ' : room.status === 'playing' ? 'ИГРА' : 'ЗАВЕРШЕНА'}</span>
                 <span className="mx-1">·</span>
-                <span className="uppercase text-blue-600">{room.mode === 'irregular-verbs' ? 'ВСЕ ФОРМЫ' : room.mode === 'verb-match' ? 'УГАДАЙ ГЛАГОЛ' : 'КЛАССИКА'}</span>
+                <span className="uppercase text-blue-600">{room.mode === 'irregular-verbs' ? 'ВСЕ ФОРМЫ' : room.mode === 'verb-match' ? 'УГАДАЙ ГЛАГОЛ' : room.mode === 'classic-verbs' ? 'КЛАССИКА + ГЛАГОЛЫ' : 'КЛАССИКА'}</span>
               </>
             )}
           </div>
@@ -397,6 +421,13 @@ export default function UnoRoomPage() {
                   ХОДИТ: <strong className="comic-font text-xl text-blue-600">{currentPlayerName}</strong>
                 </span>
               )}
+              {hasZwischenzug && (
+                <div className="mt-2">
+                  <span className="inline-block comic-panel bg-purple-400 px-4 py-1 comic-font text-xl text-white drop-shadow-[1px_1px_0_#000] animate-pulse">
+                    ⚡ ЦВИШЕНЦУГ ДОСТУПЕН!
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* My hand */}
@@ -417,12 +448,13 @@ export default function UnoRoomPage() {
                 <div className="flex flex-wrap gap-3 justify-center">
                   {myHand.map(card => {
                     const playable = cardPlayable(card, topCard);
+                    const canZwischenzug = !myTurn && isZwischenzugPlayable(card, topCard);
                     return (
                       <UnoCardView
                         key={card.id}
                         card={card}
-                        playable={playable && myTurn}
-                        disabled={!playable || !myTurn || pending}
+                        playable={(playable && myTurn) || canZwischenzug}
+                        disabled={(!playable || !myTurn) && !canZwischenzug || pending}
                         onClick={() => onCardClick(card)}
                       />
                     );

@@ -23,10 +23,12 @@ import {
   generateDuelSchedule,
   createDuels,
   selectQuestions,
+  selectFinalQuestion,
   getUsedQuestions,
   markQuestionsUsed,
   updatePlayerPoints,
   jokesterStorage,
+  fetchJokesterPackUrl,
 } from '@/lib/jokester/api';
 import { JokesterAudioPlayer, JOKESTER_AUDIO } from '@/lib/jokester/audio';
 import type {
@@ -47,6 +49,7 @@ import {
   CATEGORY_VOTE_TIME_SEC,
   MAX_PLAYERS,
 } from '@/lib/jokester/types';
+import { supabase } from '@/lib/supabase';
 
 type VoteReveal = {
   answer: string;
@@ -168,6 +171,12 @@ export function JokesterHostContent() {
     setIsVoiceMuted(localStorage.getItem('jokester_voice_muted') === 'true');
     setIsAnimationsDisabled(localStorage.getItem('jokester_animations_disabled') === 'true');
   }, []);
+
+  useEffect(() => {
+    supabase.rpc('get_server_time').then(({ data }) => {
+      if (data) timeOffsetRef.current = Date.now() - new Date(data as string).getTime();
+    });
+  }, []);
   const [timerTickKey, setTimerTickKey] = useState(0);
   const [vsScreenActive, setVsScreenActive] = useState(false);
 
@@ -181,10 +190,13 @@ export function JokesterHostContent() {
   const prevVoteCountRef = useRef(0);
   const prevAnswerCountRef = useRef(0);
   const voteEndLockRef = useRef(false);
+  const autoAnswerEndRef = useRef(false);
+  const autoVoteEndRef = useRef(false);
   const selectedTopCategoriesRef = useRef<string[]>([]);
   const duelsRef = useRef<JokesterDuel[]>([]);
   const featherEmitterRef = useRef<((spawn: FeatherSpawn) => void) | null>(null);
   const featherRevealFiredRef = useRef(false);
+  const timeOffsetRef = useRef(0);
   const answeredDoneRef = useRef<Set<string>>(new Set());
   const winnerPanelRef = useRef<HTMLDivElement | null>(null);
   const roomIntroPlayedRef = useRef(false);
@@ -262,13 +274,19 @@ export function JokesterHostContent() {
     return () => { audioRef.current?.destroy(); };
   }, []);
 
-  /* ─── Load questions ─── */
+  /* ─── Load questions (pack-aware) ─── */
   useEffect(() => {
-    fetch('/questions/jokester_questions.json')
-      .then(r => r.json())
-      .then((data: JokesterQuestionPack) => setCategories(data.categories))
-      .catch(console.error);
-  }, []);
+    if (!room) return;
+    let cancelled = false;
+    (async () => {
+      const url = await fetchJokesterPackUrl(room.pack_id);
+      if (cancelled) return;
+      const res = await fetch(url);
+      const data: JokesterQuestionPack = await res.json();
+      if (!cancelled) setCategories(data.categories);
+    })().catch(console.error);
+    return () => { cancelled = true; };
+  }, [room?.pack_id]);
 
   /* ─── Initial fetch ─── */
   useEffect(() => {
@@ -480,7 +498,8 @@ export function JokesterHostContent() {
         if (prev <= 1) {
           if (timerRef.current) clearInterval(timerRef.current);
           timerRef.current = null;
-          onEnd?.();
+          // Call onEnd outside the state setter to avoid async operations inside setState
+          if (onEnd) setTimeout(onEnd, 0);
           return 0;
         }
         return nextSec;
@@ -530,13 +549,51 @@ export function JokesterHostContent() {
     }
   }, [answerProgress, room?.voting_phase, emitAtElement, playRandomSound]);
 
+  /* ─── Auto-advance when ALL active players have answered ALL their duels ─── */
+  useEffect(() => {
+    if (!room || room.voting_phase !== 'answering') {
+      autoAnswerEndRef.current = false;
+      return;
+    }
+    if (answerProgress.length === 0) return;
+    const allDone = answerProgress.every(p => p.done);
+    if (!allDone || autoAnswerEndRef.current) return;
+    autoAnswerEndRef.current = true;
+    stopTimer();
+    void handleAnswerPhaseEnd();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answerProgress, room?.voting_phase]);
+
+  /* ─── Auto-advance when ALL eligible voters (players + spectators) have voted ─── */
+  useEffect(() => {
+    if (!room || room.voting_phase !== 'voting' || !currentDuel) {
+      autoVoteEndRef.current = false;
+      return;
+    }
+    const eligiblePlayers = gamePlayers.filter(
+      p => p.id !== currentDuel.player1_id && p.id !== currentDuel.player2_id,
+    );
+    const playerVotes = currentVotes.filter(v => v.voter_role === 'player');
+    const allPlayersVoted = eligiblePlayers.length === 0
+      || eligiblePlayers.every(p => playerVotes.some(v => v.voter_id === p.id));
+    const spectatorVotes = currentVotes.filter(v => v.voter_role === 'spectator').length;
+    const totalSpectators = spectators.length;
+    const allSpectatorsVoted = totalSpectators === 0 || spectatorVotes >= totalSpectators;
+    if (!allPlayersVoted || !allSpectatorsVoted || autoVoteEndRef.current) return;
+    autoVoteEndRef.current = true;
+    stopTimer();
+    void handleVoteEnd();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentVotes.length, room?.voting_phase, currentDuel?.id, spectators.length]);
+
   const triggerStartButtonEffects = useCallback((target: HTMLElement | null) => {
     emitAtElement(target, { count: 42, spread: 160, speed: 6.8 });
     playRandomSound(START_DUCK_SOUNDS, 0.7);
   }, [emitAtElement, playRandomSound]);
 
-  /* ─── Category vote ranking ─── */
-  const categoryRanking = categories
+  /* ─── Category vote ranking (exclude "final" from voting) ─── */
+  const votableCategories = categories.filter(c => c.id !== 'final');
+  const categoryRanking = votableCategories
     .map(cat => ({
       ...cat,
       votes: categoryVotes.filter(v => v.category === cat.id).length,
@@ -618,11 +675,12 @@ export function JokesterHostContent() {
     const round = effectiveRoom.current_round;
     const playerIds = gamePlayers.map(p => p.id);
 
-    // Определяем топ-N категорий
+    // Определяем топ-N категорий (без "final")
+    const regularCategories = categories.filter(c => c.id !== 'final');
     let topCats: string[] = selectedTopCategoriesRef.current;
     if (round === 1 || topCats.length === 0) {
       const round1Votes = round === 1 ? categoryVotes : await fetchCategoryVotes(effectiveRoom.id, 1);
-      const ranked = categories
+      const ranked = regularCategories
         .map(cat => ({ ...cat, votes: round1Votes.filter(v => v.category === cat.id).length }))
         .sort((a, b) => b.votes - a.votes);
       const votedCats = ranked.filter(c => c.votes > 0).map(c => c.id);
@@ -633,7 +691,7 @@ export function JokesterHostContent() {
     // Подбираем вопросы — 1 вопрос на дуэль (каждый игрок в 2 дуэлях => 2 вопроса на игрока)
     const schedule = generateDuelSchedule(playerIds);
     const usedTexts = await getUsedQuestions(effectiveRoom.id);
-    const questions = selectQuestions(categories, topCats, schedule.length, usedTexts);
+    const questions = selectQuestions(regularCategories, topCats, schedule.length, usedTexts);
     await markQuestionsUsed(effectiveRoom.id, round, questions);
 
     // Создаём все дуэли раунда
@@ -653,7 +711,7 @@ export function JokesterHostContent() {
       current_question: 0,
       voting_phase: 'answering',
       timer_duration_sec: ANSWER_TIME_SEC,
-      timer_started_at: new Date().toISOString(),
+      timer_started_at: new Date(Date.now() - timeOffsetRef.current).toISOString(),
       state_version: effectiveRoom.state_version + 3,
     });
     setRoom(prev => prev ? { ...prev, status: 'round_playing', current_duel_index: 0, current_question: 0, voting_phase: 'answering' } : prev);
@@ -700,7 +758,7 @@ export function JokesterHostContent() {
       current_duel_index: duelIndex,
       current_question: 0,
       voting_phase: 'voting',
-      timer_started_at: new Date().toISOString(),
+      timer_started_at: new Date(Date.now() - timeOffsetRef.current).toISOString(),
       timer_duration_sec: VOTE_TIME_SEC,
       state_version: effectiveRoom.state_version + 10 + duelIndex,
     });
@@ -939,12 +997,19 @@ export function JokesterHostContent() {
     await audioRef.current?.playRoundRules(4);
     audioRef.current?.stopBgm();
 
-    // Создать финальную дуэль
+    // Создать финальную дуэль — используем категорию "final" если есть
     const usedTexts = await getUsedQuestions(room.id);
-    const topCats = selectedTopCategoriesRef.current.length > 0
-      ? selectedTopCategoriesRef.current
-      : categories.map(c => c.id);
-    const questions = selectQuestions(categories, topCats, 1, usedTexts);
+    const finalQ = selectFinalQuestion(categories, usedTexts);
+    const questions = finalQ
+      ? [finalQ]
+      : selectQuestions(
+          categories.filter(c => c.id !== 'final'),
+          selectedTopCategoriesRef.current.length > 0
+            ? selectedTopCategoriesRef.current
+            : categories.filter(c => c.id !== 'final').map(c => c.id),
+          1,
+          usedTexts,
+        );
     await markQuestionsUsed(room.id, 4, questions);
     await createDuels(room.id, 4, [{ player1_id: finalists[0].id, player2_id: finalists[1].id }], questions);
 
@@ -957,7 +1022,7 @@ export function JokesterHostContent() {
       current_duel_index: 0,
       current_question: 0,
       voting_phase: 'answering',
-      timer_started_at: new Date().toISOString(),
+      timer_started_at: new Date(Date.now() - timeOffsetRef.current).toISOString(),
       timer_duration_sec: ANSWER_TIME_SEC,
       state_version: room.state_version + 10,
     });
@@ -1620,18 +1685,32 @@ export function JokesterHostContent() {
                       </div>
                     </div>
 
-                    {/* Bottom Right: Spectators */}
+                    {/* Bottom Right: Spectators — vote breakdown */}
                     <div className="md:col-span-4 comic-panel bg-purple-100 p-3 md:p-4 flex flex-col items-center justify-center relative min-h-[80px]">
                       <div className="absolute top-2 left-2 bg-white border-2 border-black px-2 py-1 text-xs font-black text-black transform -rotate-3 z-20">ЗРИТЕЛИ</div>
-                      {spectatorCount > 0 ? (
-                        <div className="flex items-center justify-center mt-4">
-                          <span className="text-4xl md:text-5xl text-purple-600 bg-white border-2 md:border-4 border-black px-3 py-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] md:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transform rotate-2 font-black">
-                            {spectatorCount}
-                          </span>
-                        </div>
-                      ) : (
+                      {spectatorCount > 0 ? (() => {
+                        const specForWinner = currentVotes.filter(v => v.voter_role === 'spectator' && v.voted_for_id === voteReveal.winnerId).length;
+                        const specForLoser = currentVotes.filter(v => v.voter_role === 'spectator' && v.voted_for_id === voteReveal.loserId).length;
+                        return (
+                          <div className="flex items-center justify-center gap-4 mt-4">
+                            <div className="flex flex-col items-center">
+                              <span className="text-3xl md:text-4xl text-green-600 bg-white border-2 md:border-4 border-black px-3 py-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] md:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transform -rotate-2 font-black">
+                                {specForWinner}
+                              </span>
+                              <span className="text-xs font-black text-green-700 mt-1">ЗА</span>
+                            </div>
+                            <span className="text-2xl font-black text-gray-400">/</span>
+                            <div className="flex flex-col items-center">
+                              <span className="text-3xl md:text-4xl text-red-500 bg-white border-2 md:border-4 border-black px-3 py-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] md:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transform rotate-2 font-black">
+                                {specForLoser}
+                              </span>
+                              <span className="text-xs font-black text-red-600 mt-1">ПРОТИВ</span>
+                            </div>
+                          </div>
+                        );
+                      })() : (
                         <p className="text-sm md:text-base font-black text-gray-600 uppercase tracking-wide italic text-center mt-4">
-                          {Math.random() > 0.5 ? "Без зрителей" : "Приватно"}
+                          Без зрителей
                         </p>
                       )}
                     </div>
@@ -2212,6 +2291,8 @@ function AnimatedCountUp({
 }) {
   const [value, setValue] = useState(from);
   const completedRef = useRef(false);
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
 
   useEffect(() => {
     const start = performance.now();
@@ -2227,13 +2308,13 @@ function AnimatedCountUp({
         requestAnimationFrame(step);
       } else if (!completedRef.current) {
         completedRef.current = true;
-        onComplete?.();
+        onCompleteRef.current?.();
       }
     };
 
     const raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
-  }, [from, to, onComplete]);
+  }, [from, to]);
 
   return <AnimatedScore value={value} className={className} />;
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { trackGameEvent } from '@/lib/analytics';
@@ -19,6 +19,17 @@ export default function JoinClient() {
   const [playerName, setPlayerName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isAnimationsDisabled, setIsAnimationsDisabled] = useState(false);
+
+  useEffect(() => {
+    setIsAnimationsDisabled(localStorage.getItem('vecherinkach_animations_disabled') === 'true');
+  }, []);
+
+  const toggleAnimations = () => {
+    const next = !isAnimationsDisabled;
+    setIsAnimationsDisabled(next);
+    localStorage.setItem('vecherinkach_animations_disabled', String(next));
+  };
 
   const handleJoinRoom = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -149,9 +160,18 @@ export default function JoinClient() {
   };
 
   return (
-    <div className="min-h-screen text-[#142a45] px-4 py-10 relative z-10">
+    <div className={`min-h-screen text-[#142a45] px-4 py-10 relative z-10 ${isAnimationsDisabled ? 'disable-animations' : ''}`}>
       <ComicBackground />
       <div className="max-w-3xl mx-auto space-y-6 relative z-20">
+        <div className="absolute top-4 right-4 flex">
+          <button
+            type="button"
+            onClick={toggleAnimations}
+            className={`comic-button px-4 py-2 text-sm bg-white text-black border-2 border-black shadow-[3px_3px_0_#000] hover:-translate-y-0.5 transition ${isAnimationsDisabled ? 'bg-yellow-300' : ''}`}
+          >
+            {isAnimationsDisabled ? 'Анимации выкл' : 'Отключить анимации'}
+          </button>
+        </div>
         <header className="comic-panel bg-[#142a45] text-[#ffeccd] px-6 py-5">
           <p className="comic-font text-xs tracking-[0.5em] text-[#ffeccd]/80">Подключение игроков</p>
           <h1 className="text-3xl comic-font leading-tight">Введите код комнаты и присоединяйтесь</h1>

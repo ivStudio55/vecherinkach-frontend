@@ -36,6 +36,7 @@ export default function UnoCardView({ card, playable = false, disabled = false, 
   const isWild = card.kind === 'wild' || card.kind === 'wild4';
   const isVerb = card.kind === 'verb' && card.verb;
   const isVerbMatch = card.kind === 'verb-match' && card.display;
+  const isClassicVerb = card.kind === 'number' && !!(card as any).verb_display;
 
   const dims = size === 'sm' ? 'w-16 h-24' : size === 'lg' ? 'w-32 h-48' : 'w-24 h-36';
 
@@ -108,6 +109,15 @@ export default function UnoCardView({ card, playable = false, disabled = false, 
             {card.verb?.translation && (
               <span className="comic-font-thin font-bold text-[9px] mt-0.5 bg-black text-white px-1 rounded">{card.verb.translation}</span>
             )}
+          </>
+        ) : isClassicVerb ? (
+          <>
+            <span className={`comic-font leading-none drop-shadow-[2px_2px_0_#fff] ${size === 'lg' ? 'text-4xl' : size === 'sm' ? 'text-xl' : 'text-3xl'}`} style={{ color: card.color === 'yellow' ? '#000' : bg }}>
+              {card.value}
+            </span>
+            <span className={`comic-font-thin font-bold leading-tight text-center mt-0.5 drop-shadow-[1px_1px_0_#fff] ${size === 'lg' ? 'text-sm' : 'text-[9px]'}`}>
+              {(card as any).verb_display}
+            </span>
           </>
         ) : (
           <span className={`comic-font leading-none drop-shadow-[2px_2px_0_#fff] ${size === 'lg' ? 'text-6xl' : size === 'sm' ? 'text-2xl' : 'text-4xl'}`} style={{ color: card.color === 'yellow' ? '#000' : bg }}>

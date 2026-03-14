@@ -1,20 +1,31 @@
 'use client';
 
-import { useEffect, useState, type CSSProperties } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useEffect, useState, type CSSProperties } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { trackGameEvent } from '@/lib/analytics';
 import { logError, logEvent } from '@/shared/logic/logger';
 import { ComicBackground } from '@/components/ComicBackground';
 import { HostRoleNoticeModal } from '@/shared/ui/HostRoleNoticeModal';
-import { DEFAULT_PACK_ID, normalizePackId, QUESTION_PACKS, type PackId } from '@/lib/questionPacks';
+import { DEFAULT_PACK_ID, normalizePackId, QUESTION_PACKS, setPacksCache, type PackId, type QuestionPack } from '@/lib/questionPacks';
 
 export default function HostPage() {
+  return (
+    <Suspense>
+      <HostPageInner />
+    </Suspense>
+  );
+}
+
+function HostPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [layoutMode, setLayoutMode] = useState<'default' | 'compact' | 'stacked' | 'mobile'>('default');
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState('');
   const [isRoleNoticeOpen, setIsRoleNoticeOpen] = useState(true);
+  const [isAnimationsDisabled, setIsAnimationsDisabled] = useState(false);
+  const [packOptions, setPackOptions] = useState(QUESTION_PACKS);
   const [packId, setPackId] = useState<PackId>(() => {
     if (typeof window === 'undefined') {
       return DEFAULT_PACK_ID;
@@ -32,10 +43,42 @@ export default function HostPage() {
       if (storedMode === 'default' || storedMode === 'compact' || storedMode === 'stacked' || storedMode === 'mobile') {
         setLayoutMode(storedMode);
       }
+      setIsAnimationsDisabled(localStorage.getItem('vecherinkach_animations_disabled') === 'true');
     } catch {
       // ignore
     }
-  }, []);
+
+    // Handle ?pack= query param
+    const packParam = searchParams.get('pack');
+    if (packParam) {
+      const pid = normalizePackId(packParam);
+      setPackId(pid);
+      localStorage.setItem('hostPackId', pid);
+    }
+
+    // Load packs from API (include private pack if selected via URL)
+    const stored = localStorage.getItem('hostPackId');
+    const includeId = packParam || stored || '';
+    const packsUrl = includeId ? `/api/packs?include=${encodeURIComponent(includeId)}` : '/api/packs';
+    fetch(packsUrl)
+      .then(r => r.json())
+      .then((data: QuestionPack[]) => {
+        if (!Array.isArray(data) || data.length === 0) return;
+        setPacksCache(data);
+        setPackOptions(data.map(p => ({ id: p.id, label: p.label })));
+      })
+      .catch(() => {});
+  }, [searchParams]);
+
+  const toggleAnimations = () => {
+    const next = !isAnimationsDisabled;
+    setIsAnimationsDisabled(next);
+    try {
+      localStorage.setItem('vecherinkach_animations_disabled', String(next));
+    } catch {
+      // ignore
+    }
+  };
 
   const cycleLayoutMode = () => {
     setLayoutMode((prev) => {
@@ -162,7 +205,7 @@ export default function HostPage() {
     <div
       className={`min-h-screen text-[#142a45] relative z-10 ${isCompactLayout ? 'px-3 py-4' : 'px-4 py-6 lg:py-8'} ${
         isMobileLayout ? 'text-[calc(1rem*0.85)]' : ''
-      }`}
+      } ${isAnimationsDisabled ? 'disable-animations' : ''}`}
     >
       <ComicBackground />
       <HostRoleNoticeModal
@@ -193,14 +236,24 @@ export default function HostPage() {
                     После создания комнаты вы получите код из четырёх цифр. Им можно делиться на экране или голосом.
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={cycleLayoutMode}
-                  className={`${isCompactLayout ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'} rounded-xl border-2 border-[#ffeccd] text-[#ffeccd] font-bold hover:bg-[#ffeccd]/10 transition`}
-                  title="Не нравится текущий вид? Нажмите, чтобы переключить отображение"
-                >
-                  Вид: {layoutLabel}
-                </button>
+                <div className="flex flex-wrap gap-2 justify-end">
+                  <button
+                    type="button"
+                    onClick={toggleAnimations}
+                    className={`${isCompactLayout ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'} rounded-xl border-2 border-[#ffeccd] text-[#142a45] bg-[#ffeccd] font-bold hover:bg-[#ffeccd]/80 transition`}
+                    title="Переключить анимации"
+                  >
+                    {isAnimationsDisabled ? 'Анимации выкл' : 'Отключить анимации'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cycleLayoutMode}
+                    className={`${isCompactLayout ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm'} rounded-xl border-2 border-[#ffeccd] text-[#ffeccd] font-bold hover:bg-[#ffeccd]/10 transition`}
+                    title="Не нравится текущий вид? Нажмите, чтобы переключить отображение"
+                  >
+                    Вид: {layoutLabel}
+                  </button>
+                </div>
               </div>
             </header>
 
@@ -241,7 +294,7 @@ export default function HostPage() {
                       isCompactLayout ? 'px-3 py-2 text-sm' : 'px-4 py-3 text-base'
                     } font-semibold`}
                   >
-                    {QUESTION_PACKS.map((pack) => (
+                    {packOptions.map((pack) => (
                       <option key={pack.id} value={pack.id}>
                         {pack.label}
                       </option>

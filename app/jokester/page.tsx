@@ -3,11 +3,17 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import type { CSSProperties } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createJokesterRoom, joinJokesterRoom, fetchJokesterPlayers, fetchJokesterRoom, jokesterStorage } from '@/lib/jokester/api';
 import type { JokesterRole } from '@/lib/jokester/types';
+
+interface JokesterPack {
+  id: string;
+  label: string;
+  description: string;
+}
 
 const AVATAR_COUNT = 14;
 const AVATARS = Array.from({ length: AVATAR_COUNT }, (_, i) => `${i + 1}.png`);
@@ -22,8 +28,17 @@ function normalizeAvatarFile(value: string): string {
 
 const panelDelayStyle = (value: string): CSSProperties => ({ '--panel-delay': value } as CSSProperties);
 
-export default function JokesterEntryPage() {
+export default function JokesterEntryPageWrapper() {
+  return (
+    <Suspense>
+      <JokesterEntryPage />
+    </Suspense>
+  );
+}
+
+function JokesterEntryPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [tab, setTab] = useState<'create' | 'join'>('create');
   const [joinName, setJoinName] = useState('');
   const [joinCode, setJoinCode] = useState('');
@@ -32,6 +47,8 @@ export default function JokesterEntryPage() {
   const [takenAvatars, setTakenAvatars] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [packs, setPacks] = useState<JokesterPack[]>([]);
+  const [selectedPack, setSelectedPack] = useState('classic');
 
   const [isBgmMuted, setIsBgmMuted] = useState(false);
   const [isVoiceMuted, setIsVoiceMuted] = useState(false);
@@ -42,6 +59,36 @@ export default function JokesterEntryPage() {
     setIsVoiceMuted(localStorage.getItem('jokester_voice_muted') === 'true');
     setIsAnimationsDisabled(localStorage.getItem('jokester_animations_disabled') === 'true');
   }, []);
+
+  // Fetch available packs (+ handle ?pack= query param for private packs)
+  useEffect(() => {
+    const packParam = searchParams.get('pack');
+    (async () => {
+      const res = await fetch('/api/jokester/packs');
+      const publicPacks: JokesterPack[] = await res.json();
+      if (!Array.isArray(publicPacks)) return;
+
+      if (packParam) {
+        const already = publicPacks.find(p => p.id === packParam);
+        if (already) {
+          setPacks(publicPacks);
+          setSelectedPack(packParam);
+        } else {
+          // Private pack — fetch by ID
+          const r2 = await fetch(`/api/jokester/packs?id=${encodeURIComponent(packParam)}`);
+          if (r2.ok) {
+            const privatePack: JokesterPack = await r2.json();
+            setPacks([...publicPacks, privatePack]);
+            setSelectedPack(packParam);
+          } else {
+            setPacks(publicPacks);
+          }
+        }
+      } else {
+        setPacks(publicPacks);
+      }
+    })().catch(() => {});
+  }, [searchParams]);
 
   // Fetch taken avatars when join code changes
   useEffect(() => {
@@ -68,7 +115,7 @@ export default function JokesterEntryPage() {
   const handleCreate = async () => {
     setLoading(true); setError('');
     try {
-      const { room } = await createJokesterRoom('Ведущий');
+      const { room } = await createJokesterRoom('Ведущий', selectedPack);
       router.push(`/jokester/host/${room.code}`);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Ошибка создания');
@@ -215,6 +262,30 @@ export default function JokesterEntryPage() {
           >
             <h2 className="text-2xl font-black text-black">Создание комнаты</h2>
             <p className="text-sm text-gray-700 font-medium">Вы станете ведущим весёлой битвы шуток! Создайте хаб для игроков и зрителей!</p>
+
+            {/* Pack selector */}
+            {packs.length > 1 && (
+              <div>
+                <p className="text-xs text-gray-700 font-bold mb-2 tracking-wider text-center">ПАКЕТ ВОПРОСОВ</p>
+                <div className="grid gap-2">
+                  {packs.map(pack => (
+                    <button
+                      key={pack.id}
+                      onClick={() => setSelectedPack(pack.id)}
+                      className={`w-full text-left px-4 py-3 rounded-xl border-3 transition-all ${
+                        selectedPack === pack.id
+                          ? 'border-black bg-[#ffd700] text-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]'
+                          : 'border-gray-300 bg-white/80 text-gray-800 hover:border-black hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
+                      }`}
+                    >
+                      <span className="font-bold">{pack.label}</span>
+                      {pack.description && <span className="text-xs text-gray-600 ml-2">— {pack.description}</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <button
               onClick={handleCreate}
               disabled={loading}

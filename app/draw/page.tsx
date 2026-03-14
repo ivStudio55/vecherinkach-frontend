@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createDrawRoom, joinDrawRoom } from '@/lib/draw/api';
 import type { DrawGameMode } from '@/lib/draw/types';
 import ComicBackground from '@/components/draw/ComicBackground';
@@ -15,6 +15,17 @@ export default function DrawPage() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const [mode, setMode] = useState<DrawGameMode>('russian');
+  const [isAnimationsDisabled, setIsAnimationsDisabled] = useState(false);
+
+  useEffect(() => {
+    setIsAnimationsDisabled(localStorage.getItem('vecherinkach_animations_disabled') === 'true');
+  }, []);
+
+  const toggleAnimations = () => {
+    const next = !isAnimationsDisabled;
+    setIsAnimationsDisabled(next);
+    localStorage.setItem('vecherinkach_animations_disabled', String(next));
+  };
 
   const handleCreate = async () => {
     setPending(true);
@@ -45,8 +56,18 @@ export default function DrawPage() {
   };
 
   return (
-    <ComicBackground>
-      <div className="space-y-8 text-black">
+    <div className={`${isAnimationsDisabled ? 'disable-animations' : ''} relative`}>
+      <ComicBackground>
+        <div className="space-y-8 text-black relative">
+          <div className="absolute top-4 right-4 z-50">
+            <button
+              type="button"
+              onClick={toggleAnimations}
+              className={`comic-button px-4 py-2 text-sm bg-white text-black border-2 border-black shadow-[3px_3px_0_#000] hover:-translate-y-0.5 transition ${isAnimationsDisabled ? 'bg-yellow-300' : ''}`}
+            >
+              {isAnimationsDisabled ? 'Анимации выкл' : 'Отключить анимации'}
+            </button>
+          </div>
         {/* Header */}
         <header className="text-center">
           <div className="inline-block bg-[#FF69B4] border-[4px] border-black px-4 py-1 -rotate-2 mb-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
@@ -199,7 +220,8 @@ export default function DrawPage() {
             ← На главную
           </Link>
         </div>
-      </div>
-    </ComicBackground>
+        </div>
+      </ComicBackground>
+    </div>
   );
 }

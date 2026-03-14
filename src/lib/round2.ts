@@ -1,4 +1,4 @@
-import type { PackId } from './questionPacks';
+import { resolvePackConfig, type PackId } from './questionPacks';
 
 export type TrueFalseItem = {
   fact: string;
@@ -9,22 +9,15 @@ export type TrueFalseItem = {
   fictionId?: number;
 };
 
-export const ROUND2_CLASSIC_AUDIO_MAX = 81;
-export const PACK_03012026_ROUND2_AUDIO_START = 82;
-export const PACK_03012026_ROUND2_AUDIO_END = 93;
-
 type AudioBounds = { min: number; max: number; start: number };
 
 export const getRound2AudioBounds = (packId: PackId): AudioBounds => {
-  if (packId === '03012026') {
-    return {
-      min: PACK_03012026_ROUND2_AUDIO_START,
-      max: PACK_03012026_ROUND2_AUDIO_END,
-      start: PACK_03012026_ROUND2_AUDIO_START,
-    };
-  }
-
-  return { min: 1, max: ROUND2_CLASSIC_AUDIO_MAX, start: 1 };
+  const cfg = resolvePackConfig(packId);
+  return {
+    min: cfg.audio_round2_start,
+    max: cfg.audio_round2_end,
+    start: cfg.audio_round2_start,
+  };
 };
 
 export const resolveRound2AudioOrdinal = (
