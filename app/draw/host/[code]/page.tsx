@@ -10,6 +10,7 @@ import {
   fetchDrawChains,
   fetchDrawSteps,
   fetchSubmittedCount,
+  fetchSubmittedPlayerIds,
   fetchVoteCountForChain,
   subscribeDrawRoom,
   subscribeDrawPlayers,
@@ -42,6 +43,7 @@ export function DrawHostContent() {
   // from a previous step can never trigger auto-advance for the new step.
   const [submittedInfo, setSubmittedInfo] = useState<{count: number; step: number; round: number}>({count: 0, step: 0, round: 0});
   const submittedCount = submittedInfo.count; // convenience alias for display
+  const [submittedPlayerIds, setSubmittedPlayerIds] = useState<Set<string>>(new Set());
   const [timeLeft, setTimeLeft] = useState(60);
 
   // Pre-round countdown ("На старт, внимание, рисуем!")
@@ -177,10 +179,12 @@ export function DrawHostContent() {
       const c = await fetchDrawChains(room.id, round);
       const ids = c.map(ch => ch.id);
       const count = await fetchSubmittedCount(ids, step);
+      const playerIds = await fetchSubmittedPlayerIds(ids, step);
       // Tag the count with the step/round it was fetched for.
       // If the room moved to a different step while the fetch was in-flight,
       // the auto-advance guard will harmlessly ignore this stale value.
       setSubmittedInfo({count, step, round});
+      setSubmittedPlayerIds(new Set(playerIds));
     } catch { /* ignore */ }
   }, [room]);
 
@@ -190,6 +194,7 @@ export function DrawHostContent() {
   // Reset submitted count when step changes (for display; auto-advance guard is the real protection)
   useEffect(() => {
     setSubmittedInfo({count: 0, step: room?.current_step || 0, round: room?.current_round || 0});
+    setSubmittedPlayerIds(new Set());
   }, [room?.current_step, room?.current_round]);
 
   useEffect(() => {
@@ -649,16 +654,19 @@ export function DrawHostContent() {
                 </div>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                {gamePlayers.map((p, i) => (
+                {gamePlayers.map((p) => {
+                  const hasSubmitted = submittedPlayerIds.has(p.id);
+                  return (
                   <div
                     key={p.id}
                     className={`border-[3px] border-black px-4 py-3 text-center text-lg font-bold transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] ${
-                      i < submittedCount ? 'bg-[#32CD32] text-white transform -translate-y-1' : 'bg-gray-100 text-gray-500'
+                      hasSubmitted ? 'bg-[#32CD32] text-white transform -translate-y-1' : 'bg-gray-100 text-gray-500'
                     }`}
                   >
-                    {i < submittedCount ? '✅ ' : '⏳ '}{p.name}
+                    {hasSubmitted ? '✅ ' : '⏳ '}{p.name}
                   </div>
-                ))}
+                  );
+                })}
               </div>
 
               <div className="mt-8 text-center">

@@ -301,6 +301,9 @@ export default function PanelDashboard() {
           <button onClick={() => router.push('/ctrl-8f2q9z/categories')} className="px-4 py-2 bg-orange-600/80 hover:bg-orange-500 rounded-lg text-sm font-bold transition-colors">
             🎭 Категории Р4
           </button>
+          <button onClick={() => router.push('/ctrl-8f2q9z/answers')} className="px-4 py-2 bg-cyan-600/80 hover:bg-cyan-500 rounded-lg text-sm font-bold transition-colors">
+            📋 Ответы игроков
+          </button>
         </div>
 
         {/* Global KPIs */}

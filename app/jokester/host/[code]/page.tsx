@@ -181,6 +181,8 @@ export function JokesterHostContent() {
   const [vsScreenActive, setVsScreenActive] = useState(false);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timerOnEndFiredRef = useRef(false);
+  const timerOnEndTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioRef = useRef<JokesterAudioPlayer | null>(null);
   const prevPlayerCountRef = useRef(0);
   const audioUnlockedRef = useRef(false);
@@ -192,6 +194,9 @@ export function JokesterHostContent() {
   const voteEndLockRef = useRef(false);
   const autoAnswerEndRef = useRef(false);
   const autoVoteEndRef = useRef(false);
+  const answerPhaseEndLockRef = useRef(false);
+  const handleVoteEndRef = useRef<() => Promise<void>>(async () => {});
+  const handleAnswerPhaseEndRef = useRef<() => Promise<void>>(async () => {});
   const selectedTopCategoriesRef = useRef<string[]>([]);
   const duelsRef = useRef<JokesterDuel[]>([]);
   const featherEmitterRef = useRef<((spawn: FeatherSpawn) => void) | null>(null);
@@ -477,6 +482,8 @@ export function JokesterHostContent() {
     options?: { preEndSfxAtSec?: number; preEndSfxFolder?: string; preEndSfxCount?: number; preEndSfxVolume?: number },
   ) => {
     if (timerRef.current) clearInterval(timerRef.current);
+    if (timerOnEndTimeoutRef.current) { clearTimeout(timerOnEndTimeoutRef.current); timerOnEndTimeoutRef.current = null; }
+    timerOnEndFiredRef.current = false;
     setTimer(seconds);
     timerRef.current = setInterval(() => {
       setTimer(prev => {
@@ -498,8 +505,10 @@ export function JokesterHostContent() {
         if (prev <= 1) {
           if (timerRef.current) clearInterval(timerRef.current);
           timerRef.current = null;
-          // Call onEnd outside the state setter to avoid async operations inside setState
-          if (onEnd) setTimeout(onEnd, 0);
+          if (onEnd && !timerOnEndFiredRef.current) {
+            timerOnEndFiredRef.current = true;
+            timerOnEndTimeoutRef.current = setTimeout(onEnd, 0);
+          }
           return 0;
         }
         return nextSec;
@@ -510,6 +519,9 @@ export function JokesterHostContent() {
   const stopTimer = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = null;
+    timerOnEndFiredRef.current = true;
+    // Cancel any pending setTimeout(onEnd) that was already queued
+    if (timerOnEndTimeoutRef.current) { clearTimeout(timerOnEndTimeoutRef.current); timerOnEndTimeoutRef.current = null; }
     setTimer(0);
   }, []);
 
@@ -717,7 +729,8 @@ export function JokesterHostContent() {
     setRoom(prev => prev ? { ...prev, status: 'round_playing', current_duel_index: 0, current_question: 0, voting_phase: 'answering' } : prev);
 
     // По истечении 120 сек начинаем поочерёдные дуэли с голосованием
-    startTimer(ANSWER_TIME_SEC, () => handleAnswerPhaseEnd(), {
+    answerPhaseEndLockRef.current = false;
+    startTimer(ANSWER_TIME_SEC, () => handleAnswerPhaseEndRef.current(), {
       preEndSfxAtSec: 10,
       preEndSfxFolder: `${YANDEX_AUDIO_BASE}/sound/Jokester/stop_timer`,
       preEndSfxCount: 10,
@@ -727,20 +740,26 @@ export function JokesterHostContent() {
 
   // Вызывается когда 120 сек на ответы истекли → начинаем первую дуэль
   const handleAnswerPhaseEnd = async () => {
-    if (!room) return;
+    if (!room || answerPhaseEndLockRef.current) return;
+    answerPhaseEndLockRef.current = true;
     audioRef.current?.stopBgm();
     const freshRoom = await fetchJokesterRoom(room.code);
     // Запускаем голосование первой дуэли
     await startDuelVoting(0, freshRoom || room);
+    // Lock stays true — reset only when new answering phase starts
   };
+  handleAnswerPhaseEndRef.current = handleAnswerPhaseEnd;
 
   // Начать фазу голосования для дуэли с указанным индексом
   const startDuelVoting = async (duelIndex: number, roomSnapshot?: JokesterRoom) => {
     const effectiveRoom = roomSnapshot || room;
     if (!effectiveRoom) return;
+    // Reset locks for the new voting phase
+    voteEndLockRef.current = false;
     audioRef.current?.stopBgm();
     setVoteReveal(null);
     featherRevealFiredRef.current = false;
+    autoVoteEndRef.current = false;
     const duelList = await fetchJokesterDuels(effectiveRoom.id, effectiveRoom.current_round);
     setDuels(duelList);
     const duel = duelList[duelIndex];
@@ -769,7 +788,7 @@ export function JokesterHostContent() {
     setShowDeAnon(false);
 
     startTimer(VOTE_TIME_SEC, () => {
-      void handleVoteEnd();
+      void handleVoteEndRef.current();
     }, {
       preEndSfxAtSec: 10,
       preEndSfxFolder: `${YANDEX_AUDIO_BASE}/sound/Jokester/stop_vote_timer`,
@@ -787,13 +806,12 @@ export function JokesterHostContent() {
     voteEndLockRef.current = true;
     setShowDeAnon(true);
 
-    try {
-      const freshRoom = await fetchJokesterRoom(room.code);
-      const roomSnapshot = freshRoom || room;
-      const roundDuels = await fetchJokesterDuels(roomSnapshot.id, roomSnapshot.current_round);
-      const duel = roundDuels.find(d => d.duel_index === roomSnapshot.current_duel_index);
+    const freshRoom = await fetchJokesterRoom(room.code);
+    const roomSnapshot = freshRoom || room;
+    const roundDuels = await fetchJokesterDuels(roomSnapshot.id, roomSnapshot.current_round);
+    const duel = roundDuels.find(d => d.duel_index === roomSnapshot.current_duel_index);
 
-      if (!duel) {
+    if (!duel) {
         await updateJokesterRoom(roomSnapshot.id, { status: 'round_results', voting_phase: 'results', state_version: roomSnapshot.state_version + 500 });
         setRoom(prev => prev ? { ...prev, status: 'round_results', voting_phase: 'results' } : prev);
         return;
@@ -906,10 +924,9 @@ export function JokesterHostContent() {
 
       // Автопереход к следующей дуэли или результатам раунда
       await handleNextDuelOrResults(roomSnapshot);
-    } finally {
-      voteEndLockRef.current = false;
-    }
+    // voteEndLockRef stays true — reset only in startDuelVoting
   };
+  handleVoteEndRef.current = handleVoteEnd;
 
   const handleNextDuelOrResults = async (roomSnapshot?: JokesterRoom) => {
     const effectiveRoom = roomSnapshot || room;
@@ -992,6 +1009,7 @@ export function JokesterHostContent() {
       current_round: 4,
       state_version: room.state_version + 9,
     });
+    setRoom(prev => prev ? { ...prev, status: 'final_rules', current_round: 4 } : prev);
 
     audioRef.current?.playBgm(JOKESTER_AUDIO.rulesMusic, 0.25);
     await audioRef.current?.playRoundRules(4);
@@ -1026,7 +1044,16 @@ export function JokesterHostContent() {
       timer_duration_sec: ANSWER_TIME_SEC,
       state_version: room.state_version + 10,
     });
-    startTimer(ANSWER_TIME_SEC, () => handleAnswerPhaseEnd(), {
+    setRoom(prev => prev ? {
+      ...prev,
+      status: 'final_playing',
+      current_round: 4,
+      current_duel_index: 0,
+      current_question: 0,
+      voting_phase: 'answering',
+    } : prev);
+    answerPhaseEndLockRef.current = false;
+    startTimer(ANSWER_TIME_SEC, () => handleAnswerPhaseEndRef.current(), {
       preEndSfxAtSec: 10,
       preEndSfxFolder: `${YANDEX_AUDIO_BASE}/sound/Jokester/stop_timer`,
       preEndSfxCount: 10,

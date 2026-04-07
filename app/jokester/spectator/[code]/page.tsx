@@ -113,8 +113,6 @@ export default function JokesterSpectatorPage() {
       subscribeJokesterPlayers(room.id, setPlayers),
       subscribeJokesterDuels(room.id, d => {
         setDuels(d);
-        setMyVote(null);
-        setDuelReveal(null);
       }),
     ];
     return () => unsubs.forEach(fn => fn());
@@ -147,6 +145,13 @@ export default function JokesterSpectatorPage() {
 
   /* ─── Fetch answers for current duel ─── */
   const currentDuel = duels.find(d => d.duel_index === room?.current_duel_index && d.round === room?.current_round);
+
+  // Сброс голоса при смене дуэли
+  useEffect(() => {
+    setMyVote(null);
+    setDuelReveal(null);
+  }, [currentDuel?.id]);
+
   useEffect(() => {
     if (!currentDuel || room?.voting_phase !== 'voting') return;
     fetchDuelAnswers(currentDuel.id).then(setCurrentAnswers);

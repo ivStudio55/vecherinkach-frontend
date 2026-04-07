@@ -175,6 +175,18 @@ export async function fetchSubmittedCount(chainIds: string[], stepNumber: number
   return count || 0;
 }
 
+export async function fetchSubmittedPlayerIds(chainIds: string[], stepNumber: number): Promise<string[]> {
+  if (chainIds.length === 0) return [];
+  const { data, error } = await supabase
+    .from('draw_steps')
+    .select('player_id')
+    .in('chain_id', chainIds)
+    .eq('step_number', stepNumber)
+    .eq('submitted', true);
+  if (error) throw error;
+  return (data || []).map(r => r.player_id);
+}
+
 export async function fetchVotes(roomId: string, round: number): Promise<DrawVote[]> {
   const { data, error } = await supabase
     .from('draw_votes')

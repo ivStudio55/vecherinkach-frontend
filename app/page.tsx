@@ -44,6 +44,7 @@ function HomePageInner() {
   const [isSoundOn, setIsSoundOn] = useState(false);
   const [audioError, setAudioError] = useState('');
   const [showStreamsModal, setShowStreamsModal] = useState(false);
+  const [showContactModal, setShowContactModal] = useState(false);
   const [streams, setStreams] = useState<StreamItem[]>([]);
   const [streamsLoading, setStreamsLoading] = useState(false);
   const [hasUserInteracted, setHasUserInteracted] = useState(false);
@@ -523,6 +524,16 @@ function HomePageInner() {
                     >
                       Поддержка
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        trackGameEvent('home_contact_open');
+                        setShowContactModal(true);
+                      }}
+                      className="px-4 py-2 rounded-full border-2 border-[#142a45] bg-white hover:bg-[#ffe184] transition-colors"
+                    >
+                      Связаться
+                    </button>
                   </div>
                 </div>
 
@@ -776,6 +787,48 @@ function HomePageInner() {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Contact modal */}
+      {showContactModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowContactModal(false)}>
+          <div className="absolute inset-0 bg-black/60" />
+          <div
+            className="relative w-full max-w-lg rounded-3xl border-[4px] border-[#142a45] bg-white shadow-2xl p-6 space-y-5"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-black text-[#142a45]">📬 Связаться</h2>
+              <button onClick={() => setShowContactModal(false)} className="text-2xl text-[#142a45] hover:text-red-500 transition-colors">✕</button>
+            </div>
+
+            <p className="text-[#142a45] leading-relaxed font-medium">
+              Открыт к предложениям! Делаю индивидуальные пакеты вопросов, фирменные игры под вашу компанию, мероприятия и праздники.
+              Пишите - обсудим идею и соберем игру под вас.
+            </p>
+
+            <div className="grid sm:grid-cols-2 gap-3">
+              <a
+                href="https://vk.com/aialekz"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => trackGameEvent('home_contact_link_click', { provider: 'vk' })}
+                className="rounded-2xl border-[3px] border-[#142a45] bg-[#e8f4ff] px-4 py-3 font-black text-[#142a45] text-center hover:bg-[#d9ecff] transition-colors"
+              >
+                VK: vk.com/aialekz
+              </a>
+              <a
+                href="https://t.me/Al_ivStudio"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => trackGameEvent('home_contact_link_click', { provider: 'telegram' })}
+                className="rounded-2xl border-[3px] border-[#142a45] bg-[#e8f4ff] px-4 py-3 font-black text-[#142a45] text-center hover:bg-[#d9ecff] transition-colors"
+              >
+                Telegram: @Al_ivStudio
+              </a>
+            </div>
           </div>
         </div>
       )}

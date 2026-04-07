@@ -25,6 +25,7 @@ export const metadata: Metadata = {
     'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
     'Pragma': 'no-cache',
     'Expires': '0',
+    'p:domain_verify': '696b79383a55fdd264184edf3a03766d',
   },
 };
 
