@@ -59,6 +59,7 @@ export const MODE_COLORS: Record<RoundMode, string> = {
 export const DUCK_AVATARS = [
   'duck1', 'duck2', 'duck3', 'duck4',
   'duck5', 'duck6', 'duck7', 'duck8',
+  'duck9', 'duck10', 'duck11', 'duck12',
 ];
 
 const AVA_BASE = 'https://storage.yandexcloud.net/vecherinkach/json/survivach/img';

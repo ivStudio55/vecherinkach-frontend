@@ -347,17 +347,22 @@ export default function SurvivachHostPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room?.status]);
 
-  /* ─── Auto-advance: all non-host players answered ─── */
+  /* ─── Auto-advance: all non-host players answered (or all but one in Blitz) ─── */
   useEffect(() => {
     if (room?.status !== 'round_playing') return;
     const nonHostPlayers = players.filter(p => !p.is_host);
     if (nonHostPlayers.length === 0) return;
-    if (answers.length >= nonHostPlayers.length) {
+    
+    // In Blitz mode, we don't wait for the last player
+    const isBlitz = room.current_mode === 'blitz';
+    const requiredAnswers = isBlitz ? Math.max(1, nonHostPlayers.length - 1) : nonHostPlayers.length;
+
+    if (answers.length >= requiredAnswers) {
       clearInterval(timerRef.current!);
       handleTimerExpired();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [answers.length, room?.status]);
+  }, [answers.length, room?.status, room?.current_mode]);
 
   /* ─── Auto-advance duel_setup: all non-duelists acted ─── */
   useEffect(() => {
@@ -373,6 +378,46 @@ export default function SurvivachHostPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [duel?.duel_data, room?.status]);
+
+  /* ─── Hot Potato logic ─── */
+  useEffect(() => {
+    if (room?.status === 'potato_playing') {
+      const rd = room.round_results_data as any;
+      if (rd?.potato_started_at && rd?.potato_duration_ms) {
+        const checkExplosion = () => {
+          if (Date.now() >= rd.potato_started_at + rd.potato_duration_ms) {
+            handlePotatoExplosion(rd.potato_bomb_holder);
+          }
+        };
+        const intId = setInterval(checkExplosion, 500);
+        return () => clearInterval(intId);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room?.status, room?.round_results_data]);
+
+  const handlePotatoExplosion = async (loserId: string) => {
+    if (!room) return;
+    const rd = room.round_results_data as any;
+    
+    // Apply -1 life to the loser
+    const p = players.find(x => x.id === loserId);
+    if (p && !p.is_zombie) {
+      const newLives = Math.max(0, p.lives - 1);
+      await updatePlayers([{
+        id: p.id,
+        lives: newLives,
+        is_zombie: newLives === 0,
+      }]);
+    }
+
+    await setRoomStatus(room.id, 'potato_result', {
+      round_results_data: {
+        ...rd,
+        potato_loser: loserId,
+      }
+    });
+  };
 
   /* ══════════════════════════════════════════
      State transition handlers
@@ -541,6 +586,41 @@ export default function SurvivachHostPage() {
           is_zombie_now: newLives === 0 || p.is_zombie,
         });
       }
+    } else if (mode === 'blitz') {
+      const sortedAnswers = [...finalAnswers].sort((a, b) => new Date(a.submitted_at || 0).getTime() - new Date(b.submitted_at || 0).getTime());
+      const allowedCount = Math.max(1, nonHostPlayers.length - 1);
+      
+      for (const p of nonHostPlayers) {
+        const rankIndex = sortedAnswers.findIndex(a => a.player_id === p.id);
+        const ans = rankIndex >= 0 && rankIndex < allowedCount ? sortedAnswers[rankIndex] : undefined;
+
+        const isCorrect = ans?.is_correct ?? false;
+        const isFirst = isCorrect && rankIndex === 0;
+        let posChange = isCorrect ? (isFirst ? 2 : 1) : 0;
+        
+        // Zombies: in blitz they must answer correctly to move (which they can because they get UI controls in blitz clientside)
+        const livesChange = p.is_zombie ? 0 : (isCorrect ? 0 : -1);
+        let newStreak = isCorrect ? p.correct_streak + 1 : 0;
+        let karmaGain = 0;
+        if (!p.is_zombie && newStreak >= 3) karmaGain = 1;
+        
+        const newKarma = p.karma + karmaGain;
+        const newLives = p.is_zombie ? 0 : Math.max(0, p.lives + livesChange);
+        const newPos = Math.min(TOTAL_CELLS, p.position + posChange);
+
+        results.push({
+          player_id: p.id,
+          is_correct: isCorrect,
+          was_first: isFirst,
+          position_change: posChange,
+          lives_change: livesChange,
+          karma_change: karmaGain,
+          new_position: newPos,
+          new_lives: newLives,
+          new_karma: newKarma,
+          is_zombie_now: p.is_zombie || newLives === 0,
+        });
+      }
     } else {
       // Standard scoring
       for (const p of nonHostPlayers) {
@@ -565,16 +645,18 @@ export default function SurvivachHostPage() {
         const isFirst = isCorrect && !firstCorrectFound;
         if (isFirst) firstCorrectFound = true;
         let posChange = isCorrect ? (isFirst ? 2 : 1) : 0;
-        const livesChange = isCorrect ? 0 : -1;
+        
+        // Zombies don't lose lives, they just don't move if incorrect
+        const livesChange = p.is_zombie ? 0 : (isCorrect ? 0 : -1);
 
         // Karma tracking
         let newStreak = isCorrect ? p.correct_streak + 1 : 0;
         let karmaGain = 0;
-        if (newStreak >= 3) {
+        if (!p.is_zombie && newStreak >= 3) {
           karmaGain = 1;
         }
         const newKarma = p.karma + karmaGain;
-        const newLives = Math.max(0, p.lives + livesChange);
+        const newLives = p.is_zombie ? 0 : Math.max(0, p.lives + livesChange);
         const newPos = Math.min(TOTAL_CELLS, p.position + posChange);
 
         results.push({
@@ -587,7 +669,7 @@ export default function SurvivachHostPage() {
           new_position: newPos,
           new_lives: newLives,
           new_karma: newKarma,
-          is_zombie_now: newLives === 0,
+          is_zombie_now: p.is_zombie || newLives === 0,
         });
       }
     }
@@ -671,9 +753,19 @@ export default function SurvivachHostPage() {
       : ma.mixed ?? '';
 
     const correctAnswer = resolveCorrectAnswer(mode);
+    const perfectRound = alivePlayers.length > 0 && alivePlayers.every(p => {
+      const res = results.find(r => r.player_id === p.id);
+      return res?.is_correct;
+    });
 
     await setRoomStatus(room.id, 'round_results', {
-      round_results_data: { round: room.current_round, mode, correct_answer: correctAnswer, player_results: results },
+      round_results_data: { 
+        round: room.current_round, 
+        mode, 
+        correct_answer: correctAnswer, 
+        player_results: results,
+        perfect_round: perfectRound,
+      },
       bet_results_data: bets.length > 0 ? betResultsForSave : null,
       ...(shouldResetBomb ? { zombie_bomb_active: false, zombie_bomb_player_id: null } : {})
     });
@@ -738,6 +830,28 @@ export default function SurvivachHostPage() {
     const newLeaderPos = getLeaderPosition(gamePlayers);
     const newRound = room.current_round + 1;
 
+    // Check for Hot Potato condition: perfect round & at least 3 players alive
+    // (A hot potato needs players to pass it between)
+    // We already stored `perfect_round` in round_results_data.
+    const roundData = room.round_results_data as RoundResultsData | null;
+    const aliveGamePlayers = gamePlayers.filter(p => !p.is_zombie);
+
+    if (roundData?.perfect_round && aliveGamePlayers.length >= 3 && !roundData.potato_loser && !roundData.potato_bomb_holder) {
+      // Pick a random alive player to get the bomb
+      const randomStartId = aliveGamePlayers[Math.floor(Math.random() * aliveGamePlayers.length)].id;
+      
+      const newRoundData = {
+        ...roundData,
+        potato_bomb_holder: randomStartId,
+        potato_duration_ms: 10000 + Math.random() * 5000,
+      };
+
+      await setRoomStatus(room.id, 'potato_intro', {
+        round_results_data: newRoundData,
+      });
+      return;
+    }
+
     if (newLeaderPos >= BLITZ_START && room.current_mode !== 'blitz') {
       await setRoomStatus(room.id, 'blitz_intro', {
         current_round: newRound,
@@ -798,18 +912,36 @@ export default function SurvivachHostPage() {
       // Draw
       bgAudio.current.play(randomFromPool(DRAW_POOL, 5), false, () => advanceAfterDuel());
     } else if (winnerId === duel.challenged_id) {
-      // Called player won → takes 3 karma from challenger
-      await updatePlayers([
-        { id: challenger.id, karma: Math.max(0, challenger.karma - 3) },
-        { id: challenged.id, karma: challenged.karma + 3 },
-      ]);
+      // Called player won → takes 3 karma from challenger (unless challenger is zombie, then just defended)
+      if (challenger.is_zombie) {
+        // Zombie lost duel. Zombie receives nothing (stays zombie). Alive player keeps life.
+      } else {
+        await updatePlayers([
+          { id: challenger.id, karma: Math.max(0, challenger.karma - 3) },
+          { id: challenged.id, karma: challenged.karma + 3 },
+        ]);
+      }
       bgAudio.current.play(randomFromPool(SUMMONED_WON_POOL, 5), false, () => advanceAfterDuel());
     } else {
-      // Challenger won → swap positions
-      await updatePlayers([
-        { id: challenger.id, position: challenged.position },
-        { id: challenged.id, position: challenger.position },
-      ]);
+      // Challenger won
+      if (challenger.is_zombie) {
+        // Zombie won! Resurrects (gets 1 life). Challenged loses 1 life (and might become zombie).
+        // If challenged was already zombie (unlikely but possible), they stay zombie.
+        const newChallengedLives = Math.max(0, challenged.lives - 1);
+        const newChallengedIsZombie = newChallengedLives === 0 || challenged.is_zombie;
+        
+        // Check if challenged landed on another zombie cell (already handled by main logic, but specs say they lose life anyway)
+        await updatePlayers([
+          { id: challenger.id, position: challenged.position, is_zombie: false, lives: 1 },
+          { id: challenged.id, position: challenger.position, is_zombie: newChallengedIsZombie, lives: newChallengedLives },
+        ]);
+      } else {
+        // Normal swap positions
+        await updatePlayers([
+          { id: challenger.id, position: challenged.position },
+          { id: challenged.id, position: challenger.position },
+        ]);
+      }
       bgAudio.current.play(randomFromPool(CALLER_WON_POOL, 5), false, () => advanceAfterDuel());
     }
 
@@ -1001,14 +1133,14 @@ export default function SurvivachHostPage() {
           </div>
 
           {/* Question display by mode */}
-          {room.current_mode === 'umnik' && (
+          {(room.current_mode === 'umnik' || room.current_mode === 'blitz') && (
             <div className="flex-1 flex flex-col items-center gap-6 justify-center">
-              <h2 className="text-2xl font-bold text-center max-w-2xl">
+              <h2 className={`text-2xl font-bold text-center max-w-2xl ${room.current_mode === 'blitz' ? 'text-red-400 animate-pulse' : ''}`}>
                 {(currentQ as { question: string }).question}
               </h2>
               <div className="grid grid-cols-2 gap-3 max-w-2xl w-full">
                 {((currentQ as { options: string[] }).options ?? []).map((opt, i) => (
-                  <div key={i} className="px-4 py-3 bg-gray-800 border border-gray-600 rounded-xl text-center font-medium">
+                  <div key={i} className={`px-4 py-3 bg-gray-800 border ${room.current_mode === 'blitz' ? 'border-red-500/50' : 'border-gray-600'} rounded-xl text-center font-medium`}>
                     <span className="text-gray-500 mr-2">{String.fromCharCode(65 + i)}.</span>{opt}
                   </div>
                 ))}
@@ -1355,6 +1487,105 @@ export default function SurvivachHostPage() {
         </div>
       )}
 
+      {/* ─── HOT POTATO ─── */}
+      {room.status === 'potato_intro' && (
+        <div className="min-h-screen flex flex-col items-center justify-center gap-8 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-orange-600 via-red-950 to-black p-8 relative overflow-hidden">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-orange-600/20 blur-[120px] rounded-full pointer-events-none"></div>
+
+          <h2 className="text-8xl font-black text-transparent bg-clip-text bg-gradient-to-br from-yellow-300 via-orange-500 to-red-600 drop-shadow-[0_0_30px_rgba(234,88,12,0.8)] animate-pulse tracking-tighter uppercase relative z-10">
+            ГОРЯЧАЯ КАРТОШКА
+          </h2>
+          <div className="text-3xl text-gray-200 text-center max-w-4xl leading-relaxed flex flex-col gap-4 relative z-10 border border-orange-500/30 bg-black/40 backdrop-blur-md p-10 rounded-[2rem] shadow-2xl">
+            <p>Вы слишком умные! Все выжившие ответили верно.</p>
+            <p>Случайный игрок получает бомбу-картошку 💣</p>
+            <p className="text-4xl text-orange-400 font-black mt-4 drop-shadow-[0_0_15px_rgba(234,88,12,0.6)]">
+              ТРЯСИ ТЕЛЕФОН
+            </p>
+            <p className="text-xl text-gray-400">чтобы перекинуть её другому!</p>
+            <p className="text-red-400 font-bold mt-2 border-t border-red-500/20 pt-6">У кого бомба взорвётся — теряет жизнь!</p>
+          </div>
+          <button onClick={async () => {
+            const rd = room.round_results_data as any;
+            await setRoomStatus(room.id, 'potato_playing', {
+              round_results_data: {
+                ...rd,
+                potato_started_at: Date.now(),
+              }
+            });
+          }} className="px-16 py-6 bg-gradient-to-b from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 rounded-full text-4xl font-black mt-8 text-white shadow-[0_0_50px_rgba(234,88,12,0.6)] hover:shadow-[0_0_80px_rgba(234,88,12,0.9)] transition-all duration-300 hover:scale-105 active:scale-95 uppercase tracking-wide border-b-4 border-red-800 relative z-10">
+            НАЧАТЬ ПЕРЕДАЧУ
+          </button>
+        </div>
+      )}
+
+      {room.status === 'potato_playing' && (
+        <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-red-950 via-black to-black relative overflow-hidden">
+          {/* Background alert pulse */}
+          <div className="absolute inset-0 bg-red-600/10 animate-ping pointer-events-none" style={{ animationDuration: '0.6s' }} />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] bg-red-600/10 blur-[150px] rounded-full pointer-events-none"></div>
+          
+          <h2 className="text-7xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-orange-500 mb-16 drop-shadow-[0_0_30px_rgba(239,68,68,0.8)] tracking-tighter uppercase relative z-10 animate-pulse">
+            БОМБА У ИГРОКА!
+          </h2>
+          
+          <div className="flex flex-wrap gap-12 justify-center max-w-6xl relative z-10">
+            {players.filter(p => !p.is_host && !p.is_zombie).map(p => {
+              const hasBomb = (room.round_results_data as any)?.potato_bomb_holder === p.id;
+              return (
+                <div key={p.id} className={`flex flex-col items-center gap-6 transition-all duration-500 ${
+                  hasBomb ? 'scale-[1.3] z-20' : 'scale-90 opacity-40 blur-[2px] grayscale'
+                }`}>
+                  <div className={`relative ${hasBomb ? 'animate-bounce drop-shadow-[0_0_50px_rgba(239,68,68,0.8)]' : ''}`}>
+                    <img src={getAvatarUrl(p.avatar, p.lives)} alt={p.name} className="w-40 h-40 object-contain drop-shadow-2xl" />
+                    {hasBomb && (
+                      <div className="absolute -top-12 -right-12 text-8xl animate-pulse drop-shadow-[0_0_40px_white] z-30 filter contrast-125">
+                        💣
+                      </div>
+                    )}
+                  </div>
+                  <span className={`text-4xl font-black tracking-tight ${hasBomb ? 'text-red-400 drop-shadow-[0_0_10px_rgba(248,113,113,0.8)] text-white' : 'text-gray-500'}`}>
+                    {p.name}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {room.status === 'potato_result' && (
+        <div className="min-h-screen flex flex-col items-center justify-center gap-12 bg-black bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-red-900/50 via-black to-black p-8 text-center relative overflow-hidden">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-[600px] bg-red-600/20 blur-[150px] rounded-full pointer-events-none mix-blend-screen"></div>
+
+          <h2 className="text-9xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-red-500 to-red-800 drop-shadow-[0_0_60px_rgba(239,68,68,1)] animate-shake uppercase tracking-tighter relative z-10">
+            БАБАХ!
+          </h2>
+          {(() => {
+            const loserId = (room.round_results_data as any)?.potato_loser;
+            const loser = players.find(p => p.id === loserId);
+            if (!loser) return null;
+            return (
+              <div className="flex flex-col items-center justify-center gap-8 mt-4 relative z-10">
+                <div className="relative group">
+                  <div className="absolute inset-0 bg-red-600 blur-[60px] opacity-60 rounded-full"></div>
+                  <img src={getAvatarUrl(loser.avatar, loser.lives)} alt={loser.name} className="w-64 h-64 object-contain relative z-10 drop-shadow-[0_20px_50px_rgba(0,0,0,0.8)]" />
+                </div>
+                <div className="text-5xl font-black text-white tracking-tight">
+                  Игрок <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-orange-400 drop-shadow-[0_0_15px_rgba(248,113,113,0.6)]">{loser.name}</span> взорвался
+                </div>
+                <div className="text-5xl font-black text-white bg-gradient-to-r from-red-700 to-red-900 border-2 border-red-500 px-12 py-6 rounded-[2.5rem] mt-4 shadow-[0_0_40px_rgba(220,38,38,0.7)] flex items-center gap-4">
+                  <span className="text-red-300">💥</span> -1 ЖИЗНЬ <span className="text-red-300">💥</span>
+                </div>
+              </div>
+            );
+          })()}
+          
+          <button onClick={() => advanceAfterBetReveal()} className="px-16 py-6 bg-white text-black hover:bg-gray-200 rounded-full text-3xl font-black mt-8 shadow-[0_0_30px_rgba(255,255,255,0.4)] transition-all duration-300 hover:scale-105 active:scale-95 uppercase tracking-wider relative z-10">
+            ПРОДОЛЖИТЬ
+          </button>
+        </div>
+      )}
+
       {/* ─── BLITZ INTRO ─── */}
       {room.status === 'blitz_intro' && (
         <div className="min-h-screen flex flex-col items-center justify-center gap-6 bg-gradient-to-b from-gray-950 to-red-950">
@@ -1364,32 +1595,14 @@ export default function SurvivachHostPage() {
             🧟 Зомби преследуют — каждый вопрос они идут вперёд.
           </p>
           <button onClick={async () => {
-            await setRoomStatus(room.id, 'blitz_playing', { current_round: room.current_round + 1 });
+            await setRoomStatus(room.id, 'moving', {
+              current_round: room.current_round,
+              leader_position: room.leader_position,
+              current_mode: 'blitz',
+            });
           }} className="px-12 py-5 bg-red-600 hover:bg-red-500 rounded-2xl text-2xl font-black">
             ⚡ ПОГНАЛИ!
           </button>
-        </div>
-      )}
-
-      {/* ─── BLITZ PLAYING ─── */}
-      {room.status === 'blitz_playing' && currentQ && (
-        <div className="min-h-screen flex flex-col p-6 gap-4 bg-gradient-to-b from-gray-950 to-red-950/30">
-          <div className="flex items-center gap-4">
-            <span className="text-red-400 font-black text-xl">⚡ БЛИЦ</span>
-            <span className="text-gray-400">Раунд {room.current_round}</span>
-            <div className={`ml-auto text-3xl font-mono font-black px-4 py-1 rounded-lg ${timerLeft <= 5 ? 'text-red-400 bg-red-900/30 animate-pulse' : 'text-white bg-gray-800'}`}>
-              ⏱ {timerLeft}s
-            </div>
-          </div>
-
-          <h2 className="text-2xl font-bold text-center">{(currentQ as { question: string }).question}</h2>
-          <div className="grid grid-cols-2 gap-3 max-w-lg mx-auto w-full">
-            {((currentQ as { options: string[] }).options ?? []).map((opt, i) => (
-              <div key={i} className="px-4 py-3 bg-gray-800 border border-red-500/30 rounded-xl text-center">{opt}</div>
-            ))}
-          </div>
-
-          <BoardView players={players.filter(p => !p.is_host)} leaderPosition={room.leader_position} />
         </div>
       )}
 

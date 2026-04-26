@@ -17,6 +17,9 @@ export type SurvivachRoomStatus =
   | 'blitz_intro'
   | 'blitz_playing'
   | 'blitz_results'
+  | 'potato_intro'
+  | 'potato_playing'
+  | 'potato_result'
   | 'finished';
 
 export type RoundMode =
@@ -212,6 +215,9 @@ export interface RoundResultsData {
   mode: RoundMode;
   correct_answer: string;
   player_results: PlayerRoundResult[];
+  perfect_round?: boolean;
+  potato_bomb_holder?: string | null;
+  potato_loser?: string | null;
 }
 
 /* ─── Bet results ─── */

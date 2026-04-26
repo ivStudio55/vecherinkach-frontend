@@ -381,6 +381,30 @@ export async function loadDuelQuestions(
 }
 
 /* ══════════════════════════════════════════
+   Hot Potato
+   ══════════════════════════════════════════ */
+
+export async function passPotatoBomb(roomId: string, currentHolderId: string, newHolderId: string) {
+  // Use RPC or a simple select-update if it's fine for concurrency.
+  // The simplest is to fetch room and update its JSONB.
+  const { data: room, error: fetchErr } = await supabase
+    .from('survivach_rooms')
+    .select('round_results_data, status')
+    .eq('id', roomId)
+    .single();
+
+  if (fetchErr || !room || room.status !== 'potato_playing') return;
+  const rd = room.round_results_data as any;
+  if (!rd || rd.potato_bomb_holder !== currentHolderId) return;
+
+  const newData = { ...rd, potato_bomb_holder: newHolderId };
+  await supabase
+    .from('survivach_rooms')
+    .update({ round_results_data: newData })
+    .eq('id', roomId);
+}
+
+/* ══════════════════════════════════════════
    Realtime subscriptions
    ══════════════════════════════════════════ */
 

@@ -27,6 +27,7 @@ import {
   subscribeRoomPlayers,
   subscribeRoomDuel,
   subscribeRoomAnswers,
+  passPotatoBomb,
 } from '@/lib/survivach/api';
 import {
   DUCK_AVATARS,
@@ -253,6 +254,67 @@ export default function SurvivachRoomPage() {
   const [showSequence, setShowSequence] = useState(false);
   const [seqTimer, setSeqTimer] = useState(5);
   const [puzzleSolved, setPuzzleSolved] = useState(false);
+  const passTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  /* ── Hot Potato pass action ── */
+  const handlePotatoPass = useCallback(async () => {
+    if (!room || !me) return;
+    const rd = room.round_results_data as any;
+    if (room.status !== 'potato_playing' || rd?.potato_bomb_holder !== me.id) return;
+    
+    // Prevent double passing rapidly
+    if (passTimeout.current) return;
+    passTimeout.current = setTimeout(() => {
+      passTimeout.current = null;
+    }, 1000);
+
+    const aliveGamePlayers = players.filter(p => !p.is_host && !p.is_zombie && p.id !== me.id);
+    if (aliveGamePlayers.length > 0) {
+      const nextId = aliveGamePlayers[Math.floor(Math.random() * aliveGamePlayers.length)].id;
+      // Call API
+      await passPotatoBomb(room.id, me.id, nextId);
+    }
+  }, [room, me, players]);
+
+  /* ── Shake detection ── */
+  useEffect(() => {
+    if (room?.status !== 'potato_playing' || !me) return;
+    
+    let lastX = 0, lastY = 0, lastZ = 0;
+    let lastUpdate = 0;
+    const SHAKE_THRESHOLD = 15;
+
+    const onMotion = (e: DeviceMotionEvent) => {
+      const rd = room.round_results_data as any;
+      // Only care if I hold the bomb
+      if (rd?.potato_bomb_holder !== me.id) return;
+
+      const { accelerationIncludingGravity } = e;
+      if (!accelerationIncludingGravity) return;
+
+      const { x, y, z } = accelerationIncludingGravity;
+      if (x === null || y === null || z === null) return;
+
+      const now = Date.now();
+      if ((now - lastUpdate) > 100) {
+        const diffTime = (now - lastUpdate);
+        lastUpdate = now;
+
+        const speed = Math.abs(x + y + z - lastX - lastY - lastZ) / diffTime * 10000;
+        
+        if (speed > SHAKE_THRESHOLD) {
+          handlePotatoPass();
+        }
+
+        lastX = x;
+        lastY = y;
+        lastZ = z;
+      }
+    };
+
+    window.addEventListener('devicemotion', onMotion);
+    return () => window.removeEventListener('devicemotion', onMotion);
+  }, [room, me, handlePotatoPass]);
 
   /* ── Fetch & subscribe ── */
   useEffect(() => {
@@ -1108,6 +1170,155 @@ export default function SurvivachRoomPage() {
             )}
           </div>
         )}
+
+        {/* ────────── HOT POTATO ────────── */}
+        {room.status === 'potato_intro' && (
+          <div className="flex-1 flex flex-col items-center justify-center p-8 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-orange-600 via-red-950 to-black text-center relative overflow-hidden">
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-orange-500/20 blur-[100px] rounded-full pointer-events-none"></div>
+
+            <h2 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-br from-yellow-300 via-orange-500 to-red-600 drop-shadow-[0_0_20px_rgba(234,88,12,0.8)] animate-pulse tracking-tighter uppercase leading-none mb-8 relative z-10">
+              ГОРЯЧАЯ<br/>КАРТОШКА!
+            </h2>
+            <div className="text-xl text-gray-200 mb-8 max-w-sm space-y-4 border border-orange-500/20 bg-black/30 backdrop-blur p-6 rounded-3xl shadow-xl relative z-10">
+              <p>Все выжившие ответили верно!</p>
+              <p>Придётся кому-то взять удар на себя.</p>
+            </div>
+            
+            <div className="bg-gradient-to-r from-red-600/20 to-orange-600/20 border border-orange-500/30 p-6 rounded-[2rem] mb-10 w-full max-w-sm relative z-10 shadow-[0_0_30px_rgba(234,88,12,0.2)]">
+              <p className="text-3xl font-black text-white text-center tracking-tight mb-2">ТРЯСИ ТЕЛЕФОН</p>
+              <p className="text-orange-300 font-medium opacity-80 text-center">или жми кнопку,<br/>чтобы перекинуть бомбу!</p>
+            </div>
+
+            <button 
+              onClick={async () => {
+                if (typeof (DeviceMotionEvent as any).requestPermission === 'function') {
+                  try {
+                    await (DeviceMotionEvent as any).requestPermission();
+                  } catch(e) {
+                    console.error(e);
+                  }
+                }
+              }} 
+              className="w-full max-w-xs py-5 bg-gradient-to-b from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 rounded-full text-2xl font-black text-white shadow-[0_0_40px_rgba(234,88,12,0.6)] active:scale-95 transition-all outline-none border-b-4 border-red-800 relative z-10 tracking-widest uppercase"
+            >
+              ПОНЯЛ
+            </button>
+          </div>
+        )}
+
+        {room.status === 'potato_playing' && (() => {
+          const rd = room.round_results_data as any;
+          const holderId = rd?.potato_bomb_holder;
+          const imHolder = holderId === me?.id;
+          const imDead = me?.is_zombie ?? false;
+
+          return (
+            <div className={`flex-1 flex flex-col items-center justify-center p-8 transition-colors duration-700 relative overflow-hidden ${imHolder ? 'bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-red-800 via-red-950 to-black' : 'bg-gray-950'}`}>
+              
+              {/* ImDead view */}
+              {imDead ? (
+                <div className="relative z-10 flex flex-col items-center gap-6">
+                  <div className="text-6xl grayscale opacity-30">🧟</div>
+                  <h2 className="text-3xl font-black text-gray-500 text-center uppercase tracking-wide px-8">
+                    Зомби не боятся бомб
+                  </h2>
+                </div>
+              ) 
+              
+              /* Bomb Holder View */
+              : imHolder ? (
+                <>
+                  <div className="absolute inset-0 bg-red-600/20 animate-ping pointer-events-none mix-blend-screen" style={{ animationDuration: '0.4s' }} />
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.8)_100%)] pointer-events-none relative z-10"></div>
+                  
+                  <div className="relative z-20 flex flex-col items-center w-full max-w-sm">
+                    <h2 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-red-300 drop-shadow-[0_0_30px_rgba(239,68,68,1)] animate-shake tracking-tighter uppercase text-center mb-8">
+                      БОМБА У ТЕБЯ!
+                    </h2>
+                    
+                    <div className="relative mb-12">
+                      <div className="absolute inset-0 bg-red-600 blur-[50px] opacity-60 rounded-full animate-pulse"></div>
+                      <div className="text-9xl animate-bounce drop-shadow-[0_0_40px_rgba(255,255,255,0.6)] filter contrast-125 saturate-150 relative z-10">💣</div>
+                    </div>
+                    
+                    <div className="bg-black/40 border border-red-500/30 rounded-3xl p-6 backdrop-blur w-full mb-8 shadow-2xl">
+                      <p className="text-3xl font-black text-white text-center animate-pulse tracking-tight text-red-50">
+                        ОТДАЙ ЕЁ!
+                      </p>
+                      <p className="text-red-400 font-semibold text-center mt-2 uppercase">Тряси или жми кнопку</p>
+                    </div>
+
+                    <button
+                      onClick={() => handlePotatoPass()}
+                      className="w-full py-6 bg-gradient-to-b from-red-500 to-red-800 rounded-full text-3xl font-black text-white shadow-[0_0_60px_rgba(239,68,68,0.8)] active:scale-95 transition-all border-b-[6px] border-red-950 uppercase tracking-widest"
+                    >
+                      ПЕРЕКИНУТЬ
+                    </button>
+                  </div>
+                </>
+              ) 
+              
+              /* Idle Player View */
+              : (
+                <div className="relative z-10 flex flex-col items-center gap-10">
+                  <div className="relative">
+                    <div className="text-8xl grayscale opacity-30 drop-shadow-xl saturate-0">💣</div>
+                  </div>
+                  <div className="bg-gray-900/50 border border-gray-800 p-8 rounded-[2rem] text-center w-full max-w-sm backdrop-blur-sm">
+                    <h2 className="text-3xl font-black text-gray-400 tracking-tight uppercase leading-snug">
+                      Бомба не у тебя.
+                    </h2>
+                    <p className="text-xl text-green-500/70 font-semibold mt-4 animate-pulse">
+                      Молись! 🙏
+                    </p>
+                  </div>
+                  {holderId && (
+                    <p className="text-lg text-gray-600 font-medium uppercase tracking-widest text-center mt-4">
+                      Следи на экране
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {room.status === 'potato_result' && (() => {
+          const rd = room.round_results_data as any;
+          const loserId = rd?.potato_loser;
+          const imLoser = loserId === me?.id;
+
+          return (
+            <div className={`flex-1 flex flex-col items-center justify-center p-8 transition-colors duration-1000 relative overflow-hidden ${imLoser ? 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-red-900 via-black to-black' : 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-green-900/20 via-black to-black'}`}>
+              
+              {imLoser && <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[400px] h-[400px] bg-red-600/30 blur-[100px] rounded-full pointer-events-none mix-blend-screen"></div>}
+              
+              <h2 className={`text-6xl font-black text-center mb-10 tracking-tighter uppercase relative z-10 ${imLoser ? 'text-transparent bg-clip-text bg-gradient-to-b from-white to-red-600 drop-shadow-[0_0_30px_rgba(239,68,68,1)] animate-shake' : 'text-gray-600'}`}>
+                💥 БАБАХ! 💥
+              </h2>
+              
+              <div className={`relative z-10 p-8 rounded-[2rem] text-center w-full max-w-sm backdrop-blur-md border ${imLoser ? 'bg-red-950/40 border-red-500/30 shadow-[0_0_50px_rgba(239,68,68,0.4)]' : 'bg-gray-900/40 border-gray-800'}`}>
+                {imLoser ? (
+                  <div className="flex flex-col gap-4">
+                    <p className="text-4xl font-black text-white uppercase tracking-tight">
+                      Ты взорвался!
+                    </p>
+                    <div className="mx-auto bg-red-500/20 border border-red-500 text-red-400 py-3 px-6 rounded-full inline-block">
+                      <span className="text-2xl font-black tracking-widest">-1 ЖИЗНЬ</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-3xl font-black text-gray-300 uppercase tracking-tight">
+                      Тебя пронесло
+                    </p>
+                    <p className="text-green-500/80 font-bold text-xl uppercase mt-2">Фух 😮‍💨</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ────────── BLITZ INTRO ────────── */}
         {room.status === 'blitz_intro' && (
