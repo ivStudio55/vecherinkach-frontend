@@ -1,0 +1,3 @@
+ALTER TABLE question_packs ADD COLUMN IF NOT EXISTS price INTEGER;
+ALTER TABLE jokester_question_packs ADD COLUMN IF NOT EXISTS price INTEGER;
+SELECT 'done';

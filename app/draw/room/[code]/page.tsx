@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { ShareButton } from '@/shared/ui/ShareButton';
 import {
   fetchDrawRoom,
   fetchDrawPlayers,
@@ -540,6 +541,12 @@ export default function DrawRoomPage() {
               <h2 className="text-3xl font-bangers tracking-wide text-[#00BFFF] drop-shadow-[2px_2px_0_#000]" style={{ WebkitTextStroke: '1px black' }}>
                 {phase === 'finished' ? 'ИГРА ОКОНЧЕНА!' : `РЕЗУЛЬТАТЫ РАУНДА ${room.current_round}`}
               </h2>
+              <ShareButton
+                rank={sortedPlayers.findIndex(p => p.id === session.playerId) + 1 || null}
+                points={me?.score ?? null}
+                gameName="Рисункач"
+                className="mt-4 inline-block bg-[#00BFFF] hover:bg-[#00a8e8] text-white border-[3px] border-black px-4 py-2 font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all transform -rotate-2"
+              />
               <a
                 href="https://donatty.com/aleksandri"
                 target="_blank"

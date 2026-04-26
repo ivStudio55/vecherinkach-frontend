@@ -25,6 +25,7 @@ import type {
 } from '@/lib/creativach/types';
 import { ROUNDS, ANSWER_TIME_SEC, VOTE_TIME_SEC, TOTAL_ROUNDS } from '@/lib/creativach/types';
 import { supabase } from '@/lib/supabase';
+import { ShareButton } from '@/shared/ui/ShareButton';
 
 const YANDEX_AUDIO_BASE = process.env.NEXT_PUBLIC_AUDIO_BASE ?? 'https://storage.yandexcloud.net/vecherinkach/audio';
 
@@ -408,6 +409,12 @@ export default function CreativachRoomPage() {
                     <p className="text-xl font-black text-[#FF6B35]">{sortedByPoints[0].total_points} оч.</p>
                   </div>
                 )}
+                <ShareButton
+                  rank={sortedByPoints.findIndex(p => p.id === myId) + 1 || null}
+                  points={sortedByPoints.find(p => p.id === myId)?.total_points ?? null}
+                  gameName="Креативач"
+                  className="w-full py-3 text-base font-black cartoon-button text-center mb-1"
+                />
                 <div className="flex gap-3">
                   <a href="https://donatty.com/aleksandri" target="_blank" rel="noopener noreferrer" className="flex-1 py-3 text-base font-black cartoon-button-purple text-center">
                     💖 Поддержать
@@ -444,6 +451,12 @@ export default function CreativachRoomPage() {
               ))}
             </div>
 
+            <ShareButton
+              rank={sortedByPoints.findIndex(p => p.id === myId) + 1 || null}
+              points={sortedByPoints.find(p => p.id === myId)?.total_points ?? null}
+              gameName="Креативач"
+              className="w-full py-3 text-base font-black cartoon-button text-center"
+            />
             <div className="flex gap-3 mt-4">
               <a href="https://donatty.com/aleksandri" target="_blank" rel="noopener noreferrer" className="flex-1 py-3 text-base font-black cartoon-button-purple text-center">
                 💖 Поддержать

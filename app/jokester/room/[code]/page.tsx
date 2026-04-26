@@ -34,6 +34,7 @@ import type {
 } from '@/lib/jokester/types';
 import { ANSWER_TIME_SEC, VOTE_TIME_SEC, roundMultiplier } from '@/lib/jokester/types';
 import { supabase } from '@/lib/supabase';
+import { ShareButton } from '@/shared/ui/ShareButton';
 
 function normalizeAvatarFile(value?: string | null): string {
   if (!value) return '1.png';
@@ -581,15 +582,18 @@ export default function JokesterPlayerPage() {
               ))}
             </div>
 
-            <div className="text-center">
-              <a
-                href="https://donatty.com/aleksandri"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex cartoon-button px-6 py-3 text-sm"
-              >
-                💛 Поддержать проект
-              </a>
+            <div className="text-center space-y-2">
+              <ShareButton rank={myRank} points={me?.total_points ?? null} gameName="Пошутикач" className="inline-flex cartoon-button px-6 py-3 text-sm" />
+              <div>
+                <a
+                  href="https://donatty.com/aleksandri"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex cartoon-button px-6 py-3 text-sm"
+                >
+                  💛 Поддержать проект
+                </a>
+              </div>
             </div>
           </div>
         )}
@@ -605,8 +609,7 @@ export default function JokesterPlayerPage() {
                 <p className="text-2xl font-black text-black">{me.name}</p>
                 <p className="text-xl font-black text-[#1f6ac6] drop-shadow-[1px_1px_0_#000]">{me.total_points} очков · #{myRank} место</p>
               </div>
-            )}
-            <a
+            )}            <ShareButton rank={myRank} points={me?.total_points ?? null} gameName="Пошутикач" className="inline-flex cartoon-button px-6 py-3 text-sm" />            <a
               href="https://donatty.com/aleksandri"
               target="_blank"
               rel="noopener noreferrer"
@@ -623,6 +626,7 @@ export default function JokesterPlayerPage() {
             <div className="text-6xl drop-shadow-[2px_2px_0_#000]">🎉</div>
             <p className="text-3xl font-black text-black">Игра окончена!</p>
             {me && <p className="text-xl font-black text-[#1f6ac6] drop-shadow-[1px_1px_0_#000]">{me.total_points} очков · #{myRank} место</p>}
+            <ShareButton rank={myRank} points={me?.total_points ?? null} gameName="Пошутикач" className="inline-flex cartoon-button px-6 py-3 text-sm" />
             <a
               href="https://donatty.com/aleksandri"
               target="_blank"

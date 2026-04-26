@@ -1,0 +1,273 @@
+{
+  "mode": "art_historian",
+  "description": "Игрокам показывается изображение произведения искусства. Нужно угадать название картины/скульптуры ИЛИ имя автора. При зомби-бомбе изображение размывается.",
+  "audio_pools": {
+    "intro_normal": "https://storage.yandexcloud.net/vecherinkach/json/survivach/art_historian/normal/",
+    "intro_zombie_bomb": "https://storage.yandexcloud.net/vecherinkach/json/survivach/art_historian/zombybomb/",
+    "result_all_correct": "https://storage.yandexcloud.net/vecherinkach/json/survivach/art_historian/all_correct/",
+    "result_everyone_mistake": "https://storage.yandexcloud.net/vecherinkach/json/survivach/art_historian/everyone_mistake/",
+    "result_only_one_answered": "https://storage.yandexcloud.net/vecherinkach/json/survivach/art_historian/only_one_answered/",
+    "result_only_one_not_answer": "https://storage.yandexcloud.net/vecherinkach/json/survivach/art_historian/only_one_not_answer/",
+    "result_mixed": "https://storage.yandexcloud.net/vecherinkach/json/survivach/art_historian/mixed/"
+  },
+  "questions": [
+    {
+      "id": 1,
+      "question": "Чей палец почти коснулся пальца Бога? Угадайте шедевр или его создателя.",
+      "image_url": "https://storage.yandexcloud.net/vecherinkach/json/survivach/art_historian/img/1.webp",
+      "accept_answer": ["Сотворение Адама", "Микеланджело", "Микеланджело Буонарроти", "фреска Сикстинской капеллы"],
+      "primary_answer": "Сотворение Адама",
+      "author": "Микеланджело Буонарроти",
+      "year": "1508–1512",
+      "fun_fact": "Между пальцами Адама и Бога — всего несколько миллиметров. Этот «недосягаемый контакт» символизирует момент, когда искра жизни ещё не передана, но уже неизбежна.",
+      "zombie_bomb_mode": {
+        "blur_image": true,
+        "hint": "Изображение размыто! Подсказка: это часть потолочной росписи."
+      },
+      "difficulty": "easy"
+    },
+    {
+      "id": 2,
+      "question": "Время течёт, а часы — плавятся. Назовите картину или художника, который увидел сны наяву.",
+      "image_url": "https://storage.yandexcloud.net/vecherinkach/json/survivach/art_historian/img/2.jpg",
+      "accept_answer": ["Постоянство памяти", "Сальвадор Дали", "The Persistence of Memory", "мягкие часы"],
+      "primary_answer": "Постоянство памяти",
+      "author": "Сальвадор Дали",
+      "year": "1931",
+      "fun_fact": "Дали вдохновился идеей плавящихся часов, наблюдая за тающим сыром камамбер на солнце. Сюрреализм в чистом виде!",
+      "zombie_bomb_mode": {
+        "blur_image": true,
+        "hint": "Изображение размыто! Подсказка: художник с закрученными усами."
+      },
+      "difficulty": "easy"
+    },
+    {
+      "id": 3,
+      "question": "Хрупкая девочка балансирует на огромном шаре. Кто автор этой метафоры нежности и равновесия?",
+      "image_url": "https://storage.yandexcloud.net/vecherinkach/json/survivach/art_historian/img/3.jpg",
+      "accept_answer": ["Девочка на шаре", "Пабло Пикассо", "Филиппинка на шаре", "ранний Пикассо"],
+      "primary_answer": "Девочка на шаре",
+      "author": "Пабло Пикассо",
+      "year": "1905",
+      "fun_fact": "Картина написана в «розовый период» Пикассо. Художник изобразил циркачку, чтобы показать контраст между хрупкостью человека и тяжестью жизненного пути.",
+      "zombie_bomb_mode": {
+        "blur_image": true,
+        "hint": "Изображение размыто! Подсказка: художник позже придумал «Гернику»."
+      },
+      "difficulty": "medium"
+    },
+    {
+      "id": 4,
+      "question": "Ночь, фонари, отряд стрельцов с капитаном. Как называется это полотно или кто его написал?",
+      "image_url": "https://storage.yandexcloud.net/vecherinkach/json/survivach/art_historian/img/4.jpg",
+      "accept_answer": ["Ночной дозор", "Рембрандт", "Рембрандт ван Рейн", "Выступление стрелковой роты"],
+      "primary_answer": "Ночной дозор",
+      "author": "Рембрандт ван Рейн",
+      "year": "1642",
+      "fun_fact": "На самом деле картина изображает дневную сцену! Тёмный лак, покрывавший полотно веками, создал иллюзию ночи. Оригинальное название — «Выступление стрелковой роты».",
+      "zombie_bomb_mode": {
+        "blur_image": true,
+        "hint": "Изображение размыто! Подсказка: голландский мастер светотени."
+      },
+      "difficulty": "medium"
+    },
+    {
+      "id": 5,
+      "question": "Монументальное полотно длиной более 5 метров, над которым художник работал 20 лет. Назовите шедевр или автора.",
+      "image_url": "https://storage.yandexcloud.net/vecherinkach/json/survivach/art_historian/img/5.jpg",
+      "accept_answer": ["Явление Христа народу", "Александр Иванов", "Пришествие Мессии"],
+      "primary_answer": "Явление Христа народу",
+      "author": "Александр Иванов",
+      "year": "1837–1857",
+      "fun_fact": "Иванов написал более 400 этюдов для этой картины, живя в Италии. Он стремился к исторической и духовной достоверности каждого персонажа.",
+      "zombie_bomb_mode": {
+        "blur_image": true,
+        "hint": "Изображение размыто! Подсказка: русский художник, работавший в Риме."
+      },
+      "difficulty": "hard"
+    },
+    {
+      "id": 6,
+      "question": "Мраморный гигант, ставший символом свободы. Угадайте скульптуру или её создателя.",
+      "image_url": "https://storage.yandexcloud.net/vecherinkach/json/survivach/art_historian/img/6.jpg",
+      "accept_answer": ["Давид", "Микеланджело", "Микеланджело Буонарроти", "статуя Давида"],
+      "primary_answer": "Давид",
+      "author": "Микеланджело Буонарроти",
+      "year": "1501–1504",
+      "fun_fact": "Статуя высотой 5,17 м вырезана из монолитного блока мрамора, который считали бракованным. Микеланджело увидел в нём идеальную форму и создал шедевр.",
+      "zombie_bomb_mode": {
+        "blur_image": true,
+        "hint": "Изображение размыто! Подсказка: тот же мастер, что и «Сотворение Адама»."
+      },
+      "difficulty": "easy"
+    },
+    {
+      "id": 7,
+      "question": "Он сидит, подперев голову рукой, и думает о смысле бытия. Назовите скульптуру или автора.",
+      "image_url": "https://storage.yandexcloud.net/vecherinkach/json/survivach/art_historian/img/7.jpg",
+      "accept_answer": ["Мыслитель", "Огюст Роден", "The Thinker", "скульптура Родена"],
+      "primary_answer": "Мыслитель",
+      "author": "Огюст Роден",
+      "year": "1880–1904",
+      "fun_fact": "Изначально фигура называлась «Поэт» и должна была изображать Данте у врат Ада. Позже Роден сделал её универсальным символом человеческого размышления.",
+      "zombie_bomb_mode": {
+        "blur_image": true,
+        "hint": "Изображение размыто! Подсказка: французский скульптор, мастер «Поцелуя»."
+      },
+      "difficulty": "easy"
+    },
+    {
+      "id": 8,
+      "question": "Конь вздыбился, всадник указывает вдаль. Этот памятник стал символом целого города. Угадайте название или автора.",
+      "image_url": "https://storage.yandexcloud.net/vecherinkach/json/survivach/art_historian/img/8.jpg",
+      "accept_answer": ["Медный всадник", "Этьен Фальконе", "памятник Петру I", "Фальконе"],
+      "primary_answer": "Медный всадник",
+      "author": "Этьен Морис Фальконе",
+      "year": "1782",
+      "fun_fact": "Голову Петра лепила ученица Фальконе — Мари-Анна Колло. А змея под копытами коня символизирует победы над трудностями и завистниками.",
+      "zombie_bomb_mode": {
+        "blur_image": true,
+        "hint": "Изображение размыто! Подсказка: Пушкин посвятил этому памятнику поэму."
+      },
+      "difficulty": "medium"
+    },
+    {
+      "id": 9,
+      "question": "Банан, приклеенный скотчем к стене, продан за $120 000. Как называется этот провокационный арт-объект или кто его автор?",
+      "image_url": "https://storage.yandexcloud.net/vecherinkach/json/survivach/art_historian/img/9.jpg",
+      "accept_answer": ["Комик", "Маурицио Каттелан", "Comedian", "банан Каттелана"],
+      "primary_answer": "Комик",
+      "author": "Маурицио Каттелан",
+      "year": "2019",
+      "fun_fact": "Каттелан создал три версии работы. Инструкцию по замене банана может выполнить любой галерист. Искусство как идея, а не как объект.",
+      "zombie_bomb_mode": {
+        "blur_image": true,
+        "hint": "Изображение размыто! Подсказка: итальянский художник-провокатор."
+      },
+      "difficulty": "hard"
+    },
+    {
+      "id": 10,
+      "question": "Эта картина начала самоуничтожаться прямо на аукционе! Назовите её или загадочного автора.",
+      "image_url": "https://storage.yandexcloud.net/vecherinkach/json/survivach/art_historian/img/10.jpg",
+      "accept_answer": ["Девочка с воздушным шаром", "Любовь в мусорной корзине", "Бэнкси", "Girl with Balloon", "Love in the Bin"],
+      "primary_answer": "Девочка с воздушным шаром",
+      "author": "Бэнкси",
+      "year": "2002 / 2018",
+      "fun_fact": "В момент продажи за £1 млн в раме сработал шредер, и картина превратилась в «Любовь в мусорной корзине». Бэнкси доказал: искусство может быть акцией, а не товаром.",
+      "zombie_bomb_mode": {
+        "blur_image": true,
+        "hint": "Изображение размыто! Подсказка: анонимный уличный художник в маске."
+      },
+      "difficulty": "medium"
+    },
+    {
+      "id": 11,
+      "question": "Огромная блестящая собака из воздушных шаров... но сделана из нержавеющей стали. Угадайте скульптуру или автора.",
+      "image_url": "https://storage.yandexcloud.net/vecherinkach/json/survivach/art_historian/img/11.webp",
+      "accept_answer": ["Собака из шариков", "Balloon Dog", "Джефф Кунс", "воздушный пёс"],
+      "primary_answer": "Собака из шариков",
+      "author": "Джефф Кунс",
+      "year": "1994–2000",
+      "fun_fact": "Скульптура весит несколько тонн и отполирована до зеркального блеска. Кунс превращает китч в высокое искусство, а детскую игрушку — в объект за $58 млн.",
+      "zombie_bomb_mode": {
+        "blur_image": true,
+        "hint": "Изображение размыто! Подсказка: американский мастер поп-арта."
+      },
+      "difficulty": "medium"
+    },
+    {
+      "id": 12,
+      "question": "Корабль на гребне гигантской волны, луч надежды в кромешной тьме. Назовите шедевр маринистики или его автора.",
+      "image_url": "https://storage.yandexcloud.net/vecherinkach/json/survivach/art_historian/img/12.jpg",
+      "accept_answer": ["Девятый вал", "Иван Айвазовский", "волна Айвазовского"],
+      "primary_answer": "Девятый вал",
+      "author": "Иван Айвазовский",
+      "year": "1850",
+      "fun_fact": "По морскому поверью, девятый вал — самый разрушительный. Айвазовский изобразил не гибель, а надежду: люди цепляются за обломок мачты, а солнце пробивается сквозь тучи.",
+      "zombie_bomb_mode": {
+        "blur_image": true,
+        "hint": "Изображение размыто! Подсказка: русский художник, написавший более 6000 морских пейзажей."
+      },
+      "difficulty": "easy"
+    },
+    {
+      "id": 13,
+      "question": "Озеро, небо, церквушка на берегу... и ощущение вечности. Угадайте философский пейзаж или его создателя.",
+      "image_url": "https://storage.yandexcloud.net/vecherinkach/json/survivach/art_historian/img/13.jpg",
+      "accept_answer": ["Над вечным покоем", "Исаак Левитан", "пейзаж Левитана"],
+      "primary_answer": "Над вечным покоем",
+      "author": "Исаак Левитан",
+      "year": "1894",
+      "fun_fact": "Левитан назвал эту картину «самой русской». Художник писал её в состоянии глубокой меланхолии, и полотно стало гимном созерцательности и бренности человеческого бытия.",
+      "zombie_bomb_mode": {
+        "blur_image": true,
+        "hint": "Изображение размыто! Подсказка: мастер «пейзажа настроения»."
+      },
+      "difficulty": "medium"
+    },
+    {
+      "id": 14,
+      "question": "Солнечный свет, персики, юное лицо... Этот портрет стал символом русского импрессионизма. Назовите картину или художника.",
+      "image_url": "https://storage.yandexcloud.net/vecherinkach/json/survivach/art_historian/img/14.jpg",
+      "accept_answer": ["Девочка с персиками", "Валентин Серов", "портрет Веры Мамонтовой"],
+      "primary_answer": "Девочка с персиками",
+      "author": "Валентин Серов",
+      "year": "1887",
+      "fun_fact": "Моделью была 11-летняя Вера Мамонтова. Серов писал её всё лето, добиваясь эффекта «трепета жизни». Картина стала революцией в русском портрете.",
+      "zombie_bomb_mode": {
+        "blur_image": true,
+        "hint": "Изображение размыто! Подсказка: художник, написавший также «Похищение Европы»."
+      },
+      "difficulty": "easy"
+    },
+    {
+      "id": 15,
+      "question": "Чёрная фигура в санях, толпа, расколотая Русь. Монументальное полотно о силе духа. Угадайте название или автора.",
+      "image_url": "https://storage.yandexcloud.net/vecherinkach/json/survivach/art_historian/img/15.jpg",
+      "accept_answer": ["Боярыня Морозова", "Василий Суриков", "Феодосия Морозова"],
+      "primary_answer": "Боярыня Морозова",
+      "author": "Василий Суриков",
+      "year": "1887",
+      "fun_fact": "Суриков искал натурщицу для Морозовой неделями, пока не увидел статную старообрядку с горящими глазами. Картина стала манифестом трагической стойкости перед лицом истории.",
+      "zombie_bomb_mode": {
+        "blur_image": true,
+        "hint": "Изображение размыто! Подсказка: русский художник, мастер исторических полотен."
+      },
+      "difficulty": "hard"
+    }
+  ],
+  "validation_rules": {
+    "case_insensitive": true,
+    "trim_whitespace": true,
+    "allow_partial_match": false,
+    "synonyms": {
+      "Сотворение Адама": ["фреска Сикстинской капеллы", "Микеланджело фреска"],
+      "Постоянство памяти": ["мягкие часы", "плавящиеся часы", "Дали часы"],
+      "Девочка на шаре": ["Филиппинка на шаре", "Пикассо девочка"],
+      "Ночной дозор": ["Выступление стрелковой роты", "Рембрандт ночь"],
+      "Давид": ["статуя Давида", "Микеланджело Давид"],
+      "Мыслитель": ["The Thinker", "Роден мыслитель"],
+      "Медный всадник": ["памятник Петру I", "Фальконе Пётр"],
+      "Девочка с воздушным шаром": ["Love in the Bin", "Бэнкси шар", "Girl with Balloon"],
+      "Собака из шариков": ["Balloon Dog", "Джефф Кунс собака"],
+      "Девятый вал": ["Айвазовский волна", "море Айвазовского"],
+      "Над вечным покоем": ["Левитан пейзаж", "озеро Левитана"],
+      "Девочка с персиками": ["Серов портрет", "Вера Мамонтова"],
+      "Боярыня Морозова": ["Суриков раскол", "Феодосия Морозова"]
+    }
+  },
+  "gameplay": {
+    "input_type": "text",
+    "max_answer_length": 100,
+    "timer_seconds": 30,
+    "zombie_bomb_effect": "blur_image",
+    "scoring": {
+      "correct_first": 2,
+      "correct": 1,
+      "incorrect": 0,
+      "life_loss_on_incorrect": true
+    },
+    "show_fact_after_answer": true
+  }
+}

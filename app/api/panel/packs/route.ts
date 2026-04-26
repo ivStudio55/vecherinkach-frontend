@@ -49,6 +49,7 @@ export async function POST(request: Request) {
     audio_round2_end: Number(body.audio_round2_end) || 81,
     audio_round3_start: Number(body.audio_round3_start) || 1,
     audio_round5_start: Number(body.audio_round5_start) || 1,
+    price: body.price === null || body.price === '' || body.price === undefined ? null : Number(body.price),
   };
 
   const { data, error } = await supabase.from('question_packs').insert(packData).select().single();
@@ -81,6 +82,7 @@ export async function PUT(request: Request) {
   if (body.audio_round2_end !== undefined) updates.audio_round2_end = Number(body.audio_round2_end);
   if (body.audio_round3_start !== undefined) updates.audio_round3_start = Number(body.audio_round3_start);
   if (body.audio_round5_start !== undefined) updates.audio_round5_start = Number(body.audio_round5_start);
+  if ('price' in body) updates.price = body.price === null || body.price === '' ? null : Number(body.price);
 
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase.from('question_packs').update(updates).eq('id', id).select().single();

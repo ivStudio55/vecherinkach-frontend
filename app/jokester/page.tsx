@@ -293,6 +293,13 @@ function JokesterEntryPage() {
             >
               {loading ? '⏳ Создаю...' : '🎤 Создать комнату'}
             </button>
+
+            <Link
+              href="/pricing"
+              className="block w-full py-3 text-center text-sm font-semibold rounded-2xl border-[3px] border-[#f59e0b] bg-[#fffbeb] text-[#92400e] hover:bg-[#fef3c7] transition-all hover:scale-105"
+            >
+              🛒 Магазин пакетов
+            </Link>
           </div>
         )}
 

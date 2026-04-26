@@ -10,6 +10,7 @@ import { logEvent } from '@/shared/logic/logger';
 import { isRealtimeEnabled } from '@/shared/logic/realtimeConfig';
 import { ROUND3_ANSWER_SECONDS, ROUND3_VOTE_COUNTDOWN_SECONDS, ROUND3_VOTE_SECONDS } from '@/shared/logic/roundConstants';
 import { QuestionLikePanel } from '@/shared/ui/QuestionLikePanel';
+import { ShareButton } from '@/shared/ui/ShareButton';
 import {
   buildRound2LikeId,
   buildRound3LikeId,
@@ -645,9 +646,10 @@ export default function RoomPage() {
     if (packId !== 'classic') {
       const cached = resolvePackConfig(packId);
       if (cached.label === packId && !['classic', '03012026'].includes(packId)) {
+        if (!roomId) return; // roomId not yet loaded — effect will re-run when it's set
         packConfigReadyRef.current = false;
         setPackConfigReady(false);
-        fetch(`/api/packs?include=${encodeURIComponent(packId)}`)
+        fetch(`/api/packs/room/${encodeURIComponent(roomId)}`)
           .then(r => r.json())
           .then((packs: QuestionPack[]) => { if (Array.isArray(packs)) setPacksCache(packs); packConfigReadyRef.current = true; setPackConfigReady(true); })
           .catch(() => { packConfigReadyRef.current = true; setPackConfigReady(true); });
@@ -656,7 +658,7 @@ export default function RoomPage() {
     }
     packConfigReadyRef.current = true;
     setPackConfigReady(true);
-  }, [packId]);
+  }, [packId, roomId]);
 
   const loadQuestionFromSelection = useCallback(
     (questionIndex: number, selectionOverride?: number[]) => {
@@ -2524,14 +2526,22 @@ export default function RoomPage() {
           )}
 
           {isFinal && (
-            <a
-              href="https://donatty.com/aleksandri"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full inline-flex items-center justify-center py-4 comic-panel border-[#000] bg-[#ffde00] comic-font tracking-[0.08em] hover:scale-[1.02] hover: transition-all duration-200"
-            >
-              Поддержать разработчика
-            </a>
+            <>
+              <ShareButton
+                rank={playerRank}
+                points={playerTotalPoints}
+                gameName="Вечеринкач"
+                className="w-full inline-flex items-center justify-center py-4 comic-panel border-[#000] bg-[#00c3ff] comic-font tracking-[0.08em] hover:scale-[1.02] transition-all duration-200"
+              />
+              <a
+                href="https://donatty.com/aleksandri"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full inline-flex items-center justify-center py-4 comic-panel border-[#000] bg-[#ffde00] comic-font tracking-[0.08em] hover:scale-[1.02] hover: transition-all duration-200"
+              >
+                Поддержать разработчика
+              </a>
+            </>
           )}
 
         </div>

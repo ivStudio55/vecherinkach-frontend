@@ -45,6 +45,7 @@ export async function POST(request: Request) {
     is_public: body.is_public === true,
     is_active: true,
     json_url: body.json_url || `${JSON_CDN_BASE}/jokester_questions_pack/${id}/jokester_questions.json`,
+    price: body.price === null || body.price === '' || body.price === undefined ? null : Number(body.price),
   };
 
   const { data, error } = await supabase.from('jokester_question_packs').insert(packData).select().single();
@@ -73,6 +74,7 @@ export async function PUT(request: Request) {
   if (body.is_public !== undefined) updates.is_public = body.is_public === true;
   if (body.is_active !== undefined) updates.is_active = body.is_active === true;
   if (body.json_url !== undefined) updates.json_url = String(body.json_url);
+  if ('price' in body) updates.price = body.price === null || body.price === '' ? null : Number(body.price);
 
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase.from('jokester_question_packs').update(updates).eq('id', id).select().single();

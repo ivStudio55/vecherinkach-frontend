@@ -23,6 +23,12 @@ function HostPageInner() {
   const [layoutMode, setLayoutMode] = useState<'default' | 'compact' | 'stacked' | 'mobile'>('default');
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState('');
+  const [showPromoSection, setShowPromoSection] = useState(false);
+  const [promoCode, setPromoCode] = useState('');
+  const [promoEmail, setPromoEmail] = useState('');
+  const [promoValidation, setPromoValidation] = useState<{label: string; isFree: boolean} | null>(null);
+  const [isRedeeming, setIsRedeeming] = useState(false);
+  const [promoError, setPromoError] = useState('');
   const [isRoleNoticeOpen, setIsRoleNoticeOpen] = useState(true);
   const [isAnimationsDisabled, setIsAnimationsDisabled] = useState(false);
   const [packOptions, setPackOptions] = useState(QUESTION_PACKS);
@@ -91,6 +97,61 @@ function HostPageInner() {
       }
       return next;
     });
+  };
+
+  const validatePromo = async (code: string) => {
+    if (!code.trim()) { setPromoValidation(null); setPromoError(''); return; }
+    try {
+      const res = await fetch('/api/promo/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: code.trim(), game: 'vecherinkach', pack_id: packId }),
+      });
+      const data = await res.json();
+      if (data.valid) {
+        setPromoValidation({ label: data.label, isFree: data.final_price === 0 });
+        setPromoError('');
+      } else {
+        setPromoValidation(null);
+        setPromoError(data.error || 'Недействительный промокод');
+      }
+    } catch {
+      setPromoError('Ошибка проверки промокода');
+    }
+  };
+
+  const redeemPromo = async () => {
+    if (!promoEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(promoEmail)) {
+      setPromoError('Введите корректный email');
+      return;
+    }
+    if (!promoValidation) return;
+    setPromoError('');
+    setIsRedeeming(true);
+    try {
+      const res = await fetch('/api/payment/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          game: 'vecherinkach',
+          email: promoEmail.trim(),
+          pack_id: packId,
+          promo_code: promoCode.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (data.free && data.orderId) {
+        router.push(`/payment/success?orderId=${data.orderId}`);
+      } else if (data.confirmationUrl) {
+        window.location.href = data.confirmationUrl;
+      } else {
+        setPromoError(data.error || 'Ошибка при применении промокода');
+      }
+    } catch {
+      setPromoError('Ошибка при применении промокода');
+    } finally {
+      setIsRedeeming(false);
+    }
   };
 
   const createRoom = async () => {
@@ -302,6 +363,81 @@ function HostPageInner() {
                   </select>
                 </div>
 
+                {/* Promo code section */}
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => { setShowPromoSection(p => !p); setPromoError(''); setPromoValidation(null); setPromoCode(''); setPromoEmail(''); }}
+                    className={`${isCompactLayout ? 'text-xs' : 'text-sm'} font-semibold text-[#142a45]/60 hover:text-[#142a45] transition underline underline-offset-4`}
+                  >
+                    {showPromoSection ? '✕ Скрыть промокод' : '🎟 Есть промокод?'}
+                  </button>
+                  {showPromoSection && (
+                    <div className="rounded-2xl border-[2px] border-[#142a45]/30 bg-[#fff6da] p-4 space-y-3">
+                      <p className={`${isCompactLayout ? 'text-xs' : 'text-sm'} font-semibold text-[#142a45]/80`}>
+                        Введите промокод, чтобы получить скидку или бесплатный доступ
+                      </p>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="ПРОМОКОД"
+                          value={promoCode}
+                          onChange={e => {
+                            const v = e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+                            setPromoCode(v);
+                            setPromoValidation(null);
+                            setPromoError('');
+                          }}
+                          onBlur={() => validatePromo(promoCode)}
+                          maxLength={32}
+                          className="flex-1 rounded-xl border-[2px] border-[#142a45] bg-white px-3 py-2 text-sm font-mono font-bold uppercase"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => validatePromo(promoCode)}
+                          className="px-3 py-2 rounded-xl border-[2px] border-[#142a45] bg-[#142a45] text-[#ffeccd] text-sm font-bold"
+                        >
+                          Проверить
+                        </button>
+                      </div>
+                      {promoValidation && (
+                        <p className={`text-sm font-bold ${promoValidation.isFree ? 'text-green-700' : 'text-blue-700'}`}>
+                          ✅ {promoValidation.label}
+                        </p>
+                      )}
+                      {promoError && (
+                        <p className="text-sm font-semibold text-red-700">❌ {promoError}</p>
+                      )}
+                      {promoValidation && (
+                        <div className="space-y-2 pt-1">
+                          <p className={`${isCompactLayout ? 'text-xs' : 'text-sm'} font-semibold text-[#142a45]/80`}>
+                            {promoValidation.isFree ? 'Укажите email — на него придёт ссылка на комнату:' : 'Укажите email для оплаты:'}
+                          </p>
+                          <input
+                            type="email"
+                            placeholder="your@email.com"
+                            value={promoEmail}
+                            onChange={e => setPromoEmail(e.target.value)}
+                            className="w-full rounded-xl border-[2px] border-[#142a45] bg-white px-3 py-2 text-sm"
+                          />
+                          <button
+                            type="button"
+                            onClick={redeemPromo}
+                            disabled={isRedeeming}
+                            className={`w-full rounded-xl border-[2px] font-black tracking-[0.1em] py-3 text-sm transition disabled:opacity-40 ${
+                              promoValidation.isFree
+                                ? 'bg-green-600 border-green-700 text-white hover:bg-green-500'
+                                : 'bg-[#142a45] border-[#142a45] text-[#ffeccd]'
+                            }`}
+                          >
+                            {isRedeeming ? 'Обрабатываем...' : promoValidation.isFree ? '🎁 Получить бесплатно →' : '💳 Оплатить со скидкой →'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 <button
                   onClick={createRoom}
                   disabled={isCreating}
@@ -323,6 +459,16 @@ function HostPageInner() {
                   } rounded-2xl border-[3px] border-[#142a45] font-semibold bg-white hover:bg-[#fef4dc]`}
                 >
                   ← На главную
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => router.push('/pricing')}
+                  className={`hover:scale-105 hover:shadow-lg transition-all duration-200 w-full ${
+                    isCompactLayout ? 'py-2 text-sm' : 'py-3'
+                  } rounded-2xl border-[3px] border-[#f59e0b] font-semibold bg-[#fffbeb] text-[#92400e] hover:bg-[#fef3c7]`}
+                >
+                  🛒 Магазин пакетов
                 </button>
               </div>
 

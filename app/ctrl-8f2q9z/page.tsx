@@ -304,6 +304,15 @@ export default function PanelDashboard() {
           <button onClick={() => router.push('/ctrl-8f2q9z/answers')} className="px-4 py-2 bg-cyan-600/80 hover:bg-cyan-500 rounded-lg text-sm font-bold transition-colors">
             📋 Ответы игроков
           </button>
+          <button onClick={() => router.push('/ctrl-8f2q9z/promo')} className="px-4 py-2 bg-green-600/80 hover:bg-green-500 rounded-lg text-sm font-bold transition-colors">
+            🎟 Промокоды
+          </button>
+          <button onClick={() => router.push('/ctrl-8f2q9z/prices')} className="px-4 py-2 bg-sky-600/80 hover:bg-sky-500 rounded-lg text-sm font-bold transition-colors">
+            💰 Цены
+          </button>
+          <button onClick={() => router.push('/survivach')} className="px-4 py-2 bg-red-700/80 hover:bg-red-600 rounded-lg text-sm font-bold transition-colors">
+            🧟 Выживач
+          </button>
         </div>
 
         {/* Global KPIs */}

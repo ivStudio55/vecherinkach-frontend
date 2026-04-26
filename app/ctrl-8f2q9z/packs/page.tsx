@@ -14,6 +14,7 @@ interface PackRow {
   audio_round2_end: number;
   audio_round3_start: number;
   audio_round5_start: number;
+  price?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -280,6 +281,18 @@ export default function PacksAdminPage() {
                   onChange={e => setEditPack(prev => ({ ...prev, json_base_url: e.target.value }))}
                   placeholder="https://storage.yandexcloud.net/vecherinkach/json/packs/ID"
                   className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-xs text-white font-mono"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 block mb-1">Цена (₽) — оставьте пустым для использования цены игры по умолчанию</label>
+                <input
+                  type="number"
+                  min={0}
+                  step={10}
+                  value={editPack.price ?? ''}
+                  onChange={e => setEditPack(prev => ({ ...prev, price: e.target.value === '' ? null : Number(e.target.value) }))}
+                  placeholder="Цена игры по умолчанию"
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-sm text-white"
                 />
               </div>
               <div className="flex items-center gap-3">

@@ -198,6 +198,12 @@ export default function CreativachEntryPage() {
             <button onClick={handleCreate} disabled={loading} className="w-full py-4 text-lg cartoon-button">
               {loading ? '⏳ Создаю...' : '🎤 Создать комнату'}
             </button>
+            <a
+              href="/pricing"
+              className="block w-full py-3 text-center text-sm font-semibold rounded-2xl border-[3px] border-[#f59e0b] bg-[#fffbeb] text-[#92400e] hover:bg-[#fef3c7] transition-all hover:scale-105"
+            >
+              🛒 Магазин пакетов
+            </a>
           </div>
         )}
 

@@ -855,7 +855,7 @@ export function HostRoomContent() {
         packConfigReadyRef.current = false;
         setPackConfigReady(false);
         console.log('[PACK] fetching config from API for', packId);
-        fetch(`/api/packs?include=${encodeURIComponent(packId)}`)
+        fetch(`/api/packs/room/${encodeURIComponent(roomId)}`)
           .then(r => r.json())
           .then((packs: QuestionPack[]) => {
             console.log('[PACK] API returned', Array.isArray(packs) ? packs.length : 'non-array', 'packs');

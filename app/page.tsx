@@ -534,6 +534,12 @@ function HomePageInner() {
                     >
                       Связаться
                     </button>
+                    <a
+                      href="/pricing"
+                      className="px-4 py-2 rounded-full border-2 border-[#142a45] bg-white hover:bg-[#ffe184] transition-colors"
+                    >
+                      Купить
+                    </a>
                   </div>
                 </div>
 

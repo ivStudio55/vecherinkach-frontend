@@ -10,6 +10,7 @@ interface JokesterPackRow {
   is_public: boolean;
   is_active: boolean;
   json_url: string;
+  price?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -259,6 +260,18 @@ export default function JokesterPacksAdminPage() {
                   onChange={e => setEditPack(prev => ({ ...prev, json_url: e.target.value }))}
                   placeholder={`${JSON_CDN_BASE}/jokester_questions_pack/ID/jokester_questions.json`}
                   className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-xs text-white font-mono"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 block mb-1">Цена (₽) — оставьте пустым для использования цены игры по умолчанию</label>
+                <input
+                  type="number"
+                  min={0}
+                  step={10}
+                  value={editPack.price ?? ''}
+                  onChange={e => setEditPack(prev => ({ ...prev, price: e.target.value === '' ? null : Number(e.target.value) }))}
+                  placeholder="Цена игры по умолчанию"
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-sm text-white"
                 />
               </div>
               <div className="flex items-center gap-3">

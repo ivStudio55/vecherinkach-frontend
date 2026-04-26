@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { ShareButton } from '@/shared/ui/ShareButton';
 import { QRCodeCanvas } from 'qrcode.react';
 import {
   cardPlayable,
@@ -241,6 +242,12 @@ export default function UnoRoomPage() {
               {room?.winner_id === me?.id ? 'ТЫ ПОБЕДИЛ!' : `${winnerName} ПОБЕЖДАЕТ!`}
             </h2>
             <div className="flex flex-col gap-3 justify-center mt-6">
+              <ShareButton
+                rank={room?.winner_id === me?.id ? 1 : 2}
+                points={null}
+                gameName="UNO"
+                className="comic-button bg-green-400 px-6 py-3 text-xl"
+              />
               <a
                 href="https://donatty.com/aleksandri"
                 target="_blank"
