@@ -74,6 +74,10 @@ export const MODE_AUDIO = {
   },
 } as const;
 
+/* ─── Reaction sounds ─── */
+export const LAUGH_POOL = `${BASE}/laugh/`;   // played on correct answer
+export const SCREAM_POOL = `${BASE}/scream/`; // played when player becomes zombie
+
 /* ─── Duel mode audio ─── */
 export const DUEL_AUDIO = {
   minesweeper: {

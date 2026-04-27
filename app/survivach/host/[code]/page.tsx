@@ -61,6 +61,8 @@ import {
   CALLER_WON_POOL,
   MODE_AUDIO,
   DUEL_AUDIO,
+  LAUGH_POOL,
+  SCREAM_POOL,
   randomFromPool,
 } from '@/lib/survivach/audio';
 import type {
@@ -891,6 +893,24 @@ export default function SurvivachHostPage() {
       return res?.is_correct;
     });
 
+    // ─── Reaction FX ───
+    // Play scream if any player freshly becomes zombie this round
+    const newZombies = results.filter(r => {
+      const wasZombie = players.find(p => p.id === r.player_id)?.is_zombie ?? false;
+      return r.is_zombie_now && !wasZombie;
+    });
+    if (newZombies.length > 0) {
+      new Audio(randomFromPool(SCREAM_POOL, 5)).play().catch(() => {});
+    }
+    // Play laugh if any non-zombie answered correctly
+    const hasCorrect = results.some(r => {
+      const wasZombie = players.find(p => p.id === r.player_id)?.is_zombie ?? false;
+      return r.is_correct && !wasZombie;
+    });
+    if (hasCorrect) {
+      new Audio(randomFromPool(LAUGH_POOL, 5)).play().catch(() => {});
+    }
+
     await setRoomStatus(room.id, 'round_results', {
       round_results_data: { 
         round: room.current_round, 
@@ -1092,6 +1112,68 @@ export default function SurvivachHostPage() {
     setDuelQ(null);
 
     await setRoomStatus(room.id, 'moving', { current_round: newRound, leader_position: newLeaderPos });
+  };
+
+  /* ─── Force-advance to next phase (host manual skip) ─── */
+  const handleForceNext = async () => {
+    if (!room) return;
+    bgAudio.current.stop();
+    fxAudio.current.stop();
+
+    switch (room.status) {
+      case 'moving':
+        clearInterval(moveTimerRef.current!);
+        setMoveTimerLeft(0);
+        await handleMoveAnimDone();
+        break;
+      case 'round_intro':
+        await startRoundPlaying();
+        break;
+      case 'round_playing':
+        clearInterval(timerRef.current!);
+        setTimerLeft(0);
+        await handleTimerExpired();
+        break;
+      case 'round_results':
+        if (roundResultsData.length > 0) {
+          await applyResults(roundResultsData);
+        }
+        if (bets.length > 0) {
+          await setRoomStatus(room.id, 'bet_reveal', {});
+          await advanceAfterBetReveal();
+        } else {
+          await advanceAfterBetReveal();
+        }
+        break;
+      case 'bet_reveal':
+        await advanceAfterBetReveal();
+        break;
+      case 'duel_intro':
+        await setRoomStatus(room.id, 'duel_setup', {});
+        break;
+      case 'duel_setup':
+        await setRoomStatus(room.id, 'duel_playing', {});
+        break;
+      case 'duel_result':
+        await advanceAfterDuel();
+        break;
+      case 'potato_playing': {
+        const rd = room.round_results_data as { potato_bomb_holder?: string } | null;
+        if (rd?.potato_bomb_holder) {
+          await handlePotatoExplosion(rd.potato_bomb_holder);
+        }
+        break;
+      }
+    }
+  };
+
+  const handleCloseRoom = async () => {
+    if (!room) return;
+    if (confirm('Закрыть комнату? Игра завершится для всех.')) {
+      bgAudio.current.stop();
+      fxAudio.current.stop();
+      await setRoomStatus(room.id, 'finished', {});
+    }
   };
 
   /* ─── Loading & error states ─── */
@@ -1312,6 +1394,12 @@ export default function SurvivachHostPage() {
               className="mt-12 px-8 py-3 bg-white/10 hover:bg-white/20 border border-white/20 rounded-full text-white/80 transition-all uppercase tracking-widest text-sm font-bold shadow-[0_0_30px_rgba(255,255,255,0.1)] active:scale-95"
             >
               Пропустить правила ⏭
+            </button>
+            <button
+              onClick={handleCloseRoom}
+              className="mt-2 px-8 py-3 bg-black/30 hover:bg-red-950/60 border border-red-900/40 rounded-full text-red-300/70 hover:text-red-200 transition-all uppercase tracking-widest text-sm font-bold active:scale-95"
+            >
+              Закрыть комнату ❌
             </button>
           </div>
 
@@ -1919,6 +2007,30 @@ export default function SurvivachHostPage() {
               <span className="text-gray-400">{p.position}</span>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* ─── Persistent host controls (all active game screens) ─── */}
+      {!['lobby', 'finished'].includes(room.status) && (
+        <div className="fixed bottom-4 left-4 z-[100] flex gap-2">
+          {/* "Далее" – force-advance to next phase */}
+          {['moving','round_intro','round_playing','round_results','bet_reveal','duel_intro','duel_setup','duel_result','potato_playing'].includes(room.status) && (
+            <button
+              onClick={handleForceNext}
+              className="px-4 py-2 bg-white/10 hover:bg-white/20 active:scale-95 border border-white/20 rounded-xl text-white/90 text-sm font-black uppercase tracking-widest backdrop-blur-md shadow-lg transition-all"
+            >
+              Далее ⏭
+            </button>
+          )}
+          {/* "Закрыть комнату" */}
+          {room.status !== 'rules' && (
+            <button
+              onClick={handleCloseRoom}
+              className="px-4 py-2 bg-black/40 hover:bg-red-950/80 active:scale-95 border border-red-900/50 rounded-xl text-red-300/80 hover:text-red-200 text-sm font-black uppercase tracking-widest backdrop-blur-md shadow-lg transition-all"
+            >
+              Закрыть ❌
+            </button>
+          )}
         </div>
       )}
     </div>
