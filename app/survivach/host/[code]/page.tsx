@@ -68,6 +68,7 @@ import {
   BLITZ_CHANGE_LEADER_POOL,
   randomFromPool,
   POOL_COUNTS,
+  MEET_POOL,
 } from '@/lib/survivach/audio';
 import type {
   SurvivachRoom,
@@ -333,7 +334,7 @@ export default function SurvivachHostPage() {
 
     if (!meetAudioPlayer.current) {
        meetAudioPlayer.current = new SurvivachAudio();
-       meetAudioPlayer.current.play(randomFromPool('https://storage.yandexcloud.net/vecherinkach/json/survivach/meet/', 13), false);
+       meetAudioPlayer.current.play(randomFromPool(MEET_POOL, 13), false);
     }
 
     const nonHost = players.filter(p => !p.is_host);

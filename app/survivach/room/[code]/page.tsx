@@ -39,7 +39,7 @@ import {
   TOTAL_CELLS,
   rankPlayers,
 } from '@/lib/survivach/board';
-import { SurvivachAudio, randomFromPool } from '@/lib/survivach/audio';
+import { SurvivachAudio, randomFromPool, LOBBY_THEME, MEET_POOL } from '@/lib/survivach/audio';
 
 /* ── Types ── */
 type JoinPhase = 'choose_avatar' | 'enter_name' | 'waiting';
@@ -258,13 +258,22 @@ export default function SurvivachRoomPage() {
   const [puzzleSolved, setPuzzleSolved] = useState(false);
   const passTimeout = useRef<NodeJS.Timeout | null>(null);
   const meetAudioRef = useRef<SurvivachAudio | null>(null);
+  const lobbyBgRef = useRef<SurvivachAudio | null>(null);
 
-  /* ── Meet audio in lobby ── */
+  /* ── Lobby audio: looped theme + one-shot meet clip ── */
   useEffect(() => {
-    if (room?.status !== 'lobby') return;
+    if (room?.status !== 'lobby') {
+      lobbyBgRef.current?.stop();
+      lobbyBgRef.current = null;
+      return;
+    }
+    if (!lobbyBgRef.current) {
+      lobbyBgRef.current = new SurvivachAudio();
+      lobbyBgRef.current.play(LOBBY_THEME, true);
+    }
     if (!meetAudioRef.current) {
       meetAudioRef.current = new SurvivachAudio();
-      meetAudioRef.current.play(randomFromPool('https://storage.yandexcloud.net/vecherinkach/json/survivach/meet/', 13), false);
+      meetAudioRef.current.play(randomFromPool(MEET_POOL, 13), false);
     }
   }, [room?.status]);
 
