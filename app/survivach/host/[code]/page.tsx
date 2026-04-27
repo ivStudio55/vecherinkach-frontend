@@ -643,7 +643,7 @@ export default function SurvivachHostPage() {
       questionData = { mode: 'tag_puzzle', size, initial_state: state };
     }
 
-    const timerSec = mode === 'mathematician' ? 60 : 30;
+    const timerSec = mode === 'mathematician' ? 60 : mode === 'tag_puzzle' ? 120 : 30;
 
     await setRoomStatus(room.id, 'round_intro', {
       current_mode: mode,
@@ -1592,11 +1592,11 @@ export default function SurvivachHostPage() {
 
           {room.current_mode === 'memory_diary' && (
             <div className="flex-1 flex flex-col items-center gap-6 justify-center">
-              <h2 className="text-2xl font-bold">Запомните последовательность!</h2>
+              <h2 className="text-2xl font-bold text-pink-400">🔴 Дневник памяти</h2>
+              <p className="text-gray-400 text-lg">Игроки воспроизводят последовательность...</p>
               <div className="flex gap-3">
-                {colorSequence.map((c, i) => (
-                  <div key={i} className="w-16 h-16 rounded-full border-4 border-white/20 shadow-lg"
-                    style={{ backgroundColor: MEMORY_COLORS[c] }} />
+                {colorSequence.map((_, i) => (
+                  <div key={i} className="w-16 h-16 rounded-full border-4 border-white/10 bg-gray-800" />
                 ))}
               </div>
               {room.zombie_bomb_active && (
