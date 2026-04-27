@@ -67,6 +67,7 @@ import {
   BLITZ_START_POOL,
   BLITZ_CHANGE_LEADER_POOL,
   randomFromPool,
+  POOL_COUNTS,
 } from '@/lib/survivach/audio';
 import type {
   SurvivachRoom,
@@ -314,6 +315,7 @@ export default function SurvivachHostPage() {
   const bgAudio = useRef(new SurvivachAudio());
   const fxAudio = useRef(new SurvivachAudio());
   const laughedAnswerIds = useRef(new Set<string>());
+  const isProcessingResultsRef = useRef(false);
 
   /* ─── Blitz state ─── */
   const blitzTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -703,8 +705,10 @@ export default function SurvivachHostPage() {
 
   const processRoundResults = async () => {
     if (!room) return;
+    if (isProcessingResultsRef.current) return; // prevent double-call from timer + all-answers effect
+    isProcessingResultsRef.current = true;
     const mode = room.current_mode;
-    if (!mode) return;
+    if (!mode) { isProcessingResultsRef.current = false; return; }
 
     // FIX STAGE 1: Explicitly fetch final answers to prevent race condition
     const finalAnswers = await fetchAnswers(room.id, room.current_round);
@@ -815,20 +819,25 @@ export default function SurvivachHostPage() {
       // Standard scoring
       for (const p of nonHostPlayers) {
         if (p.is_zombie) {
+          const ans = finalAnswers.find(x => x.player_id === p.id);
+          const isCorrect = ans?.is_correct ?? false;
+          const newStreak = isCorrect ? p.correct_streak + 1 : 0;
+          // Zombies accumulate karma via correct streaks — needed for duel & resurrection
+          const karmaGain = isCorrect && newStreak >= 3 ? 1 : 0;
           results.push({
             player_id: p.id,
-            is_correct: false,
-            was_first: false,
+            is_correct: isCorrect,
+            was_first: false, // zombies don't claim first-correct position bonus
             position_change: 1,
             lives_change: 0,
-            karma_change: 0,
+            karma_change: karmaGain,
             new_position: Math.min(TOTAL_CELLS, p.position + 1),
             new_lives: 0,
-            new_karma: p.karma,
+            new_karma: p.karma + karmaGain,
             is_zombie_now: true,
-            new_streak: 0,
-            new_total_correct: p.total_correct,
-            new_total_time_ms: p.total_answer_time_ms,
+            new_streak: newStreak,
+            new_total_correct: p.total_correct + (isCorrect ? 1 : 0),
+            new_total_time_ms: p.total_answer_time_ms + (ans?.answer_time_ms ?? 0),
           });
           continue;
         }
@@ -1009,26 +1018,31 @@ export default function SurvivachHostPage() {
 
       // Apply results immediately, then auto-advance
       await applyResults(results);
+      isProcessingResultsRef.current = false;
       blitzTimerRef.current = setTimeout(() => {
         advanceBlitzRound();
       }, 2500);
       return;
     }
 
-    bgAudio.current.play(randomFromPool(resultPool, 5), false, async () => {
+    bgAudio.current.play(randomFromPool(resultPool, POOL_COUNTS[resultPool] ?? 5), false, async () => {
       // After results audio → apply changes and move to next phase
-      await applyResults(results);
-      if (bets.length > 0) {
-        await setRoomStatus(room.id, 'bet_reveal', {});
-        bgAudio.current.play(
-          anyCorrect
-            ? resolvedBets.every(b => !b.won) ? randomFromPool(BET_UNWORKED_POOL, 5) : randomFromPool(BET_MIX_POOL, 5)
-            : randomFromPool(BET_WORKED_POOL, 5),
-          false,
-          () => advanceAfterBetReveal(perfectRound),
-        );
-      } else {
-        await advanceAfterBetReveal(perfectRound);
+      try {
+        await applyResults(results);
+        if (bets.length > 0) {
+          await setRoomStatus(room.id, 'bet_reveal', {});
+          bgAudio.current.play(
+            anyCorrect
+              ? resolvedBets.every(b => !b.won) ? randomFromPool(BET_UNWORKED_POOL, 5) : randomFromPool(BET_MIX_POOL, 5)
+              : randomFromPool(BET_WORKED_POOL, 5),
+            false,
+            () => advanceAfterBetReveal(perfectRound),
+          );
+        } else {
+          await advanceAfterBetReveal(perfectRound);
+        }
+      } finally {
+        isProcessingResultsRef.current = false;
       }
     });
   };
@@ -1292,6 +1306,7 @@ export default function SurvivachHostPage() {
           await advanceBlitzRound();
           break;
         }
+        isProcessingResultsRef.current = false; // unblock guard so advance can proceed
         if (roundResultsData.length > 0) {
           await applyResults(roundResultsData);
         }

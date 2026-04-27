@@ -99,6 +99,16 @@ export const DUEL_AUDIO = {
   },
 };
 
+/* ─── Known file counts per pool (override the default of 5) ─── */
+export const POOL_COUNTS: Record<string, number> = {
+  [`${BASE}/quiz/mixed/`]: 3,
+  [`${BASE}/art_historian/mixed/`]: 3,
+  [`${BASE}/interpreter/mixed/`]: 3,
+  [`${BASE}/mathematician/mixed/`]: 3,
+  [`${BASE}/memory_diary/mixed/`]: 3,
+  [`${BASE}/tag_puzzle/mixed/`]: 3,
+};
+
 /* ─── Helper: pick random file from a pool directory (numbered 1.mp3, 2.mp3, …) ─── */
 export function randomFromPool(poolUrl: string, count = 5): string {
   const n = Math.floor(Math.random() * count) + 1;
