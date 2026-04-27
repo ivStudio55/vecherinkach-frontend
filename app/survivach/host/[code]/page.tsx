@@ -310,6 +310,7 @@ export default function SurvivachHostPage() {
   /* ─── Audio ─── */
   const bgAudio = useRef(new SurvivachAudio());
   const fxAudio = useRef(new SurvivachAudio());
+  const laughedAnswerIds = useRef(new Set<string>());
 
   /* ─── Lobby logic & Ghosts ─── */
   const [ghosts, setGhosts] = useState<{ id: string, name: string, avatar: string, key: number }[]>([]);
@@ -468,6 +469,23 @@ export default function SurvivachHostPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room?.status]);
 
+  /* ─── Real-time laugh on correct answer ─── */
+  useEffect(() => {
+    if (room?.status !== 'round_playing') return;
+    answers.forEach(ans => {
+      if (ans.is_correct && !laughedAnswerIds.current.has(ans.id)) {
+        laughedAnswerIds.current.add(ans.id);
+        new Audio(randomFromPool(LAUGH_POOL, 5)).play().catch(() => {});
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answers, room?.status]);
+
+  /* ─── Reset laugh tracking on new round ─── */
+  useEffect(() => {
+    laughedAnswerIds.current.clear();
+  }, [room?.current_round]);
+
   /* ─── Auto-advance: all non-host players answered (or all but one in Blitz) ─── */
   useEffect(() => {
     if (room?.status !== 'round_playing') return;
@@ -559,7 +577,7 @@ export default function SurvivachHostPage() {
     bgAudio.current.play(RULES_MUSIC);
     // Note: If voiceover file doesn't exist, this callback will never fire and game hangs on Rules screen.
     // Allow user to manually skip rules instead of hanging indefinitely if fetching audio fails.
-    fxAudio.current.play(randomFromPool(RULES_VO_POOL, 5), false, skipRulesFlow);
+    fxAudio.current.play(randomFromPool(RULES_VO_POOL, 3), false, skipRulesFlow);
   };
 
   const skipRulesFlow = useCallback(() => {
