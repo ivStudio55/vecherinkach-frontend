@@ -1256,11 +1256,20 @@ export default function SurvivachHostPage() {
      Render by status
      ══════════════════════════════════════════ */
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
+    <div className="h-[100dvh] flex flex-col overflow-hidden bg-gray-950 text-white">
 
+      {/* --- PERSISTENT BOARD VIEW --- */}
+      {!["lobby", "rules", "finished"].includes(room.status) && (
+        <div className="shrink-0 w-full z-40 bg-[#0c0418] shadow-2xl relative pt-2 px-2 md:pt-4 md:px-4">
+          <BoardView players={players.filter(p => !p.is_host)} leaderPosition={room.leader_position} />
+        </div>
+      )}
+
+      {/* --- SCROLLABLE CONTENT AREA --- */}
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden relative flex flex-col">
       {/* ─── LOBBY ─── */}
       {room.status === 'lobby' && (
-        <div onClick={() => fxAudio.current.play('')} className="relative min-h-screen bg-[radial-gradient(ellipse_at_bottom,_var(--tw-gradient-stops))] from-indigo-900 via-purple-950 to-[#0c0418] text-white overflow-hidden select-none">
+        <div onClick={() => fxAudio.current.play('')} className="relative min-h-full h-full bg-[radial-gradient(ellipse_at_bottom,_var(--tw-gradient-stops))] from-indigo-900 via-purple-950 to-[#0c0418] text-white overflow-hidden select-none">
           <style dangerouslySetInnerHTML={{ __html: `
             @keyframes ghostFly {
               0% { transform: translateY(0) scale(0.8) rotate(0deg); opacity: 0; filter: brightness(1.2) hue-rotate(90deg) contrast(1.5); }
@@ -1423,7 +1432,7 @@ export default function SurvivachHostPage() {
 
       {/* ─── RULES ─── */}
       {room.status === 'rules' && (
-        <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-[url('/img/lava-bg.jpg')] bg-cover bg-center bg-gray-950 relative overflow-hidden transition-all duration-1000">
+        <div className="min-h-full h-full flex flex-col items-center justify-center p-8 bg-[url('/img/lava-bg.jpg')] bg-cover bg-center bg-gray-950 relative overflow-hidden transition-all duration-1000">
           <div className="absolute inset-0 bg-gradient-to-b from-[#0c0418]/90 via-[#2e1065]/70 to-[#3b0764]/90 z-0"></div>
           
           <div className="z-10 flex flex-col items-center w-full max-w-4xl relative">
@@ -1499,7 +1508,7 @@ export default function SurvivachHostPage() {
 
       {/* ─── MOVING ─── */}
       {room.status === 'moving' && (
-        <div className="min-h-screen flex flex-col p-6 gap-6">
+        <div className="min-h-full h-full flex flex-col p-6 gap-6">
           <div className="flex items-center gap-4">
             <h2 className="text-2xl font-black">🎲 Передвижение</h2>
             <div className="px-4 py-2 bg-gray-800 rounded-lg text-lg font-mono">
@@ -1512,7 +1521,7 @@ export default function SurvivachHostPage() {
             </div>
           </div>
 
-          <BoardView players={players.filter(p => !p.is_host)} leaderPosition={room.leader_position} />
+          {/* BoardView moved to persistent layout */}
 
           {moveMessage && (
             <div className="mx-auto max-w-xl bg-gray-900 border border-yellow-500/40 rounded-2xl p-4 text-center text-yellow-200 font-medium">
@@ -1528,7 +1537,7 @@ export default function SurvivachHostPage() {
 
       {/* ─── ROUND INTRO ─── */}
       {room.status === 'round_intro' && (
-        <div className="min-h-screen flex flex-col items-center justify-center gap-6">
+        <div className="min-h-full h-full flex flex-col items-center justify-center gap-6">
           <div className="text-8xl font-black animate-bounce">
             {MODE_LABELS[room.current_mode as RoundMode]?.split(' ')[0] ?? '🎮'}
           </div>
@@ -1547,7 +1556,7 @@ export default function SurvivachHostPage() {
 
       {/* ─── ROUND PLAYING ─── */}
       {room.status === 'round_playing' && currentQ && (
-        <div className="min-h-screen flex flex-col p-6 gap-4">
+        <div className="min-h-full h-full flex flex-col p-6 gap-4">
           <div className="flex items-center gap-4 flex-wrap">
             <span className="text-lg font-bold" style={{ color: MODE_COLORS[room.current_mode as RoundMode] }}>
               {MODE_LABELS[room.current_mode as RoundMode]}
@@ -1693,7 +1702,7 @@ export default function SurvivachHostPage() {
 
       {/* ─── ROUND RESULTS ─── */}
       {room.status === 'round_results' && (
-        <div className="min-h-screen flex flex-col p-6 gap-4">
+        <div className="min-h-full h-full flex flex-col p-6 gap-4">
           <h2 className="text-3xl font-black text-center">📊 Результаты раунда</h2>
 
           {room.round_results_data && (
@@ -1754,7 +1763,7 @@ export default function SurvivachHostPage() {
 
       {/* ─── BET REVEAL ─── */}
       {room.status === 'bet_reveal' && betResultsData && (
-        <div className="min-h-screen flex flex-col items-center justify-center gap-6 p-6">
+        <div className="min-h-full h-full flex flex-col items-center justify-center gap-6 p-6">
           <h2 className="text-4xl font-black">🎰 Они сделали ставку!</h2>
           <div className="flex gap-4 flex-wrap justify-center">
             {betResultsData.bets.map(b => {
@@ -1779,7 +1788,7 @@ export default function SurvivachHostPage() {
 
       {/* ─── DUEL INTRO ─── */}
       {room.status === 'duel_intro' && duel && (
-        <div className="min-h-screen flex flex-col items-center justify-center gap-8">
+        <div className="min-h-full h-full flex flex-col items-center justify-center gap-8">
           <h2 className="text-5xl font-black">⚔️ ДУЭЛЬ!</h2>
           <div className="flex items-center gap-8">
             {[duel.challenger_id, duel.challenged_id].map((pid, idx) => {
@@ -1800,7 +1809,7 @@ export default function SurvivachHostPage() {
 
       {/* ─── DUEL SETUP ─── */}
       {room.status === 'duel_setup' && duel && (
-        <div className="min-h-screen flex flex-col items-center justify-center gap-6 p-6">
+        <div className="min-h-full h-full flex flex-col items-center justify-center gap-6 p-6">
           <h2 className="text-3xl font-black">
             {duel.mode === 'minesweeper' ? '💣 Сапёр' :
              duel.mode === 'arithmetic_mean' ? '📊 Среднее арифметическое' :
@@ -1872,7 +1881,7 @@ export default function SurvivachHostPage() {
 
       {/* ─── DUEL PLAYING ─── */}
       {room.status === 'duel_playing' && duel && (
-        <div className="min-h-screen flex flex-col items-center justify-center gap-8 p-6">
+        <div className="min-h-full h-full flex flex-col items-center justify-center gap-8 p-6">
           <h2 className="text-3xl font-black">⚔️ Дуэлянты отвечают</h2>
 
           <div className="flex items-center gap-8">
@@ -1914,7 +1923,7 @@ export default function SurvivachHostPage() {
 
       {/* ─── DUEL RESULT ─── */}
       {room.status === 'duel_result' && duel && (
-        <div className="min-h-screen flex flex-col items-center justify-center gap-6">
+        <div className="min-h-full h-full flex flex-col items-center justify-center gap-6">
           <h2 className="text-4xl font-black">⚔️ Итог дуэли</h2>
           {duel.winner_id ? (
             (() => {
@@ -1935,7 +1944,7 @@ export default function SurvivachHostPage() {
 
       {/* ─── HOT POTATO ─── */}
       {room.status === 'potato_intro' && (
-        <div className="min-h-screen flex flex-col items-center justify-center gap-8 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-orange-600 via-red-950 to-black p-8 relative overflow-hidden">
+        <div className="min-h-full h-full flex flex-col items-center justify-center gap-8 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-orange-600 via-red-950 to-black p-8 relative overflow-hidden">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-orange-600/20 blur-[120px] rounded-full pointer-events-none"></div>
 
           <h2 className="text-8xl font-black text-transparent bg-clip-text bg-gradient-to-br from-yellow-300 via-orange-500 to-red-600 drop-shadow-[0_0_30px_rgba(234,88,12,0.8)] animate-pulse tracking-tighter uppercase relative z-10">
@@ -1965,7 +1974,7 @@ export default function SurvivachHostPage() {
       )}
 
       {room.status === 'potato_playing' && (
-        <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-red-950 via-black to-black relative overflow-hidden">
+        <div className="min-h-full h-full flex flex-col items-center justify-center p-8 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-red-950 via-black to-black relative overflow-hidden">
           {/* Background alert pulse */}
           <div className="absolute inset-0 bg-red-600/10 animate-ping pointer-events-none" style={{ animationDuration: '0.6s' }} />
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] bg-red-600/10 blur-[150px] rounded-full pointer-events-none"></div>
@@ -2000,7 +2009,7 @@ export default function SurvivachHostPage() {
       )}
 
       {room.status === 'potato_result' && (
-        <div className="min-h-screen flex flex-col items-center justify-center gap-12 bg-black bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-red-900/50 via-black to-black p-8 text-center relative overflow-hidden">
+        <div className="min-h-full h-full flex flex-col items-center justify-center gap-12 bg-black bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-red-900/50 via-black to-black p-8 text-center relative overflow-hidden">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-[600px] bg-red-600/20 blur-[150px] rounded-full pointer-events-none mix-blend-screen"></div>
 
           <h2 className="text-9xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-red-500 to-red-800 drop-shadow-[0_0_60px_rgba(239,68,68,1)] animate-shake uppercase tracking-tighter relative z-10">
@@ -2034,7 +2043,7 @@ export default function SurvivachHostPage() {
 
       {/* ─── BLITZ INTRO ─── */}
       {room.status === 'blitz_intro' && (
-        <div className="min-h-screen flex flex-col items-center justify-center gap-6 bg-gradient-to-b from-gray-950 to-red-950">
+        <div className="min-h-full h-full flex flex-col items-center justify-center gap-6 bg-gradient-to-b from-gray-950 to-red-950">
           <h2 className="text-6xl font-black text-red-400 animate-pulse">⚡ БЛИЦ!</h2>
           <p className="text-xl text-gray-300 text-center max-w-lg">
             Забег на выживание! Правильный ответ → +1 клетка. Последний ответивший — штраф!<br />
@@ -2054,7 +2063,7 @@ export default function SurvivachHostPage() {
 
       {/* ─── FINISHED ─── */}
       {room.status === 'finished' && (
-        <div className="min-h-screen flex flex-col items-center justify-center gap-8 p-6">
+        <div className="min-h-full h-full flex flex-col items-center justify-center gap-8 p-6">
           <h1 className="text-6xl font-black">🏆 ФИНИШ!</h1>
           <div className="grid gap-3 max-w-lg w-full">
             {ranked.map((p, i) => (
@@ -2075,6 +2084,8 @@ export default function SurvivachHostPage() {
           </button>
         </div>
       )}
+
+      </div>
 
       {/* ─── Floating leaderboard sidebar (in-game) ─── */}
       {!['lobby', 'rules', 'finished'].includes(room.status) && (
