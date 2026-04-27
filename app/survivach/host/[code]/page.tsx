@@ -175,6 +175,32 @@ function PlayerCard({ player, rank, showKarma = true }: {
 }
 
 /* ══════════════════════════════════════════
+   Ghost Component
+   ══════════════════════════════════════════ */
+function GhostAnim({ p }: { p: { id: string, name: string, avatar: string, key?: number } }) {
+  const [params, setParams] = useState(() => ({
+    key: 0,
+    x: Math.random() * 600 - 300,
+    delay: Math.random() * 2 // initial randomized delay
+  }));
+
+  return (
+    <div 
+      key={params.key} 
+      className="absolute bottom-[10vh] left-1/2 -translate-x-1/2 flex flex-col items-center ghost-anim"
+      style={{ marginLeft: `${params.x}px`, animationDelay: `${params.delay}s` }}
+      onAnimationEnd={() => {
+        // Reset delay to 0 and get new random x position.
+        setParams(curr => ({ key: curr.key + 1, x: Math.random() * 600 - 300, delay: 0 }));
+      }}
+    >
+      <img src={getAvatarUrl(p.avatar, 3)} alt={p.name} className="w-32 h-32 object-contain filter drop-shadow-[0_0_30px_#d8b4fe]" />
+      <span className="mt-4 text-2xl font-black text-purple-100 drop-shadow-[0_4px_4px_rgba(0,0,0,0.8)] tracking-wide">{p.name}</span>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════
    Main host page component
    ══════════════════════════════════════════ */
 
@@ -223,24 +249,22 @@ export default function SurvivachHostPage() {
   const [ghosts, setGhosts] = useState<{ id: string, name: string, avatar: string, key: number }[]>([]);
   const prevPlayers = useRef<SurvivachPlayer[]>([]);
   const [showZombieHand, setShowZombieHand] = useState(false);
+  const meetAudioPlayer = useRef<SurvivachAudio | null>(null);
 
   useEffect(() => {
     if (room?.status !== 'lobby') return;
+
+    if (!meetAudioPlayer.current) {
+       meetAudioPlayer.current = new SurvivachAudio();
+       // Only play if it wasn't played yet, maybe we can assume since lobby loads once
+       const randMeet = randomFromPool('https://storage.yandexcloud.net/vecherinkach/json/survivach/meet/', 5);
+       meetAudioPlayer.current.play(randMeet, false);
+    }
+
     const nonHost = players.filter(p => !p.is_host);
     if (nonHost.length > prevPlayers.current.length) {
       // New player joined!
       fxAudio.current.play(randomFromPool('https://storage.yandexcloud.net/vecherinkach/json/survivach/connect/', 5), false);
-      const newPlayers = nonHost.filter(p => !prevPlayers.current.some(old => old.id === p.id));
-      
-      setGhosts(prev => [
-        ...prev,
-        ...newPlayers.map(p => ({
-          id: p.id,
-          name: p.name,
-          avatar: p.avatar,
-          key: Date.now() + Math.random(),
-        }))
-      ]);
     }
     prevPlayers.current = nonHost;
   }, [players, room?.status]);
@@ -1016,7 +1040,7 @@ export default function SurvivachHostPage() {
 
       {/* ─── LOBBY ─── */}
       {room.status === 'lobby' && (
-        <div className="relative min-h-screen bg-[radial-gradient(ellipse_at_bottom,_var(--tw-gradient-stops))] from-indigo-900 via-purple-950 to-[#0c0418] text-white overflow-hidden select-none">
+        <div onClick={() => fxAudio.current.play('')} className="relative min-h-screen bg-[radial-gradient(ellipse_at_bottom,_var(--tw-gradient-stops))] from-indigo-900 via-purple-950 to-[#0c0418] text-white overflow-hidden select-none">
           <style dangerouslySetInnerHTML={{ __html: `
             @keyframes ghostFly {
               0% { transform: translateY(0) scale(0.8) rotate(0deg); opacity: 0; filter: brightness(1.2) hue-rotate(90deg) contrast(1.5); }
@@ -1040,20 +1064,36 @@ export default function SurvivachHostPage() {
           `}} />
 
           {/* Background Elements: Moon & Silhouette */}
-          <div className="absolute top-12 right-20 w-40 h-40 bg-yellow-100 rounded-full shadow-[0_0_120px_#fef08a] opacity-90 mix-blend-screen"></div>
+          <div className="absolute top-12 right-20 w-48 h-48 bg-yellow-100 rounded-full shadow-[0_0_120px_#fef08a] opacity-90 mix-blend-screen overflow-hidden">
+            <div className="absolute top-1/4 left-1/4 w-8 h-8 rounded-full bg-yellow-200 shadow-[inset_2px_4px_6px_rgba(0,0,0,0.15)] opacity-50"></div>
+            <div className="absolute top-1/2 right-1/4 w-12 h-12 rounded-full bg-yellow-200 shadow-[inset_-2px_-3px_8px_rgba(0,0,0,0.15)] opacity-40"></div>
+            <div className="absolute bottom-1/4 left-1/3 w-6 h-6 rounded-full bg-yellow-200 shadow-[inset_1px_2px_4px_rgba(0,0,0,0.15)] opacity-60"></div>
+            <div className="absolute top-1/3 right-1/2 w-4 h-4 rounded-full bg-yellow-200 shadow-[inset_1px_1px_3px_rgba(0,0,0,0.1)] opacity-70"></div>
+          </div>
           
           <div className="absolute bottom-0 w-full h-[35vh] bg-[#0c0418] z-0" style={{ clipPath: 'polygon(0% 100%, 0% 70%, 5% 55%, 10% 65%, 15% 45%, 25% 75%, 35% 65%, 45% 85%, 60% 50%, 75% 70%, 85% 40%, 95% 60%, 100% 70%, 100% 100%)' }}></div>
 
           {/* Main Gravestone Container */}
           <div className="absolute inset-0 flex flex-col items-center justify-end pb-[8vh] z-10">
-            <div className="relative w-80 h-[480px] bg-[linear-gradient(180deg,#312e81_0%,#1e1b4b_100%)] rounded-t-[10rem] border-[12px] border-[#0c0418] border-b-0 shadow-[inset_0_20px_50px_rgba(0,0,0,0.5),_0_0_100px_rgba(88,28,135,0.4)] flex flex-col pt-16 p-8 relative overflow-hidden transition-all duration-1000">
+            <div className="relative w-[340px] h-[600px] bg-[linear-gradient(180deg,#312e81_0%,#1e1b4b_100%)] rounded-t-[10rem] border-[12px] border-[#0c0418] border-b-0 shadow-[inset_0_20px_50px_rgba(0,0,0,0.5),_0_0_100px_rgba(88,28,135,0.4)] flex flex-col pt-12 p-8 relative overflow-hidden transition-all duration-1000">
               {/* Inner detail text */}
-              <div className="flex justify-center mb-4 opacity-50 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
-                <span className="text-6xl filter grayscale">💀</span>
+              <div className="flex justify-center mb-2 px-2 opacity-50 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                <span className="text-5xl filter grayscale">💀</span>
               </div>
-              <h2 className="text-4xl font-black text-center text-[#0c0418] tracking-tighter uppercase drop-shadow-[0_1px_2px_rgba(255,255,255,0.15)] leading-tight mt-2" style={{ WebkitTextStroke: '1px #1e1b4b' }}>
+              <h2 className="text-[28px] font-black text-center text-[#0c0418] tracking-tighter uppercase drop-shadow-[0_1px_2px_rgba(255,255,255,0.15)] leading-tight" style={{ WebkitTextStroke: '1px #1e1b4b' }}>
                 ПРИСОЕДИНЯЙСЯ
               </h2>
+
+              <div className="flex flex-col items-center mt-3 gap-[2px] w-full flex-1 overflow-hidden z-20">
+                 {players.filter(p => !p.is_host).slice(0, 12).map((p) => {
+                    const trunc = p.name.length > 15 ? p.name.substring(0, 15) + '…' : p.name;
+                    return (
+                      <div key={p.id} className="text-xl font-bold uppercase text-[#1e1b4b] mix-blend-multiply opacity-80" style={{ WebkitTextStroke: '0.4px rgba(0,0,0,0.2)' }}>
+                        {trunc}
+                      </div>
+                    );
+                 })}
+              </div>
 
               <button
                 onClick={handleStartGame}
@@ -1081,18 +1121,8 @@ export default function SurvivachHostPage() {
 
           {/* Ghost Spawner Container (Appears behind dirt, flies up) */}
           <div className="absolute inset-0 pointer-events-none z-15 overflow-hidden">
-             {ghosts.map(g => (
-                <div 
-                  key={g.key} 
-                  className="absolute bottom-[10vh] left-1/2 -translate-x-1/2 flex flex-col items-center ghost-anim"
-                  style={{
-                    marginLeft: `${Math.random() * 300 - 150}px`
-                  }}
-                  onAnimationEnd={() => setGhosts(curr => curr.filter(x => x.key !== g.key))}
-                >
-                  <img src={getAvatarUrl(g.avatar, 3)} alt={g.name} className="w-32 h-32 object-contain filter drop-shadow-[0_0_30px_#d8b4fe]" />
-                  <span className="mt-4 text-2xl font-black text-purple-100 drop-shadow-[0_4px_4px_rgba(0,0,0,0.8)] tracking-wide">{g.name}</span>
-                </div>
+             {players.filter(p => !p.is_host).map(p => (
+                <GhostAnim key={p.id} p={p as any} />
              ))}
           </div>
 
