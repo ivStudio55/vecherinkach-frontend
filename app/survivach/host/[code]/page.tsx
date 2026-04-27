@@ -94,51 +94,116 @@ function checkTextAnswer(input: string, acceptList: string[]): boolean {
 
 /* ─── Board mini-view ─── */
 function BoardView({ players, leaderPosition }: { players: SurvivachPlayer[]; leaderPosition: number }) {
+  const COLS = 13;
+  const ROWS = 2;
   const cells = Array.from({ length: TOTAL_CELLS }, (_, i) => i + 1);
-  const playersAtCell = (cell: number) => players.filter(p => p.position === cell);
+
+  const getCellPos = (cell: number) => {
+    const isTop = cell <= COLS;
+    const col = isTop ? cell - 1 : (COLS * 2) - cell;
+    const row = isTop ? 0 : 1;
+    return { col, row };
+  };
+
+  // Group players by cell to offset them visually and prevent overlap
+  const playersByCell = players.reduce((acc, p) => {
+    if (!acc[p.position]) acc[p.position] = [];
+    acc[p.position].push(p);
+    return acc;
+  }, {} as Record<number, SurvivachPlayer[]>);
 
   return (
-    <div className="grid gap-1 select-none" style={{ gridTemplateColumns: 'repeat(13, 1fr)' }}>
-      {cells.map(cell => {
-        const mode = getModeForCell(cell);
-        const here = playersAtCell(cell);
-        const isLeader = cell === leaderPosition;
-        return (
-          <div
-            key={cell}
-            className={`relative rounded border text-center p-0.5 transition-all ${
-              isLeader ? 'ring-2 ring-yellow-400 scale-105 z-10' : ''
-            }`}
-            style={{
-              backgroundColor: cell >= BLITZ_START ? '#7f1d1d' : '#1e293b',
-              borderColor: MODE_COLORS[mode as RoundMode] + '60',
-              minHeight: 36,
-            }}
-          >
-            <div className="text-[9px] text-gray-400 font-mono leading-none">{cell}</div>
-            {cell < BLITZ_START && (
-              <div className="text-[8px] leading-none"
-                style={{ color: MODE_COLORS[mode as RoundMode] }}>
-                {MODE_LABELS[mode as RoundMode].split(' ')[0]}
+    <div className="relative w-full bg-[#0c0418] rounded-3xl border-8 md:border-[16px] border-[#1e1b4b] shadow-[0_0_50px_rgba(0,0,0,0.8),inset_0_0_100px_rgba(220,38,38,0.2)] overflow-hidden p-2 md:p-8 max-w-[1500px] mx-auto my-2 isolate">
+      {/* Lava / Fog Effects */}
+      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_50%_100%,_rgba(220,38,38,0.3),_transparent_70%)] mix-blend-screen" />
+      <div className="absolute bottom-0 w-full h-[50%] bg-gradient-to-t from-orange-900/30 to-transparent mix-blend-screen pointer-events-none" />
+      <div className="absolute top-0 w-full h-[40%] bg-gradient-to-b from-purple-950/40 to-transparent pointer-events-none mix-blend-multiply" />
+
+      {/* Grid Container Base */}
+      <div className="relative w-full aspect-[4/1] md:aspect-[13/2.2] z-10">
+        {/* STONE CELLS */}
+        {cells.map(cell => {
+          const pos = getCellPos(cell);
+          const mode = getModeForCell(cell);
+          const isLeader = cell === leaderPosition;
+          const isBlitz = cell >= BLITZ_START;
+          
+          return (
+            <div
+              key={`cell-${cell}`}
+              className="absolute p-1 md:p-2 transition-all duration-300"
+              style={{
+                left: `${(pos.col / COLS) * 100}%`,
+                top: `${(pos.row / ROWS) * 100}%`,
+                width: `${100 / COLS}%`,
+                height: `${100 / ROWS}%`,
+              }}
+            >
+              <div className={`relative w-full h-full rounded-[0.4rem] md:rounded-[1rem] border-t-[2px] border-l-[2px] border-r-[4px] border-b-[6px] md:border-b-[8px] flex flex-col items-center justify-center transition-all overflow-hidden ${
+                isLeader ? 'ring-4 ring-yellow-400 scale-[1.05] shadow-[0_0_30px_rgba(250,204,21,0.6)] z-10' : 'shadow-[8px_8px_16px_rgba(0,0,0,0.8)]'
+              }`}
+              style={{
+                backgroundColor: isBlitz ? '#2e0811' : '#1e1b4b',
+                borderColor: isBlitz ? '#7f1d1d #450a0a #1a0202 #500e0e' : '#4c1d95 #2e1065 #0c0218 #3b0764',
+              }}>
+                {/* Textures / Cracks overlay */}
+                <div className="absolute inset-0 mix-blend-overlay opacity-30 bg-[repeating-linear-gradient(45deg,transparent,transparent_10px,rgba(0,0,0,0.2)_10px,rgba(0,0,0,0.2)_20px)]"></div>
+                {cell % 3 === 0 && <div className="absolute bottom-1 md:bottom-2 right-1 md:right-2 w-2 md:w-3 h-1 bg-black/40 rounded -rotate-45"></div>}
+                {cell % 5 === 0 && <div className="absolute top-1 md:top-2 right-2 md:right-3 w-3 md:w-4 h-1.5 bg-black/30 rounded rotate-12"></div>}
+                {cell % 7 === 0 && <div className="absolute top-1/2 left-1 md:left-2 w-1.5 h-2 md:h-3 bg-black/30 rounded rotate-45"></div>}
+
+                <span className="absolute top-1 left-1 text-[8px] md:text-sm font-black text-white/30 z-10">{cell}</span>
+                {isBlitz ? (
+                  <div className="text-red-500/60 text-lg md:text-3xl font-black opacity-30 animate-pulse z-10">⚡</div>
+                ) : (
+                  <div className="text-[6px] md:text-[10px] font-black uppercase text-center opacity-50 leading-none px-1 z-10 break-words drop-shadow-md" style={{ color: MODE_COLORS[mode as RoundMode] }}>
+                    {MODE_LABELS[mode as RoundMode]?.split(' ')[0]}
+                  </div>
+                )}
               </div>
-            )}
-            {cell >= BLITZ_START && (
-              <div className="text-[8px] text-red-300 leading-none">⚡</div>
-            )}
-            <div className="flex flex-wrap justify-center gap-0.5 mt-0.5">
-              {here.map(p => (
+            </div>
+          );
+        })}
+
+        {/* OVERLAY PLAYERS with smooth path transition */}
+        {players.map(p => {
+          const pos = getCellPos(p.position);
+          
+          // Slight offset if multiple players are on the same cell
+          const siblings = playersByCell[p.position] || [];
+          const idx = siblings.findIndex(s => s.id === p.id);
+          const total = siblings.length;
+          
+          const baseX = (pos.col / COLS) * 100 + (100 / COLS / 2);
+          const baseY = (pos.row / ROWS) * 100 + (100 / ROWS / 2);
+          
+          const offsetX = total > 1 ? (idx % 2 === 0 ? -12 : 12) + (Math.floor(idx/2) * 5) : 0;
+          const offsetY = total > 1 ? (idx < 2 ? -8 : 12) : 0;
+
+          return (
+            <div
+              key={p.id}
+              className="absolute z-20 transition-all duration-[900ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] transform -translate-x-1/2 -translate-y-1/2"
+              style={{
+                left: `calc(${baseX}% + ${offsetX}px)`,
+                top: `calc(${baseY}% + ${offsetY}px)`,
+              }}
+            >
+              <div className="relative group drop-shadow-[0_10px_10px_rgba(0,0,0,0.8)] filter transition-all">
                 <img
-                  key={p.id}
                   src={getAvatarUrl(p.avatar, p.lives)}
                   alt={p.name}
-                  title={p.name}
-                  className="w-4 h-4 object-contain"
+                  className={`w-8 h-8 md:w-16 md:h-16 object-contain pointer-events-none transition-transform ${p.is_zombie ? 'hue-rotate-180 saturate-200 contrast-125' : ''}`}
                 />
-              ))}
+                {p.is_zombie && <div className="absolute -top-2 -right-2 text-sm md:text-xl animate-pulse drop-shadow-md">🧟</div>}
+                <div className="absolute -bottom-3 md:-bottom-5 left-1/2 -translate-x-1/2 bg-black/90 px-1.5 py-0.5 rounded text-[8px] md:text-[10px] font-bold text-white whitespace-nowrap border border-white/10 shadow-[0_4px_10px_rgba(0,0,0,1)]">
+                  {p.name.length > 7 ? p.name.substring(0,6) + '…' : p.name}
+                </div>
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
