@@ -219,6 +219,32 @@ export default function SurvivachHostPage() {
   const bgAudio = useRef(new SurvivachAudio());
   const fxAudio = useRef(new SurvivachAudio());
 
+  /* ─── Lobby logic & Ghosts ─── */
+  const [ghosts, setGhosts] = useState<{ id: string, name: string, avatar: string, key: number }[]>([]);
+  const prevPlayers = useRef<SurvivachPlayer[]>([]);
+  const [showZombieHand, setShowZombieHand] = useState(false);
+
+  useEffect(() => {
+    if (room?.status !== 'lobby') return;
+    const nonHost = players.filter(p => !p.is_host);
+    if (nonHost.length > prevPlayers.current.length) {
+      // New player joined!
+      fxAudio.current.play(randomFromPool('https://storage.yandexcloud.net/vecherinkach/json/survivach/connect/', 5), false);
+      const newPlayers = nonHost.filter(p => !prevPlayers.current.some(old => old.id === p.id));
+      
+      setGhosts(prev => [
+        ...prev,
+        ...newPlayers.map(p => ({
+          id: p.id,
+          name: p.name,
+          avatar: p.avatar,
+          key: Date.now() + Math.random(),
+        }))
+      ]);
+    }
+    prevPlayers.current = nonHost;
+  }, [players, room?.status]);
+
   /* ─── Timer refs ─── */
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const moveTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -425,6 +451,14 @@ export default function SurvivachHostPage() {
 
   const handleStartGame = async () => {
     if (!room) return;
+    setShowZombieHand(true);
+    
+    // Play zombie hand sound if exists, or connect sound for effect
+    fxAudio.current.play('https://storage.yandexcloud.net/vecherinkach/json/survivach/lobby/zombie_hand.mp3', false);
+
+    // Wait for the zombie hand animation to finish
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
     bgAudio.current.stop();
     await setRoomStatus(room.id, 'rules', {});
     bgAudio.current.play(RULES_MUSIC);
@@ -982,62 +1016,129 @@ export default function SurvivachHostPage() {
 
       {/* ─── LOBBY ─── */}
       {room.status === 'lobby' && (
-        <div className="min-h-screen flex flex-col items-center justify-center p-8 gap-8">
-          <div className="text-center">
-            <h1 className="text-6xl font-black mb-2">🧟 ВЫЖИВАЧ</h1>
-            <p className="text-gray-400">Доска выживания · 26 клеток · Зомби · Дуэли</p>
-          </div>
+        <div className="relative min-h-screen bg-[radial-gradient(ellipse_at_bottom,_var(--tw-gradient-stops))] from-indigo-900 via-purple-950 to-[#0c0418] text-white overflow-hidden select-none">
+          <style dangerouslySetInnerHTML={{ __html: `
+            @keyframes ghostFly {
+              0% { transform: translateY(0) scale(0.8) rotate(0deg); opacity: 0; filter: brightness(1.2) hue-rotate(90deg) contrast(1.5); }
+              10% { opacity: 0.9; transform: translateY(-30px) scale(1) rotate(-5deg); filter: brightness(1.5) hue-rotate(180deg); }
+              90% { opacity: 0.4; transform: translateY(-400px) scale(1.3) rotate(10deg); filter: brightness(2) hue-rotate(240deg); }
+              100% { opacity: 0; transform: translateY(-500px) scale(1.5) rotate(0deg); }
+            }
+            .ghost-anim {
+              animation: ghostFly 4.5s ease-out forwards;
+              will-change: transform, opacity, filter;
+            }
+            @keyframes zombieHandUp {
+              0% { transform: translateY(120%) rotate(15deg); }
+              70% { transform: translateY(-10%) rotate(-5deg); }
+              100% { transform: translateY(0) rotate(0deg); }
+            }
+            .zombie-hand-anim {
+              animation: zombieHandUp 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+              will-change: transform;
+            }
+          `}} />
 
-          <div className="flex gap-8 items-start">
-            <div className="text-center">
-              <QRCodeCanvas value={joinUrl} size={180} bgColor="#0f172a" fgColor="#ffffff" />
-              <p className="text-gray-400 text-sm mt-2">Сканировать для входа</p>
-            </div>
-            <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 min-w-48">
-              <div className="text-4xl font-mono font-black text-center text-yellow-400 tracking-widest mb-2">
-                {code}
-              </div>
-              <p className="text-gray-400 text-xs text-center">Код комнаты</p>
-              <div className="mt-4 text-sm text-gray-400 text-center">
-                {players.filter(p => !p.is_host).length} / {MIN_PLAYERS}+ игроков
-              </div>
-            </div>
-          </div>
+          {/* Background Elements: Moon & Silhouette */}
+          <div className="absolute top-12 right-20 w-40 h-40 bg-yellow-100 rounded-full shadow-[0_0_120px_#fef08a] opacity-90 mix-blend-screen"></div>
+          
+          <div className="absolute bottom-0 w-full h-[35vh] bg-[#0c0418] z-0" style={{ clipPath: 'polygon(0% 100%, 0% 70%, 5% 55%, 10% 65%, 15% 45%, 25% 75%, 35% 65%, 45% 85%, 60% 50%, 75% 70%, 85% 40%, 95% 60%, 100% 70%, 100% 100%)' }}></div>
 
-          {/* Player list */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-2xl w-full">
-            {DUCK_AVATARS.map(duck => {
-              const occupant = players.find(p => p.avatar === duck && !p.is_host);
-              return (
-                <div key={duck} className={`border rounded-xl p-3 text-center transition-all ${
-                  occupant ? 'border-green-500 bg-green-900/20' : 'border-gray-700 bg-gray-900/50 opacity-40'
-                }`}>
-                  <img src={getAvatarUrl(duck, 3)} alt={duck} className="w-12 h-12 mx-auto object-contain" />
-                  {occupant
-                    ? <p className="text-sm font-bold mt-1 text-green-300 truncate">{occupant.name}</p>
-                    : <p className="text-xs text-gray-500 mt-1">Свободно</p>
-                  }
+          {/* Main Gravestone Container */}
+          <div className="absolute inset-0 flex flex-col items-center justify-end pb-[8vh] z-10">
+            <div className="relative w-80 h-[480px] bg-[linear-gradient(180deg,#312e81_0%,#1e1b4b_100%)] rounded-t-[10rem] border-[12px] border-[#0c0418] border-b-0 shadow-[inset_0_20px_50px_rgba(0,0,0,0.5),_0_0_100px_rgba(88,28,135,0.4)] flex flex-col pt-16 p-8 relative overflow-hidden transition-all duration-1000">
+              {/* Inner detail text */}
+              <div className="flex justify-center mb-4 opacity-50 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                <span className="text-6xl filter grayscale">💀</span>
+              </div>
+              <h2 className="text-4xl font-black text-center text-[#0c0418] tracking-tighter uppercase drop-shadow-[0_1px_2px_rgba(255,255,255,0.15)] leading-tight mt-2" style={{ WebkitTextStroke: '1px #1e1b4b' }}>
+                ПРИСОЕДИНЯЙСЯ
+              </h2>
+
+              <button
+                onClick={handleStartGame}
+                disabled={players.filter(p => !p.is_host).length < MIN_PLAYERS || showZombieHand}
+                className="w-full py-5 mt-auto rounded-2xl text-xl font-black transition-all bg-purple-700 hover:bg-purple-500 disabled:bg-[#1e1b4b] disabled:text-gray-600 disabled:cursor-not-allowed uppercase text-purple-100 tracking-widest border-b-[6px] border-purple-950 active:scale-95 shadow-[0_0_40px_rgba(147,51,234,0.4)] relative z-20"
+              >
+                {players.filter(p => !p.is_host).length < MIN_PLAYERS 
+                  ? `ЖДЁМ (${players.filter(p => !p.is_host).length}/${MIN_PLAYERS})` 
+                  : 'НАЧАТЬ'}
+              </button>
+            </div>
+
+            {/* Zombie Hand Animation at the base of the gravestone */}
+            {showZombieHand && (
+              <div className="absolute bottom-[5vh] left-1/2 -translate-x-1/2 w-64 h-64 zombie-hand-anim pointer-events-none z-30 flex items-end justify-center">
+                <div className="text-[12rem] filter hue-rotate-[240deg] contrast-150 saturate-200 drop-shadow-[0_0_40px_rgba(34,197,94,0.4)] leading-none -mb-8">
+                  🧟‍♂️
                 </div>
-              );
-            })}
+              </div>
+            )}
+            
+            {/* The dirt in front of the grave */}
+            <div className="absolute bottom-[6vh] w-[450px] h-24 bg-[#080210] rounded-[100%] z-20 shadow-[0_0_80px_rgba(0,0,0,1)]"></div>
           </div>
 
-          <button
-            onClick={handleStartGame}
-            disabled={players.filter(p => !p.is_host).length < MIN_PLAYERS}
-            className="px-12 py-5 rounded-2xl text-2xl font-black disabled:opacity-40 disabled:cursor-not-allowed transition-all bg-red-600 hover:bg-red-500 active:scale-95 shadow-2xl shadow-red-900/50"
-          >
-            ☠️ Начать выживание
-          </button>
-          {players.filter(p => !p.is_host).length < MIN_PLAYERS && (
-            <p className="text-gray-500 text-sm">Минимум {MIN_PLAYERS} игрока</p>
-          )}
-          <button
-            onClick={async () => { if (confirm('Закрыть комнату?')) { await setRoomStatus(room.id, 'finished', {}); } }}
-            className="text-gray-600 hover:text-red-400 text-sm underline transition-colors mt-2"
-          >
-            Закрыть комнату
-          </button>
+          {/* Ghost Spawner Container (Appears behind dirt, flies up) */}
+          <div className="absolute inset-0 pointer-events-none z-15 overflow-hidden">
+             {ghosts.map(g => (
+                <div 
+                  key={g.key} 
+                  className="absolute bottom-[10vh] left-1/2 -translate-x-1/2 flex flex-col items-center ghost-anim"
+                  style={{
+                    marginLeft: `${Math.random() * 300 - 150}px`
+                  }}
+                  onAnimationEnd={() => setGhosts(curr => curr.filter(x => x.key !== g.key))}
+                >
+                  <img src={getAvatarUrl(g.avatar, 3)} alt={g.name} className="w-32 h-32 object-contain filter drop-shadow-[0_0_30px_#d8b4fe]" />
+                  <span className="mt-4 text-2xl font-black text-purple-100 drop-shadow-[0_4px_4px_rgba(0,0,0,0.8)] tracking-wide">{g.name}</span>
+                </div>
+             ))}
+          </div>
+
+          {/* Top Info Bar */}
+          <div className="absolute top-6 left-6 right-6 flex justify-between items-start z-30">
+            <div className="flex gap-6 p-4 rounded-3xl bg-black/60 backdrop-blur-md border border-purple-800/40 shadow-[0_0_50px_rgba(88,28,135,0.4)]">
+               <div className="bg-white p-2 rounded-xl">
+                 <QRCodeCanvas value={joinUrl} size={120} bgColor="#ffffff" fgColor="#3b0764" />
+               </div>
+               <div className="flex flex-col justify-center pr-4">
+                 <p className="text-purple-300/80 text-sm uppercase tracking-[0.3em] font-bold mb-1">Код комнаты</p>
+                 <div className="text-6xl font-mono font-black text-purple-100 drop-shadow-[0_0_20px_#9333ea]">
+                   {code}
+                 </div>
+               </div>
+            </div>
+
+            <button
+              onClick={async () => { if (confirm('Закрыть комнату?')) { await setRoomStatus(room.id, 'finished', {}); } }}
+              className="px-6 py-3 bg-black/50 hover:bg-red-950/80 rounded-full border border-red-900/50 text-red-300/80 hover:text-red-200 text-sm transition-colors backdrop-blur-sm uppercase tracking-widest font-black shadow-lg"
+            >
+              Закрыть ❌
+            </button>
+          </div>
+
+          {/* Connected players grid */}
+          <div className="absolute bottom-8 left-8 p-6 bg-black/50 backdrop-blur-md border border-purple-800/40 rounded-3xl z-30 w-96 shadow-[0_0_40px_rgba(0,0,0,0.8)]">
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-2xl">🪦</span>
+              <p className="text-purple-200 font-black text-sm uppercase tracking-[0.2em] leading-tight">Уже в могиле<br/>
+                <span className="text-purple-400/80 text-xs">Жертвы ({players.filter(p => !p.is_host).length})</span>
+              </p>
+            </div>
+            
+            <div className="flex flex-wrap gap-2 max-h-[30vh] overflow-y-auto pr-2 custom-scrollbar">
+              {players.filter(p => !p.is_host).map(p => (
+                <div key={p.id} className="flex items-center gap-2 px-3 py-1.5 bg-purple-900/30 rounded-full border border-purple-700/40 shadow-inner">
+                  <img src={getAvatarUrl(p.avatar, 3)} alt={p.name} className="w-8 h-8 rounded-full bg-black/20 p-0.5" />
+                  <span className="text-sm font-bold text-purple-100">{p.name}</span>
+                </div>
+              ))}
+              {players.filter(p => !p.is_host).length === 0 && (
+                 <span className="text-purple-500/50 italic font-medium px-2">— Тишина —</span>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
