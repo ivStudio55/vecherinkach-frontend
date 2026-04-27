@@ -178,21 +178,19 @@ function PlayerCard({ player, rank, showKarma = true }: {
    Ghost Component
    ══════════════════════════════════════════ */
 function GhostAnim({ p }: { p: { id: string, name: string, avatar: string, key?: number } }) {
-  const [params, setParams] = useState(() => ({
-    key: 0,
+  const [done, setDone] = useState(false);
+  const [params] = useState(() => ({
     x: Math.random() * 600 - 300,
-    delay: Math.random() * 2 // initial randomized delay
+    delay: Math.random() * 1 // initial randomized delay
   }));
+
+  if (done) return null;
 
   return (
     <div 
-      key={params.key} 
       className="absolute bottom-[10vh] left-1/2 -translate-x-1/2 flex flex-col items-center ghost-anim"
       style={{ marginLeft: `${params.x}px`, animationDelay: `${params.delay}s` }}
-      onAnimationEnd={() => {
-        // Reset delay to 0 and get new random x position.
-        setParams(curr => ({ key: curr.key + 1, x: Math.random() * 600 - 300, delay: 0 }));
-      }}
+      onAnimationEnd={() => setDone(true)}
     >
       <img src={getAvatarUrl(p.avatar, 3)} alt={p.name} className="w-32 h-32 object-contain filter drop-shadow-[0_0_30px_#d8b4fe]" />
       <span className="mt-4 text-2xl font-black text-purple-100 drop-shadow-[0_4px_4px_rgba(0,0,0,0.8)] tracking-wide">{p.name}</span>
@@ -256,15 +254,20 @@ export default function SurvivachHostPage() {
 
     if (!meetAudioPlayer.current) {
        meetAudioPlayer.current = new SurvivachAudio();
-       // Only play if it wasn't played yet, maybe we can assume since lobby loads once
-       const randMeet = randomFromPool('https://storage.yandexcloud.net/vecherinkach/json/survivach/meet/', 5);
-       meetAudioPlayer.current.play(randMeet, false);
+       // "meet1.mp3" is what the user uploaded explicitly
+       meetAudioPlayer.current.play('https://storage.yandexcloud.net/vecherinkach/json/survivach/meet/meet1.mp3', false);
     }
 
     const nonHost = players.filter(p => !p.is_host);
     if (nonHost.length > prevPlayers.current.length) {
-      // New player joined!
-      fxAudio.current.play(randomFromPool('https://storage.yandexcloud.net/vecherinkach/json/survivach/connect/', 5), false);
+      // New player joined! Map sound to their avatar duck number, fallback to random duck1..12
+      const newPlayers = nonHost.filter(p => !prevPlayers.current.some(old => old.id === p.id));
+      newPlayers.forEach(np => {
+         const avatarDuckNum = np.avatar.replace(/\D/g, ''); // extracts number from "duck5" -> "5"
+         const duckNum = avatarDuckNum || (Math.floor(Math.random() * 12) + 1);
+         const cSound = new Audio(`https://storage.yandexcloud.net/vecherinkach/json/survivach/connect/duck${duckNum}.mp3`);
+         cSound.play().catch(e => console.error('Connection sound blocked:', e));
+      });
     }
     prevPlayers.current = nonHost;
   }, [players, room?.status]);
