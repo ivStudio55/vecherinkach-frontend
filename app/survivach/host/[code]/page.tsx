@@ -1064,6 +1064,17 @@ export default function SurvivachHostPage() {
               animation: zombieHandUp 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
               will-change: transform;
             }
+            @keyframes survivachGlow {
+              0%   { color: transparent; text-shadow: none; opacity: 0; filter: blur(4px); }
+              10%  { color: #fff; text-shadow: 0 0 20px #e9d5ff, 0 0 40px #c084fc, 0 0 80px #9333ea; opacity: 1; filter: blur(0px); }
+              50%  { color: #fff; text-shadow: 0 0 20px #e9d5ff, 0 0 40px #c084fc, 0 0 80px #9333ea; opacity: 1; filter: blur(0px); }
+              60%  { color: transparent; text-shadow: none; opacity: 0; filter: blur(4px); }
+              100% { color: transparent; text-shadow: none; opacity: 0; filter: blur(4px); }
+            }
+            .glow-char-anim {
+              animation: survivachGlow 6s ease-in-out infinite;
+              will-change: opacity, text-shadow, color, filter;
+            }
           `}} />
 
           {/* Background Elements: Moon & Silhouette */}
@@ -1078,6 +1089,20 @@ export default function SurvivachHostPage() {
 
           {/* Main Gravestone Container */}
           <div className="absolute inset-0 flex flex-col items-center justify-end pb-[8vh] z-10">
+
+            {/* Glowing Text above */}
+            <div className="mb-4 sm:mb-8 flex gap-1 sm:gap-[6px] md:gap-3 z-30">
+              {"ВЫЖИВАЧ".split('').map((char, i) => (
+                <span 
+                  key={i} 
+                  className="glow-char-anim text-5xl sm:text-6xl md:text-[5rem] lg:text-[6.5rem] font-black tracking-widest text-transparent"
+                  style={{ animationDelay: `${i * 0.25}s` }}
+                >
+                  {char}
+                </span>
+              ))}
+            </div>
+
             <div className="relative w-[340px] h-[600px] bg-[linear-gradient(180deg,#312e81_0%,#1e1b4b_100%)] rounded-t-[10rem] border-[12px] border-[#0c0418] border-b-0 shadow-[inset_0_20px_50px_rgba(0,0,0,0.5),_0_0_100px_rgba(88,28,135,0.4)] flex flex-col pt-12 p-8 relative overflow-hidden transition-all duration-1000">
               {/* Inner detail text */}
               <div className="flex justify-center mb-2 px-2 opacity-50 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
