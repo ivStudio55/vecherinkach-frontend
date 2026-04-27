@@ -289,6 +289,7 @@ export default function SurvivachHostPage() {
   const [timerLeft, setTimerLeft] = useState(0);
   const [moveTimerLeft, setMoveTimerLeft] = useState(7);
   const [usedQIds, setUsedQIds] = useState<Set<string | number>>(new Set());
+  const [selectedRule, setSelectedRule] = useState<string | null>(null);
   const [roundResultsData, setRoundResultsData] = useState<PlayerRoundResult[]>([]);
   const [betResultsData, setBetResultsData] = useState<BetResultsData | null>(null);
   const [duelQ, setDuelQ] = useState<Record<string, unknown> | null>(null);
@@ -554,14 +555,20 @@ export default function SurvivachHostPage() {
     bgAudio.current.stop();
     await setRoomStatus(room.id, 'rules', {});
     bgAudio.current.play(RULES_MUSIC);
-    // Play VO narration; after it ends → advance to moving
-    fxAudio.current.play(randomFromPool(RULES_VO_POOL, 5), false, () => {
-      setRoomStatus(room.id, 'moving', {
-        current_round: 1,
-        leader_position: 1,
-      });
-    });
+    // Note: If voiceover file doesn't exist, this callback will never fire and game hangs on Rules screen.
+    // Allow user to manually skip rules instead of hanging indefinitely if fetching audio fails.
+    fxAudio.current.play(randomFromPool(RULES_VO_POOL, 5), false, skipRulesFlow);
   };
+
+  const skipRulesFlow = useCallback(() => {
+    if (room?.status !== 'rules') return;
+    fxAudio.current.stop();
+    bgAudio.current.stop();
+    setRoomStatus(room.id, 'moving', {
+      current_round: 1,
+      leader_position: 1,
+    });
+  }, [room?.status, room?.id]);
 
   const handleMoveAnimDone = useCallback(async () => {
     if (!room || !pack) return;
@@ -1140,6 +1147,10 @@ export default function SurvivachHostPage() {
               animation: survivachGlow 6s ease-in-out infinite;
               will-change: opacity, text-shadow, color, filter;
             }
+            @keyframes floating {
+              0%, 100% { transform: translateY(0px) rotate(0deg); }
+              50% { transform: translateY(-10px) rotate(1deg); }
+            }
           `}} />
 
           {/* Background Elements: Moon & Silhouette */}
@@ -1191,7 +1202,7 @@ export default function SurvivachHostPage() {
               <button
                 onClick={handleStartGame}
                 disabled={players.filter(p => !p.is_host).length < MIN_PLAYERS || showZombieHand}
-                className="w-full py-5 mt-auto rounded-2xl text-xl font-black transition-all bg-purple-700 hover:bg-purple-500 disabled:bg-[#1e1b4b] disabled:text-gray-600 disabled:cursor-not-allowed uppercase text-purple-100 tracking-widest border-b-[6px] border-purple-950 active:scale-95 shadow-[0_0_40px_rgba(147,51,234,0.4)] relative z-20"
+                className="w-full py-5 mt-auto rounded-2xl text-xl font-black transition-all bg-purple-700 hover:bg-purple-500 disabled:bg-[#1e1b4b] disabled:text-gray-600 disabled:cursor-not-allowed uppercase text-purple-100 tracking-widest border-b-[6px] border-purple-950 active:scale-95 shadow-[0_0_40px_rgba(147,51,234,0.4)] relative z-50 pointer-events-auto"
               >
                 {players.filter(p => !p.is_host).length < MIN_PLAYERS 
                   ? `ЖДЁМ (${players.filter(p => !p.is_host).length}/${MIN_PLAYERS})` 
@@ -1201,7 +1212,7 @@ export default function SurvivachHostPage() {
 
             {/* Zombie Hand Animation at the base of the gravestone */}
             {showZombieHand && (
-              <div className="absolute bottom-[5vh] left-1/2 -translate-x-1/2 w-64 h-64 zombie-hand-anim pointer-events-none z-30 flex items-end justify-center">
+              <div className="absolute bottom-[5vh] left-1/2 -translate-x-1/2 w-64 h-64 zombie-hand-anim pointer-events-none z-40 flex items-end justify-center">
                 <div className="text-[12rem] filter hue-rotate-[240deg] contrast-150 saturate-200 drop-shadow-[0_0_40px_rgba(34,197,94,0.4)] leading-none -mb-8">
                   🧟‍♂️
                 </div>
@@ -1209,7 +1220,7 @@ export default function SurvivachHostPage() {
             )}
             
             {/* The dirt in front of the grave */}
-            <div className="absolute bottom-[6vh] w-[450px] h-24 bg-[#080210] rounded-[100%] z-20 shadow-[0_0_80px_rgba(0,0,0,1)]"></div>
+            <div className="absolute bottom-[6vh] w-[450px] h-24 bg-[#080210] rounded-[100%] z-20 shadow-[0_0_80px_rgba(0,0,0,1)] pointer-events-none"></div>
           </div>
 
           {/* Ghost Spawner Container (Appears behind dirt, flies up) */}
@@ -1267,29 +1278,71 @@ export default function SurvivachHostPage() {
 
       {/* ─── RULES ─── */}
       {room.status === 'rules' && (
-        <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-gradient-to-b from-gray-950 to-red-950">
-          <h2 className="text-4xl font-black mb-8">📜 Правила выживания</h2>
-          <div className="max-w-2xl w-full grid gap-4 text-sm leading-relaxed">
-            <div className="bg-gray-900 border border-gray-700 rounded-xl p-4">
-              <b className="text-yellow-400">🎯 Цель:</b> Первым добраться до клетки 26, не превратившись в зомби.
+        <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-[url('/img/lava-bg.jpg')] bg-cover bg-center bg-gray-950 relative overflow-hidden transition-all duration-1000">
+          <div className="absolute inset-0 bg-gradient-to-b from-[#0c0418]/90 via-[#2e1065]/70 to-[#3b0764]/90 z-0"></div>
+          
+          <div className="z-10 flex flex-col items-center w-full max-w-4xl relative">
+            <h2 className="text-5xl font-black mb-8 text-transparent bg-clip-text bg-gradient-to-r from-purple-200 via-yellow-100 to-purple-200 drop-shadow-[0_0_20px_rgba(168,85,247,0.5)] uppercase tracking-widest animate-pulse">
+              📜 Правила выживания
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+              {[
+                { id: 'goal', title: '🎯 Цель игры', color: 'border-yellow-500/50', bg: 'bg-yellow-950/20', short: 'Первым добраться до клетки 26, не став зомби.', desc: 'Все стартуют с 1-й клетки. Ваша главная задача — выжить и первым достичь финиша (кл. 26). Игроки борются друг с другом, отвечая на вопросы, зарабатывая уровни, карму и теряя жизни.' },
+                { id: 'correct', title: '✅ Правильный ответ', color: 'border-green-500/50', bg: 'bg-green-950/20', short: '+1 клетка вперёд. Первый ответивший — +2 клетки.', desc: 'Каждый правильный ответ передвигает вас на одну клетку вперёд. Но тот, кто ответит правильно БЫСТРЕЕ всех, получит бонус: +2 клетки! Скорость решает.' },
+                { id: 'wrong', title: '❌ Неправильный ответ', color: 'border-red-500/50', bg: 'bg-red-950/20', short: 'Остаёшься на месте, −1 жизнь.', desc: 'Неправильный ответ лишает вас одной жизни. С места вы не сдвинетесь. Лишившись всех 3-х жизней, вы превратитесь в зомби.' },
+                { id: 'zombie', title: '🧟 Зомби-режим', color: 'border-emerald-500/50', bg: 'bg-emerald-950/20', short: '3 ошибки = зомби. Идёшь +1, заражаешь.', desc: 'Зомби двигаются на 1 клетку вперёд каждый раунд, не отвечая на вопросы. При совпадении с живым игроком на одной клетке (имея зомби-бомбу), зомби кусает и отнимает жизнь у живого!' },
+                { id: 'karma', title: '✨ Карма', color: 'border-purple-500/50', bg: 'bg-purple-950/20', short: '3 правильных подряд = 1 карма. 3 кармы = дуэль!', desc: 'Ответьте правильно 3 раза подряд без ошибок, чтобы получить 1 очко кармы. Накопив 3 очка (3 раза по 3 ответа), вы можете вызвать любого игрока на смертельную Дуэль на вылет!' },
+                { id: 'blitz', title: '⚡ Блиц (кл. 19+)', color: 'border-cyan-500/50', bg: 'bg-cyan-950/20', short: 'Быстрые вопросы. Последний ответ не считается.', desc: 'Как только лидер ступает на 19-ю клетку или дальше, активируется напряжённый режим Блиц. Вопросы сложнее, а времени меньше. Последний ответивший ничего не получает!' },
+              ].map((rule, idx) => (
+                <div
+                  key={rule.id}
+                  onClick={() => setSelectedRule(rule.id)}
+                  className={`cursor-pointer ${rule.bg} border ${rule.color} rounded-2xl p-5 hover:scale-[1.02] hover:bg-white/10 transition-all duration-300 backdrop-blur-md shadow-lg flex flex-col justify-center`}
+                  style={{ animation: `floating 4s ease-in-out infinite ${idx * 0.2}s` }}
+                >
+                  <h3 className="text-xl font-bold mb-2 text-white/90">{rule.title}</h3>
+                  <p className="text-sm text-gray-300 leading-snug">{rule.short}</p>
+                </div>
+              ))}
             </div>
-            <div className="bg-gray-900 border border-gray-700 rounded-xl p-4">
-              <b className="text-green-400">✅ Правильный ответ:</b> +1 клетка вперёд. Первый ответивший — +2 клетки.
-            </div>
-            <div className="bg-gray-900 border border-gray-700 rounded-xl p-4">
-              <b className="text-red-400">❌ Неправильный ответ:</b> остаёшься на месте, −1 жизнь.
-            </div>
-            <div className="bg-gray-900 border border-green-700 rounded-xl p-4">
-              <b className="text-green-400">🧟 Зомби-режим:</b> 3 ошибки = смерть → превращение в зомби. Зомби всегда идут на +1, заражают при встрече.
-            </div>
-            <div className="bg-gray-900 border border-yellow-700 rounded-xl p-4">
-              <b className="text-yellow-400">✨ Карма:</b> 3 правильных подряд → карма. При 3 очках — вызов на дуэль!
-            </div>
-            <div className="bg-gray-900 border border-purple-700 rounded-xl p-4">
-              <b className="text-purple-400">⚡ Блиц (кл. 19+):</b> Быстрые вопросы. Последний ответ не считается — надо торопиться!
-            </div>
+
+            <button
+              onClick={skipRulesFlow}
+              className="mt-12 px-8 py-3 bg-white/10 hover:bg-white/20 border border-white/20 rounded-full text-white/80 transition-all uppercase tracking-widest text-sm font-bold shadow-[0_0_30px_rgba(255,255,255,0.1)] active:scale-95"
+            >
+              Пропустить правила ⏭
+            </button>
           </div>
-          <p className="text-gray-500 text-sm mt-8 animate-pulse">Ожидайте начала игры...</p>
+
+          {/* Rules Modal */}
+          {selectedRule && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={() => setSelectedRule(null)}>
+              <div className="max-w-lg w-full bg-gray-900 border border-purple-500/50 rounded-3xl p-8 shadow-[0_0_60px_rgba(168,85,247,0.3)] transform scale-100" onClick={e => e.stopPropagation()}>
+                {(() => {
+                  const rule = [
+                    { id: 'goal', title: '🎯 Цель игры', desc: 'Все стартуют с 1-й клетки. Ваша главная задача — выжить и первым достичь финиша (кл. 26). Игроки борются друг с другом, отвечая на вопросы, зарабатывая уровни, карму и теряя жизни.' },
+                    { id: 'correct', title: '✅ Правильный ответ', desc: 'Каждый правильный ответ передвигает вас на одну клетку вперёд. Но тот, кто ответит правильно БЫСТРЕЕ всех, получит бонус: +2 клетки! Скорость решает.' },
+                    { id: 'wrong', title: '❌ Неправильный ответ', desc: 'Неправильный ответ лишает вас одной жизни. С места вы не сдвинетесь. Будьте осторожны — лишившись всех 3-х жизней, вы превратитесь в зомби.' },
+                    { id: 'zombie', title: '🧟 Зомби-режим', desc: 'Зомби всегда двигаются на 1 клетку вперёд каждый раунд, не отвечая на вопросы. При совпадении с живым игроком на одной клетке (разряжая зомби-бомбу), зомби кусает и отнимает жизнь у живого!' },
+                    { id: 'karma', title: '✨ Карма', desc: 'За каждый правильный ответ без ошибок 3 раза подряд вы получаете 1 очко кармы. Накопив 3 очка кармы, вы можете вызвать любого на смертельную Дуэль на вылет!' },
+                    { id: 'blitz', title: '⚡ Блиц (кл. 19+)', desc: 'Как только лидер ступает на 19-ю клетку или дальше, активируется напряжённый режим Блиц. Вопросы сложнее, а времени на раздумья меньше. Важно: игрок, ответивший последним, ничего не получает даже за правильный ответ!' },
+                  ].find(r => r.id === selectedRule);
+                  return (
+                    <>
+                      <h3 className="text-3xl font-black mb-4 text-purple-200">{rule?.title}</h3>
+                      <p className="text-lg text-gray-300 leading-relaxed">{rule?.desc}</p>
+                      <div className="mt-8 flex justify-center">
+                        <button onClick={() => setSelectedRule(null)} className="px-6 py-2 bg-purple-600 hover:bg-purple-500 rounded-xl font-bold uppercase text-sm tracking-widest text-white transition-colors">
+                          Понятно
+                        </button>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
