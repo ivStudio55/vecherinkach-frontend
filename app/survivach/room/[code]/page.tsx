@@ -317,19 +317,28 @@ export default function SurvivachRoomPage() {
   }, [room, me, handlePotatoPass]);
 
   /* ── Fetch & subscribe ── */
+  const prevRoundRef = useRef<number | null>(null);
+  const prevStatusRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!room?.id) return;
     const unsubs = [
       subscribeRoom(room.id, r => {
         setRoom(r);
-        // Reset answer state when round changes
-        setSubmitted(false);
-        setTextAnswer('');
-        setChoiceAnswer(null);
-        setMyAnswer(null);
-        setMyBet(null);
-        setPuzzleSolved(false);
-        setShowSequence(false);
+        // Reset answer state ONLY when the round number or game status changes
+        const roundChanged = prevRoundRef.current !== null && prevRoundRef.current !== r.current_round;
+        const statusChanged = prevStatusRef.current !== null && prevStatusRef.current !== r.status;
+        if (roundChanged || statusChanged) {
+          setSubmitted(false);
+          setTextAnswer('');
+          setChoiceAnswer(null);
+          setMyAnswer(null);
+          setMyBet(null);
+          setPuzzleSolved(false);
+          setShowSequence(false);
+        }
+        prevRoundRef.current = r.current_round;
+        prevStatusRef.current = r.status;
       }),
       subscribeRoomPlayers(room.id, pl => {
         setPlayers(pl);
@@ -361,6 +370,8 @@ export default function SurvivachRoomPage() {
       const r = await fetchRoomByCode(code);
       if (!r) { setLoading(false); return; }
       setRoom(r);
+      prevRoundRef.current = r.current_round;
+      prevStatusRef.current = r.status;
       const pl = await fetchPlayers(r.id);
       setPlayers(pl);
 
