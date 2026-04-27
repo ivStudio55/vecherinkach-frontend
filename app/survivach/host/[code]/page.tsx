@@ -323,8 +323,7 @@ export default function SurvivachHostPage() {
 
     if (!meetAudioPlayer.current) {
        meetAudioPlayer.current = new SurvivachAudio();
-       // "meet1.mp3" is what the user uploaded explicitly
-       meetAudioPlayer.current.play('https://storage.yandexcloud.net/vecherinkach/json/survivach/meet/meet1.mp3', false);
+       meetAudioPlayer.current.play(randomFromPool('https://storage.yandexcloud.net/vecherinkach/json/survivach/meet/', 13), false);
     }
 
     const nonHost = players.filter(p => !p.is_host);
@@ -653,7 +652,7 @@ export default function SurvivachHostPage() {
       const seqLen = room.zombie_bomb_active ? 7 : 5;
       const seq = generateColorSequence(seqLen);
       setColorSequence(seq);
-      questionData = { mode: 'memory_diary', sequence: seq, show_duration_ms: 5000 };
+      questionData = { mode: 'memory_diary', sequence: seq, show_duration_ms: 10000 };
     } else if (mode === 'tag_puzzle') {
       const size = room.zombie_bomb_active ? 4 : 3;
       const state = scramblePuzzle(size);
@@ -663,12 +662,17 @@ export default function SurvivachHostPage() {
 
     const timerSec = mode === 'mathematician' ? 60 : mode === 'tag_puzzle' ? 120 : 30;
 
+    // Zombie bomb trigger: activate if a zombie is within 3 cells of the leader
+    const nonHostGamePlayers = gamePlayers.filter(p => !p.is_host);
+    const nearbyZombie = nonHostGamePlayers.find(p => p.is_zombie && leaderPos - p.position >= 0 && leaderPos - p.position <= 3);
+    const shouldActivateBomb = !!nearbyZombie && !room.zombie_bomb_active;
+
     await setRoomStatus(room.id, 'round_intro', {
       current_mode: mode,
       leader_position: leaderPos,
       question_data: questionData,
       timer_duration_sec: timerSec,
-      // FIX STAGE 3: Remove premature Zombie Bomb clear so its state persists through the round
+      ...(shouldActivateBomb ? { zombie_bomb_active: true, zombie_bomb_player_id: nearbyZombie.id } : {}),
     });
     setCurrentQ(questionData);
   }, [room, pack, questions, usedQIds]);
@@ -702,7 +706,7 @@ export default function SurvivachHostPage() {
     const alivePlayers = nonHostPlayers.filter(p => !p.is_zombie);
     const oldLeader = alivePlayers.sort((a, b) => b.position - a.position)[0];
 
-    // Special case: mathematician — rank by correct count
+    // Special case: mathematician — rank by correct count then by answer speed
     if (mode === 'mathematician') {
       const sorted = [...nonHostPlayers].sort((a, b) => {
         const aa = finalAnswers.find(x => x.player_id === a.id);
@@ -710,20 +714,26 @@ export default function SurvivachHostPage() {
         const ca = (aa?.answer_data as { correct_count?: number })?.correct_count ?? 0;
         const cb = (bb?.answer_data as { correct_count?: number })?.correct_count ?? 0;
         if (cb !== ca) return cb - ca;
-        return a.position - b.position; // tiebreaker: closer to leader
+        // Tiebreaker: faster answer time wins
+        return (aa?.answer_time_ms ?? Infinity) - (bb?.answer_time_ms ?? Infinity);
       });
 
-      const maxCorrect = ((sorted[0] && finalAnswers.find(x => x.player_id === sorted[0].id)?.answer_data as { correct_count?: number })?.correct_count) ?? 0;
-      const minCorrect = ((sorted[sorted.length - 1] && finalAnswers.find(x => x.player_id === sorted[sorted.length - 1].id)?.answer_data as { correct_count?: number })?.correct_count) ?? 0;
+      const aliveSorted = sorted.filter(p => !p.is_zombie);
+      const mathWinner = aliveSorted[0] ?? null;
+      const mathLoser = aliveSorted.length > 1 ? aliveSorted[aliveSorted.length - 1] : null;
 
       for (const p of nonHostPlayers) {
         const ans = finalAnswers.find(x => x.player_id === p.id);
         const cc = (ans?.answer_data as { correct_count?: number })?.correct_count ?? 0;
         let posChange = 1;
         let livesChange = 0;
-        if (cc === maxCorrect && !p.is_zombie) { posChange = 2; }
-        if (cc === minCorrect && !p.is_zombie) { posChange = 0; livesChange = -1; }
-        if (p.is_zombie) posChange = 1;
+        if (p.is_zombie) {
+          posChange = 1;
+        } else if (mathWinner && p.id === mathWinner.id) {
+          posChange = 2;
+        } else if (mathLoser && p.id === mathLoser.id) {
+          posChange = 0; livesChange = -1;
+        }
         const newPos = Math.min(TOTAL_CELLS, p.position + posChange);
         const newLives = Math.max(0, p.lives + livesChange);
         const isCorr = cc > 0;
@@ -791,7 +801,7 @@ export default function SurvivachHostPage() {
         if (p.is_zombie) {
           results.push({
             player_id: p.id,
-            is_correct: true,
+            is_correct: false,
             was_first: false,
             position_change: 1,
             lives_change: 0,
@@ -927,8 +937,9 @@ export default function SurvivachHostPage() {
 
     // Determine result audio
     const ma = MODE_AUDIO[mode as keyof typeof MODE_AUDIO] as Record<string, string | undefined>;
-    const allCorrect = results.every(r => r.is_correct);
-    const noneCorrect = results.every(r => !r.is_correct);
+    const aliveResults = results.filter(r => !players.find(p => p.id === r.player_id)?.is_zombie);
+    const allCorrect = aliveResults.length > 0 && aliveResults.every(r => r.is_correct);
+    const noneCorrect = aliveResults.length > 0 && aliveResults.every(r => !r.is_correct);
     const resultPool = allCorrect && ma.all_correct
       ? ma.all_correct
       : noneCorrect && ma.everyone_mistake
@@ -981,10 +992,10 @@ export default function SurvivachHostPage() {
             ? resolvedBets.every(b => !b.won) ? randomFromPool(BET_UNWORKED_POOL, 5) : randomFromPool(BET_MIX_POOL, 5)
             : randomFromPool(BET_WORKED_POOL, 5),
           false,
-          () => advanceAfterBetReveal(),
+          () => advanceAfterBetReveal(perfectRound),
         );
       } else {
-        await advanceAfterBetReveal();
+        await advanceAfterBetReveal(perfectRound);
       }
     });
   };
@@ -1016,7 +1027,7 @@ export default function SurvivachHostPage() {
     })));
   };
 
-  const advanceAfterBetReveal = async () => {
+  const advanceAfterBetReveal = async (perfectRound = false) => {
     if (!room) return;
     const updatedPlayers = await fetchPlayers(room.id);
     const gamePlayers = updatedPlayers.filter(p => !p.is_host);
@@ -1039,7 +1050,7 @@ export default function SurvivachHostPage() {
     const roundData = room.round_results_data as RoundResultsData | null;
     const aliveGamePlayers = gamePlayers.filter(p => !p.is_zombie);
 
-    if (roundData?.perfect_round && aliveGamePlayers.length >= 3 && !roundData.potato_loser && !roundData.potato_bomb_holder) {
+    if (perfectRound && aliveGamePlayers.length >= 3 && !roundData?.potato_loser && !roundData?.potato_bomb_holder) {
       // Pick a random alive player to get the bomb
       const randomStartId = aliveGamePlayers[Math.floor(Math.random() * aliveGamePlayers.length)].id;
       
@@ -1184,19 +1195,21 @@ export default function SurvivachHostPage() {
         setTimerLeft(0);
         await handleTimerExpired();
         break;
-      case 'round_results':
+      case 'round_results': {
         if (roundResultsData.length > 0) {
           await applyResults(roundResultsData);
         }
+        const pfRound = (room.round_results_data as { perfect_round?: boolean } | null)?.perfect_round ?? false;
         if (bets.length > 0) {
           await setRoomStatus(room.id, 'bet_reveal', {});
-          await advanceAfterBetReveal();
+          await advanceAfterBetReveal(pfRound);
         } else {
-          await advanceAfterBetReveal();
+          await advanceAfterBetReveal(pfRound);
         }
         break;
+      }
       case 'bet_reveal':
-        await advanceAfterBetReveal();
+        await advanceAfterBetReveal((room.round_results_data as { perfect_round?: boolean } | null)?.perfect_round ?? false);
         break;
       case 'duel_intro':
         await setRoomStatus(room.id, 'duel_setup', {});
