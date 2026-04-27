@@ -1175,13 +1175,13 @@ export default function SurvivachHostPage() {
     const newLeaderPos = getLeaderPosition(gamePlayers);
     const newRound = room.current_round + 1;
 
-    // Check for Hot Potato condition: perfect round & at least 3 players alive
+    // Check for Hot Potato condition: perfect round & at least 2 players alive
     // (A hot potato needs players to pass it between)
     // We already stored `perfect_round` in round_results_data.
     const roundData = room.round_results_data as RoundResultsData | null;
     const aliveGamePlayers = gamePlayers.filter(p => !p.is_zombie);
 
-    if (perfectRound && aliveGamePlayers.length >= 3 && !roundData?.potato_loser && !roundData?.potato_bomb_holder) {
+    if (perfectRound && aliveGamePlayers.length >= 2 && !roundData?.potato_loser && !roundData?.potato_bomb_holder) {
       // Pick a random alive player to get the bomb
       const randomStartId = aliveGamePlayers[Math.floor(Math.random() * aliveGamePlayers.length)].id;
       
