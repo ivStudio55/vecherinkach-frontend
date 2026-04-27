@@ -63,6 +63,9 @@ import {
   DUEL_AUDIO,
   LAUGH_POOL,
   SCREAM_POOL,
+  BLITZ_THEME,
+  BLITZ_START_POOL,
+  BLITZ_CHANGE_LEADER_POOL,
   randomFromPool,
 } from '@/lib/survivach/audio';
 import type {
@@ -312,6 +315,11 @@ export default function SurvivachHostPage() {
   const fxAudio = useRef(new SurvivachAudio());
   const laughedAnswerIds = useRef(new Set<string>());
 
+  /* ─── Blitz state ─── */
+  const blitzTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const usedBlitzQIds = useRef<Set<number>>(new Set());
+  const blitzQBankRef = useRef<Array<{ id: number; question: string; options: string[]; correct_index: number }> | null>(null);
+
   /* ─── Lobby logic & Ghosts ─── */
   const [ghosts, setGhosts] = useState<{ id: string, name: string, avatar: string, key: number }[]>([]);
   const prevPlayers = useRef<SurvivachPlayer[]>([]);
@@ -419,8 +427,11 @@ export default function SurvivachHostPage() {
     if (st === 'round_playing') {
       const dur = room.timer_duration_sec ?? 30;
       setTimerLeft(dur);
-      const pool = randomFromPool(TIMER_POOL, 5);
-      bgAudio.current.play(pool, true);
+      // In blitz, keep the blitz BGM playing (started in blitz_intro); don't restart timer music
+      if (room.current_mode !== 'blitz') {
+        const pool = randomFromPool(TIMER_POOL, 5);
+        bgAudio.current.play(pool, true);
+      }
       timerRef.current = setInterval(() => {
         setTimerLeft(t => {
           if (t <= 1) {
@@ -601,7 +612,7 @@ export default function SurvivachHostPage() {
     let questionData: Record<string, unknown> = {};
 
     if (mode === 'umnik' || mode === 'blitz') {
-      const qBank = questions ?? await loadPackQuestions(pack.base_url, mode);
+      const qBank = questions ?? (mode === "blitz" ? await loadPackQuestions("https://storage.yandexcloud.net/vecherinkach/json/survivach", "blitz") : await loadPackQuestions(pack.base_url, mode));
       if (mode === 'umnik') {
         const list: unknown[] = (qBank as { umnik?: { questions: unknown[] } })?.umnik?.questions ?? [];
         const available = list.filter((q: unknown) => !usedQIds.has((q as { id: string }).id));
@@ -701,6 +712,7 @@ export default function SurvivachHostPage() {
     const nonHostPlayers = players.filter(p => !p.is_host);
     const results: PlayerRoundResult[] = [];
     let firstCorrectFound = false;
+    let blitzSlowPlayerId: string | null = null;
 
     // We store old leader for blitz calculations
     const alivePlayers = nonHostPlayers.filter(p => !p.is_zombie);
@@ -759,6 +771,10 @@ export default function SurvivachHostPage() {
     } else if (mode === 'blitz') {
       const sortedAnswers = [...finalAnswers].sort((a, b) => new Date(a.submitted_at || 0).getTime() - new Date(b.submitted_at || 0).getTime());
       const allowedCount = Math.max(1, nonHostPlayers.length - 1);
+
+      // The "slow" player is any non-zombie player who didn't make the cutoff
+      const answeredInTimeIds = new Set(sortedAnswers.slice(0, allowedCount).map(a => a.player_id));
+      blitzSlowPlayerId = nonHostPlayers.filter(p => !p.is_zombie && !answeredInTimeIds.has(p.id))[0]?.id ?? null;
       
       for (const p of nonHostPlayers) {
         const rankIndex = sortedAnswers.findIndex(a => a.player_id === p.id);
@@ -977,10 +993,27 @@ export default function SurvivachHostPage() {
         correct_answer: correctAnswer, 
         player_results: results,
         perfect_round: perfectRound,
+        ...(mode === 'blitz' ? { blitz_slow_player_id: blitzSlowPlayerId, blitz_mode: true } : {}),
       },
       bet_results_data: bets.length > 0 ? betResultsForSave : null,
       ...(shouldResetBomb ? { zombie_bomb_active: false, zombie_bomb_player_id: null } : {})
     });
+
+    // ─── Blitz: instant advance after 2.5s, no result audio ───
+    if (mode === 'blitz') {
+      // Detect leader change and play audio
+      const newLeaderResult = results.filter(r => !r.is_zombie_now).sort((a, b) => b.new_position - a.new_position)[0];
+      if (newLeaderResult && newLeaderResult.player_id !== oldLeader?.id) {
+        new Audio(randomFromPool(BLITZ_CHANGE_LEADER_POOL, 5)).play().catch(() => {});
+      }
+
+      // Apply results immediately, then auto-advance
+      await applyResults(results);
+      blitzTimerRef.current = setTimeout(() => {
+        advanceBlitzRound();
+      }, 2500);
+      return;
+    }
 
     bgAudio.current.play(randomFromPool(resultPool, 5), false, async () => {
       // After results audio → apply changes and move to next phase
@@ -1025,6 +1058,63 @@ export default function SurvivachHostPage() {
       total_correct: r.new_total_correct,
       total_answer_time_ms: r.new_total_time_ms,
     })));
+  };
+
+  /* ─── Blitz: load and start next question instantly ─── */
+  const advanceBlitzRound = async () => {
+    if (!room) return;
+
+    // Check win condition first
+    const updatedPlayers = await fetchPlayers(room.id);
+    const gamePlayers = updatedPlayers.filter(p => !p.is_host);
+    const winners = gamePlayers.filter(p => p.position >= TOTAL_CELLS);
+    if (winners.length > 0) {
+      bgAudio.current.stop();
+      await setRoomStatus(room.id, 'finished', {});
+      return;
+    }
+
+    // Pick next blitz question
+    let qBank = blitzQBankRef.current;
+    if (!qBank) {
+      qBank = await loadPackQuestions(
+        'https://storage.yandexcloud.net/vecherinkach/json/survivach', 'blitz'
+      ) as Array<{ id: number; question: string; options: string[]; correct_index: number }>;
+      blitzQBankRef.current = qBank;
+    }
+    const available = qBank.filter(q => !usedBlitzQIds.current.has(q.id));
+    const pool = available.length > 0 ? available : qBank;
+    const q = pool[Math.floor(Math.random() * pool.length)];
+    if (!q) return;
+    usedBlitzQIds.current.add(q.id);
+
+    // Leader gets 3 options — remove last wrong option
+    const nonHostPlayers = gamePlayers.filter(p => !p.is_host);
+    const leaderPlayer = rankPlayers(nonHostPlayers)[0] ?? null;
+    const leaderPos = getLeaderPosition(nonHostPlayers);
+    const removeIdx = q.correct_index === 3 ? 2 : 3;
+    const leaderOptions = q.options.filter((_, i) => i !== removeIdx);
+    const leaderCorrectIndex = q.correct_index > removeIdx ? q.correct_index - 1 : q.correct_index;
+
+    const questionData = {
+      mode: 'blitz',
+      id: q.id,
+      question: q.question,
+      options: q.options,
+      correct_index: q.correct_index,
+      leader_options: leaderOptions,
+      leader_correct_index: leaderCorrectIndex,
+      leader_player_id: leaderPlayer?.id ?? null,
+    };
+    setCurrentQ(questionData);
+    await setRoomStatus(room.id, 'round_playing', {
+      current_round: room.current_round + 1,
+      leader_position: leaderPos,
+      current_mode: 'blitz',
+      question_data: questionData,
+      timer_started_at: new Date().toISOString(),
+      timer_duration_sec: 30,
+    });
   };
 
   const advanceAfterBetReveal = async (perfectRound = false) => {
@@ -1196,6 +1286,12 @@ export default function SurvivachHostPage() {
         await handleTimerExpired();
         break;
       case 'round_results': {
+        // In blitz mode, cancel the pending auto-advance timer and advance immediately
+        if ((room.round_results_data as { blitz_mode?: boolean } | null)?.blitz_mode) {
+          if (blitzTimerRef.current) clearTimeout(blitzTimerRef.current);
+          await advanceBlitzRound();
+          break;
+        }
         if (roundResultsData.length > 0) {
           await applyResults(roundResultsData);
         }
@@ -1703,7 +1799,27 @@ export default function SurvivachHostPage() {
       {/* ─── ROUND RESULTS ─── */}
       {room.status === 'round_results' && (
         <div className="min-h-full h-full flex flex-col p-6 gap-4">
-          <h2 className="text-3xl font-black text-center">📊 Результаты раунда</h2>
+          <h2 className="text-3xl font-black text-center">
+            {(room.round_results_data as { blitz_mode?: boolean } | null)?.blitz_mode
+              ? '⚡ Результаты блица'
+              : '📊 Результаты раунда'}
+          </h2>
+
+          {/* Blitz: show slow player + auto-advance notice */}
+          {(room.round_results_data as { blitz_mode?: boolean } | null)?.blitz_mode && (() => {
+            const rd = room.round_results_data as { blitz_slow_player_id?: string } | null;
+            const slowP = rd?.blitz_slow_player_id ? players.find(p => p.id === rd.blitz_slow_player_id) : null;
+            return (
+              <div className="flex flex-col items-center gap-2">
+                {slowP && (
+                  <div className="bg-red-900/30 border border-red-500/50 rounded-xl px-4 py-2 text-center">
+                    <span className="text-red-400 font-bold">🐌 Слишком медленно: {slowP.name}</span>
+                  </div>
+                )}
+                <p className="text-gray-400 text-sm animate-pulse">Следующий вопрос через 2 сек…</p>
+              </div>
+            );
+          })()}
 
           {room.round_results_data && (
             <div className="max-w-3xl mx-auto w-full flex flex-col gap-4">
@@ -2050,10 +2166,53 @@ export default function SurvivachHostPage() {
             🧟 Зомби преследуют — каждый вопрос они идут вперёд.
           </p>
           <button onClick={async () => {
-            await setRoomStatus(room.id, 'moving', {
+            // Play random start audio
+            new Audio(randomFromPool(BLITZ_START_POOL, 5)).play().catch(() => {});
+            // Start looped blitz BGM
+            bgAudio.current.play(BLITZ_THEME, true);
+
+            // Load blitz questions
+            let qBank = blitzQBankRef.current;
+            if (!qBank) {
+              qBank = await loadPackQuestions(
+                'https://storage.yandexcloud.net/vecherinkach/json/survivach', 'blitz'
+              ) as Array<{ id: number; question: string; options: string[]; correct_index: number }>;
+              blitzQBankRef.current = qBank;
+            }
+            const available = qBank.filter(q => !usedBlitzQIds.current.has(q.id));
+            const pool = available.length > 0 ? available : qBank;
+            const q = pool[Math.floor(Math.random() * pool.length)];
+            if (!q) return;
+            usedBlitzQIds.current.add(q.id);
+
+            const gamePlayers = await fetchPlayers(room.id);
+            const nonHostPlayers = gamePlayers.filter(p => !p.is_host);
+            const leaderPlayer = rankPlayers(nonHostPlayers)[0] ?? null;
+            const leaderPos = getLeaderPosition(nonHostPlayers);
+
+            // Leader sees 3 options (remove last wrong option)
+            const removeIdx = q.correct_index === 3 ? 2 : 3;
+            const leaderOptions = q.options.filter((_, i) => i !== removeIdx);
+            const leaderCorrectIndex = q.correct_index > removeIdx ? q.correct_index - 1 : q.correct_index;
+
+            const questionData = {
+              mode: 'blitz',
+              id: q.id,
+              question: q.question,
+              options: q.options,
+              correct_index: q.correct_index,
+              leader_options: leaderOptions,
+              leader_correct_index: leaderCorrectIndex,
+              leader_player_id: leaderPlayer?.id ?? null,
+            };
+            setCurrentQ(questionData);
+            await setRoomStatus(room.id, 'round_playing', {
               current_round: room.current_round,
-              leader_position: room.leader_position,
+              leader_position: leaderPos,
               current_mode: 'blitz',
+              question_data: questionData,
+              timer_started_at: new Date().toISOString(),
+              timer_duration_sec: 30,
             });
           }} className="px-12 py-5 bg-red-600 hover:bg-red-500 rounded-2xl text-2xl font-black">
             ⚡ ПОГНАЛИ!

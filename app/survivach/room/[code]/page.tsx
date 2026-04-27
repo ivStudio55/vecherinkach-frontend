@@ -868,22 +868,32 @@ export default function SurvivachRoomPage() {
                 )}
 
                 {/* ── BLITZ ── */}
-                {room.current_mode === 'blitz' && qData.options && (
-                  <div className="flex flex-col gap-4">
-                    <h2 className="text-xl font-bold text-center text-red-400">{qData.question as string}</h2>
-                    <div className="grid grid-cols-2 gap-2">
-                      {(qData.options as string[]).map((opt, i) => (
-                        <button
-                          key={i}
-                          onClick={() => submitChoiceAnswer(i, idx => idx === (qData.correct_index as number))}
-                          className="px-3 py-4 bg-gray-800 border border-red-500/30 hover:border-red-400 hover:bg-red-900/20 rounded-xl font-medium text-center transition-all active:scale-95"
-                        >
-                          {opt}
-                        </button>
-                      ))}
+                {room.current_mode === 'blitz' && qData.options && (() => {
+                  const isLeader = !!(me && me.id === qData.leader_player_id);
+                  const opts = (isLeader && qData.leader_options ? qData.leader_options : qData.options) as string[];
+                  const correctIdx = isLeader && qData.leader_correct_index !== undefined
+                    ? qData.leader_correct_index as number
+                    : qData.correct_index as number;
+                  return (
+                    <div className="flex flex-col gap-4">
+                      {isLeader && (
+                        <p className="text-yellow-400 font-bold text-center text-sm">👑 Ты лидер — у тебя 3 варианта</p>
+                      )}
+                      <h2 className="text-xl font-bold text-center text-red-400">{qData.question as string}</h2>
+                      <div className="grid grid-cols-2 gap-2">
+                        {opts.map((opt, i) => (
+                          <button
+                            key={i}
+                            onClick={() => submitChoiceAnswer(i, idx => idx === correctIdx)}
+                            className="px-3 py-4 bg-gray-800 border border-red-500/30 hover:border-red-400 hover:bg-red-900/20 rounded-xl font-medium text-center transition-all active:scale-95"
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
               </>
             )}
           </div>
@@ -893,6 +903,13 @@ export default function SurvivachRoomPage() {
         {room.status === 'round_results' && (
           <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6">
             <h2 className="text-3xl font-black">📊 Результаты</h2>
+            {/* Blitz: too slow message */}
+            {me && (room.round_results_data as { blitz_slow_player_id?: string } | null)?.blitz_slow_player_id === me.id && (
+              <div className="bg-red-900/40 border border-red-500 rounded-xl px-6 py-3 text-center">
+                <p className="text-red-400 font-black text-xl">🐌 Ты слишком долго думал!</p>
+                <p className="text-gray-400 text-sm mt-1">В блице последний ответ не засчитывается</p>
+              </div>
+            )}
             {me && room.round_results_data && (
               (() => {
                 const myResult = (room.round_results_data.player_results as Array<{ player_id: string; is_correct: boolean; was_first: boolean; position_change: number; new_position: number; lives_change: number; karma_change: number; is_zombie_now: boolean }>)?.find(r => r.player_id === me.id);

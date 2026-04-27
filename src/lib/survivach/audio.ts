@@ -74,6 +74,11 @@ export const MODE_AUDIO = {
   },
 } as const;
 
+/* ─── Blitz mode audio ─── */
+export const BLITZ_THEME = `${BASE}/soundtrack/blitz.mp3`;
+export const BLITZ_START_POOL = `${BASE}/blitz/start/`;
+export const BLITZ_CHANGE_LEADER_POOL = `${BASE}/blitz/change_leader/`;
+
 /* ─── Reaction sounds ─── */
 export const LAUGH_POOL = `${BASE}/laugh/`;   // played on correct answer
 export const SCREAM_POOL = `${BASE}/scream/`; // played when player becomes zombie
