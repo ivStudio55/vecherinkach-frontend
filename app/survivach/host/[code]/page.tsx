@@ -708,17 +708,24 @@ export default function SurvivachHostPage() {
         if (p.is_zombie) posChange = 1;
         const newPos = Math.min(TOTAL_CELLS, p.position + posChange);
         const newLives = Math.max(0, p.lives + livesChange);
+        const isCorr = cc > 0;
+        const mNewStreak = isCorr && !p.is_zombie ? p.correct_streak + 1 : 0;
+        const mKarmaGain = !p.is_zombie && mNewStreak >= 3 ? 1 : 0;
+        const willBeZombie = newLives === 0 || p.is_zombie;
         results.push({
           player_id: p.id,
-          is_correct: cc > 0,
+          is_correct: isCorr,
           was_first: false,
           position_change: posChange,
           lives_change: livesChange,
-          karma_change: 0,
+          karma_change: mKarmaGain,
           new_position: newPos,
           new_lives: newLives,
-          new_karma: p.karma,
-          is_zombie_now: newLives === 0 || p.is_zombie,
+          new_karma: p.karma + mKarmaGain,
+          is_zombie_now: willBeZombie,
+          new_streak: willBeZombie ? 0 : mNewStreak,
+          new_total_correct: p.total_correct + (isCorr ? 1 : 0),
+          new_total_time_ms: p.total_answer_time_ms + (ans?.answer_time_ms ?? 0),
         });
       }
     } else if (mode === 'blitz') {
@@ -743,6 +750,7 @@ export default function SurvivachHostPage() {
         const newLives = p.is_zombie ? 0 : Math.max(0, p.lives + livesChange);
         const newPos = Math.min(TOTAL_CELLS, p.position + posChange);
 
+        const blitzDirectAns = finalAnswers.find(a => a.player_id === p.id);
         results.push({
           player_id: p.id,
           is_correct: isCorrect,
@@ -754,6 +762,9 @@ export default function SurvivachHostPage() {
           new_lives: newLives,
           new_karma: newKarma,
           is_zombie_now: p.is_zombie || newLives === 0,
+          new_streak: p.is_zombie || newLives === 0 ? 0 : newStreak,
+          new_total_correct: p.total_correct + (isCorrect ? 1 : 0),
+          new_total_time_ms: p.total_answer_time_ms + (blitzDirectAns?.answer_time_ms ?? 0),
         });
       }
     } else {
@@ -768,9 +779,12 @@ export default function SurvivachHostPage() {
             lives_change: 0,
             karma_change: 0,
             new_position: Math.min(TOTAL_CELLS, p.position + 1),
-            new_lives: p.lives,
+            new_lives: 0,
             new_karma: p.karma,
             is_zombie_now: true,
+            new_streak: 0,
+            new_total_correct: p.total_correct,
+            new_total_time_ms: p.total_answer_time_ms,
           });
           continue;
         }
@@ -805,6 +819,9 @@ export default function SurvivachHostPage() {
           new_lives: newLives,
           new_karma: newKarma,
           is_zombie_now: p.is_zombie || newLives === 0,
+          new_streak: newLives === 0 ? 0 : newStreak,
+          new_total_correct: p.total_correct + (isCorrect ? 1 : 0),
+          new_total_time_ms: p.total_answer_time_ms + (ans?.answer_time_ms ?? 0),
         });
       }
     }
@@ -825,6 +842,18 @@ export default function SurvivachHostPage() {
       }
     }
 
+    // Cell-19 collision: if 2+ alive players land on exactly cell 19, the rating leader takes cell 20
+    const landingOn19 = results.filter(r => r.new_position === BLITZ_START && !r.is_zombie_now);
+    if (landingOn19.length > 1) {
+      const rankedAll = rankPlayers(nonHostPlayers);
+      const leaderAmong = rankedAll.find(p => landingOn19.some(r => r.player_id === p.id));
+      if (leaderAmong) {
+        const lr = results.find(r => r.player_id === leaderAmong.id)!;
+        lr.new_position = Math.min(TOTAL_CELLS, BLITZ_START + 1);
+        lr.position_change += 1;
+      }
+    }
+
     // FIX STAGE 1: Zombies infect on collision
     const zombiePositions = new Set(
       results.filter(r => r.is_zombie_now).map(r => r.new_position)
@@ -836,6 +865,7 @@ export default function SurvivachHostPage() {
         r.lives_change -= r.new_lives; // Lose all remaining lives
         r.new_lives = 0;
         r.is_zombie_now = true;
+        r.new_streak = 0; // infection resets streak
       }
     }
 
@@ -962,7 +992,9 @@ export default function SurvivachHostPage() {
       lives: r.new_lives,
       karma: r.new_karma,
       is_zombie: r.is_zombie_now,
-      correct_streak: r.is_correct ? undefined : 0, // reset streak on wrong
+      correct_streak: r.new_streak,
+      total_correct: r.new_total_correct,
+      total_answer_time_ms: r.new_total_time_ms,
     })));
   };
 
@@ -1634,37 +1666,55 @@ export default function SurvivachHostPage() {
           <h2 className="text-3xl font-black text-center">📊 Результаты раунда</h2>
 
           {room.round_results_data && (
-            <div className="max-w-2xl mx-auto w-full">
+            <div className="max-w-3xl mx-auto w-full flex flex-col gap-4">
               {room.current_mode !== 'mathematician' && (
-                <div className="text-center mb-4 bg-gray-900 border border-gray-700 rounded-xl p-3">
+                <div className="text-center bg-gray-900 border border-gray-700 rounded-xl p-3">
                   <span className="text-gray-400 text-sm">Правильный ответ: </span>
                   <span className="font-bold text-green-400">{room.round_results_data.correct_answer}</span>
                 </div>
               )}
-              <div className="grid gap-2">
-                {rankPlayers(players.filter(p => !p.is_host)).map((p, i) => {
-                  const r = roundResultsData.find(x => x.player_id === p.id);
-                  return (
-                    <div key={p.id} className={`flex items-center gap-3 p-3 rounded-xl border ${
-                      r?.is_correct ? 'border-green-600/50 bg-green-900/10' : 'border-red-600/30 bg-red-900/10'
-                    }`}>
-                      <span className="text-gray-500 w-4 text-xs">#{i + 1}</span>
-                      <img src={getAvatarUrl(p.avatar, r?.new_lives ?? p.lives)} alt="" className="w-8 h-8 object-contain" />
-                      <span className="flex-1 font-medium">{p.name}</span>
-                      {r && (
-                        <>
-                          {r.is_correct
-                            ? <span className="text-green-400 font-bold">{r.was_first ? '⚡ +2' : '✅ +1'}</span>
-                            : <span className="text-red-400 font-bold">❌ −♥</span>
-                          }
-                          <span className="text-gray-400 text-sm">→ кл.{r.new_position}</span>
-                          {r.karma_change > 0 && <span className="text-yellow-400 text-xs">+{r.karma_change}✨</span>}
-                          {r.is_zombie_now && !p.is_zombie && <span className="text-green-400">🧟 ЗОМБИ!</span>}
-                        </>
-                      )}
-                    </div>
-                  );
-                })}
+
+              {/* ─── Full leaderboard ─── */}
+              <div>
+                <p className="text-xs text-gray-500 uppercase tracking-widest mb-2 text-center">Общий рейтинг</p>
+                <div className="grid gap-1">
+                  {rankPlayers(players.filter(p => !p.is_host)).map((p, i) => {
+                    const r = roundResultsData.find(x => x.player_id === p.id);
+                    const newLives = r?.new_lives ?? p.lives;
+                    const newPos = r?.new_position ?? p.position;
+                    const newKarma = r?.new_karma ?? p.karma;
+                    const newZombie = r?.is_zombie_now ?? p.is_zombie;
+                    return (
+                      <div key={p.id} className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm ${
+                        r?.is_correct ? 'border-green-600/40 bg-green-900/10' : 'border-red-600/20 bg-red-900/10'
+                      }`}>
+                        <span className={`font-black w-5 text-center text-sm ${i === 0 ? 'text-yellow-400' : 'text-gray-500'}`}>#{i + 1}</span>
+                        <img src={getAvatarUrl(p.avatar, newLives)} alt="" className="w-7 h-7 object-contain" />
+                        <span className="font-medium flex-1">{p.name}</span>
+                        {/* Result this round */}
+                        {r && (r.is_correct
+                          ? <span className="text-green-400 font-bold">{r.was_first ? '⚡+2' : '✅+1'}</span>
+                          : <span className="text-red-400 font-bold">❌−♥</span>
+                        )}
+                        {/* Board position */}
+                        <span className="text-gray-300 font-mono text-xs w-12 text-right">кл.{newPos}</span>
+                        {/* Lives */}
+                        <span className="text-red-400 text-xs w-12 text-center">
+                          {newZombie ? '🧟' : '❤️'.repeat(newLives) + '🖤'.repeat(Math.max(0, 3 - newLives))}
+                        </span>
+                        {/* Karma */}
+                        {newKarma > 0 && (
+                          <span className={`text-xs font-bold w-8 text-right ${newKarma >= 3 ? 'text-yellow-300' : 'text-gray-400'}`}>
+                            {newKarma}✨
+                          </span>
+                        )}
+                        {/* Round events */}
+                        {(r?.karma_change ?? 0) > 0 && <span className="text-yellow-400 text-xs">+{r!.karma_change}✨</span>}
+                        {r?.is_zombie_now && !p.is_zombie && <span className="text-green-300 text-xs font-bold">🧟NEW</span>}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}

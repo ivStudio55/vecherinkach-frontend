@@ -208,6 +208,12 @@ export interface PlayerRoundResult {
   new_lives: number;
   new_karma: number;
   is_zombie_now: boolean;
+  /** Streak after this round (0 if wrong or newly zombie) */
+  new_streak: number;
+  /** Cumulative total correct answers after this round */
+  new_total_correct: number;
+  /** Cumulative total answer time ms after this round */
+  new_total_time_ms: number;
 }
 
 export interface RoundResultsData {
