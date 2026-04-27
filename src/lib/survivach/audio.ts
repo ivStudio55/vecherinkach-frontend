@@ -114,8 +114,16 @@ export class SurvivachAudio {
     if (typeof window === 'undefined') return;
     this.el = new Audio(url);
     this.el.loop = loop;
-    if (onEnd) this.el.addEventListener('ended', onEnd, { once: true });
-    this.el.play().catch(() => {});
+    if (onEnd) {
+      let called = false;
+      const safeEnd = () => { if (!called) { called = true; onEnd(); } };
+      this.el.addEventListener('ended', safeEnd, { once: true });
+      // Fallback: if the audio errors or can't load, still advance so the game doesn't get stuck
+      this.el.addEventListener('error', safeEnd, { once: true });
+      this.el.play().catch(() => { if (!loop) safeEnd(); });
+    } else {
+      this.el.play().catch(() => {});
+    }
   }
 
   stop() {

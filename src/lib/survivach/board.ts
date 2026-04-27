@@ -66,7 +66,7 @@ const AVA_BASE = 'https://storage.yandexcloud.net/vecherinkach/json/survivach/im
 
 export function getAvatarUrl(duckType: string, lives: number): string {
   const lvl = Math.min(3, Math.max(0, lives));
-  return `${AVA_BASE}/${duckType}-${lvl}.png`;
+  return `${AVA_BASE}/${duckType}-${lvl}.png?v=3`;
 }
 
 /**
@@ -147,10 +147,10 @@ export function generateMathProblem(
 /** Generates a list of math problems for the mathematician round */
 export function generateMathProblems(bombActive: boolean): Array<{ expression: string; answer: number }> {
   const problems: Array<{ expression: string; answer: number }> = [];
-  const count = 20; // generate enough for 60 seconds
+  const count = 10;
   for (let i = 0; i < count; i++) {
     const diff: 'easy' | 'medium' | 'hard' =
-      i < 6 ? 'easy' : i < 13 ? 'medium' : 'hard';
+      i < 4 ? 'easy' : i < 8 ? 'medium' : 'hard';
     problems.push(generateMathProblem(diff, bombActive));
   }
   return problems;
