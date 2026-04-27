@@ -69,6 +69,7 @@ import {
   randomFromPool,
   POOL_COUNTS,
   MEET_POOL,
+  randomMeetFile,
 } from '@/lib/survivach/audio';
 import type {
   SurvivachRoom,
@@ -334,7 +335,7 @@ export default function SurvivachHostPage() {
 
     if (!meetAudioPlayer.current) {
        meetAudioPlayer.current = new SurvivachAudio();
-       meetAudioPlayer.current.play(randomFromPool(MEET_POOL, 13), false);
+       meetAudioPlayer.current.play(randomMeetFile(), false);
     }
 
     const nonHost = players.filter(p => !p.is_host);
@@ -1332,6 +1333,13 @@ export default function SurvivachHostPage() {
       case 'duel_result':
         await advanceAfterDuel();
         break;
+      case 'potato_intro': {
+        const rd = room.round_results_data as any;
+        await setRoomStatus(room.id, 'potato_playing', {
+          round_results_data: { ...rd, potato_started_at: Date.now() },
+        });
+        break;
+      }
       case 'potato_playing': {
         const rd = room.round_results_data as { potato_bomb_holder?: string } | null;
         if (rd?.potato_bomb_holder) {
@@ -2281,7 +2289,7 @@ export default function SurvivachHostPage() {
       {!['lobby', 'finished'].includes(room.status) && (
         <div className="fixed bottom-4 left-4 z-[100] flex gap-2">
           {/* "Далее" – force-advance to next phase */}
-          {['moving','round_intro','round_playing','round_results','bet_reveal','duel_intro','duel_setup','duel_result','potato_playing'].includes(room.status) && (
+          {['moving','round_intro','round_playing','round_results','bet_reveal','duel_intro','duel_setup','duel_result','potato_intro','potato_playing'].includes(room.status) && (
             <button
               onClick={handleForceNext}
               className="px-4 py-2 bg-white/10 hover:bg-white/20 active:scale-95 border border-white/20 rounded-xl text-white/90 text-sm font-black uppercase tracking-widest backdrop-blur-md shadow-lg transition-all"

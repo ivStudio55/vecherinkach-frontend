@@ -8,6 +8,11 @@ export const LOBBY_THEME = `${BASE}/lobby/lobby_theme.mp3`;
 export const CONNECT_SOUND = `${BASE}/connect/1.mp3`;   // on player join
 
 export const MEET_POOL = `${BASE}/meet/`;                // single random file played in lobby
+// Files are named meet1.mp3 … meet13.mp3 (not 1.mp3)
+export function randomMeetFile(): string {
+  const n = Math.floor(Math.random() * 13) + 1;
+  return `${MEET_POOL}meet${n}.mp3`;
+}
 export const RULES_MUSIC = `${BASE}/soundtrack/rules.mp3`;
 export const RULES_VO_POOL = `${BASE}/rules/`;           // random VO narration of rules
 

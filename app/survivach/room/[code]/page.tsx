@@ -39,7 +39,7 @@ import {
   TOTAL_CELLS,
   rankPlayers,
 } from '@/lib/survivach/board';
-import { SurvivachAudio, randomFromPool, LOBBY_THEME, MEET_POOL } from '@/lib/survivach/audio';
+import { SurvivachAudio, randomFromPool, LOBBY_THEME, MEET_POOL, randomMeetFile } from '@/lib/survivach/audio';
 
 /* ── Types ── */
 type JoinPhase = 'choose_avatar' | 'enter_name' | 'waiting';
@@ -273,7 +273,7 @@ export default function SurvivachRoomPage() {
     }
     if (!meetAudioRef.current) {
       meetAudioRef.current = new SurvivachAudio();
-      meetAudioRef.current.play(randomFromPool(MEET_POOL, 13), false);
+      meetAudioRef.current.play(randomMeetFile(), false);
     }
   }, [room?.status]);
 
