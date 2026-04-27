@@ -120,6 +120,12 @@ export const POOL_COUNTS: Record<string, number> = {
   [`${BASE}/mathematician/mixed/`]: 3,
   [`${BASE}/memory_diary/mixed/`]: 3,
   [`${BASE}/tag_puzzle/mixed/`]: 3,
+  [`${BASE}/quiz/all_correct/`]: 3,
+  [`${BASE}/quiz/everyone_mistake/`]: 3,
+  [`${BASE}/art_historian/all_correct/`]: 3,
+  [`${BASE}/art_historian/everyone_mistake/`]: 3,
+  [`${BASE}/interpreter/all_correct/`]: 3,
+  [`${BASE}/interpreter/everyone_mistake/`]: 3,
 };
 
 /* ─── Helper: pick random file from a pool directory (numbered 1.mp3, 2.mp3, …) ─── */

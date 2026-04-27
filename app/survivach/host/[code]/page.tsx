@@ -1178,10 +1178,15 @@ export default function SurvivachHostPage() {
     // Check for Hot Potato condition: perfect round & at least 2 players alive
     // (A hot potato needs players to pass it between)
     // We already stored `perfect_round` in round_results_data.
-    const roundData = room.round_results_data as RoundResultsData | null;
     const aliveGamePlayers = gamePlayers.filter(p => !p.is_zombie);
 
-    if (perfectRound && aliveGamePlayers.length >= 2 && !roundData?.potato_loser && !roundData?.potato_bomb_holder) {
+    // Fetch the freshest room state so we merge into the NEW round_results_data,
+    // not the stale one from the closure of round_playing.
+    const { data: latestRoom } = await supabase.from('survivach_rooms').select('round_results_data').eq('id', room.id).single();
+    const roundData = (latestRoom?.round_results_data as RoundResultsData | null) || {};
+    const isPerfect = perfectRound || !!roundData.perfect_round;
+
+    if (isPerfect && aliveGamePlayers.length >= 2 && !roundData?.potato_loser && !roundData?.potato_bomb_holder) {
       // Pick a random alive player to get the bomb
       const randomStartId = aliveGamePlayers[Math.floor(Math.random() * aliveGamePlayers.length)].id;
       
