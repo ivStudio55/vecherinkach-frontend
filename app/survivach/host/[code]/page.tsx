@@ -63,6 +63,9 @@ import {
   DUEL_AUDIO,
   LAUGH_POOL,
   SCREAM_POOL,
+  HOT_POTATO_START_POOL,
+  HOT_POTATO_FAIL_POOL,
+  HOT_POTATO_FAIL_Z_POOL,
   BLITZ_THEME,
   BLITZ_START_POOL,
   BLITZ_CHANGE_LEADER_POOL,
@@ -532,6 +535,21 @@ export default function SurvivachHostPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [duel?.duel_data, room?.status]);
 
+  /* ─── Hot Potato intro audio ─── */
+  useEffect(() => {
+    if (room?.status === 'potato_intro') {
+      const roomId = room.id;
+      const rd = room.round_results_data as any;
+      bgAudio.current.play(randomFromPool(HOT_POTATO_START_POOL, 3), false, async () => {
+        await setRoomStatus(roomId, 'potato_playing', {
+          round_results_data: { ...rd, potato_started_at: Date.now() },
+        });
+      });
+      return () => bgAudio.current.stop();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room?.status]);
+
   /* ─── Hot Potato logic ─── */
   useEffect(() => {
     if (room?.status === 'potato_playing') {
@@ -553,14 +571,15 @@ export default function SurvivachHostPage() {
     if (!room) return;
     const rd = room.round_results_data as any;
     
-    // Apply -1 life to the loser
+    // Apply -1 life to the loser (including zombies — they “stay in place” per spec)
     const p = players.find(x => x.id === loserId);
-    if (p && !p.is_zombie) {
+    const isZombie = p?.is_zombie ?? false;
+    if (p) {
       const newLives = Math.max(0, p.lives - 1);
       await updatePlayers([{
         id: p.id,
         lives: newLives,
-        is_zombie: newLives === 0,
+        is_zombie: newLives === 0 || isZombie,
       }]);
     }
 
@@ -569,6 +588,12 @@ export default function SurvivachHostPage() {
         ...rd,
         potato_loser: loserId,
       }
+    });
+
+    // Play fail audio, then auto-advance
+    const failPool = isZombie ? HOT_POTATO_FAIL_Z_POOL : HOT_POTATO_FAIL_POOL;
+    bgAudio.current.play(randomFromPool(failPool, 3), false, () => {
+      advanceAfterBetReveal();
     });
   };
 
@@ -1164,6 +1189,7 @@ export default function SurvivachHostPage() {
         ...roundData,
         potato_bomb_holder: randomStartId,
         potato_duration_ms: 10000 + Math.random() * 5000,
+        potato_task: Math.floor(Math.random() * 3),
       };
 
       await setRoomStatus(room.id, 'potato_intro', {
@@ -1345,6 +1371,10 @@ export default function SurvivachHostPage() {
         if (rd?.potato_bomb_holder) {
           await handlePotatoExplosion(rd.potato_bomb_holder);
         }
+        break;
+      }
+      case 'potato_result': {
+        await advanceAfterBetReveal();
         break;
       }
     }
@@ -2094,22 +2124,12 @@ export default function SurvivachHostPage() {
             <p>Вы слишком умные! Все выжившие ответили верно.</p>
             <p>Случайный игрок получает бомбу-картошку 💣</p>
             <p className="text-4xl text-orange-400 font-black mt-4 drop-shadow-[0_0_15px_rgba(234,88,12,0.6)]">
-              ТРЯСИ ТЕЛЕФОН
+              ВЫПОЛНИ ЗАДАЧУ
             </p>
             <p className="text-xl text-gray-400">чтобы перекинуть её другому!</p>
             <p className="text-red-400 font-bold mt-2 border-t border-red-500/20 pt-6">У кого бомба взорвётся — теряет жизнь!</p>
           </div>
-          <button onClick={async () => {
-            const rd = room.round_results_data as any;
-            await setRoomStatus(room.id, 'potato_playing', {
-              round_results_data: {
-                ...rd,
-                potato_started_at: Date.now(),
-              }
-            });
-          }} className="px-16 py-6 bg-gradient-to-b from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 rounded-full text-4xl font-black mt-8 text-white shadow-[0_0_50px_rgba(234,88,12,0.6)] hover:shadow-[0_0_80px_rgba(234,88,12,0.9)] transition-all duration-300 hover:scale-105 active:scale-95 uppercase tracking-wide border-b-4 border-red-800 relative z-10">
-            НАЧАТЬ ПЕРЕДАЧУ
-          </button>
+          <p className="text-2xl text-orange-300/70 animate-pulse relative z-10 tracking-wide uppercase">Подготовка передачи...</p>
         </div>
       )}
 
@@ -2175,9 +2195,7 @@ export default function SurvivachHostPage() {
             );
           })()}
           
-          <button onClick={() => advanceAfterBetReveal()} className="px-16 py-6 bg-white text-black hover:bg-gray-200 rounded-full text-3xl font-black mt-8 shadow-[0_0_30px_rgba(255,255,255,0.4)] transition-all duration-300 hover:scale-105 active:scale-95 uppercase tracking-wider relative z-10">
-            ПРОДОЛЖИТЬ
-          </button>
+          <p className="text-gray-500 animate-pulse relative z-10 mt-4">Переход к следующему ходу...</p>
         </div>
       )}
 
@@ -2289,7 +2307,7 @@ export default function SurvivachHostPage() {
       {!['lobby', 'finished'].includes(room.status) && (
         <div className="fixed bottom-4 left-4 z-[100] flex gap-2">
           {/* "Далее" – force-advance to next phase */}
-          {['moving','round_intro','round_playing','round_results','bet_reveal','duel_intro','duel_setup','duel_result','potato_intro','potato_playing'].includes(room.status) && (
+          {['moving','round_intro','round_playing','round_results','bet_reveal','duel_intro','duel_setup','duel_result','potato_intro','potato_playing','potato_result'].includes(room.status) && (
             <button
               onClick={handleForceNext}
               className="px-4 py-2 bg-white/10 hover:bg-white/20 active:scale-95 border border-white/20 rounded-xl text-white/90 text-sm font-black uppercase tracking-widest backdrop-blur-md shadow-lg transition-all"

@@ -88,6 +88,11 @@ export const BLITZ_CHANGE_LEADER_POOL = `${BASE}/blitz/change_leader/`;
 export const LAUGH_POOL = `${BASE}/laugh/`;   // played on correct answer
 export const SCREAM_POOL = `${BASE}/scream/`; // played when player becomes zombie
 
+/* ─── Hot Potato audio ─── */
+export const HOT_POTATO_START_POOL = `${BASE}/hot_potatoes/start/`;   // 1-3.mp3
+export const HOT_POTATO_FAIL_POOL = `${BASE}/hot_potatoes/fail/`;     // 1-3.mp3 (alive loser)
+export const HOT_POTATO_FAIL_Z_POOL = `${BASE}/hot_potatoes/fail_z/`; // 1-3.mp3 (zombie loser)
+
 /* ─── Duel mode audio ─── */
 export const DUEL_AUDIO = {
   minesweeper: {
@@ -106,6 +111,9 @@ export const DUEL_AUDIO = {
 
 /* ─── Known file counts per pool (override the default of 5) ─── */
 export const POOL_COUNTS: Record<string, number> = {
+  [`${BASE}/hot_potatoes/start/`]: 3,
+  [`${BASE}/hot_potatoes/fail/`]: 3,
+  [`${BASE}/hot_potatoes/fail_z/`]: 3,
   [`${BASE}/quiz/mixed/`]: 3,
   [`${BASE}/art_historian/mixed/`]: 3,
   [`${BASE}/interpreter/mixed/`]: 3,

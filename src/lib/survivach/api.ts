@@ -397,7 +397,7 @@ export async function passPotatoBomb(roomId: string, currentHolderId: string, ne
   const rd = room.round_results_data as any;
   if (!rd || rd.potato_bomb_holder !== currentHolderId) return;
 
-  const newData = { ...rd, potato_bomb_holder: newHolderId };
+  const newData = { ...rd, potato_bomb_holder: newHolderId, potato_task: Math.floor(Math.random() * 3) };
   await supabase
     .from('survivach_rooms')
     .update({ round_results_data: newData })

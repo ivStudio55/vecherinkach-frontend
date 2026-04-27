@@ -39,7 +39,7 @@ import {
   TOTAL_CELLS,
   rankPlayers,
 } from '@/lib/survivach/board';
-import { SurvivachAudio, randomFromPool, LOBBY_THEME, MEET_POOL, randomMeetFile } from '@/lib/survivach/audio';
+import { SurvivachAudio, randomFromPool, LOBBY_THEME, MEET_POOL, randomMeetFile, SCREAM_POOL } from '@/lib/survivach/audio';
 
 /* ── Types ── */
 type JoinPhase = 'choose_avatar' | 'enter_name' | 'waiting';
@@ -259,6 +259,9 @@ export default function SurvivachRoomPage() {
   const passTimeout = useRef<NodeJS.Timeout | null>(null);
   const meetAudioRef = useRef<SurvivachAudio | null>(null);
   const lobbyBgRef = useRef<SurvivachAudio | null>(null);
+  const prevBombHolderRef = useRef<string | null>(null);
+  const gestureCountRef = useRef(0);
+  const touchStartXRef = useRef(0);
 
   /* ── Lobby audio: looped theme + one-shot meet clip ── */
   useEffect(() => {
@@ -336,6 +339,24 @@ export default function SurvivachRoomPage() {
     window.addEventListener('devicemotion', onMotion);
     return () => window.removeEventListener('devicemotion', onMotion);
   }, [room, me, handlePotatoPass]);
+
+  /* ── Bomb arrival: vibrate + scream, reset gesture counter ── */
+  useEffect(() => {
+    if (room?.status !== 'potato_playing') {
+      prevBombHolderRef.current = null;
+      return;
+    }
+    const rd = room.round_results_data as any;
+    const holderId = rd?.potato_bomb_holder as string | undefined;
+    if (holderId && holderId === me?.id && prevBombHolderRef.current !== holderId) {
+      // Bomb just arrived on my screen!
+      if (navigator.vibrate) navigator.vibrate([300, 100, 300, 100, 500]);
+      new Audio(randomFromPool(SCREAM_POOL, 5)).play().catch(() => {});
+      gestureCountRef.current = 0;
+    }
+    prevBombHolderRef.current = holderId ?? null;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room?.round_results_data, me?.id, room?.status]);
 
   /* ── Fetch & subscribe ── */
   const prevRoundRef = useRef<number | null>(null);
@@ -1271,6 +1292,24 @@ export default function SurvivachRoomPage() {
           const holderId = rd?.potato_bomb_holder;
           const imHolder = holderId === me?.id;
           const imDead = me?.is_zombie ?? false;
+          const taskIdx = (rd?.potato_task ?? 0) as number;
+
+          // Task definitions: text shown + gesture hint
+          const TASKS = [
+            { label: 'ВСТРЯХНИ ТЕЛЕФОН!', hint: '3 раза', gesture: 'shake' },
+            { label: 'СВАЙПНИ ВПРАВО', hint: '3 раза по экрану', gesture: 'swipe_right' },
+            { label: 'НАЖМИ 5 РАЗ', hint: 'быстро по кнопке ниже', gesture: 'tap5' },
+          ] as const;
+          const task = TASKS[taskIdx % TASKS.length];
+
+          // Tap-5 counter handler (gesture: tap5)
+          const handleTap5 = () => {
+            gestureCountRef.current += 1;
+            if (gestureCountRef.current >= 5) {
+              gestureCountRef.current = 0;
+              handlePotatoPass();
+            }
+          };
 
           return (
             <div className={`flex-1 flex flex-col items-center justify-center p-8 transition-colors duration-700 relative overflow-hidden ${imHolder ? 'bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-red-800 via-red-950 to-black' : 'bg-gray-950'}`}>
@@ -1296,24 +1335,48 @@ export default function SurvivachRoomPage() {
                       БОМБА У ТЕБЯ!
                     </h2>
                     
-                    <div className="relative mb-12">
+                    <div
+                      className="relative mb-10"
+                      onTouchStart={e => { touchStartXRef.current = e.touches[0].clientX; }}
+                      onTouchEnd={e => {
+                        if (task.gesture === 'swipe_right') {
+                          const dx = e.changedTouches[0].clientX - touchStartXRef.current;
+                          if (dx > 60) {
+                            gestureCountRef.current += 1;
+                            if (gestureCountRef.current >= 3) {
+                              gestureCountRef.current = 0;
+                              handlePotatoPass();
+                            }
+                          }
+                        }
+                      }}
+                    >
                       <div className="absolute inset-0 bg-red-600 blur-[50px] opacity-60 rounded-full animate-pulse"></div>
-                      <div className="text-9xl animate-bounce drop-shadow-[0_0_40px_rgba(255,255,255,0.6)] filter contrast-125 saturate-150 relative z-10">💣</div>
+                      <div className="text-9xl animate-bounce drop-shadow-[0_0_40px_rgba(255,255,255,0.6)] filter contrast-125 saturate-150 relative z-10 select-none">💣</div>
                     </div>
                     
-                    <div className="bg-black/40 border border-red-500/30 rounded-3xl p-6 backdrop-blur w-full mb-8 shadow-2xl">
-                      <p className="text-3xl font-black text-white text-center animate-pulse tracking-tight text-red-50">
-                        ОТДАЙ ЕЁ!
+                    <div className="bg-black/40 border border-red-500/30 rounded-3xl p-5 backdrop-blur w-full mb-6 shadow-2xl">
+                      <p className="text-2xl font-black text-orange-300 text-center tracking-tight uppercase">
+                        {task.label}
                       </p>
-                      <p className="text-red-400 font-semibold text-center mt-2 uppercase">Тряси или жми кнопку</p>
+                      <p className="text-red-400/80 font-semibold text-center mt-1 text-sm uppercase">{task.hint}</p>
                     </div>
 
-                    <button
-                      onClick={() => handlePotatoPass()}
-                      className="w-full py-6 bg-gradient-to-b from-red-500 to-red-800 rounded-full text-3xl font-black text-white shadow-[0_0_60px_rgba(239,68,68,0.8)] active:scale-95 transition-all border-b-[6px] border-red-950 uppercase tracking-widest"
-                    >
-                      ПЕРЕКИНУТЬ
-                    </button>
+                    {task.gesture === 'tap5' ? (
+                      <button
+                        onClick={handleTap5}
+                        className="w-full py-6 bg-gradient-to-b from-orange-500 to-red-700 rounded-full text-3xl font-black text-white shadow-[0_0_60px_rgba(239,68,68,0.8)] active:scale-95 transition-all border-b-[6px] border-red-950 uppercase tracking-widest"
+                      >
+                        ТАП! 👊
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handlePotatoPass()}
+                        className="w-full py-6 bg-gradient-to-b from-red-500 to-red-800 rounded-full text-3xl font-black text-white shadow-[0_0_60px_rgba(239,68,68,0.8)] active:scale-95 transition-all border-b-[6px] border-red-950 uppercase tracking-widest"
+                      >
+                        ПЕРЕКИНУТЬ
+                      </button>
+                    )}
                   </div>
                 </>
               ) 
