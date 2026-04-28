@@ -46,6 +46,7 @@ export default function SurvivachCreatePage() {
       <div className="text-center">
         <h1 className="text-5xl font-black mb-2">🧟 ВЫЖИВАЧ</h1>
         <p className="text-gray-400">Создание новой игры</p>
+        <p className="text-gray-600 text-xs mt-1">v1.0</p>
       </div>
 
       <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-sm flex flex-col gap-4">

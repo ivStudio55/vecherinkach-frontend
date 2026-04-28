@@ -1021,6 +1021,15 @@ export default function SurvivachHostPage() {
       return res?.is_correct;
     });
 
+    console.log('[PROCESS RESULTS] perfectRound calculation:', {
+      'alivePlayers.length': alivePlayers.length,
+      perfectRound,
+      aliveResults: alivePlayers.map(p => {
+        const res = results.find(r => r.player_id === p.id);
+        return { player_id: p.id, is_correct: res?.is_correct };
+      }),
+    });
+
     // ─── Reaction FX ───
     // Play scream if any player freshly becomes zombie this round
     const newZombies = results.filter(r => {
@@ -1210,10 +1219,26 @@ export default function SurvivachHostPage() {
       });
 
     const isPerfect = perfectRound || !!roundData?.perfect_round || perfectFromResults;
-    const isCurrentRoundData = roundData?.round === room.current_round;
+    const isCurrentRoundData = latestRoom && roundData?.round === latestRoom.current_round;
     const isAlreadyPotatoFlow = room.status === 'potato_intro' || room.status === 'potato_playing' || room.status === 'potato_result';
 
+    // Debug logging for hot potato trigger
+    console.log('[HOT POTATO DEBUG]', {
+      perfectRound,
+      'roundData?.perfect_round': roundData?.perfect_round,
+      perfectFromResults,
+      isPerfect,
+      'roundData?.round': roundData?.round,
+      'latestRoom?.current_round': latestRoom?.current_round,
+      isCurrentRoundData,
+      'room.status': room.status,
+      isAlreadyPotatoFlow,
+      'aliveGamePlayers.length': aliveGamePlayers.length,
+      'roundResults': roundResults.map(r => ({ player_id: r.player_id, is_correct: r.is_correct })),
+    });
+
     if (isPerfect && isCurrentRoundData && !isAlreadyPotatoFlow && aliveGamePlayers.length >= 2) {
+      console.log('[HOT POTATO] Trigger condition MET! Starting potato_intro');
       // Pick a random alive player to get the bomb
       const randomStartId = aliveGamePlayers[Math.floor(Math.random() * aliveGamePlayers.length)].id;
       
