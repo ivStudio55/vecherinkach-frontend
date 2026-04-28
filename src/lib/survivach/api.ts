@@ -1,5 +1,7 @@
 // src/lib/survivach/api.ts
 // Supabase CRUD + realtime для игры «Выживач»
+// ⚠️ ВАЖНО: БД работает на собственном сервере (PostgreSQL 5.42.107.149), НЕ Supabase-хостинг
+// Realtime через Centrifugo + pg-notifier (LISTEN/NOTIFY)
 
 import { supabase } from '../supabase';
 import { subscribeChannel } from '../centrifuge';

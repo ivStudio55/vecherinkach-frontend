@@ -1,4 +1,7 @@
 // src/lib/supabase.ts
+// ⚠️ ВАЖНО: Это НЕ Supabase-хостинг!
+// Используется собственная PostgreSQL база (5.42.107.149) + PostgREST + Centrifugo
+// Библиотека @supabase/supabase-js используется только как REST-клиент для PostgREST API
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
