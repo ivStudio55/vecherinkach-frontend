@@ -720,9 +720,9 @@ export default function SurvivachHostPage() {
 
     const timerSec = mode === 'mathematician' ? 60 : mode === 'tag_puzzle' ? 120 : 30;
 
-    // Zombie bomb trigger: activate if a zombie is within 3 cells of the leader
+    // Zombie bomb trigger: activate if a zombie is within 3 cells of the leader (either direction)
     const nonHostGamePlayers = gamePlayers.filter(p => !p.is_host);
-    const nearbyZombie = nonHostGamePlayers.find(p => p.is_zombie && leaderPos - p.position >= 0 && leaderPos - p.position <= 3);
+    const nearbyZombie = nonHostGamePlayers.find(p => p.is_zombie && Math.abs(leaderPos - p.position) <= 3);
     const shouldActivateBomb = !!nearbyZombie && !room.zombie_bomb_active;
 
     await setRoomStatus(room.id, 'round_intro', {
