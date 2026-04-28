@@ -7,6 +7,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { QRCodeCanvas } from 'qrcode.react';
 import {
   fetchRoomByCode,
+  fetchRoomById,
   fetchPlayers,
   fetchAnswers,
   fetchBets,
@@ -321,6 +322,7 @@ export default function SurvivachHostPage() {
   const fxAudio = useRef(new SurvivachAudio());
   const laughedAnswerIds = useRef(new Set<string>());
   const isProcessingResultsRef = useRef(false);
+  const potatoExplosionInProgressRef = useRef(false);
 
   /* ─── Blitz state ─── */
   const blitzTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -552,6 +554,9 @@ export default function SurvivachHostPage() {
 
   /* ─── Hot Potato logic ─── */
   useEffect(() => {
+    if (room?.status !== 'potato_playing') {
+      potatoExplosionInProgressRef.current = false;
+    }
     if (room?.status === 'potato_playing') {
       const rd = room.round_results_data as any;
       if (rd?.potato_started_at && rd?.potato_duration_ms) {
@@ -569,32 +574,44 @@ export default function SurvivachHostPage() {
 
   const handlePotatoExplosion = async (loserId: string) => {
     if (!room) return;
-    const rd = room.round_results_data as any;
-    
-    // Apply -1 life to the loser (including zombies — they “stay in place” per spec)
-    const p = players.find(x => x.id === loserId);
-    const isZombie = p?.is_zombie ?? false;
-    if (p) {
-      const newLives = Math.max(0, p.lives - 1);
-      await updatePlayers([{
-        id: p.id,
-        lives: newLives,
-        is_zombie: newLives === 0 || isZombie,
-      }]);
-    }
-
-    await setRoomStatus(room.id, 'potato_result', {
-      round_results_data: {
-        ...rd,
-        potato_loser: loserId,
+    if (potatoExplosionInProgressRef.current) return;
+    potatoExplosionInProgressRef.current = true;
+    try {
+      const rd = room.round_results_data as any;
+      
+      // Penalty by spec:
+      // - Alive loser: -1 life and move 1 cell back
+      // - Zombie loser: -1 life only, stays in place
+      const p = players.find(x => x.id === loserId);
+      const isZombie = p?.is_zombie ?? false;
+      if (p) {
+        const newLives = Math.max(0, p.lives - 1);
+        const newPosition = isZombie ? p.position : Math.max(1, p.position - 1);
+        await updatePlayers([{
+          id: p.id,
+          position: newPosition,
+          lives: newLives,
+          is_zombie: newLives === 0 || isZombie,
+        }]);
       }
-    });
 
-    // Play fail audio, then auto-advance
-    const failPool = isZombie ? HOT_POTATO_FAIL_Z_POOL : HOT_POTATO_FAIL_POOL;
-    bgAudio.current.play(randomFromPool(failPool, 3), false, () => {
-      advanceAfterBetReveal();
-    });
+      await setRoomStatus(room.id, 'potato_result', {
+        round_results_data: {
+          ...rd,
+          potato_loser: loserId,
+        }
+      });
+
+      // Play fail audio, then auto-advance
+      const failPool = isZombie ? HOT_POTATO_FAIL_Z_POOL : HOT_POTATO_FAIL_POOL;
+      bgAudio.current.play(randomFromPool(failPool, 3), false, () => {
+        potatoExplosionInProgressRef.current = false;
+        advanceAfterBetReveal();
+      });
+    } catch (error) {
+      potatoExplosionInProgressRef.current = false;
+      throw error;
+    }
   };
 
   /* ══════════════════════════════════════════
@@ -1182,9 +1199,9 @@ export default function SurvivachHostPage() {
 
     // Fetch the freshest room state so we merge into the NEW round_results_data,
     // not the stale one from the closure of round_playing.
-    const { data: latestRoom } = await supabase.from('survivach_rooms').select('round_results_data').eq('id', room.id).single();
-    const roundData = (latestRoom?.round_results_data as RoundResultsData | null) || {};
-    const isPerfect = perfectRound || !!roundData.perfect_round;
+    const latestRoom = await fetchRoomById(room.id);
+    const roundData = (latestRoom?.round_results_data as RoundResultsData | null) ?? null;
+    const isPerfect = perfectRound || !!roundData?.perfect_round;
 
     if (isPerfect && aliveGamePlayers.length >= 2 && !roundData?.potato_loser && !roundData?.potato_bomb_holder) {
       // Pick a random alive player to get the bomb
