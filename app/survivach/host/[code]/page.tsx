@@ -1201,9 +1201,19 @@ export default function SurvivachHostPage() {
     // not the stale one from the closure of round_playing.
     const latestRoom = await fetchRoomById(room.id);
     const roundData = (latestRoom?.round_results_data as RoundResultsData | null) ?? null;
-    const isPerfect = perfectRound || !!roundData?.perfect_round;
+    const roundResults = roundData?.player_results ?? [];
+    const perfectFromResults =
+      roundResults.length > 0 &&
+      roundResults.every((r) => {
+        const wasZombieBeforeRound = players.find(p => p.id === r.player_id)?.is_zombie ?? false;
+        return wasZombieBeforeRound || r.is_correct;
+      });
 
-    if (isPerfect && aliveGamePlayers.length >= 2 && !roundData?.potato_loser && !roundData?.potato_bomb_holder) {
+    const isPerfect = perfectRound || !!roundData?.perfect_round || perfectFromResults;
+    const isCurrentRoundData = roundData?.round === room.current_round;
+    const isAlreadyPotatoFlow = room.status === 'potato_intro' || room.status === 'potato_playing' || room.status === 'potato_result';
+
+    if (isPerfect && isCurrentRoundData && !isAlreadyPotatoFlow && aliveGamePlayers.length >= 2) {
       // Pick a random alive player to get the bomb
       const randomStartId = aliveGamePlayers[Math.floor(Math.random() * aliveGamePlayers.length)].id;
       
