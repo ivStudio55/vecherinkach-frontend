@@ -27,6 +27,7 @@ import {
   updateDuel,
   submitAnswer,
 } from '@/lib/survivach/api';
+import { supabase } from '@/lib/supabase';
 import {
   DEFAULT_CELL_MODES,
   getModeForCell,
@@ -1048,20 +1049,7 @@ export default function SurvivachHostPage() {
       new Audio(randomFromPool(LAUGH_POOL, 5)).play().catch(() => {});
     }
 
-    await setRoomStatus(room.id, 'round_results', {
-      round_results_data: { 
-        round: room.current_round, 
-        mode, 
-        correct_answer: correctAnswer, 
-        player_results: results,
-        perfect_round: perfectRound,
-        ...(mode === 'blitz' ? { blitz_slow_player_id: blitzSlowPlayerId, blitz_mode: true } : {}),
-      },
-      bet_results_data: bets.length > 0 ? betResultsForSave : null,
-      ...(shouldResetBomb ? { zombie_bomb_active: false, zombie_bomb_player_id: null } : {})
-    });
-
-    // ─── Blitz: instant advance after 2.5s, no result audio ───
+    // ─── BLITZ: быстрый переход без показа рейтинга ───
     if (mode === 'blitz') {
       // Detect leader change and play audio
       const newLeaderResult = results.filter(r => !r.is_zombie_now).sort((a, b) => b.new_position - a.new_position)[0];
@@ -1069,14 +1057,45 @@ export default function SurvivachHostPage() {
         new Audio(randomFromPool(BLITZ_CHANGE_LEADER_POOL, 5)).play().catch(() => {});
       }
 
+      // Сохраняем результаты в БД, но НЕ меняем статус комнаты (остаемся в round_playing)
+      const { error: updateError } = await supabase
+        .from('survivach_rooms')
+        .update({
+          round_results_data: { 
+            round: room.current_round, 
+            mode, 
+            correct_answer: correctAnswer, 
+            player_results: results,
+            perfect_round: perfectRound,
+            blitz_slow_player_id: blitzSlowPlayerId,
+            blitz_mode: true
+          },
+          ...(shouldResetBomb ? { zombie_bomb_active: false, zombie_bomb_player_id: null } : {})
+        })
+        .eq('id', room.id);
+      if (updateError) console.error('[BLITZ] Failed to save results:', updateError);
+
       // Apply results immediately, then auto-advance
       await applyResults(results);
       isProcessingResultsRef.current = false;
       blitzTimerRef.current = setTimeout(() => {
         advanceBlitzRound();
-      }, 2500);
+      }, 1500); // Уменьшили с 2500 до 1500мс для большей динамики
       return;
     }
+
+    // ─── ОБЫЧНЫЕ РЕЖИМЫ: показываем round_results ───
+    await setRoomStatus(room.id, 'round_results', {
+      round_results_data: { 
+        round: room.current_round, 
+        mode, 
+        correct_answer: correctAnswer, 
+        player_results: results,
+        perfect_round: perfectRound,
+      },
+      bet_results_data: bets.length > 0 ? betResultsForSave : null,
+      ...(shouldResetBomb ? { zombie_bomb_active: false, zombie_bomb_player_id: null } : {})
+    });
 
     bgAudio.current.play(randomFromPool(resultPool, POOL_COUNTS[resultPool] ?? 5), false, async () => {
       // After results audio → apply changes and move to next phase
@@ -1175,7 +1194,7 @@ export default function SurvivachHostPage() {
     };
     setCurrentQ(questionData);
     await setRoomStatus(room.id, 'round_playing', {
-      current_round: room.current_round + 1,
+      current_round: room.current_round, // BLITZ FIX: не увеличиваем раунд между вопросами
       leader_position: leaderPos,
       current_mode: 'blitz',
       question_data: questionData,
