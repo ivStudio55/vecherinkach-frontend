@@ -40,6 +40,43 @@ html {
   50% { transform: translateY(-15px) rotate(var(--tw-rotate, 0deg)); }
 }
 
+@keyframes ghostRise {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0.5);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(-20vh) scale(1);
+    filter: blur(0px);
+  }
+  80% {
+    opacity: 1;
+    transform: translateY(-70vh) scale(1.1);
+    filter: blur(2px);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-100vh) scale(1.5);
+    filter: blur(10px);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ghost-anim {
+  animation: ghostRise 5s ease-in-out forwards;
+}
+
 :root {
   --background: #fef4dc;
   --foreground: #142a45;

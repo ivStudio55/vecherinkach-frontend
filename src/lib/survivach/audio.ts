@@ -34,6 +34,7 @@ export const BET_UNWORKED_POOL = `${BASE}/bet_unworked/`;
 export const DRAW_POOL = `${BASE}/draw/`;
 export const SUMMONED_WON_POOL = `${BASE}/summoned_won/`;
 export const CALLER_WON_POOL = `${BASE}/caller_won/`;
+export const ZOMBIE_WON_POOL = `${BASE}/zombie_won/`;
 
 /* ─── Per-mode audio pools ─── */
 export const MODE_AUDIO = {
@@ -61,6 +62,8 @@ export const MODE_AUDIO = {
     zombie_bomb: `${BASE}/interpreter/zombybomb/`,
     all_correct: `${BASE}/interpreter/all_correct/`,
     everyone_mistake: `${BASE}/interpreter/everyone_mistake/`,
+    only_one_answered: `${BASE}/interpreter/only_one_answered/`,
+    only_one_not_answer: `${BASE}/interpreter/only_one_not_answer/`,
     mixed: `${BASE}/interpreter/mixed/`,
   },
   memory_diary: {
@@ -126,6 +129,9 @@ export const POOL_COUNTS: Record<string, number> = {
   [`${BASE}/art_historian/everyone_mistake/`]: 3,
   [`${BASE}/interpreter/all_correct/`]: 3,
   [`${BASE}/interpreter/everyone_mistake/`]: 3,
+  [`${BASE}/interpreter/only_one_answered/`]: 3,
+  [`${BASE}/interpreter/only_one_not_answer/`]: 3,
+  [`${BASE}/scream/`]: 3,
 };
 
 /* ─── Helper: pick random file from a pool directory (numbered 1.mp3, 2.mp3, …) ─── */

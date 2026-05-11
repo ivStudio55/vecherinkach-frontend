@@ -116,12 +116,36 @@ export function generateMathProblem(
   difficulty: 'easy' | 'medium' | 'hard',
   bombActive: boolean,
 ): { expression: string; answer: number } {
-  if (bombActive && Math.random() < 0.3) {
-    // Compound expression
-    const a = Math.floor(Math.random() * 6 + 2);
-    const b = Math.floor(Math.random() * 4 + 2);
-    const c = Math.floor(Math.random() * 20 + 5);
-    return { expression: `(${a * b} ÷ ${b}) + ${c}`, answer: a + c };
+  if (bombActive) {
+    const r = Math.random();
+    if (r < 0.25) {
+      // Perfect square roots: √4, √9, ..., √100
+      const roots = [4, 9, 16, 25, 36, 49, 64, 81, 100];
+      const n = roots[Math.floor(Math.random() * roots.length)];
+      return { expression: `√${n}`, answer: Math.sqrt(n) };
+    } else if (r < 0.50) {
+      // Multi-step: (a + b) × c
+      const a = Math.floor(Math.random() * 5 + 2);
+      const b = Math.floor(Math.random() * 5 + 2);
+      const c = Math.floor(Math.random() * 4 + 2);
+      return { expression: `(${a} + ${b}) × ${c}`, answer: (a + b) * c };
+    } else if (r < 0.70) {
+      // Multi-step: (a×b ÷ b) + c
+      const b = Math.floor(Math.random() * 4 + 2);
+      const a = Math.floor(Math.random() * 6 + 2);
+      const c = Math.floor(Math.random() * 20 + 5);
+      return { expression: `(${a * b} ÷ ${b}) + ${c}`, answer: a + c };
+    } else if (r < 0.85) {
+      // Equation: x + a = b
+      const x = Math.floor(Math.random() * 20 + 2);
+      const a = Math.floor(Math.random() * 30 + 5);
+      return { expression: `x + ${a} = ${x + a},  x = ?`, answer: x };
+    } else {
+      // Equation: ax = b
+      const a = Math.floor(Math.random() * 8 + 2);
+      const x = Math.floor(Math.random() * 10 + 2);
+      return { expression: `${a}x = ${a * x},  x = ?`, answer: x };
+    }
   }
   switch (difficulty) {
     case 'easy': {
@@ -158,7 +182,7 @@ export function generateMathProblems(bombActive: boolean): Array<{ expression: s
 
 /** Generates a random color sequence for memory diary */
 export function generateColorSequence(length: number): string[] {
-  const colors = ['red', 'blue', 'green', 'yellow', 'purple', 'orange'];
+  const colors = ['red', 'blue', 'green', 'yellow', 'purple', 'orange', 'pink'];
   return Array.from({ length }, () => colors[Math.floor(Math.random() * colors.length)]);
 }
 
@@ -197,4 +221,5 @@ export const MEMORY_COLORS: Record<string, string> = {
   yellow: '#eab308',
   purple: '#a855f7',
   orange: '#f97316',
+  pink: '#ec4899',
 };

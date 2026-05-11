@@ -230,6 +230,14 @@ export async function fetchAnswers(roomId: string, round: number): Promise<Survi
   return (data ?? []) as SurvivachAnswer[];
 }
 
+export async function clearAnswers(roomId: string, round: number): Promise<void> {
+  await supabase
+    .from('survivach_answers')
+    .delete()
+    .eq('room_id', roomId)
+    .eq('round', round);
+}
+
 /* ══════════════════════════════════════════
    Bets ("Ставка на зеро")
    ══════════════════════════════════════════ */

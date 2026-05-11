@@ -150,7 +150,13 @@ export interface InterpreterQuestion {
   original_text: string;
   accept_answer: string[];
   primary_answer: string;
-  artist: string;
+  artist?: string;
+  composer?: string;
+  lyricist?: string;
+  author?: string;
+  authors?: string[];
+  aka?: string;
+  source_lang_chain?: string[];
   zombie_bomb_mode?: { accept_only: string[]; hint: string };
 }
 

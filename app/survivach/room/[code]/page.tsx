@@ -256,6 +256,7 @@ export default function SurvivachRoomPage() {
   const [showSequence, setShowSequence] = useState(false);
   const [seqTimer, setSeqTimer] = useState(5);
   const [puzzleSolved, setPuzzleSolved] = useState(false);
+  const [arithmeticInput, setArithmeticInput] = useState('');
   const passTimeout = useRef<NodeJS.Timeout | null>(null);
   const meetAudioRef = useRef<SurvivachAudio | null>(null);
   const lobbyBgRef = useRef<SurvivachAudio | null>(null);
@@ -361,16 +362,18 @@ export default function SurvivachRoomPage() {
   /* ── Fetch & subscribe ── */
   const prevRoundRef = useRef<number | null>(null);
   const prevStatusRef = useRef<string | null>(null);
+  const prevStateVersionRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!room?.id) return;
     const unsubs = [
       subscribeRoom(room.id, r => {
         setRoom(r);
-        // Reset answer state ONLY when the round number or game status changes
+        // Reset answer state when: round changes, status changes, OR state_version changes (for blitz)
         const roundChanged = prevRoundRef.current !== null && prevRoundRef.current !== r.current_round;
         const statusChanged = prevStatusRef.current !== null && prevStatusRef.current !== r.status;
-        if (roundChanged || statusChanged) {
+        const stateVersionChanged = prevStateVersionRef.current !== null && prevStateVersionRef.current !== r.state_version;
+        if (roundChanged || statusChanged || stateVersionChanged) {
           setSubmitted(false);
           setTextAnswer('');
           setChoiceAnswer(null);
@@ -381,6 +384,7 @@ export default function SurvivachRoomPage() {
         }
         prevRoundRef.current = r.current_round;
         prevStatusRef.current = r.status;
+        prevStateVersionRef.current = r.state_version;
       }),
       subscribeRoomPlayers(room.id, pl => {
         setPlayers(pl);
@@ -704,17 +708,39 @@ export default function SurvivachRoomPage() {
               </div>
             )}
             {/* Zombie bomb activation button */}
-            {me?.is_zombie && (
-              <button
-                onClick={async () => {
-                  if (!room || !me) return;
-                  // Mark zombie bomb as active for next round
-                  await updatePlayer(me.id, { karma: me.karma }); // stub — real implementation via room update
-                }}
-                className="px-6 py-3 bg-green-700 hover:bg-green-600 rounded-xl font-bold text-lg animate-pulse"
-              >
-                💣 Зомби-бомба!
-              </button>
+            {me?.is_zombie && !room.zombie_bomb_active && (
+              me.karma >= 3 ? (
+                <button
+                  onClick={async () => {
+                    if (!room || !me || me.karma < 3) return;
+                    // Deduct 3 karma and activate zombie bomb for next round
+                    await updatePlayer(me.id, { karma: me.karma - 3 });
+                    const { supabase } = await import('@/lib/supabase');
+                    await supabase
+                      .from('survivach_rooms')
+                      .update({
+                        zombie_bomb_active: true,
+                        zombie_bomb_player_id: me.id,
+                        updated_at: new Date().toISOString(),
+                      })
+                      .eq('id', room.id);
+                  }}
+                  className="flex flex-col items-center gap-1 px-6 py-3 bg-green-700 hover:bg-green-600 rounded-xl font-bold text-lg animate-pulse"
+                >
+                  <span>💣 Зомби-бомба!</span>
+                  <span className="text-xs font-normal text-green-200">−3 ✨ карма</span>
+                </button>
+              ) : (
+                <div className="flex flex-col items-center gap-1 px-6 py-3 bg-gray-800 border border-gray-700 rounded-xl text-gray-500 text-sm">
+                  <span>💣 Зомби-бомба</span>
+                  <span className="text-xs">Нужно 3 ✨ (у тебя {me.karma})</span>
+                </div>
+              )
+            )}
+            {me?.is_zombie && room.zombie_bomb_active && (
+              <div className="px-6 py-3 bg-green-900/40 border border-green-500 rounded-xl text-green-300 font-bold animate-pulse">
+                💣 Бомба активирована!
+              </div>
             )}
             <p className="text-gray-500 animate-pulse">Ждите вопроса...</p>
           </div>
@@ -1090,7 +1116,6 @@ export default function SurvivachRoomPage() {
             {duel.mode === 'arithmetic_mean' && (() => {
               const dd = duel.duel_data as { question?: string; player_guesses?: Record<string, number> } | null;
               const guessed = dd?.player_guesses?.[me?.id ?? ''] != null;
-              const [numInput, setNumInput] = useState('');
               return (
                 <div className="flex flex-col items-center gap-4">
                   <h2 className="text-2xl font-bold">📊 Введите число</h2>
@@ -1099,11 +1124,11 @@ export default function SurvivachRoomPage() {
                     <p className="text-green-400 font-bold">✅ Число введено! Дуэлянты угадывают среднее.</p>
                   ) : (
                     <div className="flex gap-2">
-                      <input type="number" value={numInput} onChange={e => setNumInput(e.target.value)}
+                      <input type="number" value={arithmeticInput} onChange={e => setArithmeticInput(e.target.value)}
                         className="w-32 text-center text-xl bg-gray-800 border border-gray-600 rounded-xl px-3 py-2 text-white outline-none focus:border-blue-500"
                         autoFocus />
-                      <button onClick={() => handleCrowdGuess(parseInt(numInput, 10))}
-                        disabled={!numInput}
+                      <button onClick={() => { handleCrowdGuess(parseInt(arithmeticInput, 10)); setArithmeticInput(''); }}
+                        disabled={!arithmeticInput}
                         className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold disabled:opacity-40">OK</button>
                     </div>
                   )}
@@ -1161,21 +1186,23 @@ export default function SurvivachRoomPage() {
               const isChallenger = duel.challenger_id === me?.id;
               const myAns = isChallenger ? dd?.challenger_answer : dd?.challenged_answer;
               const avg = dd?.average;
-              const [numInput, setNumInput] = useState('');
               return (
                 <div className="flex flex-col items-center gap-4">
                   <p className="text-gray-300 text-center">{dd?.question}</p>
-                  {avg != null && <p className="text-blue-400 font-bold text-2xl">Среднее: {avg.toFixed(2)}</p>}
                   {myAns == null ? (
                     <div className="flex gap-2">
-                      <input type="number" value={numInput} onChange={e => setNumInput(e.target.value)}
+                      <input type="number" value={arithmeticInput} onChange={e => setArithmeticInput(e.target.value)}
                         className="w-36 text-center text-xl bg-gray-800 border border-gray-600 rounded-xl px-3 py-2 text-white outline-none"
                         autoFocus />
-                      <button onClick={() => handleDuelArithmeticAnswer(parseFloat(numInput))}
-                        className="px-4 py-2 bg-yellow-600 hover:bg-yellow-500 rounded-xl font-bold">OK</button>
+                      <button onClick={() => { handleDuelArithmeticAnswer(parseFloat(arithmeticInput)); setArithmeticInput(''); }}
+                        disabled={!arithmeticInput}
+                        className="px-4 py-2 bg-yellow-600 hover:bg-yellow-500 rounded-xl font-bold disabled:opacity-40">OK</button>
                     </div>
                   ) : (
-                    <p className="text-green-400">✅ Ваш ответ: {myAns}</p>
+                    <div className="flex flex-col items-center gap-2">
+                      {avg != null && <p className="text-blue-400 font-bold text-2xl">Среднее: {avg.toFixed(2)}</p>}
+                      <p className="text-green-400">✅ Ваш ответ: {myAns}</p>
+                    </div>
                   )}
                 </div>
               );
