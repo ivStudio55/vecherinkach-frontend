@@ -2572,16 +2572,118 @@ export default function SurvivachHostPage() {
           })()}
 
           {room.current_mode === 'mathematician' && (
-            <div className="flex-1 flex flex-col items-center gap-4 justify-center">
-              <p className="text-gray-400">Игроки решают примеры 60 секунд</p>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 max-w-3xl w-full">
-                {mathProblems.slice(0, 8).map((p, i) => (
-                  <div key={i} className="bg-gray-900 border border-gray-700 rounded-xl p-3 text-center font-mono">
-                    {p.expression}
+            <div className="flex-1 flex min-h-0 w-full max-w-[1800px] mx-auto gap-4 md:gap-6 px-2 md:px-6">
+              
+              {/* PRIMARY TERMINAL: Mathematical Data Stream */}
+              <div className="flex-[2] md:flex-[2.5] bg-[#050b06]/90 backdrop-blur-xl border border-emerald-500/30 rounded-3xl p-4 md:p-6 relative overflow-hidden shadow-[inset_0_0_80px_rgba(16,185,129,0.05),0_0_30px_rgba(0,0,0,0.5)] flex flex-col min-h-0">
+                
+                {/* Cyberpunk corner markers */}
+                <div className="absolute top-0 left-0 w-6 h-6 md:w-8 md:h-8 border-t-2 border-l-2 border-emerald-500/50 rounded-tl-3xl z-10 opacity-50" />
+                <div className="absolute top-0 right-0 w-6 h-6 md:w-8 md:h-8 border-t-2 border-r-2 border-emerald-500/50 rounded-tr-3xl z-10 opacity-50" />
+                <div className="absolute bottom-0 left-0 w-6 h-6 md:w-8 md:h-8 border-b-2 border-l-2 border-emerald-500/50 rounded-bl-3xl z-10 opacity-50" />
+                <div className="absolute bottom-0 right-0 w-6 h-6 md:w-8 md:h-8 border-b-2 border-r-2 border-emerald-500/50 rounded-br-3xl z-10 opacity-50" />
+
+                {/* Scanline overlay */}
+                <div className="absolute inset-0 bg-[linear-gradient(rgba(16,185,129,0.02)_1px,transparent_1px)] bg-[size:100%_4px] pointer-events-none z-0" />
+
+                {/* Terminal Header */}
+                <div className="flex items-center justify-between mb-4 flex-none border-b border-emerald-500/20 pb-3 md:pb-4 relative z-10">
+                  <div className="flex flex-col">
+                    <span className="text-emerald-600 font-mono text-[9px] md:text-[11px] font-black tracking-[0.3em] uppercase opacity-80">Bio-Terminal // Module: Arithmetic</span>
+                    <span className="text-emerald-300 text-xl md:text-3xl font-black uppercase tracking-widest drop-shadow-[0_0_10px_rgba(16,185,129,0.6)]">
+                      Вычислительный процесс
+                    </span>
                   </div>
-                ))}
-                {mathProblems.length > 8 && <div className="col-span-2 md:col-span-4 text-center text-gray-500 text-sm">...и ещё {mathProblems.length - 8} примеров</div>}
+                  <div className="flex items-center gap-2 md:gap-3">
+                    <div className="flex flex-col items-end">
+                      <span className="text-[9px] md:text-[10px] text-emerald-700 font-mono uppercase">Status</span>
+                      <span className="text-emerald-400 font-mono font-bold animate-pulse text-xs md:text-sm">PROCESSING</span>
+                    </div>
+                    <div className="h-8 w-8 md:h-12 md:w-12 flex items-center justify-center border border-emerald-500/30 rounded bg-emerald-950/40 relative overflow-hidden">
+                      <div className="absolute inset-0 bg-emerald-500/10 animate-[pulse_2s_infinite]" />
+                      <span className="text-emerald-400 animate-spin text-lg md:text-xl drop-shadow-[0_0_5px_rgba(52,211,153,0.8)]">☣️</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Expressions Grid */}
+                <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 relative z-10 min-h-0">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3 content-start">
+                    {mathProblems.map((p, i) => (
+                      <div key={i} className="flex relative items-center bg-[#030704] border border-emerald-900/60 rounded-lg p-2 md:p-3 overflow-hidden group hover:bg-[#061208] transition-colors">
+                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-800/40 group-hover:bg-emerald-400 transition-colors" />
+                        <span className="text-emerald-800 font-mono text-[9px] md:text-xs w-5 md:w-7 opacity-50 pl-1">{(i+1).toString().padStart(2, '0')}</span>
+                        <span className="text-emerald-300 font-mono font-medium text-[13px] md:text-lg tracking-widest flex-1 text-center group-hover:text-emerald-100 transition-colors drop-shadow-[0_0_5px_rgba(16,185,129,0.2)]">
+                          {p.expression} = ?
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Fade out bottom overlay */}
+                  <div className="sticky bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-[#050b06]/90 to-transparent pointer-events-none" />
+                </div>
               </div>
+
+               {/* SECONDARY TERMINAL: Subject Monitoring */}
+               <div className="flex-1 md:flex-[1.2] bg-[#0a0505]/90 backdrop-blur-xl rounded-3xl border border-rose-900/40 p-4 md:p-6 flex flex-col shadow-[inset_0_0_80px_rgba(225,29,72,0.03),0_0_30px_rgba(0,0,0,0.5)] relative overflow-hidden min-h-0">
+                  
+                  {/* Scanline overlay */}
+                  <div className="absolute inset-0 bg-[linear-gradient(rgba(225,29,72,0.02)_1px,transparent_1px)] bg-[size:100%_4px] pointer-events-none z-0" />
+
+                  {/* Warning Header */}
+                  <div className="flex items-center justify-between mb-3 md:mb-4 flex-none border-b border-rose-900/30 pb-3 md:pb-4 relative z-10">
+                    <div className="flex flex-col">
+                      <span className="text-rose-700 font-mono text-[9px] md:text-[11px] font-black tracking-[0.3em] uppercase opacity-80">Vital Signs // Telemetry</span>
+                      <span className="text-rose-400 text-lg md:text-2xl font-black uppercase tracking-widest drop-shadow-[0_0_10px_rgba(225,29,72,0.6)]">
+                        Субъекты
+                      </span>
+                    </div>
+                    <div className="bg-rose-950/60 border border-rose-500/30 px-2 md:px-3 py-1 rounded-md shadow-[0_0_15px_rgba(225,29,72,0.2)] flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
+                      <span className="text-rose-300 font-black text-[10px] md:text-sm font-mono tracking-widest">
+                        {answers.length} / {players.filter(p => !p.is_host).length}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {/* Agents List */}
+                  <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 min-h-0 relative z-10">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2 gap-2 md:gap-3 content-start">
+                      {players.filter(p => !p.is_host).map((p) => {
+                        const ans = answers.find(a => a.player_id === p.id);
+                        return (
+                          <div key={p.id} className={`flex items-center gap-3 px-3 py-2 md:px-4 md:py-3 rounded-lg border backdrop-blur-md transition-all relative overflow-hidden ${
+                            ans 
+                              ? 'border-emerald-500/40 bg-emerald-950/20 shadow-[0_0_15px_rgba(16,185,129,0.1)]' 
+                              : 'border-rose-900/40 bg-rose-950/10'
+                          }`}>
+                            {ans && <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500/80 shadow-[0_0_10px_rgba(16,185,129,0.8)]" />}
+                            
+                            <div className="relative shrink-0">
+                              <img src={getAvatarUrl(p.avatar, p.lives)} alt="" className={`w-8 h-8 md:w-10 md:h-10 object-contain relative z-10 filter ${ans ? 'contrast-125' : 'grayscale-[50%] brightness-75'}`} />
+                              {ans && <div className="absolute inset-0 bg-emerald-500/20 rounded-full blur-md" />}
+                            </div>
+                            
+                            <div className="flex-[2] min-w-0 flex flex-col justify-center">
+                              <span className={`font-black text-sm md:text-base tracking-wide truncate ${ans ? 'text-emerald-300 drop-shadow-[0_0_5px_rgba(16,185,129,0.5)]' : 'text-slate-400'}`}>{p.name}</span>
+                              <span className={`text-[8px] md:text-[10px] uppercase font-mono tracking-[0.2em] mt-0.5 ${ans ? 'text-emerald-500' : 'text-rose-700 animate-pulse'}`}>
+                                {ans ? 'ДАННЫЕ ПОЛУЧЕНЫ' : 'ОЖИДАНИЕ...'}
+                              </span>
+                            </div>
+                            
+                            {ans && (
+                              <div className="text-emerald-400 font-bold ml-auto pr-1 animate-in zoom-in shrink-0">
+                                <svg className="w-5 h-5 drop-shadow-[0_0_8px_rgba(16,185,129,0.8)]" fill="none" stroke="currentColor" viewBox="0 2 24 24" xmlns="http://www.w3.org/2000/svg">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                </svg>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+               </div>
             </div>
           )}
 
