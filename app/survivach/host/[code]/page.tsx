@@ -2459,12 +2459,29 @@ export default function SurvivachHostPage() {
       {/* ─── ROUND PLAYING ─── */}
       {room.status === 'round_playing' && currentQ && (
         <div className="flex-1 h-full min-h-0 flex flex-col p-6 gap-4 overflow-hidden">
-          <div className="flex items-center gap-4 flex-wrap flex-shrink-0">
-            <span className="text-lg font-bold" style={{ color: MODE_COLORS[room.current_mode as RoundMode] }}>
+          <div className="flex items-center gap-4 flex-nowrap shrink-0 bg-white/5 backdrop-blur-md border border-white/10 px-6 py-3 rounded-2xl shadow-md w-full">
+            <span className="text-lg font-bold shrink-0 whitespace-nowrap" style={{ color: MODE_COLORS[room.current_mode as RoundMode] }}>
               {MODE_LABELS[room.current_mode as RoundMode]}
             </span>
-            <span>Раунд {room.current_round}</span>
-            <div className={`ml-auto text-2xl font-mono font-black px-4 py-1 rounded-lg ${
+            <span className="shrink-0 font-bold opacity-70 whitespace-nowrap">Раунд {room.current_round}</span>
+            
+            {/* ВОПРОС в шапке */}
+            {(room.current_mode === 'umnik' || room.current_mode === 'blitz') && (
+              <div className="flex-1 min-w-0 flex items-center justify-center px-4">
+                <h2 className={`text-xl md:text-2xl font-black tracking-wide truncate ${room.current_mode === 'blitz' ? 'text-red-400 animate-pulse' : 'text-white'}`} title={(currentQ as { question: string }).question}>
+                  {(currentQ as { question: string }).question}
+                </h2>
+                {room.zombie_bomb_active && (
+                  <span className="text-rose-400 text-[10px] font-bold uppercase tracking-wider ml-3 animate-pulse border border-rose-500/50 bg-rose-950/30 px-2 py-0.5 rounded-full shrink-0">
+                    ☣️ Аномалия!
+                  </span>
+                )}
+              </div>
+            )}
+            {/* Для других режимов просто пустое место */}
+            {!(room.current_mode === 'umnik' || room.current_mode === 'blitz') && <div className="flex-1" />}
+
+            <div className={`shrink-0 text-2xl font-mono font-black px-4 py-1 rounded-lg ${
               timerLeft <= 10 ? 'text-red-400 bg-red-900/30 animate-pulse' : 'text-white bg-gray-800'
             }`}>
               ⏱ {timerLeft}s
@@ -2475,28 +2492,6 @@ export default function SurvivachHostPage() {
           {(room.current_mode === 'umnik' || room.current_mode === 'blitz') && (
             <div className="flex-1 flex flex-col gap-4 w-full px-2 lg:px-8 max-w-[1600px] mx-auto min-h-0">
               
-              {/* ИНФО О ОТВЕТАХ */}
-              <div className="flex justify-center flex-none">
-                <span className="text-indigo-300 font-black text-sm bg-indigo-900/40 border border-indigo-500/30 px-4 py-1.5 rounded-full shadow-[0_0_10px_rgba(79,70,229,0.3)]">
-                  Ответили: {answers.length} / {players.filter(p => !p.is_host).length}
-                </span>
-              </div>
-
-              {/* ВОПРОС */}
-              <div className={`w-full flex-none flex flex-col items-center justify-center p-4 lg:p-6 bg-white/5 backdrop-blur-xl border ${room.current_mode === 'blitz' ? 'border-red-500/50 shadow-[0_0_30px_rgba(239,68,68,0.3)]' : 'border-white/20 shadow-[0_8px_32px_0_rgba(255,255,255,0.1)]'} rounded-3xl text-center relative overflow-hidden transition-all duration-300`}>
-                <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
-                
-                {room.zombie_bomb_active && (
-                  <div className="absolute top-4 right-4 text-rose-400 text-xs font-bold uppercase tracking-wider bg-rose-950/50 px-3 py-1 rounded-full animate-pulse border border-rose-500/30 shrink-0 z-20">
-                    ☣️ Зомби-аномалия!
-                  </div>
-                )}
-
-                <h2 className={`text-2xl md:text-3xl lg:text-4xl font-black tracking-wide leading-tight drop-shadow-lg [text-wrap:balance] relative z-10 ${room.current_mode === 'blitz' ? 'text-red-400 animate-pulse' : 'text-white'}`}>
-                  {(currentQ as { question: string }).question}
-                </h2>
-              </div>
-
               {/* КОНТЕЙНЕР ДЛЯ ОПЦИЙ И РЕЙТИНГОВ */}
               <div className="flex-1 flex flex-row gap-4 lg:gap-6 min-h-0 w-full">
                 
@@ -2522,7 +2517,12 @@ export default function SurvivachHostPage() {
 
                 {/* РЕЙТИНГ И ИГРОКИ (Правая колонка) */}
                 <div className="flex-1 bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 p-4 flex flex-col shadow-[inset_0_4px_30px_rgba(255,255,255,0.02)] relative overflow-hidden min-h-0">
-                  <span className="text-white/40 uppercase tracking-widest text-xs font-bold mb-3 px-2">Текущий рейтинг и статус ответа</span>
+                  <div className="flex items-center justify-between mb-3 px-2">
+                    <span className="text-white/40 uppercase tracking-widest text-xs font-bold shrink-0">Рейтинг / Ответили</span>
+                    <span className="text-indigo-300 font-black text-xs bg-indigo-900/40 border border-indigo-500/30 px-3 py-1 rounded-full shrink-0 shadow-[0_0_10px_rgba(79,70,229,0.3)]">
+                      {answers.length} / {players.filter(p => !p.is_host).length}
+                    </span>
+                  </div>
                   <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 content-start">
                       {ranked.map((p, i) => <PlayerCard key={p.id} player={p} rank={i + 1} hasAnswered={!!answers.find(a => a.player_id === p.id)} />)}
