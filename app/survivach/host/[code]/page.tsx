@@ -2497,31 +2497,39 @@ export default function SurvivachHostPage() {
                 </h2>
               </div>
 
-              {/* ВАРИАНТЫ ОТВЕТА */}
-              <div className="flex-none bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 p-4 flex flex-col shadow-[inset_0_4px_30px_rgba(255,255,255,0.02)] relative overflow-hidden">
-                <div className="grid grid-cols-2 gap-3 content-start">
-                  {((currentQ as { options: string[] }).options ?? []).map((opt, i) => (
-                    <div key={i} className={`relative group px-4 py-2 bg-black/40 backdrop-blur-md border ${room.current_mode === 'blitz' ? 'border-red-500/30 hover:border-red-400' : 'border-white/10 hover:border-indigo-400/50'} rounded-xl flex items-center shadow-[0_4px_24px_rgba(0,0,0,0.2)] overflow-hidden transition-all duration-300`}>
-                      <div className="absolute inset-0 bg-gradient-to-r from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                      <span className={`text-xl font-black mr-3 drop-shadow-md flex-shrink-0 ${room.current_mode === 'blitz' ? 'text-red-500/50 group-hover:text-red-400' : 'text-white/30 group-hover:text-indigo-300'} transition-colors duration-300`}>
-                        {String.fromCharCode(65 + i)}
-                      </span>
-                      <span className="text-base font-semibold text-white/90 drop-shadow-md tracking-wide line-clamp-2 leading-snug [text-wrap:balance]">
-                        {opt}
-                      </span>
+              {/* КОНТЕЙНЕР ДЛЯ ОПЦИЙ И РЕЙТИНГОВ */}
+              <div className="flex-1 flex flex-row gap-4 lg:gap-6 min-h-0 w-full">
+                
+                {/* ВАРИАНТЫ ОТВЕТА (Левая колонка) */}
+                <div className="flex-1 bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 p-4 flex flex-col shadow-[inset_0_4px_30px_rgba(255,255,255,0.02)] relative overflow-hidden min-h-0">
+                  <span className="text-white/40 uppercase tracking-widest text-xs font-bold mb-3 px-2">Варианты ответа</span>
+                  <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
+                    <div className="grid grid-cols-2 gap-3 content-start">
+                      {((currentQ as { options: string[] }).options ?? []).map((opt, i) => (
+                        <div key={i} className={`relative group px-4 py-2 bg-black/40 backdrop-blur-md border ${room.current_mode === 'blitz' ? 'border-red-500/30 hover:border-red-400' : 'border-white/10 hover:border-indigo-400/50'} rounded-xl flex items-center shadow-[0_4px_24px_rgba(0,0,0,0.2)] overflow-hidden transition-all duration-300`}>
+                          <div className="absolute inset-0 bg-gradient-to-r from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                          <span className={`text-xl font-black mr-3 drop-shadow-md flex-shrink-0 ${room.current_mode === 'blitz' ? 'text-red-500/50 group-hover:text-red-400' : 'text-white/30 group-hover:text-indigo-300'} transition-colors duration-300`}>
+                            {String.fromCharCode(65 + i)}
+                          </span>
+                          <span className="text-base font-semibold text-white/90 drop-shadow-md tracking-wide line-clamp-2 leading-snug [text-wrap:balance]">
+                            {opt}
+                          </span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* РЕЙТИНГ И ИГРОКИ */}
-              <div className="flex-1 min-h-0 bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 p-4 flex flex-col shadow-[inset_0_4px_30px_rgba(255,255,255,0.02)]">
-                <span className="text-white/40 uppercase tracking-widest text-xs font-bold mb-3 px-2">Текущий рейтинг и статус ответа</span>
-                <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 content-start">
-                    {ranked.map((p, i) => <PlayerCard key={p.id} player={p} rank={i + 1} hasAnswered={!!answers.find(a => a.player_id === p.id)} />)}
                   </div>
                 </div>
+
+                {/* РЕЙТИНГ И ИГРОКИ (Правая колонка) */}
+                <div className="flex-1 bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 p-4 flex flex-col shadow-[inset_0_4px_30px_rgba(255,255,255,0.02)] relative overflow-hidden min-h-0">
+                  <span className="text-white/40 uppercase tracking-widest text-xs font-bold mb-3 px-2">Текущий рейтинг и статус ответа</span>
+                  <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 content-start">
+                      {ranked.map((p, i) => <PlayerCard key={p.id} player={p} rank={i + 1} hasAnswered={!!answers.find(a => a.player_id === p.id)} />)}
+                    </div>
+                  </div>
+                </div>
+
               </div>
 
             </div>
