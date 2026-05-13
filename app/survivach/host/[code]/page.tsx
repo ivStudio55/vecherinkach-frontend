@@ -254,16 +254,19 @@ function BoardView({ players, leaderPosition }: { players: SurvivachPlayer[]; le
 }
 
 /* ─── Player card ─── */
-function PlayerCard({ player, rank, showKarma = true }: {
+function PlayerCard({ player, rank, showKarma = true, hasAnswered = false }: {
   player: SurvivachPlayer;
   rank: number;
   showKarma?: boolean;
+  hasAnswered?: boolean;
 }) {
   return (
     <div className={`group flex items-center gap-3 rounded-xl p-2.5 border transition-all duration-300 backdrop-blur-md ${
       player.is_zombie 
         ? 'border-green-400/30 bg-green-950/30 shadow-[0_0_15px_rgba(74,222,128,0.1)] hover:shadow-[0_0_20px_rgba(74,222,128,0.2)] hover:border-green-400/50' 
-        : 'border-white/10 bg-white/5 shadow-[0_4px_15px_rgba(0,0,0,0.5)] hover:bg-white/10 hover:border-white/20'
+        : hasAnswered
+          ? 'border-emerald-500/50 bg-emerald-950/40 shadow-[0_0_15px_rgba(16,185,129,0.2)] hover:bg-emerald-950/50 hover:border-emerald-400/60'
+          : 'border-white/10 bg-white/5 shadow-[0_4px_15px_rgba(0,0,0,0.5)] hover:bg-white/10 hover:border-white/20'
     }`}>
       <span className="text-white/40 text-xs font-black font-mono w-4 drop-shadow-sm">#{rank}</span>
       
@@ -274,6 +277,11 @@ function PlayerCard({ player, rank, showKarma = true }: {
           className={`w-10 h-10 object-contain drop-shadow-md transition-transform duration-300 group-hover:scale-110 ${player.is_zombie ? 'saturate-[1.5] hue-rotate-[130deg]' : ''}`} 
         />
         {player.is_zombie && <div className="absolute inset-0 bg-green-500/20 blur-md rounded-full -z-10 mix-blend-screen" />}
+        {hasAnswered && (
+          <div className="absolute -bottom-2 -right-2 bg-emerald-500 text-black text-[10px] w-5 h-5 flex items-center justify-center rounded-full font-black border-2 border-emerald-950 z-20 shadow-lg animate-in zoom-in spin-in rotate-12 duration-300">
+            ✓
+          </div>
+        )}
       </div>
 
       <div className="flex-1 min-w-0">
@@ -498,7 +506,7 @@ export default function SurvivachHostPage() {
       setTimerLeft(dur);
       // In blitz, keep the blitz BGM playing (started in blitz_intro); don't restart timer music
       if (room.current_mode !== 'blitz') {
-        const pool = randomFromPool(TIMER_POOL, 5);
+        const pool = randomFromPool(TIMER_POOL, 6);
         bgAudio.current.play(pool, true);
       }
       timerRef.current = setInterval(() => {
@@ -514,30 +522,35 @@ export default function SurvivachHostPage() {
     }
 
     if (st === 'duel_intro') {
-      bgAudio.current.play(randomFromPool(DUEL_POOL, 5), false, () => {
+      bgAudio.current.play(randomFromPool(DUEL_POOL, 8), false, () => {
         setRoomStatus(room.id, 'duel_setup', {});
       });
     }
 
     if (st === 'duel_setup') {
-      if (duel?.mode) {
-        const pool = duel.mode === 'minesweeper'
-          ? DUEL_AUDIO.minesweeper.setup
-          : duel.mode === 'arithmetic_mean'
-          ? DUEL_AUDIO.arithmetic_mean.crowd
-          : DUEL_AUDIO.crowd_forecast.crowd;
-        bgAudio.current.play(randomFromPool(pool, 3), false);
+      // Timer loops in background throughout setup + playing phases
+      bgAudio.current.play(randomFromPool(TIMER_POOL, 6), true);
+      // Mode-specific crowd/setup music plays once on top
+      const duelMode = duel?.mode;
+      if (duelMode === 'minesweeper') {
+        fxAudio.current.play(randomFromPool(DUEL_AUDIO.minesweeper.setup, 5), false);
+      } else if (duelMode === 'arithmetic_mean') {
+        fxAudio.current.play(randomFromPool(DUEL_AUDIO.arithmetic_mean.crowd, 5), false);
+      } else if (duelMode === 'crowd_forecast') {
+        fxAudio.current.play(randomFromPool(DUEL_AUDIO.crowd_forecast.crowd, 5), false);
       }
     }
 
     if (st === 'duel_playing') {
-      if (duel?.mode) {
-        const pool = duel.mode === 'minesweeper'
-          ? DUEL_AUDIO.minesweeper.duelists
-          : duel.mode === 'arithmetic_mean'
-          ? DUEL_AUDIO.arithmetic_mean.duelists
-          : DUEL_AUDIO.crowd_forecast.duelists;
-        bgAudio.current.play(randomFromPool(pool, 3), false);
+      // Timer already looping from duel_setup — don't restart bgAudio
+      // Mode-specific duelists music plays once
+      const duelMode = duel?.mode;
+      if (duelMode === 'minesweeper') {
+        fxAudio.current.play(randomFromPool(DUEL_AUDIO.minesweeper.duelists, 5), false);
+      } else if (duelMode === 'arithmetic_mean') {
+        fxAudio.current.play(randomFromPool(DUEL_AUDIO.arithmetic_mean.duelists, 5), false);
+      } else if (duelMode === 'crowd_forecast') {
+        fxAudio.current.play(randomFromPool(DUEL_AUDIO.crowd_forecast.duelists, 5), false);
       }
     }
 
@@ -856,7 +869,7 @@ export default function SurvivachHostPage() {
       if (mode === 'minesweeper') {
         duelData = {
           mode: 'minesweeper',
-          tile_count: nonHostPlayers.length + 2,
+          tile_count: 9,
           mined_tiles: {},
           challenger_picks: [],
           challenged_picks: [],
@@ -1759,68 +1772,88 @@ export default function SurvivachHostPage() {
     const challenged = players.find(p => p.id === duel.challenged_id);
     if (!challenger || !challenged) return;
 
-    await updateDuel(duel.id, { status: 'done', winner_id: winnerId });
+    // Cache the duel payload so it can be passed temporarily or maintained
+    // We do NOT update the Duel DB status to 'done' here, to prevent realtime from clearing the UI immediately.
+    // Instead we will update the Duel to 'done' at the very END of advanceAfterDuel.
 
     // IMPORTANT: Set status to 'duel_result' BEFORE playing audio
     // This ensures the result screen is shown even if audio fails to load
     await setRoomStatus(room.id, 'duel_result', { duel_data: { ...room.duel_data, winner_id: winnerId } as unknown as import('@/lib/survivach/types').DuelData });
 
+    // Apply player stat changes and determine winner audio pool
+    let winnerPool: string;
     if (winnerId === null) {
       // Draw - no one changes position or stats
-      bgAudio.current.play(randomFromPool(DRAW_POOL, 5), false, () => advanceAfterDuel());
+      winnerPool = DRAW_POOL;
     } else if (winnerId === duel.challenged_id) {
       // Challenged (summoned) won
       if (challenged.is_zombie) {
         // Zombie summoned won! Resurrects (gets 1 life). Challenger loses 1 life (and might become zombie).
         const newChallengerLives = Math.max(0, challenger.lives - 1);
-        // If another zombie is already at the zombie's old position, the alive player also becomes zombie
         const zombiesAtChallengedPos = players.filter(
           p => !p.is_host && p.is_zombie && p.id !== challenged.id && p.position === challenged.position
         );
         const newChallengerIsZombie = newChallengerLives === 0 || challenger.is_zombie || zombiesAtChallengedPos.length > 0;
         const finalChallengerLives = newChallengerIsZombie ? 0 : newChallengerLives;
-        
         await updatePlayers([
           { id: challenged.id, position: challenger.position, is_zombie: false, lives: 1 },
           { id: challenger.id, position: challenged.position, is_zombie: newChallengerIsZombie, lives: finalChallengerLives },
         ]);
-        bgAudio.current.play(randomFromPool(ZOMBIE_WON_POOL, 5), false, () => advanceAfterDuel());
+        winnerPool = ZOMBIE_WON_POOL;
       } else if (challenger.is_zombie) {
-        // Zombie challenger lost duel. Nothing happens (zombie stays zombie, alive player keeps life, no karma transfer).
-        bgAudio.current.play(randomFromPool(SUMMONED_WON_POOL, 5), false, () => advanceAfterDuel());
+        // Zombie challenger lost duel. Nothing happens.
+        winnerPool = SUMMONED_WON_POOL;
       } else {
         // Both alive: challenged takes 3 karma from challenger, positions stay same
         await updatePlayers([
           { id: challenger.id, karma: Math.max(0, challenger.karma - 3) },
           { id: challenged.id, karma: challenged.karma + 3 },
         ]);
-        bgAudio.current.play(randomFromPool(SUMMONED_WON_POOL, 5), false, () => advanceAfterDuel());
+        winnerPool = SUMMONED_WON_POOL;
       }
     } else {
       // Challenger (caller) won
       if (challenger.is_zombie) {
         // Zombie challenger won! Resurrects (gets 1 life). Challenged loses 1 life (and might become zombie).
         const newChallengedLives = Math.max(0, challenged.lives - 1);
-        // If another zombie is already at the zombie's old position, the alive player also becomes zombie
         const zombiesAtChallengerPos = players.filter(
           p => !p.is_host && p.is_zombie && p.id !== challenger.id && p.position === challenger.position
         );
         const newChallengedIsZombie = newChallengedLives === 0 || challenged.is_zombie || zombiesAtChallengerPos.length > 0;
         const finalChallengedLives = newChallengedIsZombie ? 0 : newChallengedLives;
-        
         await updatePlayers([
           { id: challenger.id, position: challenged.position, is_zombie: false, lives: 1 },
           { id: challenged.id, position: challenger.position, is_zombie: newChallengedIsZombie, lives: finalChallengedLives },
         ]);
-        bgAudio.current.play(randomFromPool(ZOMBIE_WON_POOL, 5), false, () => advanceAfterDuel());
+        winnerPool = ZOMBIE_WON_POOL;
       } else {
         // Normal swap positions (both alive)
         await updatePlayers([
           { id: challenger.id, position: challenged.position },
           { id: challenged.id, position: challenger.position },
         ]);
-        bgAudio.current.play(randomFromPool(CALLER_WON_POOL, 5), false, () => advanceAfterDuel());
+        winnerPool = CALLER_WON_POOL;
       }
+    }
+
+    // For arithmetic_mean and crowd_forecast: show ratings with duelists_actions first, then winner fanfare
+    // For minesweeper: go straight to winner fanfare (no ratings screen)
+    if (duel.mode === 'minesweeper') {
+      bgAudio.current.play(randomFromPool(winnerPool, 3), false, () => advanceAfterDuel());
+    } else {
+      const startTime = Date.now();
+      bgAudio.current.play(randomFromPool(DUELISTS_ACTIONS_POOL, 2), false, () => {
+        bgAudio.current.play(randomFromPool(winnerPool, 3), false, () => {
+          const elapsed = Date.now() - startTime;
+          const minDelay = 7000; // Гарантируем, что карточки и ответ будут висеть минимум 7 секунд
+          const remaining = minDelay - elapsed;
+          if (remaining > 0) {
+            setTimeout(advanceAfterDuel, remaining);
+          } else {
+            advanceAfterDuel();
+          }
+        });
+      });
     }
   };
 
@@ -1829,9 +1862,17 @@ export default function SurvivachHostPage() {
     
     // TEST MODE: In test mode (round 999), don't advance - stay on duel_result screen
     if (room.current_round === 999) {
+      if (duel) {
+        await updateDuel(duel.id, { status: 'done' });
+      }
       return;
     }
     
+    // Now that the UI has finished presenting, mark the duel as 'done' in the DB.
+    if (duel) {
+      await updateDuel(duel.id, { status: 'done' });
+    }
+
     const updatedPlayers = await fetchPlayers(room.id);
     const newLeaderPos = getLeaderPosition(updatedPlayers.filter(p => !p.is_host));
     const newRound = room.current_round + 1;
@@ -2417,8 +2458,8 @@ export default function SurvivachHostPage() {
 
       {/* ─── ROUND PLAYING ─── */}
       {room.status === 'round_playing' && currentQ && (
-        <div className="min-h-full h-full flex flex-col p-6 gap-4">
-          <div className="flex items-center gap-4 flex-wrap">
+        <div className="flex-1 h-full min-h-0 flex flex-col p-6 gap-4 overflow-hidden">
+          <div className="flex items-center gap-4 flex-wrap flex-shrink-0">
             <span className="text-lg font-bold" style={{ color: MODE_COLORS[room.current_mode as RoundMode] }}>
               {MODE_LABELS[room.current_mode as RoundMode]}
             </span>
@@ -2432,17 +2473,57 @@ export default function SurvivachHostPage() {
 
           {/* Question display by mode */}
           {(room.current_mode === 'umnik' || room.current_mode === 'blitz') && (
-            <div className="flex-1 flex flex-col items-center gap-6 justify-center">
-              <h2 className={`text-2xl font-bold text-center max-w-2xl ${room.current_mode === 'blitz' ? 'text-red-400 animate-pulse' : ''}`}>
-                {(currentQ as { question: string }).question}
-              </h2>
-              <div className="grid grid-cols-2 gap-3 max-w-2xl w-full">
-                {((currentQ as { options: string[] }).options ?? []).map((opt, i) => (
-                  <div key={i} className={`px-4 py-3 bg-gray-800 border ${room.current_mode === 'blitz' ? 'border-red-500/50' : 'border-gray-600'} rounded-xl text-center font-medium`}>
-                    <span className="text-gray-500 mr-2">{String.fromCharCode(65 + i)}.</span>{opt}
-                  </div>
-                ))}
+            <div className="flex-1 flex flex-col gap-4 w-full px-2 lg:px-8 max-w-[1600px] mx-auto min-h-0">
+              
+              {/* ИНФО О ОТВЕТАХ */}
+              <div className="flex justify-center flex-none">
+                <span className="text-indigo-300 font-black text-sm bg-indigo-900/40 border border-indigo-500/30 px-4 py-1.5 rounded-full shadow-[0_0_10px_rgba(79,70,229,0.3)]">
+                  Ответили: {answers.length} / {players.filter(p => !p.is_host).length}
+                </span>
               </div>
+
+              {/* ВОПРОС */}
+              <div className={`w-full flex-none flex flex-col items-center justify-center p-4 lg:p-6 bg-white/5 backdrop-blur-xl border ${room.current_mode === 'blitz' ? 'border-red-500/50 shadow-[0_0_30px_rgba(239,68,68,0.3)]' : 'border-white/20 shadow-[0_8px_32px_0_rgba(255,255,255,0.1)]'} rounded-3xl text-center relative overflow-hidden transition-all duration-300`}>
+                <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
+                
+                {room.zombie_bomb_active && (
+                  <div className="absolute top-4 right-4 text-rose-400 text-xs font-bold uppercase tracking-wider bg-rose-950/50 px-3 py-1 rounded-full animate-pulse border border-rose-500/30 shrink-0 z-20">
+                    ☣️ Зомби-аномалия!
+                  </div>
+                )}
+
+                <h2 className={`text-2xl md:text-3xl lg:text-4xl font-black tracking-wide leading-tight drop-shadow-lg [text-wrap:balance] relative z-10 ${room.current_mode === 'blitz' ? 'text-red-400 animate-pulse' : 'text-white'}`}>
+                  {(currentQ as { question: string }).question}
+                </h2>
+              </div>
+
+              {/* ВАРИАНТЫ ОТВЕТА */}
+              <div className="flex-none bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 p-4 flex flex-col shadow-[inset_0_4px_30px_rgba(255,255,255,0.02)] relative overflow-hidden">
+                <div className="grid grid-cols-2 gap-3 content-start">
+                  {((currentQ as { options: string[] }).options ?? []).map((opt, i) => (
+                    <div key={i} className={`relative group px-4 py-2 bg-black/40 backdrop-blur-md border ${room.current_mode === 'blitz' ? 'border-red-500/30 hover:border-red-400' : 'border-white/10 hover:border-indigo-400/50'} rounded-xl flex items-center shadow-[0_4px_24px_rgba(0,0,0,0.2)] overflow-hidden transition-all duration-300`}>
+                      <div className="absolute inset-0 bg-gradient-to-r from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <span className={`text-xl font-black mr-3 drop-shadow-md flex-shrink-0 ${room.current_mode === 'blitz' ? 'text-red-500/50 group-hover:text-red-400' : 'text-white/30 group-hover:text-indigo-300'} transition-colors duration-300`}>
+                        {String.fromCharCode(65 + i)}
+                      </span>
+                      <span className="text-base font-semibold text-white/90 drop-shadow-md tracking-wide line-clamp-2 leading-snug [text-wrap:balance]">
+                        {opt}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* РЕЙТИНГ И ИГРОКИ */}
+              <div className="flex-1 min-h-0 bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 p-4 flex flex-col shadow-[inset_0_4px_30px_rgba(255,255,255,0.02)]">
+                <span className="text-white/40 uppercase tracking-widest text-xs font-bold mb-3 px-2">Текущий рейтинг и статус ответа</span>
+                <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 content-start">
+                    {ranked.map((p, i) => <PlayerCard key={p.id} player={p} rank={i + 1} hasAnswered={!!answers.find(a => a.player_id === p.id)} />)}
+                  </div>
+                </div>
+              </div>
+
             </div>
           )}
 
@@ -2497,53 +2578,123 @@ export default function SurvivachHostPage() {
           )}
 
           {room.current_mode === 'memory_diary' && (
-            <div className="flex-1 flex flex-col items-center gap-6 justify-center">
-              <h2 className="text-2xl font-bold text-pink-400">🔴 Дневник памяти</h2>
-              <p className="text-gray-400 text-lg">Игроки воспроизводят последовательность...</p>
-              <div className="flex gap-3">
-                {colorSequence.map((_, i) => (
-                  <div key={i} className="w-16 h-16 rounded-full border-4 border-white/10 bg-gray-800" />
-                ))}
+            <div className="flex-1 flex flex-col items-center justify-center p-8 relative min-h-full">
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-pink-900/30 via-transparent to-transparent pointer-events-none" />
+
+              <div className="bg-black/60 border border-pink-500/30 p-8 md:p-12 rounded-[2rem] shadow-[0_0_100px_rgba(236,72,153,0.15)] flex flex-col items-center gap-8 backdrop-blur-xl relative z-10 w-full max-w-4xl">
+                <h2 className="text-5xl md:text-7xl font-black bg-gradient-to-r from-pink-400 via-purple-400 to-pink-400 bg-clip-text text-transparent drop-shadow-[0_0_20px_rgba(236,72,153,0.6)] uppercase tracking-tight text-center">
+                  Дневник Памяти
+                </h2>
+                
+                <div className="text-pink-300/80 font-bold text-xl uppercase tracking-[0.3em] text-center px-8 py-3 border-y border-pink-500/20 w-full">
+                  Воспроизведите секретную последовательность
+                </div>
+
+                {room.zombie_bomb_active && (
+                  <div className="absolute -top-6 px-8 py-2 bg-green-950 border border-green-500 rounded-full text-green-400 font-bold text-lg animate-pulse shadow-[0_0_30px_rgba(34,197,94,0.4)]">
+                    💣 Усложнённая последовательность!
+                  </div>
+                )}
+
+                <div className="w-full flex justify-center py-4 px-4 overflow-hidden">
+                  <div className="relative bg-slate-900/80 p-6 md:p-8 rounded-3xl border-4 border-slate-800 shadow-[inset_0_0_50px_rgba(0,0,0,0.8)] w-full w-max-[90%]">
+                    <div className="absolute top-1/2 left-4 right-4 h-1.5 bg-white/5 -translate-y-1/2 rounded-full hidden md:block" />
+                    <div className="flex flex-wrap justify-center gap-4 md:gap-6 relative z-10 w-full">
+                      {colorSequence.map((_, i) => (
+                        <div 
+                          key={i} 
+                          className="relative z-10 w-16 h-16 md:w-24 md:h-24 rounded-2xl flex items-center justify-center bg-black/60 border-2 border-dashed border-white/20 shadow-inner"
+                        >
+                          <span className="text-white/10 font-black text-2xl md:text-4xl">{i + 1}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex gap-4 text-sm font-bold text-slate-500 uppercase tracking-widest">
+                  <span className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full bg-pink-500 animate-[pulse_1s_ease-in-out_infinite]" /> 
+                    Ожидание ввода...
+                  </span>
+                </div>
               </div>
-              {room.zombie_bomb_active && (
-                <p className="text-green-400 font-bold">💣 Усложнённая последовательность!</p>
-              )}
             </div>
           )}
 
           {room.current_mode === 'tag_puzzle' && (
-            <div className="flex-1 flex flex-col items-center gap-4 justify-center">
-              <h2 className="text-2xl font-bold">Пятнашки — кто быстрее!</h2>
-              <div className="bg-gray-900 border border-yellow-500/40 rounded-xl p-4 text-center">
-                <p className="text-gray-400 text-sm">Решайте на своих телефонах</p>
-                <div className="mt-2 font-mono text-yellow-400">
-                  {puzzleState.slice(0, 9).map((n, i) => n === 0 ? '  ' : String(n).padStart(2)).join(' ')}
+            <div className="flex-1 flex flex-col items-center justify-center p-8 relative">
+              {/* Background ambient glow */}
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-900/20 via-transparent to-transparent pointer-events-none" />
+
+              <div className="bg-black/60 border border-blue-500/30 p-8 rounded-[2rem] shadow-[0_0_100px_rgba(59,130,246,0.15)] flex flex-col items-center gap-8 backdrop-blur-xl relative z-10 w-full max-w-2xl">
+                
+                <h2 className="text-4xl md:text-5xl font-black bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent drop-shadow-[0_0_15px_rgba(59,130,246,0.6)] uppercase tracking-tight text-center">
+                  Пятнашки
+                </h2>
+                
+                <div className="flex flex-col items-center w-full">
+                  <div className="text-blue-300/80 mb-6 font-medium text-lg uppercase tracking-widest text-center px-6 py-2 border-y border-blue-500/20 w-full">
+                    Кто первым соберет пазл на устройстве?
+                  </div>
+                  
+                  {/* Decorative target board */}
+                  <div className="grid grid-cols-3 gap-3 p-3 bg-slate-900 rounded-3xl border-4 border-slate-800 shadow-[inset_0_0_40px_rgba(0,0,0,0.8)] relative">
+                    {/* Glowing highlight */}
+                    <div className="absolute -inset-1 bg-gradient-to-b from-blue-500/20 to-transparent blur-xl rounded-3xl pointer-events-none" />
+                    
+                    {puzzleState.slice(0, 9).map((n, i) => (
+                      <div 
+                        key={i} 
+                        className={`
+                          w-16 h-16 sm:w-24 sm:h-24 rounded-2xl flex items-center justify-center text-2xl sm:text-4xl font-black relative
+                          ${n !== 0 
+                            ? 'bg-gradient-to-b from-slate-700 to-slate-800 border-t-2 border-slate-600 text-slate-400 shadow-[0_4px_15px_rgba(0,0,0,0.5)]' 
+                            : 'bg-black/50 border-2 border-dashed border-blue-900/50 shadow-inner'
+                          }
+                        `}
+                      >
+                        {n !== 0 && n}
+                        {n !== 0 && (
+                          <div className="absolute top-1 left-2 right-2 h-1/4 bg-white/5 rounded-full pointer-events-none" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-4 flex gap-4 text-sm font-bold text-slate-500 uppercase tracking-widest">
+                  <span className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" /> Подключение...</span>
                 </div>
               </div>
             </div>
           )}
 
           {/* Answers progress */}
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-3">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-sm text-gray-400">Ответили</span>
-              <span className="font-bold">{answers.length} / {players.filter(p => !p.is_host).length}</span>
+          {room.current_mode !== 'umnik' && room.current_mode !== 'blitz' && (
+            <div className="bg-gray-900 border border-gray-700 rounded-xl p-3 flex-none mt-auto">
+              <div className="flex flex-col gap-2">
+                <div className="flex justify-between text-sm text-gray-400 font-bold px-1">
+                  <span>Ответили</span>
+                  <span>{answers.length} / {players.filter(p => !p.is_host).length}</span>
+                </div>
+                <div className="flex gap-2 flex-wrap max-h-32 overflow-y-auto custom-scrollbar content-start">
+                  {players.filter(p => !p.is_host).map(p => {
+                    const ans = answers.find(a => a.player_id === p.id);
+                    return (
+                      <div key={p.id} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                        ans ? 'bg-green-500/20 text-green-300 border border-green-500/30 shadow-[0_0_10px_rgba(34,197,94,0.1)]' : 'bg-gray-800 text-gray-400 border border-gray-700 opacity-60 grayscale'
+                      }`}>
+                        <img src={getAvatarUrl(p.avatar, p.lives)} alt="" className="w-5 h-5 object-contain" />
+                        <span className="truncate max-w-[80px]">{p.name}</span>
+                        {ans && <span className="text-green-400 drop-shadow-[0_0_5px_#22c55e]">✓</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
-            <div className="flex gap-2 flex-wrap">
-              {players.filter(p => !p.is_host).map(p => {
-                const ans = answers.find(a => a.player_id === p.id);
-                return (
-                  <div key={p.id} className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs ${
-                    ans ? 'bg-green-900/40 border border-green-600' : 'bg-gray-800 border border-gray-700'
-                  }`}>
-                    <img src={getAvatarUrl(p.avatar, p.lives)} alt="" className="w-5 h-5 object-contain" />
-                    <span>{p.name}</span>
-                    {ans && <span>✓</span>}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          )}
 
           {/* Bets indicator */}
           {bets.length > 0 && (
@@ -2553,8 +2704,8 @@ export default function SurvivachHostPage() {
           )}
 
           {/* Karma/duel eligible players */}
-          {ranked.filter(p => p.karma >= 3 && !p.is_zombie).length > 0 && (
-            <div className="bg-yellow-900/20 border border-yellow-500/40 rounded-xl p-3">
+          {room.current_mode !== 'umnik' && room.current_mode !== 'blitz' && ranked.filter(p => p.karma >= 3 && !p.is_zombie).length > 0 && (
+            <div className="bg-yellow-900/20 border border-yellow-500/40 rounded-xl p-3 flex-none mt-auto">
               <p className="text-yellow-400 font-bold text-sm mb-2">✨ Могут вызвать на дуэль:</p>
               <div className="flex gap-2 flex-wrap">
                 {ranked.filter(p => p.karma >= 3 && !p.is_zombie).map(p => (
@@ -2563,48 +2714,19 @@ export default function SurvivachHostPage() {
               </div>
             </div>
           )}
-          
-          {/* Test mode controls */}
-          {room.current_round === 999 && (
-            <div className="bg-blue-900/20 border border-blue-500/40 rounded-xl p-4 text-center flex gap-4 justify-center">
-              <button
-                onClick={() => processRoundResults()}
-                className="px-6 py-3 bg-green-600 hover:bg-green-500 rounded-xl font-bold text-white transition-colors"
-              >
-                📊 Показать результаты
-              </button>
-              <button
-                onClick={async () => {
-                  await resetPlayersAfterTest();
-                  await setRoomStatus(room.id, 'rules');
-                  setTestMode('select');
-                }}
-                className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold text-white transition-colors"
-              >
-                🔄 Выбрать другой режим
-              </button>
-              <button
-                onClick={async () => {
-                  await resetPlayersAfterTest();
-                  await setRoomStatus(room.id, 'rules');
-                  setTestMode(null);
-                }}
-                className="px-6 py-3 bg-gray-600 hover:bg-gray-500 rounded-xl font-bold text-white transition-colors"
-              >
-                ❌ Выход из тестирования
-              </button>
-            </div>
-          )}
         </div>
       )}
 
       {/* ─── ROUND RESULTS ─── */}
       {room.status === 'round_results' && (
-        <div className="min-h-full h-full flex flex-col p-6 gap-4">
-          <h2 className="text-3xl font-black text-center">
+        <div className="flex-1 w-full min-h-0 flex flex-col p-4 md:p-6 gap-4 items-center relative overflow-hidden">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-indigo-600/20 blur-[150px] pointer-events-none rounded-full" />
+          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-fuchsia-600/10 blur-[120px] pointer-events-none rounded-full" />
+
+          <h2 className="text-4xl md:text-5xl font-black text-center bg-gradient-to-r from-blue-300 via-indigo-400 to-purple-400 bg-clip-text text-transparent drop-shadow-[0_0_25px_rgba(99,102,241,0.6)] uppercase tracking-tighter relative z-10 flex-none py-2">
             {(room.round_results_data as { blitz_mode?: boolean } | null)?.blitz_mode
-              ? '⚡ Результаты блица'
-              : '📊 Результаты раунда'}
+              ? '⚡ ИТОГИ БЛИЦА'
+              : 'СТАТИСТИКА РАУНДА'}
           </h2>
 
           {/* Blitz: show slow player + auto-advance notice */}
@@ -2612,23 +2734,30 @@ export default function SurvivachHostPage() {
             const rd = room.round_results_data as { blitz_slow_player_id?: string } | null;
             const slowP = rd?.blitz_slow_player_id ? players.find(p => p.id === rd.blitz_slow_player_id) : null;
             return (
-              <div className="flex flex-col items-center gap-2">
+              <div className="flex flex-col items-center gap-2 relative z-10 flex-none">
                 {slowP && (
-                  <div className="bg-red-900/30 border border-red-500/50 rounded-xl px-4 py-2 text-center">
-                    <span className="text-red-400 font-bold">🐌 Слишком медленно: {slowP.name}</span>
+                  <div className="bg-rose-950/50 border-2 border-rose-500/50 rounded-2xl px-4 py-2 text-center shadow-[0_0_30px_rgba(225,29,72,0.3)] backdrop-blur-md">
+                    <span className="text-rose-400 font-extrabold text-sm md:text-base uppercase tracking-widest shrink-0 gap-2 flex items-center">
+                      <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+                      Слишком медленно: {slowP.name}
+                    </span>
                   </div>
                 )}
-                <p className="text-gray-400 text-sm animate-pulse">Следующий вопрос через 2 сек…</p>
+                <p className="text-indigo-300/60 font-bold uppercase tracking-widest text-xs animate-pulse">Следующий вопрос через 2 сек…</p>
               </div>
             );
           })()}
 
           {room.round_results_data && (
-            <div className="max-w-3xl mx-auto w-full flex flex-col gap-4">
+            <div className="max-w-6xl mx-auto w-full flex-1 flex flex-col gap-4 relative z-10 min-h-0">
               {room.current_mode !== 'mathematician' && (
-                <div className="text-center bg-gray-900 border border-gray-700 rounded-xl p-3">
-                  <span className="text-gray-400 text-sm">Правильный ответ: </span>
-                  <span className="font-bold text-green-400">{room.round_results_data.correct_answer}</span>
+                <div className="flex justify-center w-full flex-none">
+                  <div className="bg-slate-900/60 border border-indigo-500/30 rounded-3xl p-4 shadow-[0_0_40px_rgba(99,102,241,0.15)] flex flex-col items-center gap-1 backdrop-blur-xl w-full max-w-3xl">
+                    <span className="text-indigo-300/80 uppercase tracking-widest text-[10px] md:text-xs font-bold font-mono">Анализ ответа</span>
+                    <span className="font-black text-xl md:text-2xl text-emerald-400 drop-shadow-[0_0_15px_rgba(52,211,153,0.5)] text-center line-clamp-3 overflow-hidden">
+                      {room.round_results_data.correct_answer}
+                    </span>
+                  </div>
                 </div>
               )}
 
@@ -2636,57 +2765,118 @@ export default function SurvivachHostPage() {
                 const iq = room.question_data as unknown as InterpreterQuestion | null;
                 if (!iq) return null;
                 return (
-                  <div className="bg-gray-900 border border-purple-500/30 rounded-xl p-4 flex flex-col gap-1 text-sm">
-                    <p className="text-purple-200 italic">«{iq.original_text}»</p>
-                    {iq.artist && <p className="text-gray-400">🎤 Исполнитель: <span className="text-white font-bold">{iq.artist}{iq.aka ? ` (${iq.aka})` : ''}</span></p>}
-                    {iq.composer && <p className="text-gray-400">🎵 Композитор: <span className="text-white font-bold">{iq.composer}</span></p>}
-                    {iq.lyricist && <p className="text-gray-400">✍️ Автор текста: <span className="text-white font-bold">{iq.lyricist}</span></p>}
-                    {iq.author && <p className="text-gray-400">✍️ Автор: <span className="text-white font-bold">{iq.author}</span></p>}
-                    {iq.authors && <p className="text-gray-400">✍️ Авторы: <span className="text-white font-bold">{iq.authors.join(', ')}</span></p>}
+                  <div className="bg-slate-900/60 border border-purple-500/30 rounded-3xl p-4 flex flex-col gap-2 shadow-[0_0_40px_rgba(168,85,247,0.15)] backdrop-blur-xl w-full max-w-3xl mx-auto flex-none">
+                    <p className="text-purple-200 text-base italic text-center font-medium opacity-90 line-clamp-2">
+                      «{iq.original_text}»
+                    </p>
+                    <div className="h-px w-full bg-gradient-to-r from-transparent via-purple-500/30 to-transparent" />
+                    <div className="flex flex-col gap-0.5 items-center">
+                      {iq.artist && <p className="text-indigo-300 text-xs">🎤 Исполнитель: <span className="text-white font-bold">{iq.artist}{iq.aka ? ` (${iq.aka})` : ''}</span></p>}
+                      {iq.composer && <p className="text-indigo-300 text-xs">🎵 Композитор: <span className="text-white font-bold">{iq.composer}</span></p>}
+                      {iq.lyricist && <p className="text-indigo-300 text-xs">✍️ Автор текста: <span className="text-white font-bold">{iq.lyricist}</span></p>}
+                      {iq.author && <p className="text-indigo-300 text-xs">✍️ Автор: <span className="text-white font-bold">{iq.author}</span></p>}
+                      {iq.authors && <p className="text-indigo-300 text-xs">✍️ Авторы: <span className="text-white font-bold">{iq.authors.join(', ')}</span></p>}
+                    </div>
                   </div>
                 );
               })()}
 
               {/* ─── Full leaderboard ─── */}
-              <div>
-                <p className="text-xs text-gray-500 uppercase tracking-widest mb-2 text-center">Общий рейтинг</p>
-                <div className="grid gap-1">
-                  {rankPlayers(players.filter(p => !p.is_host)).map((p, i) => {
-                    const r = roundResultsData.find(x => x.player_id === p.id);
-                    const newLives = r?.new_lives ?? p.lives;
-                    const newPos = r?.new_position ?? p.position;
-                    const newKarma = r?.new_karma ?? p.karma;
-                    const newZombie = r?.is_zombie_now ?? p.is_zombie;
-                    return (
-                      <div key={p.id} className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm ${
-                        r?.is_correct ? 'border-green-600/40 bg-green-900/10' : 'border-red-600/20 bg-red-900/10'
-                      }`}>
-                        <span className={`font-black w-5 text-center text-sm ${i === 0 ? 'text-yellow-400' : 'text-gray-500'}`}>#{i + 1}</span>
-                        <img src={getAvatarUrl(p.avatar, newLives)} alt="" className="w-7 h-7 object-contain" />
-                        <span className="font-medium flex-1">{p.name}</span>
-                        {/* Result this round */}
-                        {r && (r.is_correct
-                          ? <span className="text-green-400 font-bold">{r.was_first ? '⚡+2' : '✅+1'}</span>
-                          : <span className="text-red-400 font-bold">❌−♥</span>
-                        )}
-                        {/* Board position */}
-                        <span className="text-gray-300 font-mono text-xs w-12 text-right">кл.{newPos}</span>
-                        {/* Lives */}
-                        <span className="text-red-400 text-xs w-12 text-center">
-                          {newZombie ? '🧟' : '❤️'.repeat(newLives) + '🖤'.repeat(Math.max(0, 3 - newLives))}
-                        </span>
-                        {/* Karma */}
-                        {newKarma > 0 && (
-                          <span className={`text-xs font-bold w-8 text-right ${newKarma >= 3 ? 'text-yellow-300' : 'text-gray-400'}`}>
-                            {newKarma}✨
-                          </span>
-                        )}
-                        {/* Round events */}
-                        {(r?.karma_change ?? 0) > 0 && <span className="text-yellow-400 text-xs">+{r!.karma_change}✨</span>}
-                        {r?.is_zombie_now && !p.is_zombie && <span className="text-green-300 text-xs font-bold">🧟NEW</span>}
-                      </div>
-                    );
-                  })}
+              <div className="bg-black/40 border border-white/5 rounded-3xl p-4 backdrop-blur-md shadow-2xl flex-1 flex flex-col overflow-hidden min-h-0 max-h-full">
+                <div className="flex items-center gap-4 mb-3 flex-none ml-2">
+                  <p className="text-sm text-indigo-300 uppercase tracking-widest font-bold">Таблица лидеров</p>
+                  <div className="h-px flex-1 bg-gradient-to-r from-indigo-500/50 to-transparent" />
+                </div>
+                
+                <div className="flex-1 min-h-0">
+                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-2 pb-2 h-full content-start">
+                    {rankPlayers(players.filter(p => !p.is_host)).map((p, i) => {
+                      const r = roundResultsData.find(x => x.player_id === p.id);
+                      const newLives = r?.new_lives ?? p.lives;
+                      const newPos = r?.new_position ?? p.position;
+                      const newKarma = r?.new_karma ?? p.karma;
+                      const newZombie = r?.is_zombie_now ?? p.is_zombie;
+                      
+                      const isCorrect = r?.is_correct;
+                      const isTop = i === 0;
+
+                      return (
+                        <div 
+                          key={p.id} 
+                          className={`flex items-center gap-3 px-3 py-2 md:px-4 md:py-3 rounded-2xl border backdrop-blur-sm transition-all ${
+                            isCorrect 
+                              ? 'border-emerald-500/30 bg-emerald-950/20 shadow-[0_0_15px_rgba(16,185,129,0.05)]' 
+                              : 'border-rose-500/20 bg-rose-950/10'
+                          } ${isTop ? 'outline outline-2 outline-amber-500/30 bg-amber-950/10' : ''}`}
+                        >
+                          <div className="flex items-center justify-center w-6 md:w-8 shrink-0">
+                            <span className={`font-black text-sm md:text-xl drop-shadow-md ${isTop ? 'text-amber-400 drop-shadow-[0_0_10px_rgba(251,191,36,0.8)] scale-110' : 'text-slate-500'}`}>
+                              #{i + 1}
+                            </span>
+                          </div>
+                          
+                          <div className="relative">
+                            {isTop && <div className="absolute -inset-1.5 bg-amber-500/20 blur-lg rounded-full pointer-events-none" />}
+                            <img src={getAvatarUrl(p.avatar, newLives)} alt="" className="w-8 h-8 md:w-12 md:h-12 object-contain relative z-10" />
+                          </div>
+                          
+                          <div className="flex-1 min-w-[100px] flex flex-col justify-center truncate">
+                            <span className="font-black text-sm md:text-lg text-white tracking-wide truncate">{p.name}</span>
+                            {/* Показываем ответ юзера если режим umnik и нет вариантов (хотя варианты тут скрыты, может быть текстовый) */}
+                          </div>
+                          
+                          <div className="flex items-center justify-center flex-none min-w-[70px] md:min-w-[100px]">
+                            {r && (r.is_correct
+                              ? <span className="px-2 py-1 md:px-3 md:py-1.5 bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30 rounded-lg whitespace-nowrap text-[10px] md:text-sm drop-shadow-[0_0_5px_rgba(52,211,153,0.5)] uppercase tracking-wider">{r.was_first ? '⚡ ПЕРВЫЙ' : '✅ ВЕРНО'}</span>
+                              : <span className="px-2 py-1 md:px-3 md:py-1.5 bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30 rounded-lg whitespace-nowrap text-[10px] md:text-sm uppercase tracking-wider">❌ ПРОМАХ</span>
+                            )}
+                          </div>
+                          
+                          <div className="flex items-center justify-end gap-3 md:gap-5 shrink-0 min-w-[120px] md:min-w-[180px]">
+                            {/* Board position */}
+                            <div className="flex flex-col items-center justify-center">
+                              <span className="text-[8px] md:text-[10px] text-slate-500 uppercase font-bold tracking-wider leading-none">Клетка</span>
+                              <span className="text-slate-300 font-black font-mono text-sm md:text-base leading-none mt-1">{newPos}</span>
+                            </div>
+                            
+                            <div className="w-px h-6 md:h-8 bg-white/10" />
+
+                            {/* Lives & Status */}
+                            <div className="flex flex-col items-end justify-center min-w-[60px] md:min-w-[70px]">
+                              {newZombie ? (
+                                <span className="text-emerald-400 font-black flex items-center gap-1 drop-shadow-[0_0_8px_rgba(52,211,153,0.8)]"><span className="text-sm md:text-lg">🧟</span> ЗОМБИ</span>
+                              ) : (
+                                <div className="flex gap-0.5">
+                                  {Array.from({ length: 3 }).map((_, idx) => (
+                                    <span key={idx} className={`text-base md:text-lg ${idx < newLives ? 'drop-shadow-[0_0_5px_rgba(220,38,38,0.8)] opacity-100' : 'opacity-20 grayscale brightness-50'}`}>❤️</span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Event Tags (Karma) */}
+                          <div className="absolute -top-2 right-2 flex gap-1 md:gap-2 scale-[0.85] md:scale-100 origin-top-right">
+                             {(r?.karma_change ?? 0) > 0 && (
+                              <span className="px-2 py-0.5 bg-amber-900 border border-amber-500/50 rounded text-amber-300 text-[8px] md:text-[10px] font-black uppercase shadow-[0_0_10px_rgba(245,158,11,0.3)] animate-pulse">
+                                +{r!.karma_change} Карма
+                              </span>
+                            )}
+                            {newKarma > 0 && newKarma < 3 && (
+                              <span className="px-2 py-0.5 bg-slate-900 border border-indigo-500/50 rounded text-indigo-300 text-[8px] md:text-[10px] font-black uppercase shadow-[0_0_10px_rgba(99,102,241,0.3)]">
+                                {newKarma}✨
+                              </span>
+                            )}
+                            {newKarma >= 3 && (
+                              <span className="px-2 py-0.5 bg-yellow-950 border border-amber-500/80 rounded text-amber-400 text-[8px] md:text-[10px] font-black uppercase shadow-[0_0_15px_rgba(251,191,36,0.6)] animate-in zoom-in">
+                                🔥 ДУЭЛЯНТ ({newKarma}✨)
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </div>
@@ -2694,14 +2884,14 @@ export default function SurvivachHostPage() {
           
           {/* Test mode return buttons */}
           {room.current_round === 999 && (
-            <div className="max-w-3xl mx-auto w-full mt-6 flex justify-center">
+            <div className="max-w-3xl mx-auto w-full mt-2 flex justify-center flex-none">
               <button
                 onClick={async () => {
                   await resetPlayersAfterTest();
                   await setRoomStatus(room.id, 'rules');
                   setTestMode('select');
                 }}
-                className="px-8 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold text-white transition-colors"
+                className="px-6 py-2 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold text-white transition-colors text-sm"
               >
                 🔄 Выбрать другой режим
               </button>
@@ -2737,94 +2927,213 @@ export default function SurvivachHostPage() {
 
       {/* ─── DUEL INTRO ─── */}
       {room.status === 'duel_intro' && duel && (
-        <div className="min-h-full h-full flex flex-col items-center justify-center gap-8">
-          <h2 className="text-5xl font-black">⚔️ ДУЭЛЬ!</h2>
-          <div className="flex items-center gap-8">
+        <div className="min-h-full h-full flex flex-col items-center justify-center gap-12 relative overflow-hidden">
+          {/* Epic cinematic background */}
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(255,0,0,0.15),_transparent_80%)] pointer-events-none" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] blur-[150px] rounded-full pointer-events-none bg-red-600/10 animate-pulse" />
+
+          <h2 className="text-6xl md:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-b from-red-400 to-red-800 drop-shadow-[0_0_40px_rgba(220,38,38,0.8)] tracking-widest uppercase animate-[epicReveal_1s_ease-out_both] z-10">
+            ⚔️ Смертельная схватка
+          </h2>
+
+          <div className="flex items-center justify-center w-full gap-8 md:gap-24 relative z-10">
             {[duel.challenger_id, duel.challenged_id].map((pid, idx) => {
               const p = players.find(x => x.id === pid);
               if (!p) return null;
+              
+              const isChallenger = idx === 0;
+              const glowColor = isChallenger ? 'rgba(59,130,246,0.6)' : 'rgba(168,85,247,0.6)';
+              const borderColor = isChallenger ? 'border-blue-500' : 'border-purple-500';
+              const nameColor = isChallenger ? 'text-blue-300' : 'text-purple-300';
+              const roleText = isChallenger ? 'Вызывающий' : 'Вызванный';
+
               return (
-                <div key={pid} className="flex flex-col items-center gap-2">
-                  <img src={getAvatarUrl(p.avatar, p.lives)} alt="" className="w-24 h-24 object-contain" />
-                  <span className="font-bold text-xl">{p.name}</span>
-                  <span className="text-gray-400 text-sm">{idx === 0 ? 'Challenger' : 'Challenged'}</span>
+                <div key={pid} className={`flex flex-col items-center gap-6 relative group animate-[fadeInUp_0.8s_ease-out_both]`} style={{ animationDelay: isChallenger ? '0.2s' : '0.6s' }}>
+                  <div className={`absolute inset-0 blur-[60px] rounded-full opacity-60 mix-blend-screen pointer-events-none`} style={{ backgroundColor: isChallenger ? 'rgba(59,130,246,0.3)' : 'rgba(168,85,247,0.3)' }} />
+                  <div className={`relative flex flex-col items-center p-8 rounded-[3rem] border-4 ${borderColor} bg-gray-900/80 backdrop-blur-xl shadow-2xl overflow-hidden`}>
+                    {/* Inner highlight */}
+                    <div className="absolute top-0 inset-x-0 h-1/2 bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
+                    
+                    <img src={getAvatarUrl(p.avatar, p.lives)} alt="" className="w-36 h-36 object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.8)] relative z-10" />
+                    <span className={`font-black text-3xl uppercase tracking-widest mt-6 drop-shadow-md ${nameColor}`}>{p.name}</span>
+                    <span className="text-gray-400 text-sm font-bold tracking-[0.2em] mt-2 uppercase">{roleText}</span>
+                  </div>
                 </div>
               );
             })}
+            
+            {/* The VS Splash */}
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none z-20 animate-[zoomIn_0.5s_ease-out_1s_both]">
+               <div className="text-8xl md:text-[10rem] italic font-black text-white drop-shadow-[0_0_60px_rgba(255,255,255,0.8)]" style={{ textShadow: '0 0 40px #fff, 0 0 80px #facc15, 0 0 120px #ef4444' }}>
+                 VS
+               </div>
+            </div>
           </div>
-          <p className="text-gray-400 animate-pulse">Подготовка к дуэли...</p>
+          
+          <p className="text-red-300 text-xl font-bold uppercase tracking-widest mt-8 animatePulse drop-shadow-[0_0_10px_rgba(220,38,38,0.5)] z-10 animate-[fadeIn_2s_ease-in-out_infinite]">
+            Подготовка арены...
+          </p>
         </div>
       )}
 
       {/* ─── DUEL SETUP ─── */}
       {room.status === 'duel_setup' && duel && (
-        <div className="min-h-full h-full flex flex-col items-center justify-center gap-6 p-6">
-          <h2 className="text-3xl font-black">
-            {duel.mode === 'minesweeper' ? '💣 Сапёр' :
-             duel.mode === 'arithmetic_mean' ? '📊 Среднее арифметическое' :
-             '🗳️ Прогноз толпы'}
-          </h2>
-
-          {duel.mode === 'minesweeper' && (
-            <div className="text-center max-w-lg">
-              <p className="text-gray-300 mb-4">Остальные игроки расставляют мины на плитках.</p>
-              <p className="text-gray-400 text-sm">Дуэлянты будут выбирать плитки по очереди.</p>
-              <div className="mt-4 grid grid-cols-3 gap-2 max-w-xs mx-auto">
-                {Array.from({ length: (duel.duel_data as { tile_count?: number })?.tile_count ?? 9 }).map((_, i) => (
-                  <div key={i} className="h-16 bg-gray-800 border border-gray-600 rounded-lg flex items-center justify-center text-gray-500 text-2xl">?</div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {duel.mode === 'arithmetic_mean' && duelQ && (
-            <div className="text-center max-w-lg">
-              <div className="bg-gray-900 border border-blue-500/40 rounded-2xl p-6 mb-4">
-                <p className="text-xl font-bold">{(duelQ as { question: string }).question}</p>
-              </div>
-              <p className="text-gray-400">Все игроки вводят своё число. Затем дуэлянты угадывают среднее.</p>
-            </div>
-          )}
-
-          {duel.mode === 'crowd_forecast' && duelQ && (
-            <div className="text-center max-w-lg">
-              <div className="bg-gray-900 border border-purple-500/40 rounded-2xl p-6 mb-4">
-                <p className="text-xl font-bold">{(duelQ as { question: string }).question}</p>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                {((duelQ as { options: string[] }).options ?? []).map((opt, i) => (
-                  <div key={i} className="bg-gray-800 border border-gray-600 rounded-xl p-3 text-center">{opt}</div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="flex gap-2 flex-wrap justify-center">
-            {players.filter(p => !p.is_host && p.id !== duel.challenger_id && p.id !== duel.challenged_id).map(p => {
-              const dd = duel.duel_data as { mined_tiles?: Record<string, number[]>; player_votes?: Record<string, number>; player_guesses?: Record<string, number> } | null;
-              const hasActed = duel.mode === 'minesweeper'
-                ? !!(dd?.mined_tiles?.[p.id])
-                : duel.mode === 'crowd_forecast'
-                ? p.id in (dd?.player_votes ?? {})
-                : p.id in (dd?.player_guesses ?? {});
-              return (
-                <div key={p.id} className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs ${
-                  hasActed ? 'bg-green-900/30 border border-green-600' : 'bg-gray-800 border border-gray-700'
-                }`}>
-                  <img src={getAvatarUrl(p.avatar, p.lives)} alt="" className="w-5 h-5 object-contain" />
-                  <span>{p.name}</span>
-                  {hasActed && <span>✓</span>}
+        <div className="min-h-full h-full flex flex-col items-center justify-center gap-6 p-6 relative overflow-hidden">
+          {duel.mode === 'arithmetic_mean' ? (
+            /* Arithmetic Mean Custom Setup */
+            <div className="relative z-10 w-full max-w-5xl flex flex-col items-center gap-12 mt-4">
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] blur-[150px] rounded-full pointer-events-none bg-blue-600/10" />
+              
+              <div className="text-center w-full flex flex-col items-center gap-6">
+                <div className="px-6 py-2 rounded-full border border-blue-500/30 bg-blue-900/30 text-blue-300 font-bold uppercase tracking-widest text-sm shadow-[0_0_15px_rgba(59,130,246,0.2)]">
+                  Среднее арифметическое
                 </div>
-              );
-            })}
-          </div>
+                <div className="relative w-full">
+                  <div className="absolute inset-0 bg-blue-500/20 blur-[50px] rounded-full pointer-events-none" />
+                  <div className={`relative bg-gray-900/80 backdrop-blur-md border-y-4 border-blue-500/60 shadow-[0_0_50px_rgba(59,130,246,0.3)] py-12 px-8 ${duelQ ? 'animate-[epicReveal_0.6s_ease-out_both]' : ''}`}>
+                    <p className="text-4xl md:text-6xl font-black bg-gradient-to-r from-blue-200 via-white to-blue-200 bg-clip-text text-transparent drop-shadow-sm !leading-tight text-center">
+                      {duelQ ? (duelQ as { question: string }).question : 'Загрузка...'}
+                    </p>
+                  </div>
+                </div>
+                <p className="text-blue-300/70 font-semibold text-xl animate-pulse">
+                  Игроки из толпы вводят свои числа...
+                </p>
+              </div>
 
-          <button
-            onClick={() => setRoomStatus(room.id, 'duel_playing', {})}
-            className="px-8 py-4 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold"
-          >
-            ▶ Начать дуэль
-          </button>
+              {/* Progress of crowd */}
+              <div className="flex gap-4 flex-wrap justify-center w-full max-w-4xl relative z-20">
+                {players.filter(p => !p.is_host && p.id !== duel.challenger_id && p.id !== duel.challenged_id).map((p, i) => {
+                  const dd = duel.duel_data as { player_guesses?: Record<string, number> } | null;
+                  const hasActed = p.id in (dd?.player_guesses ?? {});
+                  return (
+                    <div key={p.id} style={{ animationDelay: `${i * 0.1}s` }} className={`flex flex-col items-center gap-2 p-3 rounded-2xl w-28 transition-all duration-300 ease-out ${
+                      hasActed 
+                        ? 'bg-blue-900/40 border-2 border-blue-400 shadow-[0_0_20px_rgba(59,130,246,0.5)] scale-110' 
+                        : 'bg-gray-800/50 border-2 border-gray-700 opacity-60 grayscale'
+                    }`}>
+                      <img src={getAvatarUrl(p.avatar, p.lives)} alt="" className="w-12 h-12 object-contain drop-shadow-lg" />
+                      <span className="text-sm font-bold truncate w-full text-center text-gray-200">{p.name}</span>
+                      {hasActed ? (
+                        <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-black shadow-[0_0_10px_#3b82f6]">✓</div>
+                      ) : (
+                        <div className="w-6 h-6 flex items-center justify-center text-gray-500"><svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg></div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <button
+                onClick={() => setRoomStatus(room.id, 'duel_playing', {})}
+                className="mt-6 px-10 py-5 bg-gradient-to-t from-blue-700 to-blue-500 hover:from-blue-600 hover:to-blue-400 rounded-2xl font-black text-2xl shadow-[0_0_30px_rgba(59,130,246,0.5)] hover:scale-105 transition-transform"
+              >
+                ПЕРЕЙТИ К ДУЭЛЯНТАМ ▶
+              </button>
+            </div>
+          ) : (
+            /* Common Setup (Minesweeper, Crowd Forecast) */
+            <>
+              <h2 className="text-3xl font-black relative z-10">
+                {duel.mode === 'minesweeper' ? '' : '🗳️ Прогноз толпы'}
+              </h2>
+
+              {duel.mode === 'minesweeper' && (
+                <div className="w-full text-center flex flex-col items-center gap-6 relative z-10">
+                  <div className="px-6 py-2 rounded-full border border-red-500/30 bg-red-900/30 text-red-300 font-bold uppercase tracking-widest text-sm shadow-[0_0_15px_rgba(220,38,38,0.2)]">
+                    ☢️ Минное поле
+                  </div>
+                  <h2 className="text-4xl md:text-5xl font-black bg-gradient-to-r from-red-400 to-orange-500 bg-clip-text text-transparent drop-shadow-[0_0_15px_rgba(239,68,68,0.5)] uppercase tracking-wide">
+                    Толпа минирует арену
+                  </h2>
+                  <p className="text-red-300/70 font-semibold text-xl animate-pulse max-w-lg mx-auto">
+                    Остальные игроки расставляют скрытые бомбы. Дуэлянтам придётся ступать вслепую.
+                  </p>
+                  
+                  {/* Visual decorative grid */}
+                  <div className="mt-8 grid gap-4 p-6 bg-gray-900/80 border-[3px] border-red-900/60 rounded-3xl shadow-[inset_0_0_50px_rgba(0,0,0,0.9),_0_0_40px_rgba(220,38,38,0.2)] backdrop-blur-md relative overflow-hidden"
+                       style={{ gridTemplateColumns: `repeat(${Math.ceil(Math.sqrt((duel.duel_data as { tile_count?: number })?.tile_count ?? 9))}, 1fr)` }}>
+                     {/* Scanning laser effect */}
+                     <div className="absolute top-0 left-0 w-full h-[3px] bg-red-500 shadow-[0_0_20px_rgba(239,68,68,1)] animate-[scanDown_3s_linear_infinite]" />
+                    {Array.from({ length: (duel.duel_data as { tile_count?: number })?.tile_count ?? 9 }).map((_, i) => (
+                      <div key={i} className="w-16 h-16 md:w-20 md:h-20 bg-gray-800 border-2 border-gray-700/80 rounded-2xl flex items-center justify-center text-red-900/40 text-4xl shadow-inner relative group isolate">
+                        <div className="absolute inset-0 bg-red-500/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl mix-blend-screen" />
+                        <span className="animate-[pulse_3s_ease-in-out_infinite]" style={{ animationDelay: `${i * -0.4}s` }}>❖</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {duel.mode === 'crowd_forecast' && duelQ && (
+                <div className="w-full text-center flex flex-col items-center gap-6 relative z-10">
+                  <div className="px-6 py-2 rounded-full border border-purple-500/30 bg-purple-900/30 text-purple-300 font-bold uppercase tracking-widest text-sm shadow-[0_0_15px_rgba(168,85,247,0.2)]">
+                    🗳️ Прогноз толпы
+                  </div>
+                  
+                  <div className="relative w-full max-w-4xl">
+                    <div className="absolute inset-0 bg-purple-500/20 blur-[50px] rounded-full pointer-events-none" />
+                    <div className="relative bg-gray-900/80 backdrop-blur-xl border-y-4 border-purple-500/60 shadow-[0_0_50px_rgba(168,85,247,0.3)] py-10 px-8 rounded-[2rem] animate-[epicReveal_0.6s_ease-out_both]">
+                      <p className="text-3xl md:text-5xl font-black bg-gradient-to-r from-purple-300 via-white to-purple-300 bg-clip-text text-transparent drop-shadow-sm !leading-tight text-center">
+                        {(duelQ as { question: string }).question}
+                      </p>
+                    </div>
+                  </div>
+
+                  <p className="text-purple-300/70 font-semibold text-xl animate-pulse mt-2">
+                    Избиратели делают свой выбор...
+                  </p>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-5xl mt-4">
+                    {((duelQ as { options: string[] }).options ?? []).map((opt, i) => (
+                      <div key={i} className="bg-gray-800/80 border-2 border-gray-600/50 rounded-2xl p-4 text-center font-bold text-lg text-gray-200 shadow-lg relative overflow-hidden group">
+                        <div className="absolute inset-0 bg-gradient-to-tr from-purple-600/10 to-transparent opacity-50" />
+                        <span className="text-purple-400 mr-2 text-xl font-black">{i + 1}.</span> {opt}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-4 flex-wrap justify-center relative z-10 w-full max-w-4xl mt-6">
+                {players.filter(p => !p.is_host && p.id !== duel.challenger_id && p.id !== duel.challenged_id).map(p => {
+                  const dd = duel.duel_data as { mined_tiles?: Record<string, number[]>; player_votes?: Record<string, number>; player_guesses?: Record<string, number> } | null;
+                  const hasActed = duel.mode === 'minesweeper'
+                    ? !!(dd?.mined_tiles?.[p.id])
+                    : duel.mode === 'arithmetic_mean' 
+                      ? p.id in (dd?.player_guesses ?? {})
+                      : p.id in (dd?.player_votes ?? {});
+                  
+                  const isMinesweeper = duel.mode === 'minesweeper';
+
+                  return (
+                    <div key={p.id} className={`flex flex-col items-center gap-2 p-3 rounded-2xl w-28 transition-all duration-300 ease-out ${
+                      hasActed 
+                        ? (isMinesweeper ? 'bg-red-900/40 border-2 border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.5)] scale-110' : 'bg-green-900/40 border-2 border-green-500 shadow-[0_0_20px_rgba(34,197,94,0.5)] scale-110')
+                        : 'bg-gray-800/50 border-2 border-gray-700 opacity-60 grayscale'
+                    }`}>
+                      <img src={getAvatarUrl(p.avatar, p.lives)} alt="" className="w-12 h-12 object-contain drop-shadow-lg" />
+                      <span className="text-sm font-bold truncate w-full text-center text-gray-200">{p.name}</span>
+                      {hasActed ? (
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-black ${isMinesweeper ? 'bg-red-600 shadow-[0_0_10px_#ef4444]' : 'bg-green-600 shadow-[0_0_10px_#22c55e]'}`}>
+                           {isMinesweeper ? '💣' : '✓'}
+                        </div>
+                      ) : (
+                        <div className="w-6 h-6 flex items-center justify-center text-gray-500"><svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg></div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <button
+                onClick={() => setRoomStatus(room.id, 'duel_playing', {})}
+                className={`mt-10 px-10 py-5 rounded-2xl font-black text-2xl shadow-[0_0_30px_rgba(255,255,255,0.2)] hover:scale-105 transition-transform relative z-10 ${duel.mode === 'minesweeper' ? 'bg-gradient-to-t from-red-800 to-red-500 hover:from-red-700 hover:to-red-400' : 'bg-gradient-to-t from-blue-700 to-blue-500 hover:from-blue-600 hover:to-blue-400'}`}
+              >
+                ПЕРЕЙТИ К ДУЭЛЯНТАМ ▶
+              </button>
+            </>
+          )}
         </div>
       )}
 
@@ -2844,173 +3153,574 @@ export default function SurvivachHostPage() {
             const challenged = players.find(p => p.id === duel.challenged_id);
 
             return (
-              <div className="flex flex-col items-center gap-6">
-                <div className="flex items-center gap-8 mb-4">
-                  {[{ p: challenger, picks: challengerPicks, id: duel.challenger_id }, { p: challenged, picks: challengedPicks, id: duel.challenged_id }].map(({ p, picks, id }) => (
-                    <div key={id} className={`flex flex-col items-center gap-2 p-4 rounded-2xl border ${picks.length > 0 ? 'border-green-500 bg-green-900/20' : 'border-gray-600 bg-gray-900'}`}>
-                      {p && <img src={getAvatarUrl(p.avatar, p.lives)} alt="" className="w-16 h-16 object-contain" />}
-                      <span className="font-bold">{p?.name}</span>
-                      {picks.length > 0 ? <span className="text-green-400">✅ Выбрал</span> : <span className="text-gray-400 animate-pulse">Выбирает...</span>}
-                    </div>
-                  ))}
-                </div>
+              <div className="flex flex-col items-center gap-12 w-full max-w-5xl relative z-10">
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] blur-[150px] rounded-full pointer-events-none bg-red-900/10" />
 
-                <div
-                  className="grid gap-2"
-                  style={{ gridTemplateColumns: `repeat(${Math.ceil(Math.sqrt(tileCount))}, 1fr)`, width: `${Math.ceil(Math.sqrt(tileCount)) * 84}px` }}
-                >
-                  {Array.from({ length: tileCount }).map((_, i) => {
-                    const isMined = allMines.includes(i);
-                    const challengerPicked = challengerPicks.includes(i);
-                    const challengedPicked = challengedPicks.includes(i);
-                    const explodedHere = (challengerPicked && isMined) || (challengedPicked && isMined);
-                    
+                <div className="flex items-center justify-between w-full px-8 md:px-20 mt-8">
+                  {([
+                    { p: challenger, picks: challengerPicks, isChallenger: true }, 
+                    { p: challenged, picks: challengedPicks, isChallenger: false }
+                  ]).map(({ p, picks, isChallenger }) => {
+                    if (!p) return null;
+                    const glowColor = isChallenger ? 'rgba(59,130,246,0.6)' : 'rgba(168,85,247,0.6)';
+                    const borderColor = isChallenger ? 'border-blue-500' : 'border-purple-500';
+                    const textColor = isChallenger ? 'text-blue-300' : 'text-purple-300';
                     return (
-                      <div key={i} className={`aspect-square rounded-xl font-bold text-3xl flex items-center justify-center border-2 transition-all ${
-                        explodedHere ? 'bg-red-900 border-red-500 animate-pulse' :
-                        challengerPicked ? 'bg-blue-800 border-blue-500' :
-                        challengedPicked ? 'bg-purple-800 border-purple-500' :
-                        'bg-gray-800 border-gray-600'
-                      }`}>
-                        {explodedHere ? '💥' : challengerPicked ? '🔵' : challengedPicked ? '🟣' : '?'}
+                      <div key={p.id} className={`flex flex-col items-center gap-4 relative group animate-[fadeIn_0.5s_ease-out]`}>
+                        <div className={`absolute inset-0 blur-[50px] rounded-full mix-blend-screen opacity-50`} style={{ backgroundColor: glowColor }} />
+                        <div className={`relative flex flex-col items-center justify-center p-6 rounded-[2rem] border-4 ${borderColor} bg-gray-900/90 shadow-2xl`}>
+                          <img src={getAvatarUrl(p.avatar, p.lives)} alt="" className="w-28 h-28 object-contain drop-shadow-xl z-10" />
+                          <span className={`mt-4 font-black uppercase text-2xl tracking-widest ${textColor}`}>{p.name}</span>
+                          
+                          <div className={`mt-3 px-6 py-2 rounded-xl text-sm font-bold uppercase tracking-widest bg-gray-950 border border-gray-700 ${picks.length > 0 ? (isChallenger ? 'text-blue-400' : 'text-purple-400') : 'text-gray-500 animate-pulse'}`}>
+                            {picks.length > 0 ? `Шагов: ${picks.length}` : 'Думает...'}
+                          </div>
+                        </div>
                       </div>
                     );
                   })}
                 </div>
 
+                <div className="relative p-6 md:p-8 bg-gray-950/80 backdrop-blur-xl rounded-[3rem] border-2 border-red-900/40 shadow-[0_0_80px_rgba(0,0,0,0.8)]">
+                  {/* Danger border pulse */}
+                  <div className="absolute inset-0 rounded-inherit border-[3px] border-red-500/30 animate-[laserPulse_3s_ease-in-out_infinite] pointer-events-none" />
+                  
+                  <div
+                    className="grid gap-3 relative z-10"
+                    style={{ gridTemplateColumns: `repeat(${Math.ceil(Math.sqrt(tileCount))}, 1fr)` }}
+                  >
+                    {Array.from({ length: tileCount }).map((_, i) => {
+                      const isMined = allMines.includes(i);
+                      const challengerPicked = challengerPicks.includes(i);
+                      const challengedPicked = challengedPicks.includes(i);
+                      const explodedHere = (challengerPicked && isMined) || (challengedPicked && isMined);
+                      
+                      const bgColor = explodedHere ? 'bg-red-900' :
+                                      challengerPicked ? 'bg-blue-900' :
+                                      challengedPicked ? 'bg-purple-900' :
+                                      'bg-gray-800';
+                      
+                      const bColor = explodedHere ? 'border-red-400' :
+                                      challengerPicked ? 'border-blue-400' :
+                                      challengedPicked ? 'border-purple-400' :
+                                      'border-gray-600';
 
-              </div>
-            );
-          })()}
+                      const glow = explodedHere ? 'shadow-[0_0_40px_rgba(239,68,68,1)]' :
+                                   challengerPicked ? 'shadow-[0_0_20px_rgba(59,130,246,0.8)]' :
+                                   challengedPicked ? 'shadow-[0_0_20px_rgba(168,85,247,0.8)]' :
+                                   'shadow-[inset_0_0_15px_rgba(0,0,0,1)]';
 
-          {duel.mode !== 'minesweeper' && (
-            <>
-              <div className="flex items-center gap-8">
-                {[duel.challenger_id, duel.challenged_id].map(pid => {
-                  const p = players.find(x => x.id === pid);
-                  const dd = duel.duel_data as { challenger_answer?: unknown; challenged_answer?: unknown; challenger_prediction?: unknown; challenged_prediction?: unknown } | null;
-                  const hasAnswered = pid === duel.challenger_id
-                    ? dd?.challenger_answer != null || dd?.challenger_prediction != null
-                    : dd?.challenged_answer != null || dd?.challenged_prediction != null;
-                  if (!p) return null;
-                  return (
-                    <div key={pid} className={`flex flex-col items-center gap-2 p-6 rounded-2xl border ${hasAnswered ? 'border-green-500 bg-green-900/20' : 'border-gray-600 bg-gray-900'}`}>
-                      <img src={getAvatarUrl(p.avatar, p.lives)} alt="" className="w-20 h-20 object-contain" />
-                      <span className="font-bold">{p.name}</span>
-                      {hasAnswered ? <span className="text-green-400">✅ Ответил</span> : <span className="text-gray-400 animate-pulse">Думает...</span>}
-                    </div>
-                  );
-                })}
-              </div>
-
-
-            </>
-          )}
-        </div>
-      )}
-
-      {/* ─── DUEL RESULT ─── */}
-      {room.status === 'duel_result' && (
-        <div className="min-h-full h-full flex flex-col items-center justify-center gap-6">
-          <h2 className="text-4xl font-black">⚔️ Итог дуэли</h2>
-          {(() => {
-            const winnerId = duel?.winner_id ?? (room.duel_data as { winner_id?: string } | null)?.winner_id ?? null;
-            const w = winnerId ? players.find(p => p.id === winnerId) : null;
-            return w ? (
-              <div className="flex flex-col items-center gap-2">
-                <img src={getAvatarUrl(w.avatar, w.lives)} alt="" className="w-24 h-24 object-contain" />
-                <span className="text-2xl font-black text-yellow-400">🏆 {w.name} победил!</span>
-              </div>
-            ) : (
-              <span className="text-2xl font-bold text-gray-400">🤝 Ничья — все остаются</span>
-            );
-          })()}
-
-          {/* Duel answer summary */}
-          {duel && (() => {
-            const ch = players.find(p => p.id === duel.challenger_id);
-            const cd = players.find(p => p.id === duel.challenged_id);
-            if (duel.mode === 'arithmetic_mean') {
-              const dd = duel.duel_data as { average?: number | null; challenger_answer?: number | null; challenged_answer?: number | null } | null;
-              if (!dd) return null;
-              return (
-                <div className="flex flex-col items-center gap-3 bg-gray-900/60 border border-gray-700 rounded-2xl px-8 py-4">
-                  <p className="text-blue-400 font-bold text-xl">📊 Среднее: {dd.average != null ? dd.average.toFixed(2) : '—'}</p>
-                  <div className="flex gap-8">
-                    <div className="flex flex-col items-center gap-1">
-                      <span className="text-gray-400 text-sm">{ch?.name ?? '—'}</span>
-                      <span className="text-white font-bold text-lg">{dd.challenger_answer ?? '—'}</span>
-                    </div>
-                    <div className="text-gray-600 self-center">vs</div>
-                    <div className="flex flex-col items-center gap-1">
-                      <span className="text-gray-400 text-sm">{cd?.name ?? '—'}</span>
-                      <span className="text-white font-bold text-lg">{dd.challenged_answer ?? '—'}</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            }
-            if (duel.mode === 'crowd_forecast') {
-              const dd = duel.duel_data as { options?: string[]; player_votes?: Record<string, number>; majority_index?: number | null; challenger_prediction?: number | null; challenged_prediction?: number | null } | null;
-              if (!dd || !dd.options) return null;
-              const voteValues = Object.values(dd.player_votes ?? {});
-              const totalVotes = voteValues.length;
-              const isTie = dd.majority_index === -1;
-              return (
-                <div className="flex flex-col items-center gap-3 bg-gray-900/60 border border-gray-700 rounded-2xl px-6 py-4 max-w-sm w-full">
-                  <p className="text-gray-300 text-sm font-semibold">
-                    Голоса толпы:{isTie && <span className="text-yellow-400 ml-2">(ничья голосов)</span>}
-                  </p>
-                  <div className="flex flex-col gap-1 w-full">
-                    {dd.options.map((opt, i) => {
-                      const count = voteValues.filter(v => v === i).length;
-                      const isMaj = !isTie && dd.majority_index === i;
                       return (
-                        <div key={i} className={`flex items-center gap-2 px-3 py-1 rounded-lg text-sm ${isMaj ? 'bg-yellow-600/30 border border-yellow-500/60' : 'bg-gray-800/50'}`}>
-                          <span className="text-gray-500 w-4 shrink-0">{i + 1}.</span>
-                          <span className="flex-1 text-left truncate">{opt}</span>
-                          <span className="font-bold shrink-0">{count}/{totalVotes}</span>
-                          {isMaj && <span className="text-yellow-400">✓</span>}
+                        <div key={i} className={`w-20 h-20 md:w-32 md:h-32 rounded-2xl font-black text-5xl flex items-center justify-center border-4 transition-all duration-300 ${bgColor} ${bColor} ${glow} ${explodedHere ? 'animate-[shakeBoard_0.5s_ease-out_both]' : 'hover:scale-105'}`}>
+                          {explodedHere 
+                            ? <span className="animate-[epicReveal_0.5s_ease-out_both] drop-shadow-[0_0_20px_#ef4444] filter brightness-150">💥</span> 
+                            : challengerPicked ? <span className="text-blue-300 drop-shadow-[0_0_10px_#3b82f6] animate-[flipInY_0.5s_ease-out]">✅</span> 
+                            : challengedPicked ? <span className="text-purple-300 drop-shadow-[0_0_10px_#a855f7] animate-[flipInY_0.5s_ease-out]">✅</span> 
+                            : <span className="text-gray-600 font-mono text-3xl opacity-30 select-none">{i + 1}</span>}
                         </div>
                       );
                     })}
                   </div>
-                  <div className="flex gap-6 mt-1">
-                    <div className="flex flex-col items-center gap-0.5">
-                      <span className="text-gray-500 text-xs">{ch?.name}</span>
-                      <span className="text-white text-sm font-bold">{dd.challenger_prediction != null ? (dd.options[dd.challenger_prediction] ?? `#${dd.challenger_prediction}`) : '—'}</span>
-                    </div>
-                    <div className="text-gray-600 self-center text-xs">vs</div>
-                    <div className="flex flex-col items-center gap-0.5">
-                      <span className="text-gray-500 text-xs">{cd?.name}</span>
-                      <span className="text-white text-sm font-bold">{dd.challenged_prediction != null ? (dd.options[dd.challenged_prediction] ?? `#${dd.challenged_prediction}`) : '—'}</span>
-                    </div>
-                  </div>
                 </div>
-              );
-            }
-            return null;
+              </div>
+            );
           })()}
 
-          {/* Test mode return buttons */}
-          {room.current_round === 999 && (
-            <div className="flex justify-center mt-8">
-              <button
-                onClick={async () => {
-                  await resetPlayersAfterTest();
-                  await setRoomStatus(room.id, 'rules');
-                  setTestMode('select');
-                }}
-                className="px-8 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold text-white transition-colors"
-              >
-                🔄 Выбрать другой режим
-              </button>
-            </div>
-          )}
-          
-          {room.current_round !== 999 && <p className="text-gray-500 animate-pulse">Переход к следующему ходу...</p>}
+          {duel.mode === 'arithmetic_mean' && (() => {
+            const challenger = players.find(p => p.id === duel.challenger_id);
+            const challenged = players.find(p => p.id === duel.challenged_id);
+            
+            return (
+              <div className="flex flex-col items-center gap-12 w-full max-w-5xl relative z-10 mt-8">
+                {duelQ && (
+                  <div className="bg-gray-900/60 backdrop-blur-sm border-y-2 border-blue-500/40 w-full text-center py-6 shadow-[0_0_30px_rgba(59,130,246,0.15)]">
+                    <p className="text-2xl md:text-3xl font-black bg-gradient-to-r from-blue-300 to-blue-100 bg-clip-text text-transparent">
+                      {(duelQ as { question: string }).question}
+                    </p>
+                  </div>
+                )}
+                
+                <div className="flex items-center justify-center gap-12 lg:gap-24 w-full">
+                  {([
+                    { player: challenger, isChallenger: true },
+                    { player: challenged, isChallenger: false },
+                  ]).map(({ player: p, isChallenger }) => {
+                    const dd = duel.duel_data as { challenger_answer?: unknown; challenged_answer?: unknown } | null;
+                    const hasAnswered = isChallenger ? dd?.challenger_answer != null : dd?.challenged_answer != null;
+                    if (!p) return null;
+                    
+                    return (
+                      <div key={p.id} className="relative group">
+                        {/* Glow background */}
+                        <div className={`absolute inset-0 blur-2xl rounded-full transition-all duration-700 ${
+                          hasAnswered ? 'bg-blue-500/50 scale-110' : 'bg-gray-500/10 scale-90'
+                        }`} />
+                        
+                        {/* Card */}
+                        <div className={`relative flex flex-col items-center justify-center w-64 h-80 rounded-3xl border-4 transition-all duration-500 bg-gray-900/90 overflow-hidden ${
+                          hasAnswered 
+                            ? 'border-blue-400 shadow-[0_0_40px_rgba(59,130,246,0.6)] animate-[lockIn_0.5s_ease-out_both]' 
+                            : 'border-gray-700 animate-[neonPulse_2s_infinite]'
+                        }`}>
+                          <img 
+                            src={getAvatarUrl(p.avatar, p.lives)} 
+                            alt="" 
+                            className={`w-32 h-32 object-contain transition-all duration-300 drop-shadow-xl ${hasAnswered ? 'scale-110' : ''}`} 
+                          />
+                          <span className="mt-4 font-black text-2xl text-gray-200 uppercase tracking-wide text-center px-4 leading-tight">{p.name}</span>
+                          
+                          <div className={`mt-4 px-6 py-2 rounded-xl text-sm font-bold uppercase tracking-widest transition-all ${
+                            hasAnswered ? 'bg-blue-500 text-white shadow-[0_0_15px_#3b82f6]' : 'bg-gray-800 text-gray-400'
+                          }`}>
+                            {hasAnswered ? 'Ответил' : 'Ожидание...'}
+                          </div>
+                          
+                          {/* Inner glow on answered */}
+                          {hasAnswered && <div className="absolute inset-0 box-shadow-[inset_0_0_50px_rgba(59,130,246,0.3)] pointer-events-none" />}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
+          {duel.mode === 'crowd_forecast' && (() => {
+            const challenger = players.find(p => p.id === duel.challenger_id);
+            const challenged = players.find(p => p.id === duel.challenged_id);
+
+            return (
+              <div className="flex flex-col items-center gap-12 w-full max-w-5xl relative z-10 mt-8">
+                {duelQ && (
+                  <div className="flex flex-col items-center gap-4 w-full">
+                    <div className="px-6 py-2 rounded-full border border-purple-500/30 bg-purple-900/30 text-purple-300 font-bold uppercase tracking-widest text-sm shadow-[0_0_15px_rgba(168,85,247,0.2)]">
+                      🤔 Угадай мнение толпы
+                    </div>
+                    <div className="bg-gray-900/80 backdrop-blur-md border-y-2 border-purple-500/50 w-full text-center py-6 shadow-[0_0_30px_rgba(168,85,247,0.2)]">
+                      <p className="text-2xl md:text-3xl font-black bg-gradient-to-r from-purple-300 to-white bg-clip-text text-transparent drop-shadow-md">
+                        {(duelQ as { question: string }).question}
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-4xl px-4 mt-2">
+                       {((duelQ as { options: string[] }).options ?? []).map((opt, i) => (
+                        <div key={i} className="bg-gray-800/80 border border-purple-500/30 rounded-xl p-3 text-center font-bold text-sm text-purple-200 opacity-80">
+                          {i + 1}. {opt}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                <div className="flex items-center justify-center gap-12 lg:gap-24 w-full mt-4">
+                  {([
+                    { player: challenger, isChallenger: true },
+                    { player: challenged, isChallenger: false },
+                  ]).map(({ player: p, isChallenger }) => {
+                    const dd = duel.duel_data as { challenger_prediction?: unknown; challenged_prediction?: unknown } | null;
+                    const hasAnswered = isChallenger ? dd?.challenger_prediction != null : dd?.challenged_prediction != null;
+                    if (!p) return null;
+                    
+                    const borderColor = hasAnswered ? 'border-purple-400' : 'border-gray-700';
+                    const glowScale = hasAnswered ? 'bg-purple-500/50 scale-110' : 'bg-gray-500/10 scale-90';
+                    const textBadge = hasAnswered ? 'bg-purple-500 text-white shadow-[0_0_15px_#a855f7]' : 'bg-gray-800 text-gray-400';
+                    
+                    return (
+                      <div key={p.id} className="relative group">
+                        {/* Glow background */}
+                        <div className={`absolute inset-0 blur-2xl rounded-full transition-all duration-700 ${glowScale}`} />
+                        
+                        {/* Card */}
+                        <div className={`relative flex flex-col items-center justify-center w-64 h-80 rounded-3xl border-4 transition-all duration-500 bg-gray-900/90 overflow-hidden ${
+                          hasAnswered 
+                            ? `${borderColor} shadow-[0_0_40px_rgba(168,85,247,0.6)] animate-[lockIn_0.5s_ease-out_both]` 
+                            : `${borderColor} animate-[neonPulse_2s_infinite]`
+                        }`}>
+                          <img 
+                            src={getAvatarUrl(p.avatar, p.lives)} 
+                            alt="" 
+                            className={`w-32 h-32 object-contain transition-all duration-300 drop-shadow-xl ${hasAnswered ? 'scale-110 drop-shadow-[0_0_15px_#a855f7]' : ''}`} 
+                          />
+                          <span className="mt-4 font-black text-2xl text-gray-200 uppercase tracking-wide text-center px-4 leading-tight">{p.name}</span>
+                          
+                          <div className={`mt-4 px-6 py-2 rounded-xl text-sm font-bold uppercase tracking-widest transition-all ${textBadge}`}>
+                            {hasAnswered ? 'Выбрал' : 'Думает...'}
+                          </div>
+                          
+                          {/* Inner glow on answered */}
+                          {hasAnswered && <div className="absolute inset-0 box-shadow-[inset_0_0_50px_rgba(168,85,247,0.3)] pointer-events-none" />}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
+
+      {/* ─── DUEL RESULT ─── */}
+      {room.status === 'duel_result' && (() => {
+        const winnerId = duel?.winner_id ?? (room.duel_data as { winner_id?: string } | null)?.winner_id ?? null;
+        const winner = winnerId ? players.find(p => p.id === winnerId) : null;
+        const challenger = duel ? players.find(p => p.id === duel.challenger_id) : null;
+        const challenged = duel ? players.find(p => p.id === duel.challenged_id) : null;
+        const nonDuelists = duel
+          ? players.filter(p => !p.is_host && p.id !== duel.challenger_id && p.id !== duel.challenged_id)
+          : [];
+
+        const isDraw = winnerId === null;
+
+        return (
+          <div className="min-h-full h-full flex flex-col items-center justify-center gap-6 px-6 py-8 relative overflow-hidden">
+            {/* Background glow */}
+            <div className={`absolute inset-0 pointer-events-none ${isDraw ? 'bg-gray-800/20' : 'bg-yellow-600/5'}`} />
+            <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] blur-[100px] rounded-full pointer-events-none ${isDraw ? 'bg-gray-600/20' : 'bg-yellow-500/10'}`} />
+
+            {/* ─── Result headline ─── */}
+            <div className="relative z-10 flex flex-col items-center gap-3">
+              <h2 className="text-3xl font-black tracking-tight text-gray-400 uppercase">⚔️ Итог дуэли</h2>
+              {winner ? (
+                <div className="flex flex-col items-center gap-2">
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-yellow-400/30 blur-2xl rounded-full" />
+                    <img src={getAvatarUrl(winner.avatar, winner.lives)} alt="" className="w-28 h-28 object-contain relative z-10 drop-shadow-[0_0_20px_rgba(250,204,21,0.6)]" />
+                  </div>
+                  <span className="text-4xl font-black text-yellow-400 drop-shadow-[0_0_12px_rgba(250,204,21,0.5)]">🏆 {winner.name} победил!</span>
+                </div>
+              ) : (
+                <span className="text-3xl font-black text-gray-300">🤝 Ничья — все остаются</span>
+              )}
+            </div>
+
+            {/* ─── Duel data panel ─── */}
+            {duel && (() => {
+              /* ══════════ ARITHMETIC MEAN ══════════ */
+              if (duel.mode === 'arithmetic_mean') {
+                const dd = duel.duel_data as {
+                  question?: string;
+                  player_guesses?: Record<string, number>;
+                  average?: number | null;
+                  challenger_answer?: number | null;
+                  challenged_answer?: number | null;
+                } | null;
+                if (!dd) return null;
+                const avg = dd.average ?? 0;
+                const chDiff = dd.challenger_answer != null ? Math.abs(dd.challenger_answer - avg) : null;
+                const cdDiff = dd.challenged_answer != null ? Math.abs(dd.challenged_answer - avg) : null;
+                const chWon = winnerId === duel.challenger_id;
+                const cdWon = winnerId === duel.challenged_id;
+
+                // Deterministic pseudo-random for stable positions across re-renders
+                const seededRand = (seed: number, min: number, max: number) => {
+                  const x = Math.sin(seed * 9301 + 49297) * 233280;
+                  return min + ((x - Math.floor(x)) * (max - min));
+                };
+                const rawGuesses = Object.values(dd.player_guesses ?? {});
+                // Always show at least 6 flying cards; fill with '?' if no player guesses yet
+                const flyingCards: (number | string)[] = rawGuesses.length > 0
+                  ? rawGuesses
+                  : Array.from({ length: 12 }, () => '?');
+
+                return (
+                  <>
+                    {/* Flying anonymous player answer cards — infinite loop */}
+                    <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden opacity-90 perspective-[800px]">
+                      {flyingCards.map((val, i) => {
+                        const total = flyingCards.length;
+                        const topPct = seededRand(i * 5 + 1, 5, 85);
+                        const duration = seededRand(i * 5 + 2, 4.0, 9.0);
+                        // Stagger by offsetting the phase within one cycle using a negative delay
+                        const negDelay = -((i / total) * duration);
+                        const scale = seededRand(i * 5 + 3, 0.6, 1.4);
+                        const isPrimary = i % 3 === 0;
+
+                        return (
+                          <div
+                            key={i}
+                            style={{
+                              position: 'absolute',
+                              top: `${topPct.toFixed(1)}%`,
+                              left: 0,
+                              animation: `amFlyCard ${duration.toFixed(2)}s linear ${negDelay.toFixed(2)}s infinite`,
+                              // Z-index based on scale to keep bigger things in front
+                              zIndex: Math.round(scale * 10)
+                            }}
+                          >
+                            <div 
+                              style={{ transform: `scale(${scale.toFixed(2)})` }}
+                              className={`flex items-center justify-center min-w-[130px] px-8 py-4 rounded-3xl backdrop-blur-md shadow-2xl border-[3px] ${
+                                isPrimary 
+                                  ? 'bg-blue-600/50 border-cyan-300 shadow-[0_0_35px_rgba(6,182,212,0.8)]' 
+                                  : 'bg-purple-900/60 border-purple-400/70 shadow-[0_0_20px_rgba(168,85,247,0.5)]'
+                              }`}
+                            >
+                              <span className="text-white font-black text-5xl tabular-nums drop-shadow-[0_5px_15px_rgba(0,0,0,0.9)]">
+                                {val}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Main content panel */}
+                    <div className="relative z-10 w-full max-w-5xl flex flex-col gap-10 mt-8">
+                      {/* Question */}
+                      {dd.question && (
+                        <div className="bg-gray-900/80 backdrop-blur-md border-y-2 border-blue-500/40 w-full text-center py-4 shadow-[0_0_40px_rgba(59,130,246,0.2)]">
+                          <p className="text-xl md:text-2xl font-black bg-gradient-to-r from-blue-200 to-white bg-clip-text text-transparent drop-shadow-lg uppercase tracking-wide">
+                            {dd.question}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Duelists Cards (FLIPPING) */}
+                      <div className="flex gap-16 justify-center mt-4">
+                        {([
+                          { player: challenger, answer: dd.challenger_answer, diff: chDiff, won: chWon },
+                          { player: challenged, answer: dd.challenged_answer, diff: cdDiff, won: cdWon },
+                        ] as { player: typeof challenger; answer: number | null | undefined; diff: number | null; won: boolean }[]).map(({ player, answer, diff, won }, idx) => (
+                          <div key={idx} style={{ perspective: '1000px', animationDelay: `${idx * 0.3}s` }} className={`w-72 h-80 relative group animate-[flipInY_1.2s_ease-out_both]`}>
+                            {/* Inner Flip Container */}
+                            <div className={`relative w-full h-full duration-700 [transform-style:preserve-3d]`}>
+                              
+                              {/* Card Front (Actual visual) */}
+                              <div className={`absolute w-full h-full flex flex-col items-center justify-between py-6 rounded-3xl border-4 [backface-visibility:hidden] outline-none shadow-2xl ${
+                                won
+                                  ? 'bg-gradient-to-b from-yellow-900/90 to-yellow-800/90 border-yellow-400 shadow-[0_0_50px_rgba(250,204,21,0.5)] z-20 scale-105'
+                                  : 'bg-gray-900/90 border-gray-600 grayscale brightness-50 z-10'
+                              }`}>
+                                {won && (
+                                  <div className="absolute -top-6 -right-6 text-5xl drop-shadow-[0_0_15px_rgba(250,204,21,0.8)] animate-bounce">👑</div>
+                                )}
+                                
+                                <img src={player ? getAvatarUrl(player.avatar, player.lives) : ''} alt="" className="w-24 h-24 object-contain drop-shadow-xl" />
+                                <span className={`font-black text-2xl uppercase tracking-widest text-center px-2 line-clamp-1 ${won ? 'text-yellow-100' : 'text-gray-300'}`}>{player?.name ?? '—'}</span>
+                                
+                                <div className={`w-full text-center py-2 ${won ? 'bg-yellow-500/20' : 'bg-gray-800/50 border-t border-gray-700'}`}>
+                                  <span className={`font-black text-5xl tabular-nums ${won ? 'text-yellow-300 drop-shadow-[0_0_10px_rgba(250,204,21,0.8)]' : 'text-white'}`}>{answer ?? '—'}</span>
+                                </div>
+                                
+                                {diff != null && (
+                                  <div className={`text-sm tracking-wider font-bold ${won ? 'text-yellow-500' : 'text-gray-500'}`}>
+                                    ПРОМАХ: <span className={won ? 'text-yellow-200' : 'text-gray-300'}>{diff.toFixed(2)}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Average - Massive Reveal */}
+                      <div className="flex justify-center -mt-6 z-30">
+                        <div className="bg-gray-900 border-4 border-blue-500 rounded-3xl px-16 py-6 flex flex-col items-center gap-2 shadow-[0_0_80px_rgba(59,130,246,0.6)] animate-[epicReveal_1s_ease-out_1s_both]">
+                          <span className="text-blue-400/90 text-sm font-black uppercase tracking-[0.3em]">Среднее толпы</span>
+                          <span className="text-white font-black text-7xl tabular-nums drop-shadow-[0_0_30px_rgba(255,255,255,0.7)]">
+                            {/* Wait 1s and then animate a pseudo count up (handled by CSS or just display instantly but scale up) */}
+                            <span className="animate-[numberSpinIn_1.5s_ease-out_both] inline-block">{avg.toFixed(2)}</span>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                );
+              }
+
+              /* ══════════ MINESWEEPER ══════════ */
+              if (duel.mode === 'minesweeper') {
+                const dd = duel.duel_data as { tile_count?: number; mined_tiles?: Record<string, number[]>; challenger_picks?: number[]; challenged_picks?: number[]; exploded_challenger?: boolean; exploded_challenged?: boolean } | null;
+                const challengerPicks = dd?.challenger_picks ?? [];
+                const challengedPicks = dd?.challenged_picks ?? [];
+                const allMines = Object.values(dd?.mined_tiles ?? {}).flat();
+                const tileCount = dd?.tile_count ?? 9;
+
+                return (
+                  <div className="relative z-10 w-full max-w-5xl flex flex-col items-center gap-10 mt-8">
+                    {/* The Full Exposed Board */}
+                    <div className="relative p-6 md:p-8 bg-gray-900 border-4 border-red-500/50 shadow-[0_0_80px_rgba(239,68,68,0.3)] rounded-[3rem] animate-[epicReveal_1s_ease-out_both] overflow-hidden">
+                      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(239,68,68,0.2),_transparent_70%)] pointer-events-none" />
+                      
+                      <div className="mb-6 text-center">
+                        <span className="bg-red-950/80 border border-red-500/50 text-red-300 font-bold uppercase tracking-widest px-6 py-2 rounded-full shadow-[0_0_15px_rgba(220,38,38,0.5)]">
+                          Карта минного поля
+                        </span>
+                      </div>
+
+                      <div
+                        className="grid gap-3 relative z-10"
+                        style={{ gridTemplateColumns: `repeat(${Math.ceil(Math.sqrt(tileCount))}, 1fr)` }}
+                      >
+                        {Array.from({ length: tileCount }).map((_, i) => {
+                          const isMined = allMines.includes(i);
+                          const challengerPicked = challengerPicks.includes(i);
+                          const challengedPicked = challengedPicks.includes(i);
+                          const explodedHere = (challengerPicked && isMined) || (challengedPicked && isMined);
+                          
+                          // Look differs slightly here: we want to reveal ALL mines now
+                          const bgColor = explodedHere ? 'bg-red-700' :
+                                          isMined ? 'bg-red-950/80' : 
+                                          challengerPicked ? 'bg-blue-900/80' :
+                                          challengedPicked ? 'bg-purple-900/80' :
+                                          'bg-gray-800';
+                          
+                          const bColor = explodedHere ? 'border-red-400' :
+                                          isMined ? 'border-red-800' :
+                                          challengerPicked ? 'border-blue-400' :
+                                          challengedPicked ? 'border-purple-400' :
+                                          'border-gray-600';
+
+                          return (
+                            <div key={i} style={{ animationDelay: `${i * 0.05}s` }} className={`w-20 h-20 md:w-28 md:h-28 rounded-2xl font-black text-5xl flex items-center justify-center border-4 transition-all ${bgColor} ${bColor} animate-[flipInY_0.6s_ease-out_both]`}>
+                              {explodedHere 
+                                ? <span className="animate-pulse drop-shadow-[0_0_15px_#ef4444]">💥</span> 
+                                : isMined ? <span className="text-red-900/80 opacity-60">💣</span> 
+                                : challengerPicked ? <span className="text-blue-300">✅</span> 
+                                : challengedPicked ? <span className="text-purple-300">✅</span> 
+                                : <span className="text-gray-700 font-mono text-2xl opacity-20">ПУСТО</span>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              /* ══════════ CROWD FORECAST ══════════ */
+              if (duel.mode === 'crowd_forecast') {
+                const dd = duel.duel_data as {
+                  question?: string;
+                  options?: string[];
+                  player_votes?: Record<string, number>;
+                  majority_index?: number | null;
+                  challenger_prediction?: number | null;
+                  challenged_prediction?: number | null;
+                } | null;
+                if (!dd || !dd.options) return null;
+                const voteEntries = Object.entries(dd.player_votes ?? {});
+                const totalVotes = voteEntries.length;
+                const isTie = dd.majority_index === -1;
+                const majIdx = isTie ? null : (dd.majority_index ?? null);
+
+                return (
+                  <div className="relative z-10 w-full max-w-6xl flex flex-col items-center gap-8 mt-4">
+                    {/* Duelists' predictions */}
+                    <div className="flex gap-16 justify-center w-full px-8">
+                      {([
+                        { player: challenger, pred: dd.challenger_prediction, won: winnerId === duel.challenger_id, left: true },
+                        { player: challenged, pred: dd.challenged_prediction, won: winnerId === duel.challenged_id, left: false },
+                      ] as { player: typeof challenger; pred: number | null | undefined; won: boolean; left: boolean }[]).map(({ player, pred, won, left }, idx) => {
+                        const predLabel = pred != null && dd.options ? (dd.options[pred] ?? `#${pred + 1}`) : '—';
+                        const isCorrect = pred != null && pred === majIdx;
+                        
+                        return (
+                          <div key={idx} className={`relative flex flex-col items-center group animate-[fadeIn_0.5s_ease-out]`}>
+                            {/* Inner Flip Container */}
+                            <div className={`relative w-64 h-72 flex flex-col items-center justify-center p-6 rounded-[2rem] border-4 shadow-2xl transition-all duration-700
+                              ${won
+                                ? 'bg-gradient-to-b from-purple-900/90 to-purple-800/90 border-purple-400 shadow-[0_0_50px_rgba(168,85,247,0.5)] z-20 scale-110 animate-[lockIn_1s_ease-out_both]'
+                                : 'bg-gray-900/90 border-gray-600 grayscale brightness-50 z-10'
+                              }`}>
+                              
+                              {won && (
+                                <div className="absolute -top-6 -right-6 text-5xl drop-shadow-[0_0_15px_rgba(168,85,247,0.8)] animate-bounce">👑</div>
+                              )}
+                              
+                              <img src={player ? getAvatarUrl(player.avatar, player.lives) : ''} alt="" className="w-24 h-24 object-contain drop-shadow-xl z-10" />
+                              <span className={`mt-3 font-black uppercase text-xl md:text-2xl tracking-widest text-center px-2 line-clamp-1 ${won ? 'text-purple-100' : 'text-gray-300'}`}>{player?.name ?? '—'}</span>
+                              
+                              <div className={`mt-3 w-full text-center py-2 px-1 rounded-xl border ${isCorrect ? 'bg-green-500/20 border-green-500/50' : won ? 'bg-purple-500/20 border-purple-500/50' : 'bg-red-500/10 border-red-500/30'}`}>
+                                <p className="text-xs uppercase font-bold text-gray-400 mb-1">Выбор:</p>
+                                <span className={`font-black text-lg md:text-xl leading-tight ${isCorrect ? 'text-green-400 drop-shadow-[0_0_10px_#4ade80]' : won ? 'text-purple-300' : 'text-red-400 opacity-50'}`}>{predLabel}</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Grand Poll Results */}
+                    <div className="bg-gray-900/80 backdrop-blur-xl border-4 border-purple-500/60 shadow-[0_0_80px_rgba(168,85,247,0.3)] w-full max-w-4xl p-8 rounded-[3rem] mt-4 flex flex-col gap-6 animate-[epicReveal_1.2s_ease-out_both]">
+                      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(168,85,247,0.2),_transparent_70%)] pointer-events-none rounded-[3rem]" />
+                      
+                      {dd.question && (
+                        <p className="text-center font-black text-2xl md:text-3xl bg-gradient-to-r from-purple-300 to-white bg-clip-text text-transparent drop-shadow-md">
+                          {dd.question}
+                        </p>
+                      )}
+
+                      <div className="flex flex-col gap-4 mt-2">
+                        {dd.options.map((opt, i) => {
+                          const count = voteEntries.filter(([, v]) => v === i).length;
+                          const pct = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
+                          const isMaj = majIdx === i;
+                          const isPickedByWinner = winnerId === duel.challenger_id && dd.challenger_prediction === i || winnerId === duel.challenged_id && dd.challenged_prediction === i;
+                          const voterIds = voteEntries.filter(([, v]) => v === i).map(([id]) => id);
+                          const voters = voterIds.map(id => nonDuelists.find(p => p.id === id)).filter(Boolean) as typeof nonDuelists;
+
+                          return (
+                            <div key={i} className={`relative flex flex-col gap-1 w-full bg-gray-950/60 rounded-2xl p-4 border-2 transition-all duration-700 ${isMaj ? 'border-purple-400 scale-[1.02] shadow-[0_0_30px_rgba(168,85,247,0.4)]' : 'border-gray-800'}`}>
+                              <div className="flex justify-between items-end relative z-10 mb-1">
+                                <span className={`font-bold text-lg ${isMaj ? 'text-purple-300' : 'text-gray-400'}`}>
+                                  {i + 1}. {opt} {isMaj && <span className="ml-2 text-purple-400 font-black animate-pulse">✓ МАЖОРИТАРЯ</span>}
+                                </span>
+                                <span className={`font-black tracking-tighter text-2xl ${isMaj ? 'text-purple-300 drop-shadow-[0_0_10px_#a855f7]' : 'text-gray-500'}`}>
+                                  {count} <span className="text-sm">({pct}%)</span>
+                                </span>
+                              </div>
+
+                              {/* Cinematic Progress Bar */}
+                              <div className="h-4 w-full bg-gray-900 rounded-full overflow-hidden border border-gray-800 relative z-10">
+                                <div
+                                  className={`h-full rounded-full transition-all duration-[1500ms] ease-out ${isMaj ? 'bg-gradient-to-r from-purple-600 to-purple-400 shadow-[0_0_15px_#a855f7]' : 'bg-gray-600'}`}
+                                  style={{ width: `${pct}%`, animation: `slideRight 1.5s ease-out` }}
+                                />
+                              </div>
+
+                              {voters.length > 0 && (
+                                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-800">
+                                  <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mr-1">Голосовали:</span>
+                                  {voters.map(p => (
+                                    <img key={p.id} src={getAvatarUrl(p.avatar, p.lives)} alt={p.name} title={p.name} className="w-8 h-8 object-contain drop-shadow-md hover:scale-125 transition-transform" />
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              /* ══════════ MINESWEEPER (no non-duelist answers) ══════════ */
+              return null;
+            })()}
+
+            {/* Test mode return buttons */}
+            {room.current_round === 999 && (
+              <div className="flex justify-center mt-4 relative z-10">
+                <button
+                  onClick={async () => {
+                    await resetPlayersAfterTest();
+                    await setRoomStatus(room.id, 'rules');
+                    setTestMode('select');
+                  }}
+                  className="px-8 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold text-white transition-colors"
+                >
+                  🔄 Выбрать другой режим
+                </button>
+              </div>
+            )}
+
+            {room.current_round !== 999 && <p className="text-gray-500 animate-pulse relative z-10">Переход к следующему ходу...</p>}
+          </div>
+        );
+      })()}
 
       {/* ─── HOT POTATO ─── */}
       {room.status === 'potato_intro' && (
