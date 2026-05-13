@@ -2758,36 +2758,41 @@ export default function SurvivachHostPage() {
 
           {room.round_results_data && (
             <div className="max-w-6xl mx-auto w-full flex-1 flex flex-col gap-4 relative z-10 min-h-0">
-              {room.current_mode !== 'mathematician' && (
-                <div className="flex justify-center w-full flex-none">
-                  <div className="bg-slate-900/60 border border-indigo-500/30 rounded-3xl p-4 shadow-[0_0_40px_rgba(99,102,241,0.15)] flex flex-col items-center gap-1 backdrop-blur-xl w-full max-w-3xl">
-                    <span className="text-indigo-300/80 uppercase tracking-widest text-[10px] md:text-xs font-bold font-mono">Анализ ответа</span>
-                    <span className="font-black text-xl md:text-2xl text-emerald-400 drop-shadow-[0_0_15px_rgba(52,211,153,0.5)] text-center line-clamp-3 overflow-hidden">
+              <style dangerouslySetInnerHTML={{ __html: `
+                @keyframes hideOverlay {
+                  0%, 80% { opacity: 1; transform: scale(1); pointer-events: auto; }
+                  100% { opacity: 0; transform: scale(0.9); visibility: hidden; pointer-events: none; }
+                }
+              `}} />
+
+              {/* OVERLAY: Правильный ответ (shows for 3 seconds) */}
+              {(room.current_mode !== 'mathematician' && room.round_results_data.correct_answer) && (
+                <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none" style={{ animation: 'hideOverlay 3.5s forwards' }}>
+                  <div className="bg-slate-900/95 border-2 border-emerald-500/50 rounded-[3rem] p-10 shadow-[0_0_100px_rgba(52,211,153,0.4)] flex flex-col items-center gap-4 backdrop-blur-3xl animate-[zoomIn_0.5s_ease-out] w-[90%] max-w-4xl text-center">
+                    <span className="text-emerald-400 uppercase tracking-widest text-lg font-bold font-mono">Правильный ответ</span>
+                    <span className="font-black text-5xl md:text-6xl text-white drop-shadow-[0_0_20px_rgba(255,255,255,0.5)] leading-tight">
                       {room.round_results_data.correct_answer}
                     </span>
+                    
+                    {room.current_mode === 'interpreter' && (() => {
+                      const iq = room.question_data as unknown as InterpreterQuestion | null;
+                      if (!iq) return null;
+                      return (
+                        <div className="mt-4 flex flex-col gap-2">
+                          <p className="text-purple-200 text-xl italic font-medium opacity-90">
+                            «{iq.original_text}»
+                          </p>
+                          <div className="flex flex-wrap justify-center gap-4 mt-2">
+                            {iq.artist && <span className="text-indigo-300 text-sm">🎤 <span className="text-white font-bold">{iq.artist}{iq.aka ? ` (${iq.aka})` : ''}</span></span>}
+                            {iq.composer && <span className="text-indigo-300 text-sm">🎵 <span className="text-white font-bold">{iq.composer}</span></span>}
+                            {iq.lyricist && <span className="text-indigo-300 text-sm">✍️ Текст: <span className="text-white font-bold">{iq.lyricist}</span></span>}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               )}
-
-              {room.current_mode === 'interpreter' && (() => {
-                const iq = room.question_data as unknown as InterpreterQuestion | null;
-                if (!iq) return null;
-                return (
-                  <div className="bg-slate-900/60 border border-purple-500/30 rounded-3xl p-4 flex flex-col gap-2 shadow-[0_0_40px_rgba(168,85,247,0.15)] backdrop-blur-xl w-full max-w-3xl mx-auto flex-none">
-                    <p className="text-purple-200 text-base italic text-center font-medium opacity-90 line-clamp-2">
-                      «{iq.original_text}»
-                    </p>
-                    <div className="h-px w-full bg-gradient-to-r from-transparent via-purple-500/30 to-transparent" />
-                    <div className="flex flex-col gap-0.5 items-center">
-                      {iq.artist && <p className="text-indigo-300 text-xs">🎤 Исполнитель: <span className="text-white font-bold">{iq.artist}{iq.aka ? ` (${iq.aka})` : ''}</span></p>}
-                      {iq.composer && <p className="text-indigo-300 text-xs">🎵 Композитор: <span className="text-white font-bold">{iq.composer}</span></p>}
-                      {iq.lyricist && <p className="text-indigo-300 text-xs">✍️ Автор текста: <span className="text-white font-bold">{iq.lyricist}</span></p>}
-                      {iq.author && <p className="text-indigo-300 text-xs">✍️ Автор: <span className="text-white font-bold">{iq.author}</span></p>}
-                      {iq.authors && <p className="text-indigo-300 text-xs">✍️ Авторы: <span className="text-white font-bold">{iq.authors.join(', ')}</span></p>}
-                    </div>
-                  </div>
-                );
-              })()}
 
               {/* ─── Full leaderboard ─── */}
               <div className="bg-black/40 border border-white/5 rounded-3xl p-4 backdrop-blur-md shadow-2xl flex-1 flex flex-col overflow-hidden min-h-0 max-h-full">
@@ -2797,7 +2802,7 @@ export default function SurvivachHostPage() {
                 </div>
                 
                 <div className="flex-1 min-h-0">
-                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-2 pb-2 h-full content-start">
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 pb-2 h-full content-start overflow-y-auto custom-scrollbar pr-2">
                     {rankPlayers(players.filter(p => !p.is_host)).map((p, i) => {
                       const r = roundResultsData.find(x => x.player_id === p.id);
                       const newLives = r?.new_lives ?? p.lives;
@@ -2811,72 +2816,72 @@ export default function SurvivachHostPage() {
                       return (
                         <div 
                           key={p.id} 
-                          className={`flex items-center gap-3 px-3 py-2 md:px-4 md:py-3 rounded-2xl border backdrop-blur-sm transition-all ${
+                          className={`flex flex-col gap-2 p-3 rounded-2xl border backdrop-blur-sm transition-all relative overflow-hidden ${
                             isCorrect 
-                              ? 'border-emerald-500/30 bg-emerald-950/20 shadow-[0_0_15px_rgba(16,185,129,0.05)]' 
+                              ? 'border-emerald-500/30 bg-emerald-950/20' 
                               : 'border-rose-500/20 bg-rose-950/10'
-                          } ${isTop ? 'outline outline-2 outline-amber-500/30 bg-amber-950/10' : ''}`}
+                          } ${isTop ? 'outline outline-2 outline-amber-500/30' : ''}`}
                         >
-                          <div className="flex items-center justify-center w-6 md:w-8 shrink-0">
-                            <span className={`font-black text-sm md:text-xl drop-shadow-md ${isTop ? 'text-amber-400 drop-shadow-[0_0_10px_rgba(251,191,36,0.8)] scale-110' : 'text-slate-500'}`}>
-                              #{i + 1}
-                            </span>
-                          </div>
+                          {isTop && <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent opacity-50" />}
                           
-                          <div className="relative">
-                            {isTop && <div className="absolute -inset-1.5 bg-amber-500/20 blur-lg rounded-full pointer-events-none" />}
-                            <img src={getAvatarUrl(p.avatar, newLives)} alt="" className="w-8 h-8 md:w-12 md:h-12 object-contain relative z-10" />
+                          {/* TOP ROW: Rank, Avatar, Name */}
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center justify-center w-6 md:w-8 shrink-0">
+                              <span className={`font-black text-sm md:text-xl drop-shadow-md ${isTop ? 'text-amber-400 scale-110 drop-shadow-[0_0_10px_rgba(251,191,36,0.8)]' : 'text-slate-500'}`}>
+                                #{i + 1}
+                              </span>
+                            </div>
+                            <div className="relative shrink-0">
+                              {isTop && <div className="absolute -inset-1.5 bg-amber-500/20 blur-lg rounded-full pointer-events-none" />}
+                              <img src={getAvatarUrl(p.avatar, newLives)} alt="" className="w-8 h-8 md:w-10 md:h-10 object-contain relative z-10" />
+                            </div>
+                            <span className="font-black text-sm md:text-base text-white tracking-wide truncate flex-1">{p.name}</span>
+
+                            {/* Lives / Zombie Status */}
+                            <div className="flex flex-col items-end gap-1 shrink-0">
+                               {newZombie ? (
+                                 <span className="text-emerald-400 text-xs md:text-sm font-black drop-shadow-[0_0_5px_rgba(52,211,153,0.5)]">🧟 ЗОМБИ</span>
+                               ) : (
+                                 <div className="flex gap-0.5">
+                                   {Array.from({ length: 3 }).map((_, idx) => (
+                                     <span key={idx} className={`text-sm ${idx < newLives ? 'drop-shadow-[0_0_5px_rgba(220,38,38,0.8)] opacity-100' : 'opacity-20 grayscale brightness-50'}`}>❤️</span>
+                                   ))}
+                                 </div>
+                               )}
+                            </div>
                           </div>
-                          
-                          <div className="flex-1 min-w-[100px] flex flex-col justify-center truncate">
-                            <span className="font-black text-sm md:text-lg text-white tracking-wide truncate">{p.name}</span>
-                            {/* Показываем ответ юзера если режим umnik и нет вариантов (хотя варианты тут скрыты, может быть текстовый) */}
-                          </div>
-                          
-                          <div className="flex items-center justify-center flex-none min-w-[70px] md:min-w-[100px]">
+
+                          {/* BOTTOM ROW: Result Tag and Cell */}
+                          <div className="flex items-center justify-between bg-black/40 rounded-xl px-3 py-1.5 border border-white/5">
+                            {/* Answer Result */}
                             {r && (r.is_correct
-                              ? <span className="px-2 py-1 md:px-3 md:py-1.5 bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30 rounded-lg whitespace-nowrap text-[10px] md:text-sm drop-shadow-[0_0_5px_rgba(52,211,153,0.5)] uppercase tracking-wider">{r.was_first ? '⚡ ПЕРВЫЙ' : '✅ ВЕРНО'}</span>
-                              : <span className="px-2 py-1 md:px-3 md:py-1.5 bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30 rounded-lg whitespace-nowrap text-[10px] md:text-sm uppercase tracking-wider">❌ ПРОМАХ</span>
+                              ? <span className="text-emerald-400 font-black text-[10px] md:text-xs uppercase tracking-wider flex items-center gap-1"><span className="text-emerald-500">✓</span> {r.was_first ? 'ПЕРВЫЙ' : 'ВЕРНО'}</span>
+                              : <span className="text-rose-400 font-bold text-[10px] md:text-xs uppercase tracking-wider flex items-center gap-1"><span className="text-rose-500">✗</span> ПРОМАХ</span>
                             )}
+                            
+                            <div className="w-px h-4 bg-white/10 mx-2" />
+                            
+                            {/* Cell Position */}
+                            <div className="flex items-center gap-1.5 text-slate-300">
+                              <span className="text-[9px] md:text-[10px] uppercase font-bold text-slate-500 tracking-wider">Клетка</span>
+                              <span className="font-mono font-black text-sm md:text-base">{newPos}</span>
+                            </div>
                           </div>
                           
-                          <div className="flex items-center justify-end gap-3 md:gap-5 shrink-0 min-w-[120px] md:min-w-[180px]">
-                            {/* Board position */}
-                            <div className="flex flex-col items-center justify-center">
-                              <span className="text-[8px] md:text-[10px] text-slate-500 uppercase font-bold tracking-wider leading-none">Клетка</span>
-                              <span className="text-slate-300 font-black font-mono text-sm md:text-base leading-none mt-1">{newPos}</span>
-                            </div>
-                            
-                            <div className="w-px h-6 md:h-8 bg-white/10" />
-
-                            {/* Lives & Status */}
-                            <div className="flex flex-col items-end justify-center min-w-[60px] md:min-w-[70px]">
-                              {newZombie ? (
-                                <span className="text-emerald-400 font-black flex items-center gap-1 drop-shadow-[0_0_8px_rgba(52,211,153,0.8)]"><span className="text-sm md:text-lg">🧟</span> ЗОМБИ</span>
-                              ) : (
-                                <div className="flex gap-0.5">
-                                  {Array.from({ length: 3 }).map((_, idx) => (
-                                    <span key={idx} className={`text-base md:text-lg ${idx < newLives ? 'drop-shadow-[0_0_5px_rgba(220,38,38,0.8)] opacity-100' : 'opacity-20 grayscale brightness-50'}`}>❤️</span>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
                           {/* Event Tags (Karma) */}
-                          <div className="absolute -top-2 right-2 flex gap-1 md:gap-2 scale-[0.85] md:scale-100 origin-top-right">
+                          <div className="absolute top-0 right-2 flex gap-1 items-start translate-y-1">
                              {(r?.karma_change ?? 0) > 0 && (
-                              <span className="px-2 py-0.5 bg-amber-900 border border-amber-500/50 rounded text-amber-300 text-[8px] md:text-[10px] font-black uppercase shadow-[0_0_10px_rgba(245,158,11,0.3)] animate-pulse">
+                              <span className="px-1.5 py-0.5 bg-amber-900 border border-amber-500/50 rounded text-amber-300 text-[8px] md:text-[9px] font-black uppercase shadow-[0_0_10px_rgba(245,158,11,0.3)] animate-pulse">
                                 +{r!.karma_change} Карма
                               </span>
                             )}
                             {newKarma > 0 && newKarma < 3 && (
-                              <span className="px-2 py-0.5 bg-slate-900 border border-indigo-500/50 rounded text-indigo-300 text-[8px] md:text-[10px] font-black uppercase shadow-[0_0_10px_rgba(99,102,241,0.3)]">
+                              <span className="px-1.5 py-0.5 bg-slate-900 border border-indigo-500/50 rounded text-indigo-300 text-[8px] md:text-[9px] font-black uppercase shadow-[0_0_10px_rgba(99,102,241,0.3)]">
                                 {newKarma}✨
                               </span>
                             )}
                             {newKarma >= 3 && (
-                              <span className="px-2 py-0.5 bg-yellow-950 border border-amber-500/80 rounded text-amber-400 text-[8px] md:text-[10px] font-black uppercase shadow-[0_0_15px_rgba(251,191,36,0.6)] animate-in zoom-in">
+                              <span className="px-1.5 py-0.5 bg-yellow-950 border border-amber-500/80 rounded text-amber-400 text-[8px] md:text-[9px] font-black uppercase shadow-[0_0_15px_rgba(251,191,36,0.6)] animate-in zoom-in">
                                 🔥 ДУЭЛЯНТ ({newKarma}✨)
                               </span>
                             )}
