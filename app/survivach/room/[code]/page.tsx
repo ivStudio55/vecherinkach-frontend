@@ -39,7 +39,7 @@ import {
   TOTAL_CELLS,
   rankPlayers,
 } from '@/lib/survivach/board';
-import { SurvivachAudio, randomFromPool, LOBBY_THEME, MEET_POOL, randomMeetFile, SCREAM_POOL } from '@/lib/survivach/audio';
+import { SurvivachAudio, randomFromPool, SCREAM_POOL } from '@/lib/survivach/audio';
 
 /* ── Types ── */
 type JoinPhase = 'choose_avatar' | 'enter_name' | 'waiting';
@@ -65,27 +65,61 @@ function ColorSequenceInput({
   };
 
   return (
-    <div className="flex flex-col items-center gap-4">
-      <p className="text-gray-400 text-sm">Нажмите цвета в нужном порядке ({input.length}/{sequence.length})</p>
-      <div className="flex gap-2 min-h-8">
-        {input.map((c, i) => (
-          <div key={i} className="w-8 h-8 rounded-full border-2 border-white/30"
-            style={{ backgroundColor: MEMORY_COLORS[c] }} />
-        ))}
+    <div className="w-full flex flex-col items-center gap-6 bg-slate-900/60 p-6 rounded-[2rem] border border-pink-500/30 shadow-[0_0_50px_rgba(236,72,153,0.15)] backdrop-blur-xl relative overflow-hidden">
+      {/* Ambient pink/purple glow */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150%] h-[150%] bg-pink-500/10 blur-[100px] pointer-events-none rounded-full" />
+      
+      <div className="relative z-10 flex flex-col items-center w-full">
+        <p className="text-pink-200/60 text-xs font-bold uppercase tracking-[0.2em] mb-4">
+          Ввод сигнала: {input.length} / {sequence.length}
+        </p>
+        
+        {/* Input Slots */}
+        <div className="flex justify-center gap-3 w-full bg-black/40 p-4 rounded-2xl border-2 border-slate-800 shadow-[inset_0_0_20px_rgba(0,0,0,0.8)] mb-6">
+          {Array.from({ length: sequence.length }).map((_, i) => (
+            <div key={i} className="relative w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center">
+              <div className="absolute inset-0 rounded-full border-2 border-dashed border-white/20 bg-black/50" />
+              {input[i] && (
+                <div 
+                  className="absolute inset-0 rounded-full shadow-lg animate-in zoom-in duration-200"
+                  style={{ 
+                    backgroundColor: MEMORY_COLORS[input[i]],
+                    boxShadow: `0 0 20px ${MEMORY_COLORS[input[i]]}80, inset 0 0 10px rgba(255,255,255,0.5)` 
+                  }} 
+                />
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Color buttons */}
+        <div className="flex flex-wrap justify-center gap-3 sm:gap-4 max-w-[280px]">
+          {colors.map(c => (
+            <button
+              key={c}
+              onClick={() => tap(c)}
+              className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl border-b-4 hover:-translate-y-1 active:scale-95 active:translate-y-0 active:border-b-0 active:mt-1 transition-all flex items-center justify-center relative shadow-lg"
+              style={{ 
+                backgroundColor: MEMORY_COLORS[c],
+                borderColor: 'rgba(0,0,0,0.4)',
+                boxShadow: `0 8px 20px ${MEMORY_COLORS[c]}40`
+              }}
+            >
+              {/* Inner glossy highlight */}
+              <div className="absolute top-1 left-1 right-1 bottom-1/2 bg-gradient-to-b from-white/30 to-transparent rounded-t-xl sm:rounded-t-2xl pointer-events-none" />
+            </button>
+          ))}
+        </div>
+
+        {input.length > 0 && (
+          <button 
+            onClick={() => setInput([])} 
+            className="mt-6 px-6 py-2 bg-red-950/40 text-red-400 border border-red-900/50 hover:bg-red-900/60 rounded-full font-bold uppercase tracking-widest text-xs transition-colors"
+          >
+            Сбросить ⚠️
+          </button>
+        )}
       </div>
-      <div className="grid grid-cols-4 gap-3">
-        {colors.map(c => (
-          <button
-            key={c}
-            onClick={() => tap(c)}
-            className="w-16 h-16 rounded-full border-4 border-white/20 active:scale-90 transition-transform"
-            style={{ backgroundColor: MEMORY_COLORS[c] }}
-          />
-        ))}
-      </div>
-      {input.length > 0 && (
-        <button onClick={() => setInput([])} className="text-gray-500 text-sm underline">Сбросить</button>
-      )}
     </div>
   );
 }
@@ -122,23 +156,57 @@ function TagPuzzle({
   };
 
   return (
-    <div>
-      <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${size}, 1fr)` }}>
+    <div className={`w-full aspect-square relative bg-[#05070a] flex items-center justify-center p-2 isolate transition-all duration-700 ${solved ? 'shadow-[0_0_80px_rgba(74,222,128,0.3)]' : ''}`}>
+      {/* Container with ultra-thin tech borders & corners */}
+      <div className={`absolute inset-0 border transition-colors duration-500 z-0 ${solved ? 'border-green-500/50' : 'border-white/10'}`} />
+      <div className={`absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 z-10 transition-colors duration-500 ${solved ? 'border-green-400' : 'border-cyan-500/60'}`} />
+      <div className={`absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 z-10 transition-colors duration-500 ${solved ? 'border-green-400' : 'border-cyan-500/60'}`} />
+      <div className={`absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 z-10 transition-colors duration-500 ${solved ? 'border-green-400' : 'border-cyan-500/60'}`} />
+      <div className={`absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 z-10 transition-colors duration-500 ${solved ? 'border-green-400' : 'border-cyan-500/60'}`} />
+
+      {/* Grid mapping */}
+      <div 
+        className="w-full h-full grid gap-2 relative z-20"
+        style={{ gridTemplateColumns: `repeat(${size}, 1fr)` }}
+      >
         {tiles.map((v, i) => (
-          <button
-            key={i}
-            onClick={() => move(i)}
-            className={`w-full aspect-square rounded-lg font-black text-xl transition-all ${
-              v === 0
-                ? 'bg-transparent border border-dashed border-gray-600'
-                : 'bg-gray-700 border border-gray-500 hover:bg-gray-600 active:scale-90'
-            }`}
-          >
-            {v !== 0 && v}
-          </button>
+          <div key={i} className="relative w-full h-full flex">
+            {v !== 0 ? (
+              <button
+                onClick={() => move(i)}
+                className={`
+                  w-full h-full flex flex-col items-center justify-center
+                  backdrop-blur-md transition-all duration-200 active:scale-95 touch-manipulation
+                  ${solved 
+                    ? 'bg-green-500/20 border border-green-400/80 shadow-[inset_0_0_20px_rgba(74,222,128,0.4)]' 
+                    : 'bg-[#10141f]/70 hover:bg-[#1a2030]/80 border border-cyan-900/40 shadow-[0_4px_24px_rgba(0,0,0,0.4)] active:border-cyan-400/80 active:bg-cyan-900/30'
+                  }
+                `}
+              >
+                <span className={`font-mono font-black text-4xl sm:text-5xl lg:text-6xl drop-shadow-[0_0_10px_rgba(255,255,255,0.2)] ${solved ? 'text-green-300' : 'text-cyan-100'}`}>
+                  {v}
+                </span>
+
+                {/* Subtle glass reflection */}
+                <div className="absolute top-1 left-2 right-2 h-1/4 bg-gradient-to-b from-white/10 to-transparent rounded-[20%] pointer-events-none" />
+              </button>
+            ) : (
+              <div className="w-full h-full bg-black/40 border border-dashed border-cyan-900/30 flex items-center justify-center shadow-[inset_0_0_30px_rgba(0,0,0,0.8)]">
+                {/* Empty target mark */}
+                <div className="w-1/4 h-1/4 mix-blend-screen opacity-20 border border-cyan-500" />
+              </div>
+            )}
+          </div>
         ))}
       </div>
-      {solved && <p className="text-center text-green-400 font-bold mt-2">✅ Решено!</p>}
+
+      {solved && (
+        <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-50 animate-in fade-in zoom-in duration-500 mb-10">
+          <div className="bg-black/90 text-green-400 border border-green-500 px-6 py-2 rounded-sm font-mono tracking-[0.3em] font-black text-xl shadow-[0_0_30px_rgba(74,222,128,0.5)] uppercase rotate-[-4deg]">
+            УСПЕХ
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -258,28 +326,9 @@ export default function SurvivachRoomPage() {
   const [puzzleSolved, setPuzzleSolved] = useState(false);
   const [arithmeticInput, setArithmeticInput] = useState('');
   const passTimeout = useRef<NodeJS.Timeout | null>(null);
-  const meetAudioRef = useRef<SurvivachAudio | null>(null);
-  const lobbyBgRef = useRef<SurvivachAudio | null>(null);
   const prevBombHolderRef = useRef<string | null>(null);
   const gestureCountRef = useRef(0);
   const touchStartXRef = useRef(0);
-
-  /* ── Lobby audio: looped theme + one-shot meet clip ── */
-  useEffect(() => {
-    if (room?.status !== 'lobby') {
-      lobbyBgRef.current?.stop();
-      lobbyBgRef.current = null;
-      return;
-    }
-    if (!lobbyBgRef.current) {
-      lobbyBgRef.current = new SurvivachAudio();
-      lobbyBgRef.current.play(LOBBY_THEME, true);
-    }
-    if (!meetAudioRef.current) {
-      meetAudioRef.current = new SurvivachAudio();
-      meetAudioRef.current.play(randomMeetFile(), false);
-    }
-  }, [room?.status]);
 
   /* ── Hot Potato pass action ── */
   const handlePotatoPass = useCallback(async () => {
@@ -800,16 +849,25 @@ export default function SurvivachRoomPage() {
               <>
                 {/* ── УМНИК ── */}
                 {room.current_mode === 'umnik' && qData.options && (
-                  <div className="flex flex-col gap-4">
-                    <h2 className="text-xl font-bold text-center leading-snug">{qData.question as string}</h2>
-                    <div className="grid grid-cols-1 gap-2">
+                  <div className="flex flex-col gap-6 w-full max-w-lg mx-auto mt-4">
+                    <div className="p-6 bg-white/10 backdrop-blur-xl border border-white/20 shadow-[0_8px_32px_0_rgba(255,255,255,0.1)] rounded-3xl text-center relative overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
+                      <h2 className="text-2xl font-black tracking-wide leading-snug drop-shadow-md text-white relative z-10">{qData.question as string}</h2>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3">
                       {(qData.options as string[]).map((opt, i) => (
                         <button
                           key={i}
                           onClick={() => submitChoiceAnswer(i, idx => idx === (qData.correct as number))}
-                          className="px-4 py-4 bg-gray-800 border border-gray-600 hover:border-yellow-500 hover:bg-yellow-900/20 rounded-xl font-medium text-left transition-all active:scale-95"
+                          className="group relative px-5 py-4 bg-white/5 backdrop-blur-md border border-white/10 hover:border-purple-400/60 hover:shadow-[0_0_20px_rgba(168,85,247,0.4)] rounded-2xl flex items-center text-left transition-all duration-300 active:scale-95 overflow-hidden"
                         >
-                          <span className="text-gray-500 mr-2">{String.fromCharCode(65 + i)}.</span>{opt}
+                          <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                          <span className="text-2xl font-black mr-4 text-purple-300/50 group-hover:text-purple-400/80 drop-shadow-sm transition-colors">
+                            {String.fromCharCode(65 + i)}
+                          </span>
+                          <span className="text-lg font-semibold text-white/90 drop-shadow-sm tracking-wide z-10">
+                            {opt}
+                          </span>
                         </button>
                       ))}
                     </div>
@@ -885,20 +943,43 @@ export default function SurvivachRoomPage() {
 
                 {/* ── MEMORY DIARY ── */}
                 {room.current_mode === 'memory_diary' && (
-                  <div className="flex flex-col items-center gap-4">
+                  <div className="flex-1 flex flex-col justify-center items-center">
                     {showSequence ? (
-                      <div className="flex flex-col items-center gap-4">
-                        <h2 className="text-xl font-bold">Запомните! ({seqTimer}s)</h2>
-                        <div className="flex gap-3">
-                          {(qData.sequence as string[]).map((c, i) => (
-                            <div key={i} className="w-14 h-14 rounded-full border-4 border-white/30"
-                              style={{ backgroundColor: MEMORY_COLORS[c] }} />
-                          ))}
+                      <div className="relative w-full max-w-md bg-slate-900/80 p-8 rounded-[2rem] border border-pink-500/40 shadow-[0_0_80px_rgba(236,72,153,0.2)] backdrop-blur-xl flex flex-col items-center overflow-hidden">
+                        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-pink-600/10 via-transparent to-transparent pointer-events-none" />
+                        
+                        <div className="text-pink-300 font-bold uppercase tracking-[0.3em] text-sm mb-2 animate-pulse">
+                          Сканирование
+                        </div>
+                        <h2 className="text-3xl font-black mb-8 bg-gradient-to-br from-white to-pink-200 bg-clip-text text-transparent tracking-wide">
+                          ЗАПОМНИТЕ!
+                        </h2>
+                        
+                        <div className="relative flex justify-center w-full px-4 py-8 bg-black/50 rounded-3xl border-4 border-slate-800 shadow-[inset_0_0_30px_rgba(0,0,0,0.8)]">
+                          <div className="absolute top-1/2 left-4 right-4 h-1 bg-white/5 -translate-y-1/2 rounded-full hidden sm:block" />
+                          <div className="flex flex-wrap justify-center gap-3 sm:gap-4 relative z-10 w-full px-2">
+                            {(qData.sequence as string[]).map((c, i) => (
+                              <div 
+                                key={i} 
+                                className="w-12 h-12 sm:w-16 sm:h-16 shrink-0 rounded-2xl flex items-center justify-center animate-in zoom-in duration-300 relative shadow-2xl"
+                                style={{ 
+                                  backgroundColor: MEMORY_COLORS[c],
+                                  animationDelay: `${i * 150}ms`,
+                                  boxShadow: `0 0 30px ${MEMORY_COLORS[c]}80, inset 0 0 20px rgba(255,255,255,0.4)`
+                                }}
+                              >
+                                <div className="absolute top-1 left-2 right-2 h-1/3 bg-white/30 rounded-t-xl" />
+                                <span className="text-black/30 font-black text-xl sm:text-2xl">{i + 1}</span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     ) : (
-                      <div className="w-full">
-                        <h2 className="text-xl font-bold text-center mb-4">Повторите последовательность!</h2>
+                      <div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-8 duration-500">
+                        <h2 className="text-2xl sm:text-3xl font-black text-center mb-6 bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent drop-shadow-[0_0_10px_rgba(236,72,153,0.5)]">
+                          ВОСПРОИЗВЕДИТЕ
+                        </h2>
                         <ColorSequenceInput
                           sequence={qData.sequence as string[]}
                           onSubmit={async (input) => {
@@ -916,9 +997,10 @@ export default function SurvivachRoomPage() {
 
                 {/* ── TAG PUZZLE ── */}
                 {room.current_mode === 'tag_puzzle' && qData.initial_state && (
-                  <div className="flex flex-col items-center gap-4">
-                    <h2 className="text-xl font-bold">Решите пятнашки!</h2>
-                    <div className="max-w-xs w-full">
+                  <div className="flex flex-col items-center justify-center min-h-0 w-full flex-1">
+                    <h2 className="text-xl md:text-2xl font-black bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent uppercase tracking-widest mb-2 flex-none drop-shadow-[0_0_10px_rgba(34,211,238,0.5)]">РЕШИТЕ ПЯТНАШКИ!</h2>
+                    {!puzzleSolved && <p className="text-cyan-600/70 text-xs font-mono tracking-widest uppercase mb-4 flex-none">Соберите конфигурацию 1-{(qData.size as number) ** 2 - 1}</p>}
+                    <div className="w-full max-w-[450px] px-2 flex-shrink-0 flex items-center justify-center">
                       <TagPuzzle
                         size={(qData.size as number) ?? 3}
                         initialState={qData.initial_state as number[]}
@@ -930,7 +1012,6 @@ export default function SurvivachRoomPage() {
                         }}
                       />
                     </div>
-                    {!puzzleSolved && <p className="text-gray-500 text-sm">Двигайте плитки, чтобы расставить числа по порядку</p>}
                   </div>
                 )}
 
@@ -968,38 +1049,89 @@ export default function SurvivachRoomPage() {
 
         {/* ────────── ROUND RESULTS ────────── */}
         {room.status === 'round_results' && (
-          <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6">
-            <h2 className="text-3xl font-black">📊 Результаты</h2>
+          <div className="flex-1 flex flex-col items-center justify-center p-6 w-full relative overflow-hidden">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200%] h-[200%] bg-indigo-600/10 blur-[120px] pointer-events-none rounded-full" />
+            
+            <h2 className="text-3xl font-black bg-gradient-to-r from-blue-300 via-indigo-400 to-purple-400 bg-clip-text text-transparent drop-shadow-[0_0_15px_rgba(99,102,241,0.6)] uppercase tracking-tight mb-8 relative z-10 animate-in slide-in-from-top-4 duration-500">
+              ИТОГИ РАУНДА
+            </h2>
+
             {/* Blitz: too slow message */}
             {me && (room.round_results_data as { blitz_slow_player_id?: string } | null)?.blitz_slow_player_id === me.id && (
-              <div className="bg-red-900/40 border border-red-500 rounded-xl px-6 py-3 text-center">
-                <p className="text-red-400 font-black text-xl">🐌 Ты слишком долго думал!</p>
-                <p className="text-gray-400 text-sm mt-1">В блице последний ответ не засчитывается</p>
+              <div className="bg-rose-950/50 border border-rose-500/50 rounded-2xl px-6 py-4 text-center shadow-[0_0_30px_rgba(225,29,72,0.3)] backdrop-blur-md w-full max-w-sm mb-6 animate-in fade-in zoom-in duration-300 relative z-10">
+                <p className="text-rose-400 font-black text-xl uppercase flex items-center justify-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-rose-500 animate-ping" />
+                  Слишком медленно!
+                </p>
+                <p className="text-rose-300/60 text-sm mt-2 font-medium">В блице последний ответ не засчитывается</p>
               </div>
             )}
+
             {me && room.round_results_data && (
               (() => {
                 const myResult = (room.round_results_data.player_results as Array<{ player_id: string; is_correct: boolean; was_first: boolean; position_change: number; new_position: number; lives_change: number; karma_change: number; is_zombie_now: boolean }>)?.find(r => r.player_id === me.id);
                 if (!myResult) return <p className="text-gray-400 animate-pulse">Загрузка...</p>;
+                
+                const isCorrect = myResult.is_correct;
+
                 return (
-                  <div className="flex flex-col items-center gap-3">
-                    <img src={getAvatarUrl(me.avatar, me.lives)} alt="" className="w-20 h-20 object-contain" />
-                    {myResult.is_correct ? (
-                      <div className="text-green-400 font-black text-2xl">{myResult.was_first ? '⚡ Первый! +2' : '✅ Правильно! +1'}</div>
-                    ) : (
-                      <div className="text-red-400 font-black text-2xl">❌ Неправильно. −♥</div>
-                    )}
-                    <div className="text-gray-300">Клетка: {me.position} → {myResult.new_position}</div>
-                    {myResult.karma_change > 0 && <div className="text-yellow-400">+{myResult.karma_change} ✨ карма!</div>}
-                    {myResult.is_zombie_now && !me.is_zombie && <div className="text-green-400 font-black text-xl">🧟 ТЫ СТАЛ ЗОМБИ!</div>}
+                  <div className={`w-full max-w-sm flex flex-col items-center p-8 rounded-3xl border backdrop-blur-xl shadow-2xl relative z-10 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-150 fill-mode-both ${
+                    isCorrect 
+                      ? 'border-emerald-500/40 bg-emerald-950/30 shadow-[0_0_40px_rgba(16,185,129,0.15)]' 
+                      : 'border-rose-500/30 bg-rose-950/20 shadow-[0_0_40px_rgba(225,29,72,0.1)]'
+                  }`}>
+                    
+                    <div className="relative mb-6">
+                      <div className={`absolute -inset-4 blur-xl rounded-full opacity-50 ${isCorrect ? 'bg-emerald-500/40' : 'bg-rose-500/30'}`} />
+                      <img src={getAvatarUrl(me.avatar, isCorrect ? me.lives : Math.max(0, me.lives - 1))} alt="" className="w-24 h-24 object-contain relative z-10 drop-shadow-2xl" />
+                    </div>
+
+                    <div className="text-center mb-6">
+                      {isCorrect ? (
+                        <div className="text-emerald-400 font-black text-3xl uppercase tracking-wider drop-shadow-md flex flex-col gap-1">
+                          <span>{myResult.was_first ? 'ПЕРВЫЙ!' : 'ВЕРНО!'}</span>
+                          <span className="text-lg opacity-80">{myResult.was_first ? '+2' : '+1'} ШАГ</span>
+                        </div>
+                      ) : (
+                        <div className="text-rose-400 font-black text-3xl uppercase tracking-wider drop-shadow-md flex flex-col gap-1">
+                          <span>НЕВЕРНО</span>
+                          <span className="text-lg opacity-80">−❤️ ЖИЗНЬ</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex bg-black/40 border border-white/5 rounded-2xl p-4 w-full justify-between items-center mb-4">
+                      <span className="text-white/60 font-bold uppercase tracking-wider text-xs">Клетка</span>
+                      <div className="flex items-center gap-3 font-mono font-black text-xl">
+                        <span className="text-white/40">{me.position}</span>
+                        <span className="text-white/30">→</span>
+                        <span className="text-white">{myResult.new_position}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-2 w-full text-center">
+                      {myResult.karma_change > 0 && (
+                        <div className="bg-amber-950/50 border border-amber-500/50 rounded-xl py-2 px-4 shadow-[0_0_20px_rgba(245,158,11,0.2)] animate-pulse">
+                          <span className="text-amber-400 font-black tracking-widest text-sm uppercase">+{myResult.karma_change} ✨ КАРМА</span>
+                        </div>
+                      )}
+                      {myResult.is_zombie_now && !me.is_zombie && (
+                        <div className="bg-emerald-950 border border-emerald-500 rounded-xl py-3 px-4 shadow-[0_0_30px_rgba(16,185,129,0.4)] animate-in zoom-in">
+                          <span className="text-emerald-400 font-black text-xl uppercase drop-shadow-md flex gap-2 justify-center"><span className="text-2xl">🧟</span> ТЫ СТАЛ ЗОМБИ!</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 );
               })()
             )}
-            {room.round_results_data?.correct_answer && (
-              <div className="bg-gray-900 border border-gray-700 rounded-xl p-3 text-center">
-                <span className="text-gray-400 text-sm">Правильный ответ: </span>
-                <span className="font-bold text-green-400">{room.round_results_data.correct_answer}</span>
+
+            {room.round_results_data?.correct_answer && room.current_mode !== 'mathematician' && (
+              <div className="mt-8 bg-slate-900/60 border border-indigo-500/30 rounded-2xl p-4 text-center w-full max-w-sm backdrop-blur-md relative z-10 animate-in fade-in duration-500 delay-300 fill-mode-both flex flex-col gap-1 shadow-lg">
+                <span className="text-indigo-300/60 uppercase text-xs font-bold tracking-[0.2em]">Правильный ответ</span>
+                <span className="font-black text-emerald-400 text-lg sm:text-xl drop-shadow-[0_0_10px_rgba(52,211,153,0.4)]">
+                  {room.round_results_data.correct_answer}
+                </span>
               </div>
             )}
           </div>

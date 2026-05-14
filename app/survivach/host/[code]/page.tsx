@@ -2733,49 +2733,74 @@ export default function SurvivachHostPage() {
           )}
 
           {room.current_mode === 'tag_puzzle' && (
-            <div className="flex-1 flex flex-col items-center justify-center p-8 relative">
-              {/* Background ambient glow */}
-              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-900/20 via-transparent to-transparent pointer-events-none" />
+            <div className="flex-1 flex w-full min-h-0 relative items-center justify-center bg-[#0a0c10]">
+              {/* Tactical Background Elements */}
+              <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden flex items-center justify-center">
+                <div className="w-[800px] h-[800px] border border-blue-900/20 rounded-full opacity-30 absolute mix-blend-screen" />
+                <div className="w-[600px] h-[600px] border border-cyan-900/10 rounded-full opacity-20 absolute mix-blend-screen" />
+                {/* Thin glowing neon corner accents */}
+                <div className="absolute top-4 left-4 w-12 h-12 border-t border-l border-cyan-500/50" />
+                <div className="absolute top-4 right-4 w-12 h-12 border-t border-r border-cyan-500/50" />
+                <div className="absolute bottom-4 left-4 w-12 h-12 border-b border-l border-cyan-500/50" />
+                <div className="absolute bottom-4 right-4 w-12 h-12 border-b border-r border-cyan-500/50" />
+              </div>
 
-              <div className="bg-black/60 border border-blue-500/30 p-8 rounded-[2rem] shadow-[0_0_100px_rgba(59,130,246,0.15)] flex flex-col items-center gap-8 backdrop-blur-xl relative z-10 w-full max-w-2xl">
+              {/* Two Column Grid within flex-1 (fills available h-[70vh] minus padding) */}
+              <div className="relative z-10 w-full h-full max-w-[1700px] mx-auto grid grid-cols-[1fr_1.2fr] gap-8 p-6 lg:p-10 min-h-0">
                 
-                <h2 className="text-4xl md:text-5xl font-black bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent drop-shadow-[0_0_15px_rgba(59,130,246,0.6)] uppercase tracking-tight text-center">
-                  Пятнашки
-                </h2>
-                
-                <div className="flex flex-col items-center w-full">
-                  <div className="text-blue-300/80 mb-6 font-medium text-lg uppercase tracking-widest text-center px-6 py-2 border-y border-blue-500/20 w-full">
-                    Кто первым соберет пазл на устройстве?
+                {/* Left Column: Info & Action HUD */}
+                <div className="flex flex-col justify-center h-full min-h-0 relative items-start pl-8 xl:pl-16">
+                  {/* Decorative Scanline / Status Text */}
+                  <div className="mb-4 inline-flex items-center gap-2 border border-cyan-900/50 bg-cyan-950/20 px-3 py-1 rounded-sm">
+                    <div className="w-1.5 h-1.5 bg-cyan-500 animate-pulse" />
+                    <span className="text-[10px] uppercase font-mono tracking-[0.2em] text-cyan-400">Tactical HUD Active </span>
                   </div>
                   
-                  {/* Decorative target board */}
-                  <div className="grid grid-cols-3 gap-3 p-3 bg-slate-900 rounded-3xl border-4 border-slate-800 shadow-[inset_0_0_40px_rgba(0,0,0,0.8)] relative">
-                    {/* Glowing highlight */}
-                    <div className="absolute -inset-1 bg-gradient-to-b from-blue-500/20 to-transparent blur-xl rounded-3xl pointer-events-none" />
+                  <h2 className="text-5xl md:text-7xl font-black bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent uppercase tracking-tighter drop-shadow-[0_0_20px_rgba(34,211,238,0.3)] mb-4">
+                    Пятнашки
+                  </h2>
+                  
+                  <p className="text-xl md:text-2xl text-slate-400 font-mono tracking-wide leading-relaxed max-w-xl border-l-[3px] border-cyan-500/50 pl-5 py-2 bg-gradient-to-r from-cyan-950/10 to-transparent">
+                    Кто первым соберет конфигурацию на устройстве? <br />
+                    <span className="text-sm mt-3 block text-cyan-500/70">Ожидание инициализации протокола сборки...</span>
+                  </p>
+                </div>
+
+                {/* Right Column: Demo Puzzle Board */}
+                <div className="flex flex-col items-center justify-center p-4 min-h-0 h-full w-full relative">
+                  <div className="h-full aspect-square max-h-full bg-[#05070a] border border-white/10 rounded-2xl p-2 relative shadow-[inset_0_0_50px_rgba(0,0,0,0.8),0_0_30px_rgba(8,145,178,0.1)] flex flex-col justify-center">
                     
-                    {puzzleState.slice(0, 9).map((n, i) => (
-                      <div 
-                        key={i} 
-                        className={`
-                          w-16 h-16 sm:w-24 sm:h-24 rounded-2xl flex items-center justify-center text-2xl sm:text-4xl font-black relative
-                          ${n !== 0 
-                            ? 'bg-gradient-to-b from-slate-700 to-slate-800 border-t-2 border-slate-600 text-slate-400 shadow-[0_4px_15px_rgba(0,0,0,0.5)]' 
-                            : 'bg-black/50 border-2 border-dashed border-blue-900/50 shadow-inner'
-                          }
-                        `}
-                      >
-                        {n !== 0 && n}
-                        {n !== 0 && (
-                          <div className="absolute top-1 left-2 right-2 h-1/4 bg-white/5 rounded-full pointer-events-none" />
-                        )}
-                      </div>
-                    ))}
+                    {/* Corner Tech Marks */}
+                    <div className="absolute -top-1 -left-1 w-4 h-4 border-t-2 border-l-2 border-cyan-500/80" />
+                    <div className="absolute -top-1 -right-1 w-4 h-4 border-t-2 border-r-2 border-cyan-500/80" />
+                    <div className="absolute -bottom-1 -left-1 w-4 h-4 border-b-2 border-l-2 border-cyan-500/80" />
+                    <div className="absolute -bottom-1 -right-1 w-4 h-4 border-b-2 border-r-2 border-cyan-500/80" />
+
+                    <div className={`grid ${puzzleState.length === 16 ? 'grid-cols-4' : 'grid-cols-3'} gap-2 md:gap-3 w-full h-full`}>
+                      {puzzleState.map((n, i) => (
+                        <div 
+                          key={i} 
+                          className={`
+                            rounded-xl flex items-center justify-center text-4xl sm:text-5xl lg:text-7xl font-mono font-black relative overflow-hidden transition-all duration-300
+                            ${n !== 0 
+                              ? 'bg-[#1a1f2e] border border-cyan-900/40 text-cyan-200 shadow-[0_4px_20px_rgba(0,0,0,0.6)]' 
+                              : 'bg-black/60 border border-dashed border-cyan-900/30'
+                            }
+                          `}
+                        >
+                          {n !== 0 && (
+                            <>
+                              <div className="absolute inset-0 bg-gradient-to-b from-cyan-500/5 to-transparent pointer-events-none" />
+                              <div className="absolute top-1 left-2 w-1/3 h-1 bg-white/10 rounded-full blur-[1px]" />
+                              {n}
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
-                <div className="mt-4 flex gap-4 text-sm font-bold text-slate-500 uppercase tracking-widest">
-                  <span className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" /> Подключение...</span>
-                </div>
               </div>
             </div>
           )}
