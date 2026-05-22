@@ -132,11 +132,26 @@ export const POOL_COUNTS: Record<string, number> = {
   [`${BASE}/interpreter/only_one_answered/`]: 3,
   [`${BASE}/interpreter/only_one_not_answer/`]: 3,
   [`${BASE}/scream/`]: 3,
+  // Duel soundtrack
+  [`${BASE}/soundtrack/duel/`]: 8,
+  [`${BASE}/soundtrack/timer/`]: 6,
+  // Duel outcomes
+  [`${BASE}/draw/`]: 3,
+  [`${BASE}/summoned_won/`]: 3,
+  [`${BASE}/caller_won/`]: 3,
+  [`${BASE}/zombie_won/`]: 3,
+  // Duel ratings reveal
+  [`${BASE}/duelists_actions/`]: 2,
+  [`${BASE}/player_actions/`]: 3,
+  // Arithmetic mean mode
+  [`${BASE}/arithmetic_mean/`]: 3,
+  [`${BASE}/arithmetic_mean/for_duelists/`]: 3,
 };
 
 /* ─── Helper: pick random file from a pool directory (numbered 1.mp3, 2.mp3, …) ─── */
 export function randomFromPool(poolUrl: string, count = 5): string {
-  const n = Math.floor(Math.random() * count) + 1;
+  const actualCount = POOL_COUNTS[poolUrl] ?? count;
+  const n = Math.floor(Math.random() * actualCount) + 1;
   return `${poolUrl}${n}.mp3`;
 }
 

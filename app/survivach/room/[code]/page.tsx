@@ -21,7 +21,13 @@ import {
   submitAnswer,
   submitBet,
   updateDuel,
+  mergeDuelPlayerVote,
+  mergeDuelPlayerGuess,
+  mergeDuelPlayerMine,
   updatePlayer,
+  createDuel,
+  setRoomStatus,
+  loadDuelQuestions,
   survivachStorage,
   subscribeRoom,
   subscribeRoomPlayers,
@@ -325,6 +331,8 @@ export default function SurvivachRoomPage() {
   const [seqTimer, setSeqTimer] = useState(5);
   const [puzzleSolved, setPuzzleSolved] = useState(false);
   const [arithmeticInput, setArithmeticInput] = useState('');
+  const [duelChallenging, setDuelChallenging] = useState(false);
+  const [duelTargets, setDuelTargets] = useState<SurvivachPlayer[]>([]);
   const passTimeout = useRef<NodeJS.Timeout | null>(null);
   const prevBombHolderRef = useRef<string | null>(null);
   const gestureCountRef = useRef(0);
@@ -445,6 +453,23 @@ export default function SurvivachRoomPage() {
     return () => unsubs.forEach(fn => fn());
   }, [room?.id, room?.current_round]);
 
+  /* ── Eagerly fetch duel when entering duel phases (with retry) ── */
+  useEffect(() => {
+    const isDuelPhase = room?.status === 'duel_intro' || room?.status === 'duel_setup' || room?.status === 'duel_playing';
+    if (!isDuelPhase || duel || !room) return;
+    let cancelled = false;
+    const poll = async () => {
+      for (let i = 0; i < 10 && !cancelled; i++) {
+        const d = await fetchActiveDuel(room.id, room.current_round);
+        if (d && !cancelled) { setDuel(d); return; }
+        if (i < 9 && !cancelled) await new Promise<void>(r => setTimeout(r, 300));
+      }
+    };
+    poll();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room?.status, duel]);
+
   /* ── Memory diary: show sequence timer ── */
   useEffect(() => {
     if (room?.status === 'round_playing' && room.current_mode === 'memory_diary') {
@@ -457,6 +482,26 @@ export default function SurvivachRoomPage() {
       return () => clearInterval(iv);
     }
   }, [room?.status, room?.current_mode]);
+
+  /* ── Duel button eligibility (reactive by players/current round) ── */
+  useEffect(() => {
+    if (!room || !me) {
+      setDuelTargets([]);
+      return;
+    }
+    const freshMe = players.find(p => p.id === me.id);
+    if (!freshMe || freshMe.karma < 3 || freshMe.is_zombie || room.current_round === 999 || !!duel) {
+      setDuelTargets([]);
+      return;
+    }
+    const targets = players.filter(p =>
+      !p.is_host &&
+      p.id !== freshMe.id &&
+      !p.is_zombie &&
+      Math.abs(p.position - freshMe.position) === 1
+    );
+    setDuelTargets(targets);
+  }, [players, room?.current_round, me?.id, duel]);
 
   /* ── Initial load ── */
   useEffect(() => {
@@ -536,38 +581,44 @@ export default function SurvivachRoomPage() {
     const myMines = dd?.mined_tiles?.[me.id] ?? [];
     if (myMines.includes(tileIdx)) return;
     const newMines = [...myMines, tileIdx];
-    const updatedData = { ...dd, mined_tiles: { ...(dd?.mined_tiles ?? {}), [me.id]: newMines } };
-    await updateDuel(duel.id, { duel_data: updatedData as unknown as import('@/lib/survivach/types').DuelData });
+    await mergeDuelPlayerMine(duel.id, me.id, newMines);
   };
 
   const handleCrowdVote = async (optionIdx: number) => {
     if (!room || !me || !duel || room.status !== 'duel_setup') return;
     const dd = duel.duel_data as { player_votes?: Record<string, number> } | null;
     if (dd?.player_votes?.[me.id] != null) return;
-    const updatedData = { ...dd, player_votes: { ...(dd?.player_votes ?? {}), [me.id]: optionIdx } };
-    await updateDuel(duel.id, { duel_data: updatedData as unknown as import('@/lib/survivach/types').DuelData });
+    await mergeDuelPlayerVote(duel.id, me.id, optionIdx);
   };
 
   const handleCrowdGuess = async (guessNum: number) => {
     if (!room || !me || !duel || room.status !== 'duel_setup') return;
     const dd = duel.duel_data as { player_guesses?: Record<string, number> } | null;
     if (dd?.player_guesses?.[me.id] != null) return;
-    const updatedData = { ...dd, player_guesses: { ...(dd?.player_guesses ?? {}), [me.id]: guessNum } };
-    await updateDuel(duel.id, { duel_data: updatedData as unknown as import('@/lib/survivach/types').DuelData });
+    await mergeDuelPlayerGuess(duel.id, me.id, guessNum);
   };
 
   const handleDuelPickTile = async (tileIdx: number) => {
     if (!room || !me || !duel || room.status !== 'duel_playing') return;
     const isChallenger = duel.challenger_id === me.id;
-    const dd = duel.duel_data as { mined_tiles?: Record<string, number[]>; challenger_picks?: number[]; challenged_picks?: number[] } | null;
+    const dd = duel.duel_data as {
+      mined_tiles?: Record<string, number[]>;
+      challenger_picks?: number[];
+      challenged_picks?: number[];
+      challenger_pick_at?: number | null;
+      challenged_pick_at?: number | null;
+    } | null;
     const myPicks = isChallenger ? (dd?.challenger_picks ?? []) : (dd?.challenged_picks ?? []);
+    const opponentPicks = isChallenger ? (dd?.challenged_picks ?? []) : (dd?.challenger_picks ?? []);
     if (myPicks.includes(tileIdx)) return;
+    if (opponentPicks.includes(tileIdx)) return;
     const newPicks = [...myPicks, tileIdx];
     const allMines: number[] = Object.values(dd?.mined_tiles ?? {}).flat();
     const hitMine = allMines.includes(tileIdx);
+    const pickAt = Date.now();
     const updatedData = isChallenger
-      ? { ...dd, challenger_picks: newPicks }
-      : { ...dd, challenged_picks: newPicks };
+      ? { ...dd, challenger_picks: newPicks, challenger_pick_at: pickAt }
+      : { ...dd, challenged_picks: newPicks, challenged_pick_at: pickAt };
     await updateDuel(duel.id, { duel_data: updatedData as unknown as import('@/lib/survivach/types').DuelData });
     if (hitMine) {
       await submitAnswer(room.id, me.id, room.current_round, { answer_data: { hit_mine: true, picks: newPicks }, is_correct: false });
@@ -595,6 +646,48 @@ export default function SurvivachRoomPage() {
       : { ...(duel.duel_data as object), challenged_prediction: optionIdx };
     await updateDuel(duel.id, { duel_data: updatedData as unknown as import('@/lib/survivach/types').DuelData });
     await submitAnswer(room.id, me.id, room.current_round, { answer_data: { crowd_prediction: optionIdx }, is_correct: false });
+  };
+
+  const handleInitiateDuelChallenge = async (challengedId: string) => {
+    if (!room || !me || duelChallenging) return;
+    const freshMe = players.find(p => p.id === me.id);
+    if (!freshMe || freshMe.karma < 3) return;
+    if (Math.abs((players.find(p => p.id === challengedId)?.position ?? -999) - freshMe.position) !== 1) return;
+    // 1-per-round lock: check no existing duel
+    const existing = await fetchActiveDuel(room.id, room.current_round);
+    if (existing) return;
+    setDuelChallenging(true);
+    try {
+      const modes = ['minesweeper', 'arithmetic_mean', 'crowd_forecast'] as const;
+      const duelMode = modes[Math.floor(Math.random() * modes.length)];
+      const BASE_URL = 'https://storage.yandexcloud.net/vecherinkach/json/survivach';
+      let initialDuelData: Record<string, unknown> = {};
+      if (duelMode === 'minesweeper') {
+        initialDuelData = { mode: 'minesweeper', tile_count: 9, mined_tiles: {}, challenger_picks: [], challenged_picks: [], exploded_challenger: false, exploded_challenged: false };
+      } else if (duelMode === 'arithmetic_mean') {
+        const qBank = await loadDuelQuestions(BASE_URL, 'arithmetic_mean');
+        const list = (qBank as { questions: unknown[] })?.questions ?? [];
+        const q = list[Math.floor(Math.random() * list.length)] as Record<string, unknown>;
+        initialDuelData = { mode: 'arithmetic_mean', question: q?.question ?? '', player_guesses: {}, average: null, challenger_answer: null, challenged_answer: null };
+      } else {
+        const qBank = await loadDuelQuestions(BASE_URL, 'crowd_forecast');
+        const list = (qBank as { questions: unknown[] })?.questions ?? [];
+        const q = list[Math.floor(Math.random() * list.length)] as Record<string, unknown>;
+        initialDuelData = { mode: 'crowd_forecast', question: q?.question ?? '', options: q?.options ?? [], player_votes: {}, majority_index: null, challenger_prediction: null, challenged_prediction: null };
+      }
+      const newDuel = await createDuel(
+        room.id, room.current_round, duelMode,
+        freshMe.id, challengedId,
+        initialDuelData as unknown as import('@/lib/survivach/types').DuelData,
+      );
+      await updatePlayer(freshMe.id, { karma: freshMe.karma - 3 });
+      setDuel(newDuel);
+      await setRoomStatus(room.id, 'duel_intro', { duel_data: initialDuelData });
+    } catch (err) {
+      console.error('Duel challenge failed:', err);
+    } finally {
+      setDuelChallenging(false);
+    }
   };
 
   /* ─── Loading ─── */
@@ -682,6 +775,8 @@ export default function SurvivachRoomPage() {
   /* ─── Status: me is set, render game view ─── */
   const isDuelist = me && duel && (duel.challenger_id === me.id || duel.challenged_id === me.id);
   const qData = room.question_data as Record<string, unknown> | null;
+  const actionStatuses = new Set(['round_playing', 'duel_setup', 'duel_playing', 'potato_playing']);
+  const showPersistentDuelPanel = !!me && me.karma >= 3 && !duel && duelTargets.length > 0 && !actionStatuses.has(room.status);
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col">
@@ -1134,6 +1229,7 @@ export default function SurvivachRoomPage() {
                 </span>
               </div>
             )}
+
           </div>
         )}
 
@@ -1656,6 +1752,44 @@ export default function SurvivachRoomPage() {
                   <span className="text-gray-400 text-sm">кл.{p.position}</span>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {showPersistentDuelPanel && me && (
+          <div className="fixed left-1/2 -translate-x-1/2 bottom-4 z-50 w-[calc(100%-1rem)] max-w-md animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <div className="rounded-2xl p-4 flex flex-col items-center gap-3 backdrop-blur-md bg-amber-950/85 border border-amber-500/50 shadow-[0_0_30px_rgba(245,158,11,0.25)]">
+              <p className="font-black text-sm uppercase tracking-wide flex items-center gap-2 text-amber-300">
+                <span className="animate-pulse">⚔️</span> Вызов на дуэль
+              </p>
+              <p className="text-xs text-center text-amber-200/70">Панель доступна до начала активных игровых действий</p>
+              {duelTargets.length === 1 ? (
+                <button
+                  onClick={() => handleInitiateDuelChallenge(duelTargets[0].id)}
+                  disabled={duelChallenging}
+                  className="px-5 py-3 active:scale-95 rounded-xl font-black flex items-center gap-2 disabled:opacity-50 transition-all bg-amber-600 hover:bg-amber-500"
+                >
+                  <img src={getAvatarUrl(duelTargets[0].avatar, duelTargets[0].lives)} alt="" className="w-8 h-8 object-contain" />
+                  <span>⚔️ Вызвать {duelTargets[0].name}</span>
+                  <span className="text-xs opacity-70 ml-1">−3 ✨</span>
+                </button>
+              ) : (
+                <div className="flex flex-col gap-2 w-full max-h-40 overflow-y-auto custom-scrollbar pr-1">
+                  {duelTargets.map(t => (
+                    <button
+                      key={t.id}
+                      onClick={() => handleInitiateDuelChallenge(t.id)}
+                      disabled={duelChallenging}
+                      className="px-4 py-3 active:scale-95 rounded-xl font-bold flex items-center gap-3 disabled:opacity-50 transition-all bg-amber-700 hover:bg-amber-600"
+                    >
+                      <img src={getAvatarUrl(t.avatar, t.lives)} alt="" className="w-8 h-8 object-contain" />
+                      <span>⚔️ Вызвать {t.name}</span>
+                      <span className="ml-auto text-xs opacity-70">−3 ✨</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {duelChallenging && <p className="text-xs animate-pulse text-amber-400">⏳ Инициируем дуэль...</p>}
             </div>
           </div>
         )}

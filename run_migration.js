@@ -21,9 +21,10 @@ function tryConnect() {
   });
 }
 
-function runCmd(conn, command) {
+function runSql(conn, sql) {
   return new Promise((resolve, reject) => {
-    conn.exec(command, (err, stream) => {
+    const cmd = `PGPASSWORD='3WdY)K<{=Mc=rJ' psql -h 5.42.107.149 -p 5432 -U gen_user -d default_db`;
+    conn.exec(cmd, (err, stream) => {
       if (err) return reject(err);
       let stdout = '';
       let stderr = '';
@@ -33,6 +34,8 @@ function runCmd(conn, command) {
         conn.end();
         resolve({ code, stdout, stderr });
       });
+      stream.stdin.write(sql);
+      stream.stdin.end();
     });
   });
 }
@@ -41,13 +44,10 @@ function runCmd(conn, command) {
   try {
     const conn = await tryConnect();
     console.log('Connected to VPS!');
-    
-    // PostgreSQL находится на отдельном хосте 5.42.107.149
-    const cmd = `PGPASSWORD='3WdY)K<{=Mc=rJ' psql -h 5.42.107.149 -p 5432 -U gen_user -d default_db -c "ALTER TABLE survivach_rooms DROP CONSTRAINT IF EXISTS survivach_rooms_status_check;" -c "ALTER TABLE survivach_rooms ADD CONSTRAINT survivach_rooms_status_check CHECK (status IN ('lobby','rules','moving','round_intro','round_playing','round_results','bet_reveal','duel_intro','duel_setup','duel_playing','duel_result','blitz_intro','blitz_playing','blitz_results','potato_intro','potato_playing','potato_result','finished'));"`;
-    
-    console.log('Running migration...\n');
-    const { code } = await runCmd(conn, cmd);
-    
+    console.log(`Running migration: ${sqlFile}\n`);
+
+    const { code } = await runSql(conn, sql);
+
     if (code === 0) {
       console.log('\n✅ Migration successful!');
     } else {

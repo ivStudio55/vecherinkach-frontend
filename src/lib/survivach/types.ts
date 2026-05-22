@@ -33,6 +33,13 @@ export type RoundMode =
 
 export type DuelMode = 'minesweeper' | 'arithmetic_mean' | 'crowd_forecast';
 
+/**
+ * Broad category for game mode registry entries.
+ * Defined here (rather than in gameModes.ts) so it can be reused in types
+ * without a circular dependency.
+ */
+export type ModeCategory = 'NORMAL' | 'SPECIAL' | 'DUEL';
+
 /* ─── DB row types ─── */
 
 export interface SurvivachRoom {

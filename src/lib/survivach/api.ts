@@ -310,6 +310,37 @@ export async function updateDuel(
   if (error) throw error;
 }
 
+/** Atomically adds/updates one player's vote in duel_data.player_votes.
+ *  Uses a PostgreSQL RPC to avoid last-write-wins race conditions. */
+export async function mergeDuelPlayerVote(duelId: string, playerId: string, optionIdx: number) {
+  const { error } = await supabase.rpc('survivach_merge_duel_vote', {
+    p_duel_id: duelId,
+    p_player_id: playerId,
+    p_option_idx: optionIdx,
+  });
+  if (error) throw error;
+}
+
+/** Atomically adds/updates one player's guess in duel_data.player_guesses. */
+export async function mergeDuelPlayerGuess(duelId: string, playerId: string, guessNum: number) {
+  const { error } = await supabase.rpc('survivach_merge_duel_guess', {
+    p_duel_id: duelId,
+    p_player_id: playerId,
+    p_guess_num: guessNum,
+  });
+  if (error) throw error;
+}
+
+/** Atomically sets one player's mine array in duel_data.mined_tiles. */
+export async function mergeDuelPlayerMine(duelId: string, playerId: string, mineIndices: number[]) {
+  const { error } = await supabase.rpc('survivach_merge_duel_mine', {
+    p_duel_id: duelId,
+    p_player_id: playerId,
+    p_mine_indices: mineIndices,
+  });
+  if (error) throw error;
+}
+
 export async function fetchActiveDuel(roomId: string, round: number): Promise<SurvivachDuel | null> {
   const { data, error } = await supabase
     .from('survivach_duels')
@@ -317,6 +348,8 @@ export async function fetchActiveDuel(roomId: string, round: number): Promise<Su
     .eq('room_id', roomId)
     .eq('round', round)
     .not('status', 'eq', 'done')
+    .order('created_at', { ascending: false })
+    .limit(1)
     .maybeSingle();
   if (error || !data) return null;
   return data as SurvivachDuel;
@@ -510,10 +543,10 @@ export function subscribeRoomDuel(
     channel,
     (payload) => {
       if (payload.table === 'survivach_duels') {
-        fetchActiveDuel(roomId, round).then(onUpdate);
+        fetchActiveDuel(roomId, round).then(d => { if (d) onUpdate(d); });
       }
     },
-    () => fetchActiveDuel(roomId, round).then(onUpdate),
+    () => fetchActiveDuel(roomId, round).then(d => { if (d) onUpdate(d); }),
     2000,
   );
 }
