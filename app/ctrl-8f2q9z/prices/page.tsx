@@ -11,6 +11,7 @@ const GAME_LABELS: Record<string, { label: string; emoji: string; desc: string }
   vecherinkach: { label: 'Вечеринкач', emoji: '🎉', desc: 'Квиз-вечеринка с вопросами' },
   jokester: { label: 'Пошутикач', emoji: '🤡', desc: 'Игра в шутки и розыгрыши' },
   creativach: { label: 'Креативач', emoji: '🎨', desc: 'Творческая игра' },
+  draw: { label: 'Рисункач', emoji: '✏️', desc: 'Игра в рисунки и угадывания' },
 };
 
 export default function PricesAdminPage() {

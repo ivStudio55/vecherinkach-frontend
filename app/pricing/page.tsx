@@ -23,6 +23,7 @@ interface GameInfo {
 interface PricingData {
   vecherinkach: GameInfo;
   jokester: GameInfo;
+  draw: GameInfo;
 }
 
 async function getPricingData(): Promise<PricingData | null> {
@@ -50,6 +51,12 @@ const GAMES = [
     label: 'Пошутикач',
     emoji: '😄',
     freePlayUrl: (packId: string) => `/jokester?pack=${packId}`,
+  },
+  {
+    key: 'draw' as const,
+    label: 'Рисункач',
+    emoji: '🎨',
+    freePlayUrl: (packId: string) => `/draw?pack=${packId}`,
   },
 ];
 

@@ -1,13 +1,42 @@
-import { NextResponse } from 'next/server';
 import { requirePanelAuth } from '@/lib/panelAuth';
-import { getSupabaseAdminClient } from '@/lib/supabaseAdmin.server';
+import { json, jsonError } from '@/lib/server/api';
+import { query, queryCount } from '@/lib/db.server';
 
-async function countRows(db: ReturnType<typeof getSupabaseAdminClient>, table: string, from?: string, to?: string) {
-  let q = db.from(table).select('id');
-  if (from) q = q.gte('created_at', from);
-  if (to) q = q.lte('created_at', to + 'T23:59:59.999Z');
-  const { data } = await q;
-  return data?.length ?? 0;
+type RecentRoomRow = Record<string, unknown>;
+
+function buildDateWhere(from?: string, to?: string) {
+  const clauses: string[] = [];
+  const params: unknown[] = [];
+
+  if (from) {
+    params.push(from);
+    clauses.push(`created_at >= $${params.length}`);
+  }
+  if (to) {
+    params.push(`${to}T23:59:59.999Z`);
+    clauses.push(`created_at <= $${params.length}`);
+  }
+
+  return {
+    where: clauses.length ? ` where ${clauses.join(' and ')}` : '',
+    params,
+  };
+}
+
+async function countRows(table: string, from?: string, to?: string) {
+  const { where, params } = buildDateWhere(from, to);
+  return queryCount(`select count(*) from ${table}${where}`, params);
+}
+
+async function loadRecent(table: string, fields: string, from?: string, to?: string) {
+  const { where, params } = buildDateWhere(from, to);
+  return query<RecentRoomRow>(
+    `select ${fields}
+     from ${table}${where}
+     order by created_at desc
+     limit 10`,
+    params,
+  );
 }
 
 export async function GET(request: Request) {
@@ -18,66 +47,59 @@ export async function GET(request: Request) {
   const from = searchParams.get('from') || undefined;
   const to = searchParams.get('to') || undefined;
 
-  const db = getSupabaseAdminClient();
+  try {
+    const [
+      vecherinkachRooms, vecherinkachPlayers, vecherinkachAnswers,
+      jokesterRooms, jokesterPlayers, jokesterDuels,
+      creativachRooms, creativachPlayers, creativachAnswers,
+      drawRooms, drawPlayers,
+      unoRooms, unoPlayers,
+      survivachRooms, survivachPlayers, survivachAnswers,
+      recentVech, recentJokester, recentCreativach, recentDraw, recentUno, recentSurvivach,
+    ] = await Promise.all([
+      countRows('rooms', from, to),
+      countRows('players', from, to),
+      countRows('answers', from, to),
+      countRows('jokester_rooms', from, to),
+      countRows('jokester_players', from, to),
+      countRows('jokester_duels', from, to),
+      countRows('creativach_rooms', from, to),
+      countRows('creativach_players', from, to),
+      countRows('creativach_answers', from, to),
+      countRows('draw_rooms', from, to),
+      countRows('draw_players', from, to),
+      countRows('uno_rooms', from, to),
+      countRows('uno_players', from, to),
+      countRows('survivach_rooms', from, to),
+      countRows('survivach_players', from, to),
+      countRows('survivach_answers', from, to),
+      loadRecent('rooms', 'id, code, status, is_active, created_at, current_question_index', from, to),
+      loadRecent('jokester_rooms', 'id, code, status, current_round, created_at', from, to),
+      loadRecent('creativach_rooms', 'id, code, status, current_round, created_at', from, to),
+      loadRecent('draw_rooms', 'id, code, status, current_round, created_at', from, to),
+      loadRecent('uno_rooms', 'id, code, status, mode, created_at', from, to),
+      loadRecent('survivach_rooms', 'id, code, status, current_round, current_mode, created_at', from, to),
+    ]);
 
-  const [
-    vecherinkachRooms, vecherinkachPlayers, vecherinkachAnswers,
-    jokesterRooms, jokesterPlayers, jokesterDuels,
-    creativachRooms, creativachPlayers, creativachAnswers,
-    drawRooms, drawPlayers,
-    unoRooms, unoPlayers,
-  ] = await Promise.all([
-    countRows(db, 'rooms', from, to),
-    countRows(db, 'players', from, to),
-    countRows(db, 'answers', from, to),
-    countRows(db, 'jokester_rooms', from, to),
-    countRows(db, 'jokester_players', from, to),
-    countRows(db, 'jokester_duels', from, to),
-    countRows(db, 'creativach_rooms', from, to),
-    countRows(db, 'creativach_players', from, to),
-    countRows(db, 'creativach_answers', from, to),
-    countRows(db, 'draw_rooms', from, to),
-    countRows(db, 'draw_players', from, to),
-    countRows(db, 'uno_rooms', from, to),
-    countRows(db, 'uno_players', from, to),
-  ]);
-
-  // Recent activity: last 10 rooms per game
-  const buildRecent = (table: string, fields: string) => {
-    let q = db.from(table).select(fields).order('created_at', { ascending: false }).limit(10);
-    if (from) q = q.gte('created_at', from);
-    if (to) q = q.lte('created_at', to + 'T23:59:59.999Z');
-    return q;
-  };
-
-  const [
-    { data: recentVech },
-    { data: recentJokester },
-    { data: recentCreativach },
-    { data: recentDraw },
-    { data: recentUno },
-  ] = await Promise.all([
-    buildRecent('rooms', 'id,code,status,is_active,created_at,current_question_index'),
-    buildRecent('jokester_rooms', 'id,code,status,current_round,created_at'),
-    buildRecent('creativach_rooms', 'id,code,status,current_round,created_at'),
-    buildRecent('draw_rooms', 'id,code,status,current_round,created_at'),
-    buildRecent('uno_rooms', 'id,code,status,mode,created_at'),
-  ]);
-
-  return NextResponse.json({
-    totals: {
-      vecherinkach: { rooms: vecherinkachRooms, players: vecherinkachPlayers, answers: vecherinkachAnswers },
-      jokester: { rooms: jokesterRooms, players: jokesterPlayers, duels: jokesterDuels },
-      creativach: { rooms: creativachRooms, players: creativachPlayers, answers: creativachAnswers },
-      draw: { rooms: drawRooms, players: drawPlayers },
-      uno: { rooms: unoRooms, players: unoPlayers },
-    },
-    recent: {
-      vecherinkach: recentVech ?? [],
-      jokester: recentJokester ?? [],
-      creativach: recentCreativach ?? [],
-      draw: recentDraw ?? [],
-      uno: recentUno ?? [],
-    },
-  });
+    return json({
+      totals: {
+        vecherinkach: { rooms: vecherinkachRooms, players: vecherinkachPlayers, answers: vecherinkachAnswers },
+        jokester: { rooms: jokesterRooms, players: jokesterPlayers, duels: jokesterDuels },
+        creativach: { rooms: creativachRooms, players: creativachPlayers, answers: creativachAnswers },
+        draw: { rooms: drawRooms, players: drawPlayers },
+        uno: { rooms: unoRooms, players: unoPlayers },
+        survivach: { rooms: survivachRooms, players: survivachPlayers, answers: survivachAnswers },
+      },
+      recent: {
+        vecherinkach: recentVech,
+        jokester: recentJokester,
+        creativach: recentCreativach,
+        draw: recentDraw,
+        uno: recentUno,
+        survivach: recentSurvivach,
+      },
+    });
+  } catch (error) {
+    return jsonError(error instanceof Error ? error.message : 'Failed to load stats', 500);
+  }
 }

@@ -1,10 +1,11 @@
 import { requirePanelAuth } from '@/lib/panelAuth';
 import { getSupabaseAdminClient } from '@/lib/supabaseAdmin.server';
+import { PANEL_PROMO_FIELDS } from '@/lib/panel/config';
+import { json, jsonError } from '@/lib/server/api';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// GET — list all promo codes
 export async function GET(request: Request) {
   const authErr = requirePanelAuth(request);
   if (authErr) return authErr;
@@ -12,14 +13,13 @@ export async function GET(request: Request) {
   const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase
     .from('promo_codes')
-    .select('*')
+    .select(PANEL_PROMO_FIELDS)
     .order('created_at', { ascending: false });
 
-  if (error) return Response.json({ error: error.message }, { status: 500 });
-  return Response.json(data ?? []);
+  if (error) return jsonError(error.message, 500);
+  return json(data ?? []);
 }
 
-// POST — create promo code
 export async function POST(request: Request) {
   const authErr = requirePanelAuth(request);
   if (authErr) return authErr;
@@ -28,17 +28,17 @@ export async function POST(request: Request) {
   const code = String(body.code || '').toUpperCase().trim().replace(/[^A-Z0-9_-]/g, '');
 
   if (!code || code.length < 2 || code.length > 32) {
-    return Response.json({ error: 'Код: 2-32 символа (A-Z, 0-9, _, -)' }, { status: 400 });
+    return jsonError('Код: 2-32 символа (A-Z, 0-9, _, -)', 400);
   }
 
   const discount_pct = Number(body.discount_pct ?? 0);
   const discount_fixed = Number(body.discount_fixed ?? 0);
 
   if (discount_pct < 0 || discount_pct > 100) {
-    return Response.json({ error: 'discount_pct: 0–100' }, { status: 400 });
+    return jsonError('discount_pct: 0–100', 400);
   }
   if (discount_pct === 0 && discount_fixed === 0) {
-    return Response.json({ error: 'Укажите скидку (% или фиксированную)' }, { status: 400 });
+    return jsonError('Укажите скидку (% или фиксированную)', 400);
   }
 
   const supabase = getSupabaseAdminClient();
@@ -53,24 +53,29 @@ export async function POST(request: Request) {
     is_active: true,
   };
 
-  const { data, error } = await supabase.from('promo_codes').insert(row).select().single();
+  const { data, error } = await supabase
+    .from('promo_codes')
+    .insert(row)
+    .select(PANEL_PROMO_FIELDS)
+    .single();
+
   if (error) {
     if (error.message?.includes('duplicate') || error.message?.includes('unique')) {
-      return Response.json({ error: 'Промокод с таким кодом уже существует' }, { status: 409 });
+      return jsonError('Промокод с таким кодом уже существует', 409);
     }
-    return Response.json({ error: error.message }, { status: 500 });
+    return jsonError(error.message, 500);
   }
-  return Response.json({ ok: true, promo: data });
+
+  return json({ ok: true, promo: data });
 }
 
-// PUT — update promo code (toggle active, update fields)
 export async function PUT(request: Request) {
   const authErr = requirePanelAuth(request);
   if (authErr) return authErr;
 
   const body = await request.json();
   const id = body.id;
-  if (!id) return Response.json({ error: 'id обязателен' }, { status: 400 });
+  if (!id) return jsonError('id обязателен', 400);
 
   const updates: Record<string, unknown> = {};
   if (body.is_active !== undefined) updates.is_active = Boolean(body.is_active);
@@ -83,7 +88,7 @@ export async function PUT(request: Request) {
   if (body.reset_used_count) updates.used_count = 0;
 
   if (Object.keys(updates).length === 0) {
-    return Response.json({ error: 'Нет полей для обновления' }, { status: 400 });
+    return jsonError('Нет полей для обновления', 400);
   }
 
   const supabase = getSupabaseAdminClient();
@@ -91,24 +96,23 @@ export async function PUT(request: Request) {
     .from('promo_codes')
     .update(updates)
     .eq('id', id)
-    .select()
+    .select(PANEL_PROMO_FIELDS)
     .single();
 
-  if (error) return Response.json({ error: error.message }, { status: 500 });
-  return Response.json({ ok: true, promo: data });
+  if (error) return jsonError(error.message, 500);
+  return json({ ok: true, promo: data });
 }
 
-// DELETE — delete promo code
 export async function DELETE(request: Request) {
   const authErr = requirePanelAuth(request);
   if (authErr) return authErr;
 
   const url = new URL(request.url);
   const id = url.searchParams.get('id');
-  if (!id) return Response.json({ error: 'id обязателен' }, { status: 400 });
+  if (!id) return jsonError('id обязателен', 400);
 
   const supabase = getSupabaseAdminClient();
   const { error } = await supabase.from('promo_codes').delete().eq('id', id);
-  if (error) return Response.json({ error: error.message }, { status: 500 });
-  return Response.json({ ok: true });
+  if (error) return jsonError(error.message, 500);
+  return json({ ok: true });
 }

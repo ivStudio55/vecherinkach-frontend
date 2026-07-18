@@ -1,46 +1,58 @@
-import { getSupabaseAdminClient } from '@/lib/supabaseAdmin.server';
+import { query, queryOne } from '@/lib/db.server';
+import { json, jsonError, withCacheControl } from '@/lib/server/api';
+
+type PublicPackRow = {
+  id: string;
+  label: string;
+  description: string | null;
+  is_public: boolean;
+  json_base_url: string;
+  audio_round2_start: number;
+  audio_round2_end: number;
+  audio_round3_start: number;
+  audio_round5_start: number;
+};
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+const PACK_SELECT = `
+  id,
+  label,
+  description,
+  is_public,
+  json_base_url,
+  audio_round2_start,
+  audio_round2_end,
+  audio_round3_start,
+  audio_round5_start
+`;
+
 export async function GET(request: Request) {
   try {
-    const supabase = getSupabaseAdminClient();
     const url = new URL(request.url);
     const includeId = url.searchParams.get('include');
 
-    let query = supabase
-      .from('question_packs')
-      .select('id, label, description, is_public, json_base_url, audio_round2_start, audio_round2_end, audio_round3_start, audio_round5_start')
-      .eq('is_active', true)
-      .eq('is_public', true)
-      .order('created_at', { ascending: true });
+    const result = await query<PublicPackRow>(
+      `select ${PACK_SELECT}
+       from question_packs
+       where is_active = true and is_public = true
+       order by created_at asc`
+    );
 
-    const { data, error } = await query;
-
-    if (error) {
-      return Response.json({ error: error.message }, { status: 500 });
-    }
-
-    const result = data ?? [];
-
-    // ?include= only works for public packs (private packs are loaded via /api/packs/room/[roomId])
-    if (includeId && !result.some(p => p.id === includeId)) {
-      const { data: extra } = await supabase
-        .from('question_packs')
-        .select('id, label, description, is_public, json_base_url, audio_round2_start, audio_round2_end, audio_round3_start, audio_round5_start')
-        .eq('id', includeId)
-        .eq('is_active', true)
-        .eq('is_public', true)
-        .single();
+    if (includeId && !result.some((pack) => pack.id === includeId)) {
+      const extra = await queryOne<PublicPackRow>(
+        `select ${PACK_SELECT}
+         from question_packs
+         where id = $1 and is_active = true and is_public = true`,
+        [includeId],
+      );
       if (extra) result.push(extra);
     }
 
-    return Response.json(result, {
-      headers: { 'Cache-Control': 'public, max-age=30, s-maxage=60' },
-    });
+    return json(result, withCacheControl('public, max-age=30, s-maxage=60'));
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
-    return Response.json({ error: msg }, { status: 500 });
+    return jsonError(msg, 500);
   }
 }

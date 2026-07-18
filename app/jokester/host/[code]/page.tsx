@@ -83,7 +83,18 @@ type CreditsPlayerBest = {
   bestAnswer: { question: string; answer: string; votes: number } | null;
 };
 
+type TopQuestion = {
+  duel: JokesterDuel;
+  votes: number;
+  bestAnswer?: {
+    text: string;
+    playerName: string;
+    votes: number;
+  } | null;
+};
+
 const YANDEX_AUDIO_BASE = process.env.NEXT_PUBLIC_AUDIO_BASE ?? 'https://storage.yandexcloud.net/vecherinkach/audio';
+const QUESTION_VOTE_PREFIX = 'question:';
 const START_DUCK_SOUNDS = [
   `${YANDEX_AUDIO_BASE}/duck/1.mp3`,
   `${YANDEX_AUDIO_BASE}/duck/2.mp3`,
@@ -152,6 +163,8 @@ export function JokesterHostContent() {
   const [players, setPlayers] = useState<JokesterPlayer[]>([]);
   const [duels, setDuels] = useState<JokesterDuel[]>([]);
   const [currentAnswers, setCurrentAnswers] = useState<JokesterAnswer[]>([]);
+  const [roundResultsAnswers, setRoundResultsAnswers] = useState<JokesterAnswer[]>([]);
+  const [selectedResultPlayerId, setSelectedResultPlayerId] = useState<string | null>(null);
   const [currentVotes, setCurrentVotes] = useState<JokesterVote[]>([]);
   const [categoryVotes, setCategoryVotes] = useState<JokesterCategoryVote[]>([]);
   const [categories, setCategories] = useState<JokesterCategory[]>([]);
@@ -160,16 +173,40 @@ export function JokesterHostContent() {
   const [bestAnswer, setBestAnswer] = useState<{ text: string; playerName: string; playerAvatar: string; question: string } | null>(null);
   const [voteReveal, setVoteReveal] = useState<VoteReveal | null>(null);
   const [showRank, setShowRank] = useState(false);
-  const [creditsData, setCreditsData] = useState<{ winnerAnswers: CreditsAnswer[]; playerRanks: CreditsPlayerBest[] } | null>(null);
+  const [creditsData, setCreditsData] = useState<{ winnerAnswers: CreditsAnswer[]; playerRanks: CreditsPlayerBest[]; topQuestions: TopQuestion[] } | null>(null);
   const [isBgmMuted, setIsBgmMuted] = useState(false);
   const [isVoiceMuted, setIsVoiceMuted] = useState(false);
   const [isAnimationsDisabled, setIsAnimationsDisabled] = useState(false);
   const [isJoinQrModalOpen, setIsJoinQrModalOpen] = useState(false);
+  const [isPanelAdmin, setIsPanelAdmin] = useState(false);
+  const [lotteryEnabled, setLotteryEnabled] = useState(false);
+  const [lotteryAutoGenerate, setLotteryAutoGenerate] = useState(true);
+  const [lotteryCodes, setLotteryCodes] = useState<Record<number, string>>({ 1: '', 2: '', 3: '' });
+  const [lotteryPrizes, setLotteryPrizes] = useState<Array<{ round: number; winner_id: string | null; promo_code: string }>>([]);
+  const [managingPlayerIds, setManagingPlayerIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setIsBgmMuted(localStorage.getItem('jokester_bgm_muted') === 'true');
     setIsVoiceMuted(localStorage.getItem('jokester_voice_muted') === 'true');
     setIsAnimationsDisabled(localStorage.getItem('jokester_animations_disabled') === 'true');
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/panel/session')
+      .then(res => {
+        if (cancelled) return;
+        const isAdmin = res.ok;
+        setIsPanelAdmin(isAdmin);
+        if (!isAdmin) setLotteryAutoGenerate(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setIsPanelAdmin(false);
+        setLotteryAutoGenerate(false);
+      });
+
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -205,6 +242,7 @@ export function JokesterHostContent() {
   const answeredDoneRef = useRef<Set<string>>(new Set());
   const winnerPanelRef = useRef<HTMLDivElement | null>(null);
   const roomIntroPlayedRef = useRef(false);
+  const lotteryDrawStartedRef = useRef<Set<number>>(new Set());
   const currentDuel = duels.find(d => d.duel_index === room?.current_duel_index && d.round === room?.current_round);
 
   const avatarSrc = useCallback((avatar?: string | null) => {
@@ -218,6 +256,100 @@ export function JokesterHostContent() {
     const found = categories.find(c => c.id === categoryId || c.name === categoryId);
     return found?.name || categoryId;
   }, [categories]);
+
+  const refreshLotteryPrizes = useCallback(async (roomId: string) => {
+    const res = await fetch(`/api/jokester/lottery?room_id=${encodeURIComponent(roomId)}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (Array.isArray(data)) setLotteryPrizes(data);
+  }, []);
+
+  const configureLottery = useCallback(async (roomId: string) => {
+    if (!lotteryEnabled) return;
+    await fetch('/api/jokester/lottery', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'configure',
+        room_id: roomId,
+        auto_generate: lotteryAutoGenerate,
+        discount_pct: 50,
+        max_uses: 1,
+        expires_days: 30,
+        promo_codes: [1, 2, 3].map(round => ({ round, code: lotteryCodes[round] ?? '' })),
+      }),
+    });
+    await refreshLotteryPrizes(roomId);
+  }, [lotteryEnabled, lotteryAutoGenerate, lotteryCodes, refreshLotteryPrizes]);
+
+  const drawLotteryForRound = useCallback(async (roomId: string, round: number) => {
+    if (![1, 2, 3].includes(round)) return;
+    if (lotteryDrawStartedRef.current.has(round)) return;
+    lotteryDrawStartedRef.current.add(round);
+    await fetch('/api/jokester/lottery', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'draw', room_id: roomId, round }),
+    });
+    await refreshLotteryPrizes(roomId);
+  }, [refreshLotteryPrizes]);
+
+  const withPlayerManagementLock = useCallback(async (playerId: string, action: () => Promise<void>) => {
+    setManagingPlayerIds(prev => new Set(prev).add(playerId));
+    try {
+      await action();
+    } finally {
+      setManagingPlayerIds(prev => {
+        const next = new Set(prev);
+        next.delete(playerId);
+        return next;
+      });
+    }
+  }, []);
+
+  const movePlayerToSpectators = useCallback(async (player: JokesterPlayer) => {
+    if (!room || room.status !== 'lobby' || player.is_host) return;
+    await withPlayerManagementLock(player.id, async () => {
+      const { error } = await supabase
+        .from('jokester_players')
+        .update({
+          role: 'spectator',
+          avatar: '1.png',
+          total_points: 0,
+          player_votes: 0,
+          spectator_votes: 0,
+        })
+        .eq('id', player.id)
+        .eq('room_id', room.id)
+        .eq('is_host', false);
+      if (error) {
+        console.error('movePlayerToSpectators error:', error);
+        alert('Не удалось перевести участника в зрители');
+        return;
+      }
+      setPlayers(prev => prev.map(p => p.id === player.id ? { ...p, role: 'spectator', avatar: '1.png' } : p));
+    });
+  }, [room, withPlayerManagementLock]);
+
+  const removeLobbyParticipant = useCallback(async (player: JokesterPlayer) => {
+    if (!room || room.status !== 'lobby' || player.is_host) return;
+    const ok = confirm(`Удалить ${player.name || 'участника'} из комнаты?`);
+    if (!ok) return;
+    await withPlayerManagementLock(player.id, async () => {
+      const { error } = await supabase
+        .from('jokester_players')
+        .delete()
+        .eq('id', player.id)
+        .eq('room_id', room.id)
+        .eq('is_host', false);
+      if (error) {
+        console.error('removeLobbyParticipant error:', error);
+        alert('Не удалось удалить участника');
+        return;
+      }
+      setPlayers(prev => prev.filter(p => p.id !== player.id));
+    });
+  }, [room, withPlayerManagementLock]);
 
   const playRandomSound = useCallback((files: string[], volume = 0.85) => {
     if (files.length === 0) return;
@@ -385,7 +517,12 @@ export function JokesterHostContent() {
   }, [room?.voting_phase, currentDuel?.id]);
 
   useEffect(() => {
-    if (!room || room.status !== 'category_vote') return;
+    if (!room) return;
+    const shouldTrackVotes =
+      room.status === 'category_vote' ||
+      room.status === 'round_results' ||
+      room.status === 'final_results';
+    if (!shouldTrackVotes) return;
     fetchCategoryVotes(room.id, room.current_round).then(setCategoryVotes);
     return subscribeJokesterCategoryVotes(room.id, room.current_round, setCategoryVotes);
   }, [room?.id, room?.status, room?.current_round]);
@@ -397,8 +534,9 @@ export function JokesterHostContent() {
     const gPlayers = players.filter(p => p.role === 'player' && !p.is_host);
     if (gPlayers.length === 0) return;
     const maxVotesEach = gPlayers.length;
+    const regularVotes = categoryVotes.filter(v => !v.category.startsWith(QUESTION_VOTE_PREFIX));
     const allDone = gPlayers.every(
-      p => categoryVotes.filter(v => v.voter_id === p.id).length >= maxVotesEach,
+      p => regularVotes.filter(v => v.voter_id === p.id).length >= maxVotesEach,
     );
     if (!allDone || autoStartingDuelsRef.current) return;
     autoStartingDuelsRef.current = true;
@@ -537,6 +675,15 @@ export function JokesterHostContent() {
     || room?.status === 'credits';
   const activePlayers = inFinalPhase ? finalists : gamePlayers;
   const roundDuels = duels.filter(d => d.round === room?.current_round);
+  const resultRoundDuels = [...roundDuels].sort((a, b) => a.duel_index - b.duel_index);
+  const roundQuestionVotes = categoryVotes.filter(v => v.category.startsWith(QUESTION_VOTE_PREFIX));
+  const roundTopQuestions: TopQuestion[] = resultRoundDuels
+    .map(duel => ({
+      duel,
+      votes: roundQuestionVotes.filter(v => v.category === `${QUESTION_VOTE_PREFIX}${duel.id}`).length,
+    }))
+    .filter(item => item.votes > 0)
+    .sort((a, b) => b.votes - a.votes || a.duel.duel_index - b.duel.duel_index);
 
   const answerProgress = activePlayers.map(player => {
     const expected = roundDuels.filter(d => d.player1_id === player.id || d.player2_id === player.id).length;
@@ -546,6 +693,33 @@ export function JokesterHostContent() {
     const done = expected > 0 && answered >= expected;
     return { player, expected, answered, done };
   });
+
+  useEffect(() => {
+    if (!room || (room.status !== 'round_results' && room.status !== 'final_results')) {
+      setSelectedResultPlayerId(null);
+      setRoundResultsAnswers([]);
+      return;
+    }
+
+    const currentRoundDuels = duels.filter(d => d.round === room.current_round);
+    if (currentRoundDuels.length === 0) {
+      setRoundResultsAnswers([]);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      const answersByDuel = await Promise.all(currentRoundDuels.map(d => fetchDuelAnswers(d.id)));
+      if (!cancelled) setRoundResultsAnswers(answersByDuel.flat());
+    })().catch(console.error);
+
+    return () => { cancelled = true; };
+  }, [room?.id, room?.status, room?.current_round, duels]);
+
+  useEffect(() => {
+    if (!room || room.status !== 'round_results') return;
+    void drawLotteryForRound(room.id, room.current_round);
+  }, [room?.id, room?.status, room?.current_round, drawLotteryForRound]);
 
   useEffect(() => {
     if (room?.voting_phase !== 'answering') {
@@ -624,6 +798,7 @@ export function JokesterHostContent() {
     if (!room) return;
     unlockAudio();
     audioRef.current?.stopBgm();
+    await configureLottery(room.id);
 
     // Предыгровой экран
     await updateJokesterRoom(room.id, { status: 'starting', state_version: room.state_version + 1 });
@@ -1069,9 +1244,11 @@ export function JokesterHostContent() {
     const duelsAll = await fetchJokesterDuels(effectiveRoom.id);
     const answersByDuel = await Promise.all(duelsAll.map(d => fetchDuelAnswers(d.id)));
     const votesByDuel = await Promise.all(duelsAll.map(d => fetchDuelVotes(d.id)));
+    const questionVotesByRound = await Promise.all([1, 2, 3, 4].map(round => fetchCategoryVotes(effectiveRoom.id, round)));
 
     const answersFlat = answersByDuel.flat();
     const votesFlat = votesByDuel.flat();
+    const questionVotesFlat = questionVotesByRound.flat().filter(v => v.category.startsWith(QUESTION_VOTE_PREFIX));
     const duelById = new Map(duelsAll.map(d => [d.id, d]));
 
     const voteCount = new Map<string, number>();
@@ -1113,7 +1290,32 @@ export function JokesterHostContent() {
       return { player, bestAnswer: best };
     });
 
-    setCreditsData({ winnerAnswers, playerRanks });
+    const topQuestions: TopQuestion[] = duelsAll
+      .map(duel => {
+        const duelAnswers = answersFlat.filter(a => a.duel_id === duel.id);
+        let bestAnswer: TopQuestion['bestAnswer'] = null;
+        for (const answer of duelAnswers) {
+          const votes = voteCount.get(`${duel.id}|${answer.player_id}`) || 0;
+          if (!bestAnswer || votes > bestAnswer.votes) {
+            const player = freshPlayers.find(p => p.id === answer.player_id);
+            bestAnswer = {
+              text: answer.answer_text,
+              playerName: player?.name || 'Игрок',
+              votes,
+            };
+          }
+        }
+        return {
+          duel,
+          votes: questionVotesFlat.filter(v => v.category === `${QUESTION_VOTE_PREFIX}${duel.id}`).length,
+          bestAnswer,
+        };
+      })
+      .filter(item => item.votes > 0)
+      .sort((a, b) => b.votes - a.votes || a.duel.round - b.duel.round || a.duel.duel_index - b.duel.duel_index)
+      .slice(0, 10);
+
+    setCreditsData({ winnerAnswers, playerRanks, topQuestions });
     await updateJokesterRoom(effectiveRoom.id, { status: 'credits', state_version: effectiveRoom.state_version + 11 });
   };
 
@@ -1198,6 +1400,8 @@ export function JokesterHostContent() {
     || sortedByPoints.filter(p => !p.is_host).map(player => ({ player, bestAnswer: null }));
   const creditsWinner = creditsRanks[0]?.player || null;
   const creditsWinnerAnswers = creditsData?.winnerAnswers || [];
+  const creditsTopQuestions = creditsData?.topQuestions || [];
+  const currentLotteryPrize = lotteryPrizes.find(p => p.round === room.current_round);
 
   return (
     <div className={`min-h-screen bg-[#1f6ac6] text-white overflow-hidden relative font-sans ${isAnimationsDisabled ? 'disable-animations' : ''}`}>
@@ -1354,6 +1558,24 @@ export function JokesterHostContent() {
                           burstCount={20}
                         />
                         <p className="text-sm font-black text-black truncate">{p.name}</p>
+                        <div className="mt-3 grid grid-cols-1 gap-2">
+                          <button
+                            type="button"
+                            disabled={managingPlayerIds.has(p.id)}
+                            onClick={() => { void movePlayerToSpectators(p); }}
+                            className="px-2 py-1 rounded-xl border-2 border-black bg-purple-200 text-purple-900 text-[11px] font-black hover:bg-purple-100 disabled:opacity-50 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                          >
+                            В зрители
+                          </button>
+                          <button
+                            type="button"
+                            disabled={managingPlayerIds.has(p.id)}
+                            onClick={() => { void removeLobbyParticipant(p); }}
+                            className="px-2 py-1 rounded-xl border-2 border-black bg-red-200 text-red-900 text-[11px] font-black hover:bg-red-100 disabled:opacity-50 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                          >
+                            Удалить
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1363,8 +1585,86 @@ export function JokesterHostContent() {
                 <div className="cartoon-panel p-6">
                   <h3 className="text-2xl font-black text-purple-600 drop-shadow-[1px_1px_0_#fff] mb-4">👀 Зрители ({spectators.length})</h3>
                   <SpectatorHall count={spectators.length} total={hallSize} />
+                  {spectators.length > 0 && (
+                    <div className="mt-4 max-h-48 overflow-y-auto custom-scrollbar space-y-2 pr-1">
+                      {spectators.map(s => (
+                        <div
+                          key={s.id}
+                          className="flex items-center justify-between gap-3 bg-white border-4 border-black rounded-2xl px-3 py-2 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-sm font-black text-black truncate">{s.name || 'Зритель'}</p>
+                            <p className="text-[10px] font-bold text-gray-600 uppercase">зритель</p>
+                          </div>
+                          <button
+                            type="button"
+                            disabled={managingPlayerIds.has(s.id)}
+                            onClick={() => { void removeLobbyParticipant(s); }}
+                            className="px-3 py-1 rounded-xl border-2 border-black bg-red-200 text-red-900 text-xs font-black hover:bg-red-100 disabled:opacity-50 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                          >
+                            Удалить
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
+            </div>
+
+            <div className="cartoon-panel p-6 space-y-4">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={lotteryEnabled}
+                  onChange={e => setLotteryEnabled(e.target.checked)}
+                  className="w-6 h-6 accent-purple-600"
+                />
+                <span className="text-2xl font-black text-black">🎟 Розыгрыш промокодов среди зрителей</span>
+              </label>
+              <p className="text-sm font-bold text-gray-700">
+                Победитель выбирается среди зрителей, которые проголосовали за лучший вопрос в раунде. Код увидит только победитель на своём телефоне.
+              </p>
+              {lotteryEnabled && (
+                <div className="space-y-4">
+                  {isPanelAdmin ? (
+                    <label className="flex items-center gap-3 cursor-pointer bg-purple-100 border-4 border-black rounded-2xl px-4 py-3 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
+                      <input
+                        type="checkbox"
+                        checked={lotteryAutoGenerate}
+                        onChange={e => setLotteryAutoGenerate(e.target.checked)}
+                        className="w-5 h-5 accent-purple-600"
+                      />
+                      <span className="text-sm md:text-base font-black text-black">
+                        Автоматически создать 3 одноразовых промокода JOKE50 со скидкой 50% на Пошутикач, срок 30 дней
+                      </span>
+                    </label>
+                  ) : (
+                    <div className="bg-yellow-100 border-4 border-black rounded-2xl px-4 py-3 text-sm md:text-base font-black text-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
+                      Автогенерация промокодов доступна только после входа в кабинет администратора. Здесь можно указать только заранее созданные коды.
+                    </div>
+                  )}
+
+                  {!lotteryAutoGenerate && (
+                    <div className="grid md:grid-cols-3 gap-3">
+                      {[1, 2, 3].map(round => (
+                        <div key={round}>
+                          <label className="block text-xs font-black text-purple-700 uppercase tracking-wide mb-1">
+                            Промокод за раунд {round}
+                          </label>
+                          <input
+                            value={lotteryCodes[round] ?? ''}
+                            onChange={e => setLotteryCodes(prev => ({ ...prev, [round]: e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '') }))}
+                            placeholder={`JOKE50-R${round}`}
+                            maxLength={32}
+                            className="w-full rounded-xl border-4 border-black bg-white px-3 py-2 text-black font-black font-mono uppercase shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {gamePlayers.length >= 4 && (
@@ -1803,34 +2103,141 @@ export function JokesterHostContent() {
 
             {/* Рейтинг */}
             <div className="space-y-4">
-              {sortedByPoints.filter(p => !p.is_host).map((p, i) => (
-                <div
-                  key={p.id}
-                  className={`cartoon-panel p-4 flex items-center gap-4 transition-all panel-pulse ${
-                    i === 0 ? 'scale-[1.02]' : ''
-                  }`}
-                  style={{ animationDelay: `${i * 0.1}s`, ...panelDelayStyle(`${0.05 + i * 0.06}s`) }}
-                >
-                  <span className="text-4xl font-black text-black w-12 text-center drop-shadow-[2px_2px_0_#fff]">
-                    {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
-                  </span>
-                  <FeatherAvatar
-                    src={avatarSrc(p.avatar)}
-                    alt={p.name}
-                    className="w-24 h-24 rounded-full object-cover border-4 border-black jokester-avatar-pop"
-                    emitFeathers={emitFeathers}
-                    burstCount={18}
-                  />
-                  <div className="flex-1">
-                    <p className="font-black text-2xl text-black">{p.name}</p>
-                    <p className="text-sm text-gray-800 font-bold">
-                      👥 {p.player_votes} голосов игроков · 👀 {p.spectator_votes} голосов зрителей
-                    </p>
+              {sortedByPoints.filter(p => !p.is_host).map((p, i) => {
+                const isExpanded = selectedResultPlayerId === p.id;
+                const playerResultDuels = resultRoundDuels.filter(d => d.player1_id === p.id || d.player2_id === p.id);
+
+                return (
+                  <div
+                    key={p.id}
+                    className={`cartoon-panel w-full overflow-hidden transition-all duration-500 ease-out panel-pulse ${
+                      i === 0 ? 'scale-[1.02]' : ''
+                    } ${
+                      isExpanded ? 'ring-4 ring-purple-500 bg-purple-100 shadow-[12px_12px_0px_0px_rgba(0,0,0,1)]' : ''
+                    }`}
+                    style={{ animationDelay: `${i * 0.1}s`, ...panelDelayStyle(`${0.05 + i * 0.06}s`) }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setSelectedResultPlayerId(prev => prev === p.id ? null : p.id)}
+                      className="w-full p-4 flex items-center gap-4 text-left transition-all hover:bg-white/30 focus:outline-none focus:ring-4 focus:ring-purple-400"
+                      aria-expanded={isExpanded}
+                    >
+                      <span className="text-4xl font-black text-black w-12 text-center drop-shadow-[2px_2px_0_#fff]">
+                        {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
+                      </span>
+                      <FeatherAvatar
+                        src={avatarSrc(p.avatar)}
+                        alt={p.name}
+                        className="w-24 h-24 rounded-full object-cover border-4 border-black jokester-avatar-pop"
+                        emitFeathers={emitFeathers}
+                        burstCount={18}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-black text-2xl text-black truncate">{p.name}</p>
+                        <p className="text-sm text-gray-800 font-bold">
+                          👥 {p.player_votes} голосов игроков · 👀 {p.spectator_votes} голосов зрителей
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <AnimatedScore value={p.total_points} className="text-4xl font-black text-purple-600 drop-shadow-[2px_2px_0_#000]" />
+                        <span className={`text-3xl font-black text-black transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
+                          ▼
+                        </span>
+                      </div>
+                    </button>
+
+                    <div className={`grid transition-all duration-500 ease-out ${
+                      isExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+                    }`}>
+                      <div className="overflow-hidden">
+                        <div className="px-4 pb-4 pt-1 space-y-3">
+                          {playerResultDuels.length > 0 ? (
+                            playerResultDuels.map((duel, idx) => {
+                              const answer = roundResultsAnswers.find(
+                                a => a.duel_id === duel.id && a.player_id === p.id && a.question_index === 0,
+                              );
+                              const opponentId = duel.player1_id === p.id ? duel.player2_id : duel.player1_id;
+                              const opponent = players.find(player => player.id === opponentId);
+
+                              return (
+                                <div
+                                  key={duel.id}
+                                  className="rounded-2xl border-4 border-black bg-yellow-50 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] animate-[fadeIn_0.25s_ease]"
+                                >
+                                  <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                                    <p className="text-xs font-black text-purple-700 uppercase tracking-wide">
+                                      Вопрос {idx + 1}{opponent ? ` · против ${opponent.name}` : ''}
+                                    </p>
+                                    <span className={`px-3 py-1 rounded-full border-2 border-black text-xs font-black ${
+                                      answer?.answer_text ? 'bg-green-200 text-green-900' : 'bg-red-200 text-red-900'
+                                    }`}>
+                                      {answer?.answer_text ? 'Ответ дан' : 'Нет ответа'}
+                                    </span>
+                                  </div>
+                                  <p className="text-lg font-black text-black mb-3 leading-snug">
+                                    {duel.question1_text || 'Вопрос не найден'}
+                                  </p>
+                                  <div className="bg-white rounded-xl border-2 border-black p-3">
+                                    <p className="text-xs font-black text-gray-500 uppercase tracking-wide mb-1">Ответ игрока</p>
+                                    <p className="text-2xl font-black text-black jokester-answer-font">
+                                      {answer?.answer_text?.trim() || 'Ответ не был дан'}
+                                    </p>
+                                  </div>
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <p className="rounded-2xl border-4 border-black bg-yellow-50 p-4 text-xl font-black text-gray-700">
+                              Для этого игрока в текущем раунде вопросы не найдены.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <AnimatedScore value={p.total_points} className="text-4xl font-black text-purple-600 drop-shadow-[2px_2px_0_#000]" />
-                </div>
-              ))}
+                );
+              })}
             </div>
+
+            {roundTopQuestions.length > 0 && (
+              <div className="bg-white border-4 border-black rounded-3xl p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+                <h3 className="text-3xl font-black text-black text-center mb-4">
+                  Топ вопросов раунда
+                </h3>
+                <div className="space-y-3">
+                  {roundTopQuestions.slice(0, 5).map((item, idx) => (
+                    <div
+                      key={item.duel.id}
+                      className="rounded-2xl border-4 border-black bg-yellow-50 p-4 text-left shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                    >
+                      <div className="flex items-center justify-between gap-3 mb-2">
+                        <p className="text-sm font-black text-purple-700 uppercase tracking-wide">
+                          #{idx + 1} · {categoryLabel(item.duel.question1_cat)}
+                        </p>
+                        <span className="px-3 py-1 rounded-full bg-purple-200 border-2 border-black text-sm font-black text-purple-900">
+                          {item.votes} голосов
+                        </span>
+                      </div>
+                      <p className="text-xl font-black text-black leading-snug">
+                        {item.duel.question1_text || 'Вопрос не найден'}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {room.status === 'round_results' && currentLotteryPrize?.promo_code && (
+              <div className="bg-purple-950/80 border-4 border-black rounded-3xl p-6 text-center shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+                <h3 className="text-3xl font-black text-yellow-300 mb-2">🎟 Лотерея зрителей</h3>
+                <p className="text-xl font-black text-white">
+                  {currentLotteryPrize.winner_id
+                    ? 'Промокод отправлен счастливому зрителю на телефон.'
+                    : 'Промокод подготовлен. Победитель появится, если были голоса за вопросы.'}
+                </p>
+              </div>
+            )}
 
             {/* Best answer */}
             {bestAnswer && (
@@ -1916,6 +2323,29 @@ export function JokesterHostContent() {
               ))}
 
               <div className="h-12" />
+
+              {creditsTopQuestions.length > 0 && (
+                <>
+                  <h3 className="text-4xl font-black text-white drop-shadow-[2px_2px_0_#000]">Топ вопросов игры</h3>
+                  {creditsTopQuestions.map((item, i) => (
+                    <div key={item.duel.id} className="cartoon-panel p-6 text-left max-w-3xl mx-auto">
+                      <p className="text-sm text-purple-700 font-black mb-2 uppercase tracking-wide">
+                        #{i + 1} · Раунд {item.duel.round} · {item.votes} голосов
+                      </p>
+                      <p className="text-2xl font-black text-black">{item.duel.question1_text}</p>
+                      {item.bestAnswer && (
+                        <div className="mt-4 bg-white border-2 border-black rounded-2xl p-4">
+                          <p className="text-sm text-gray-700 font-black mb-2">
+                            Лучший ответ ({item.bestAnswer.votes} голосов): {item.bestAnswer.playerName}
+                          </p>
+                          <p className="text-2xl font-black text-black jokester-answer-font">« {item.bestAnswer.text} »</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  <div className="h-12" />
+                </>
+              )}
 
               <h3 className="text-4xl font-black text-white drop-shadow-[2px_2px_0_#000]">Все участники</h3>
               {creditsRanks.map((row, i) => (

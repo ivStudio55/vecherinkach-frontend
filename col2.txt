@@ -1,0 +1,72 @@
+lg:grid-cols-[1.15fr,0.95fr] gap-6">
+              <div className="space-y-5">
+                <div className="comic-panel bg-[#fff] p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="comic-font text-xs tracking-[0.4em] text-[#142a45]/70">╨▓╨╡╤З╨╡╤А╨╕╨╜╨║╨░╤З</p>
+                      <p className="text-2xl comic-font text-[#142a45]">╨Я╨░╨╜╨╡╨╗╤М ╤Г╨┐╤А╨░╨▓╨╗╨╡╨╜╨╕╤П</p>
+                    </div>
+                    <span className="px-3 py-1 rounded-full text-xs comic-font tracking-[0.3em] bg-[#ffde00] text-[#000] border-2 border-black animate-pulse">LIVE</span>
+                  </div>
+                  <div className="flex flex-wrap gap-3 text-sm comic-font">
+                    <button
+                      type="button"
+                      onClick={openStreamsModal}
+                      className="px-4 py-2 rounded-full border-2 border-[#142a45] bg-white hover:bg-[#ffe184] transition-colors relative"
+                    >
+                      ЁЯУ║ ╨в╤А╨░╨╜╤Б╨╗╤П╤Ж╨╕╨╕
+                      {hasLiveStream && (
+                        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500 border border-black animate-pulse" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={playRandomMeet}
+                      disabled={isMeetPlaying}
+                      className={`px-4 py-2 rounded-full border-2 border-[#142a45] bg-white hover:bg-[#ffe184] transition-colors ${isMeetPlaying ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      ╨г╤З╨╡╨╜╨╕╨╡
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        trackGameEvent('home_donate_click', { provider: 'donatty' });
+                        window.open('https://donatty.com/aleksandri', '_blank');
+                      }}
+                      className="px-4 py-2 rounded-full border-2 border-[#142a45] bg-white hover:bg-[#ffe184] transition-colors"
+                    >
+                      ╨Я╨╛╨┤╨┤╨╡╤А╨╢╨║╨░
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        trackGameEvent('home_contact_open');
+                        setShowContactModal(true);
+                      }}
+                      className="px-4 py-2 rounded-full border-2 border-[#142a45] bg-white hover:bg-[#ffe184] transition-colors"
+                    >
+                      ╨б╨▓╤П╨╖╨░╤В╤М╤Б╤П
+                    </button>
+                    <a
+                      href="/pricing"
+                      className="px-4 py-2 rounded-full border-2 border-[#142a45] bg-white hover:bg-[#ffe184] transition-colors"
+                    >
+                      ╨Ъ╤Г╨┐╨╕╤В╤М
+                    </a>
+                  </div>
+                </div>
+
+                <div className="rounded-3xl border-[3px] border-[#142a45] bg-[#fdd17a] p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">╨н╨╝╨╛╤Ж╨╕╨╕</p>
+                    <span className="text-lg" aria-label="╨в╨╡╨║╤Г╤Й╨░╤П ╤Н╨╝╨╛╤Ж╨╕╤П">
+                      {emotionEmoji}
+                    </span>
+                  </div>
+                  <div className="h-3 rounded-full bg-white/50 relative">
+                    <div
+                      className="absolute inset-y-0 left-0 bg-[#1f6ac6] rounded-full"
+                      style={{ width: `${emotionPercent}%` }}
+                    />
+                    <div
+                      className="absolute -top-2 h-7 w-7 rounded-full border-2 border-[#142a45] bg-white flex items

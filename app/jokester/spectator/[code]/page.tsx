@@ -4,13 +4,14 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import {
   fetchJokesterRoom,
   fetchJokesterPlayers,
   fetchJokesterDuels,
   fetchDuelAnswers,
   fetchDuelVotes,
+  fetchCategoryVotes,
   subscribeJokesterRoom,
   subscribeJokesterPlayers,
   subscribeJokesterDuels,
@@ -33,6 +34,8 @@ import type {
 import { VOTE_TIME_SEC, ANSWER_TIME_SEC } from '@/lib/jokester/types';
 import { supabase } from '@/lib/supabase';
 
+const QUESTION_VOTE_PREFIX = 'question:';
+
 function normalizeAvatarFile(value?: string | null): string {
   if (!value) return '1.png';
   const match = value.match(/^ava(\d+)\.png$/i);
@@ -49,6 +52,7 @@ const panelDelayStyle = (value: string): CSSProperties => ({ '--panel-delay': va
 
 export default function JokesterSpectatorPage() {
   const params = useParams();
+  const router = useRouter();
   const roomCode = params.code as string;
 
   const [room, setRoom] = useState<JokesterRoom | null>(null);
@@ -60,6 +64,8 @@ export default function JokesterSpectatorPage() {
   const [timer, setTimer] = useState(0);
   const [myVote, setMyVote] = useState<string | null>(null);
   const [myCatVotes, setMyCatVotes] = useState<Set<string>>(new Set());
+  const [myQuestionVote, setMyQuestionVote] = useState<string | null>(null);
+  const [myLotteryPrizes, setMyLotteryPrizes] = useState<Array<{ round: number; promo_code: string }>>([]);
   const [duelReveal, setDuelReveal] = useState<{ winnerName: string; winnerAnswer: string; question: string } | null>(null);
   const [isAnimationsDisabled, setIsAnimationsDisabled] = useState(false);
 
@@ -120,7 +126,14 @@ export default function JokesterSpectatorPage() {
 
   /* ─── Category votes ─── */
   useEffect(() => {
-    if (!room || room.status !== 'category_vote') return;
+    if (!room) return;
+    const shouldTrackVotes =
+      room.status === 'category_vote' ||
+      ((room.status === 'round_playing' || room.status === 'final_playing') && room.voting_phase === 'answering') ||
+      room.status === 'round_results' ||
+      room.status === 'final_results';
+    if (!shouldTrackVotes) return;
+    fetchCategoryVotes(room.id, room.current_round).then(setCategoryVotes);
     return subscribeJokesterCategoryVotes(room.id, room.current_round, setCategoryVotes);
   }, [room?.id, room?.status, room?.current_round]);
 
@@ -190,9 +203,44 @@ export default function JokesterSpectatorPage() {
   }, [currentDuel?.id, room?.voting_phase, room?.current_round, room?.current_duel_index, players]);
 
   const gamePlayers = players.filter(p => p.role === 'player' && !p.is_host);
+  const me = players.find(p => p.id === myId);
   const sortedByPoints = [...gamePlayers].sort((a, b) => b.total_points - a.total_points);
+  const roundDuels = duels
+    .filter(d => d.round === room?.current_round)
+    .sort((a, b) => a.duel_index - b.duel_index);
+  const questionVoteKey = (duelId: string) => `${QUESTION_VOTE_PREFIX}${duelId}`;
+  const currentLotteryPrize = myLotteryPrizes.find(p => p.round === room?.current_round) ?? myLotteryPrizes[myLotteryPrizes.length - 1];
   const p1 = players.find(p => p.id === currentDuel?.player1_id);
   const p2 = players.find(p => p.id === currentDuel?.player2_id);
+
+  useEffect(() => {
+    setMyQuestionVote(null);
+  }, [room?.current_round]);
+
+  useEffect(() => {
+    const existingVote = categoryVotes.find(
+      v => v.voter_id === myId && v.category.startsWith(QUESTION_VOTE_PREFIX),
+    );
+    if (existingVote) setMyQuestionVote(existingVote.category);
+  }, [categoryVotes, myId]);
+
+  useEffect(() => {
+    if (!room || !myId) return;
+    if (!['round_results', 'final_results', 'credits'].includes(room.status)) return;
+    let cancelled = false;
+    const loadPrize = async () => {
+      const res = await fetch(`/api/jokester/lottery?room_id=${encodeURIComponent(room.id)}&player_id=${encodeURIComponent(myId)}`);
+      if (!res.ok || cancelled) return;
+      const data = await res.json();
+      if (Array.isArray(data)) setMyLotteryPrizes(data);
+    };
+    void loadPrize();
+    const intervalId = setInterval(loadPrize, 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
+  }, [room?.id, room?.status, myId]);
 
   const handleCategoryVote = async (catId: string) => {
     if (!room || myCatVotes.has(catId)) return;
@@ -201,11 +249,39 @@ export default function JokesterSpectatorPage() {
     await submitCategoryVote(room.id, room.current_round, myId, catId);
   };
 
+  const handleQuestionVote = async (duelId: string) => {
+    if (!room || myQuestionVote) return;
+    const voteKey = questionVoteKey(duelId);
+    setMyQuestionVote(voteKey);
+    await submitCategoryVote(room.id, room.current_round, myId, voteKey);
+  };
+
   const handleVote = async (votedForId: string) => {
     if (!currentDuel || myVote) return;
     setMyVote(votedForId);
     await submitDuelVote(currentDuel.id, myId, 0, votedForId, 'spectator');
   };
+
+  if (room && myId && players.length > 0 && !me) {
+    return (
+      <div className="min-h-screen bg-[#1f6ac6] flex items-center justify-center p-4">
+        <div className="cartoon-panel p-6 text-center space-y-4 max-w-sm">
+          <div className="text-6xl">🚪</div>
+          <h1 className="text-2xl font-black text-black">Вы удалены из комнаты</h1>
+          <p className="text-gray-800 font-bold">Ведущий убрал это подключение до начала игры.</p>
+          <button
+            onClick={() => {
+              jokesterStorage.clear();
+              router.replace('/jokester');
+            }}
+            className="cartoon-button-purple w-full py-3"
+          >
+            Вернуться к подключению
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!room) {
     return (
@@ -380,6 +456,47 @@ export default function JokesterSpectatorPage() {
             <p className="text-xl font-black text-white drop-shadow-[2px_2px_0_#000]">
               {room.status === 'final_playing' ? 'ФИНАЛ! Два лучших игрока сражаются!' : 'Дуэлянты отвечают на вопросы...'}
             </p>
+            {roundDuels.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="text-lg font-black text-white drop-shadow-[2px_2px_0_#000]">
+                  Голосуй за лучший вопрос
+                </h3>
+                <div className="space-y-3">
+                  {roundDuels.map((duel, idx) => {
+                    const voteKey = questionVoteKey(duel.id);
+                    const selected = myQuestionVote === voteKey;
+                    return (
+                      <button
+                        key={duel.id}
+                        type="button"
+                        onClick={() => handleQuestionVote(duel.id)}
+                        disabled={!!myQuestionVote}
+                        className={`cartoon-panel w-full p-4 text-left panel-pulse transition-all active:scale-95 ${
+                          selected ? 'bg-purple-600 text-white ring-4 ring-white' : 'disabled:opacity-75'
+                        }`}
+                        style={panelDelayStyle(`${0.08 + idx * 0.05}s`)}
+                      >
+                        <div className="flex items-center justify-between gap-3 mb-1">
+                          <p className={`text-xs font-black uppercase tracking-wide ${selected ? 'text-white' : 'text-purple-700'}`}>
+                            Вопрос {idx + 1}
+                          </p>
+                          <span className={`px-3 py-1 rounded-full border-2 border-black text-xs font-black ${
+                            selected ? 'bg-white text-purple-700' : 'bg-purple-100 text-purple-700'
+                          }`}>
+                            {selected ? 'Выбран' : myQuestionVote ? 'Голос принят' : 'Выбрать'}
+                          </span>
+                        </div>
+                        <p className={`text-lg font-black leading-snug rounded-xl p-3 border-2 border-black ${
+                          selected ? 'bg-white text-black' : 'bg-transparent text-black'
+                        }`}>
+                          {duel.question1_text || 'Вопрос скоро появится'}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             <p className="text-sm font-bold text-white drop-shadow-[1px_1px_0_#000]">Скоро голосование!</p>
           </div>
         )}
@@ -390,6 +507,15 @@ export default function JokesterSpectatorPage() {
             <h2 className="text-2xl font-black text-center text-white drop-shadow-[2px_2px_0_#000]">
               {room.status === 'final_results' ? '🏆 Итоги финала' : `Итоги раунда ${room.current_round}`}
             </h2>
+            {currentLotteryPrize && (
+              <div className="cartoon-panel p-5 text-center space-y-3 panel-pulse">
+                <p className="text-2xl font-black text-purple-700">🎁 Вы выиграли промокод!</p>
+                <p className="text-sm font-bold text-gray-700">Скидка на платный пакет Пошутикача</p>
+                <div className="bg-black text-yellow-300 rounded-2xl border-4 border-purple-700 px-4 py-3 font-mono text-3xl font-black tracking-widest">
+                  {currentLotteryPrize.promo_code}
+                </div>
+              </div>
+            )}
             <div className="space-y-3">
               {sortedByPoints.filter(p => !p.is_host).map((p, i) => (
                 <div

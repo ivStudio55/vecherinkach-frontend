@@ -10,6 +10,7 @@ const GAME_LABELS: Record<string, string> = {
   vecherinkach: 'Вечеринкач',
   jokester: 'Пошутикач',
   creativach: 'Креативач',
+  draw: 'Рисункач',
 };
 
 function generateGameCode(): string {
@@ -52,6 +53,38 @@ async function createJokesterRoom(packId: string) {
   throw new Error('Could not generate unique jokester code');
 }
 
+async function createDrawRoom(packId: string) {
+  const supabase = getSupabaseAdminClient();
+  for (let i = 0; i < 10; i++) {
+    const code = generateGameCode();
+    const { data: room, error } = await supabase
+      .from('draw_rooms')
+      .insert({ code, status: 'lobby', mode: 'russian', pack_id: packId })
+      .select('id, code')
+      .single();
+    if (error) {
+      if ((error as { code?: string }).code === '23505') continue;
+      throw new Error(`draw_rooms insert: ${error.message}`);
+    }
+    if (!room) continue;
+    const { data: player, error: pe } = await supabase
+      .from('draw_players')
+      .insert({ room_id: room.id, name: 'Ведущий', is_host: true, seat: 1 })
+      .select('id')
+      .single();
+    if (pe || !player) throw new Error(`draw_players insert: ${pe?.message}`);
+    await supabase.from('draw_rooms').update({ host_id: player.id }).eq('id', room.id);
+    return { id: room.id as string, code: room.code as string };
+  }
+  throw new Error('Could not generate unique draw code');
+}
+
+async function createPaidRoom(game: string, packId: string) {
+  if (game === 'jokester') return createJokesterRoom(packId);
+  if (game === 'draw') return createDrawRoom(packId);
+  return createVecherinkachRoom(packId);
+}
+
 async function resolveOrder(orderId: string) {
   const supabase = getSupabaseAdminClient();
 
@@ -89,9 +122,7 @@ async function resolveOrder(orderId: string) {
 
   if (!hasRealRoom && order.pack_id) {
     try {
-      const roomInfo = order.game === 'jokester'
-        ? await createJokesterRoom(order.pack_id)
-        : await createVecherinkachRoom(order.pack_id);
+      const roomInfo = await createPaidRoom(order.game, order.pack_id);
       await supabase
         .from('orders')
         .update({ room_code: roomInfo.code, room_id: roomInfo.id, status: 'paid' })
@@ -142,6 +173,8 @@ export default async function PaymentSuccessPage({ searchParams }: Props) {
   const hostUrl =
     order.game === 'jokester'
       ? (isRealRoomCode ? `/jokester/host/${order.room_code}` : null)
+      : order.game === 'draw'
+      ? (isRealRoomCode ? `/draw/host/${order.room_code}` : null)
       : order.room_id ? `/host/${order.room_id}` : null;
 
   if (order.status === 'paid' && (isRealRoomCode || order.room_id) && hostUrl) {

@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
-import { getSupabaseAdminClient } from '@/lib/supabaseAdmin.server';
+import { queryOne } from '@/lib/db.server';
 
 export const runtime = 'nodejs';
 
 const JWT_SECRET = process.env.SUPABASE_JWT_SECRET;
-// На Supabase: 'authenticated'. На Timeweb (gen_user-only): 'gen_user'
 const DB_JWT_ROLE = process.env.DB_JWT_ROLE ?? 'authenticated';
 
 type RoomTokenPayload = { roomId?: string; roomCode?: string; playerId?: string };
@@ -23,11 +22,12 @@ const createRoomTokenResponse = async (payload: RoomTokenPayload) => {
     return NextResponse.json({ error: 'roomId is required' }, { status: 400 });
   }
 
-  const admin = getSupabaseAdminClient();
-  const roomQuery = admin.from('rooms').select('id, code').eq('id', roomId).single();
-  const { data: room, error: roomError } = await roomQuery;
+  const room = await queryOne<{ id: string; code: string }>(
+    'select id, code from rooms where id = $1',
+    [roomId],
+  );
 
-  if (roomError || !room) {
+  if (!room) {
     return NextResponse.json({ error: 'Room not found' }, { status: 404 });
   }
 
@@ -36,14 +36,11 @@ const createRoomTokenResponse = async (payload: RoomTokenPayload) => {
   }
 
   if (playerId) {
-    const { data: player, error: playerError } = await admin
-      .from('players')
-      .select('id, room_id')
-      .eq('id', playerId)
-      .eq('room_id', roomId)
-      .maybeSingle();
-
-    if (playerError || !player) {
+    const player = await queryOne<{ id: string; room_id: string }>(
+      'select id, room_id from players where id = $1 and room_id = $2',
+      [playerId, roomId],
+    );
+    if (!player) {
       return NextResponse.json({ error: 'Player not found in room' }, { status: 403 });
     }
   }

@@ -1,26 +1,27 @@
-import { getSupabaseAdminClient } from '@/lib/supabaseAdmin.server';
+import { query } from '@/lib/db.server';
+import { json, jsonError, withCacheControl } from '@/lib/server/api';
+
+type Round4CategoryRow = {
+  name: string;
+  folder_key: string;
+  audio_variants: number;
+};
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const supabase = getSupabaseAdminClient();
-    const { data, error } = await supabase
-      .from('round4_categories')
-      .select('name, folder_key, audio_variants')
-      .eq('is_active', true)
-      .order('name', { ascending: true });
+    const data = await query<Round4CategoryRow>(
+      `select name, folder_key, audio_variants
+       from round4_categories
+       where is_active = true
+       order by name asc`,
+    );
 
-    if (error) {
-      return Response.json({ error: error.message }, { status: 500 });
-    }
-
-    return Response.json(data ?? [], {
-      headers: { 'Cache-Control': 'public, max-age=60, s-maxage=120' },
-    });
+    return json(data, withCacheControl('public, max-age=60, s-maxage=120'));
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
-    return Response.json({ error: msg }, { status: 500 });
+    return jsonError(msg, 500);
   }
 }

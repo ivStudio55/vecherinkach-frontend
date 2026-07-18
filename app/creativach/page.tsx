@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react';
 import type { CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
+import { GameConnectionGuide } from '@/components/GameConnectionGuide';
 import {
   createCreativachRoom,
   joinCreativachRoom,
@@ -189,6 +190,14 @@ export default function CreativachEntryPage() {
             }`}
           >🎮 Присоединиться</button>
         </div>
+
+        <GameConnectionGuide
+          gameName="Креативач"
+          variant="light"
+          hostScreenText="Экран ведущего лучше открыть на отдельном большом устройстве: ноутбуке, телевизоре или проекторе. Там будет видно задания, ход раундов, голосование и результаты."
+          playerText="Игроки подключаются каждый со своего телефона, вводят код комнаты, выбирают аватар и отправляют ответы на личном экране."
+          spectatorText="Зрители могут подключиться отдельно со своих телефонов и голосовать, не занимая место основного игрока."
+        />
 
         {/* ─── Create ─── */}
         {tab === 'create' && (

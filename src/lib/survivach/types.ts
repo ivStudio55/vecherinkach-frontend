@@ -58,6 +58,7 @@ export interface SurvivachRoom {
   round_results_data: RoundResultsData | null;
   bet_results_data: BetResultsData | null;
   duel_data: DuelData | null;
+  duel_initiated_in_round?: number | null;
   host_id: string | null;
   state_version: number;
   created_at: string;
@@ -93,12 +94,15 @@ export interface SurvivachAnswer {
   submitted_at: string;
 }
 
+export type BetOption = 'all_correct' | 'majority_correct' | 'leader_mistake' | 'all_wrong';
+
 export interface SurvivachBet {
   id: string;
   room_id: string;
   player_id: string;
   round: number;
   bet_type: 'karma' | 'life';
+  bet_option: BetOption;
   resolved: boolean;
   won: boolean | null;
   created_at: string;
@@ -247,6 +251,7 @@ export interface BetResultsData {
   bets: Array<{
     player_id: string;
     bet_type: 'karma' | 'life';
+    bet_option: BetOption;
     won: boolean;
   }>;
 }

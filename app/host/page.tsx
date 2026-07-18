@@ -31,6 +31,7 @@ function HostPageInner() {
   const [promoError, setPromoError] = useState('');
   const [isRoleNoticeOpen, setIsRoleNoticeOpen] = useState(true);
   const [isAnimationsDisabled, setIsAnimationsDisabled] = useState(false);
+  const [isConnectionGuideOpen, setIsConnectionGuideOpen] = useState(false);
   const [packOptions, setPackOptions] = useState(QUESTION_PACKS);
   const [packId, setPackId] = useState<PackId>(() => {
     if (typeof window === 'undefined') {
@@ -478,22 +479,42 @@ function HostPageInner() {
                 } relative overflow-hidden animate-host-panel`}
                 style={{ animationDelay: '180ms' }}
               >
+                <button
+                  type="button"
+                  onClick={() => setIsConnectionGuideOpen(open => !open)}
+                  aria-expanded={isConnectionGuideOpen}
+                  className="flex w-full items-center justify-between gap-4 text-left"
+                >
+                  <div className="min-w-0">
+                    <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Инструкция по подключению</p>
+                    <h2 className={`${isCompactLayout ? 'text-xl' : 'text-2xl'} font-black`}>Ведущий отдельно, игроки с телефонов</h2>
+                    <p className={`${isCompactLayout ? 'text-xs' : 'text-sm'} text-[#142a45]/70 line-clamp-1`}>
+                      Нажмите, чтобы открыть короткую схему подключения.
+                    </p>
+                  </div>
+                  <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full border-[3px] border-[#142a45] bg-[#fff6da] font-black transition-transform ${isConnectionGuideOpen ? 'rotate-180' : ''}`}>
+                    ↓
+                  </span>
+                </button>
+                <div className={`grid transition-all duration-300 ease-out ${isConnectionGuideOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
+                  <div className="overflow-hidden space-y-4">
                 <div className="space-y-2">
                   <p className="retro-heading text-xs tracking-[0.4em] text-[#142a45]/70">Инструкция по подключению</p>
                   <h2 className={`${isCompactLayout ? 'text-xl' : 'text-2xl'} font-black`}>Подключайтесь за минуту</h2>
                   <p className={`${isCompactLayout ? 'text-xs' : 'text-sm'} text-[#142a45]/80`}>
-                    Экран ведущего обязательно открывайте на большом экране и в горизонтальной ориентации — на телефоне выглядит ужасно.
+                    Экран ведущего открывайте на отдельном устройстве: ноутбуке, телевизоре, проекторе или другом большом экране.
+                    На нём будут вопросы, таймеры, результаты и комментарии ведущего; игроки отвечают со своих телефонов.
                   </p>
                 </div>
                 <div className={`grid ${isMobileLayout ? 'gap-4' : 'gap-6 lg:grid-cols-[1.2fr,0.8fr]'}`}>
                   <ol className={`${isCompactLayout ? 'text-xs' : 'text-sm'} space-y-3 font-semibold text-[#142a45]/80`}>
                     <li className="flex gap-3">
                       <span className="w-9 h-9 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">1</span>
-                      Ведущий запускает игру на большом экране, выбирает пакет и создаёт комнату — появятся код и QR для входа.
+                      Ведущий запускает игру на отдельном большом экране, выбирает пакет и создаёт комнату — появятся код и QR для входа.
                     </li>
                     <li className="flex gap-3">
                       <span className="w-9 h-9 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">2</span>
-                      Игроки открывают vecherinkach.ru/join на телефонах, вводят код комнаты и своё имя.
+                      Игроки открывают vecherinkach.ru/join на своих телефонах, вводят код комнаты и своё имя.
                     </li>
                     <li className="flex gap-3">
                       <span className="w-9 h-9 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">3</span>
@@ -501,59 +522,19 @@ function HostPageInner() {
                     </li>
                     <li className="flex gap-3">
                       <span className="w-9 h-9 rounded-full border-[3px] border-[#142a45] flex items-center justify-center font-black">4</span>
-                      Нужна помощь? Пишите в наш Telegram: t.me/vecherinkach и в VK: vk.com/vecherinkach — отвечаем быстро.
+                      Нужна помощь или хотите задать вопрос? Пишите в Telegram: @Al_ivStudio — отвечаем быстро.
                     </li>
                   </ol>
-                  <div className={`grid gap-4 ${isMobileLayout ? 'grid-cols-1' : 'sm:grid-cols-3'}`}>
-                    <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-white p-3 text-center">
-                      <p className="text-xs font-semibold text-[#142a45]/70">Telegram</p>
-                      <img
-                        src="/qr-code_telegram.png"
-                        alt="QR код Telegram"
-                        className={`mx-auto mt-2 ${isMobileLayout ? 'h-28 w-28' : 'h-36 w-36'} rounded-xl border-[2px] border-[#142a45]/20 bg-white`}
-                      />
-                      <a
-                        href="https://t.me/vecherinkach"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-2 inline-block text-xs font-semibold text-[#142a45] underline underline-offset-4"
-                      >
-                        t.me/vecherinkach
-                      </a>
-                    </div>
-                    <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-white p-3 text-center">
-                      <p className="text-xs font-semibold text-[#142a45]/70">Join</p>
-                      <img
-                        src="/qr-code.png"
-                        alt="QR код для подключения"
-                        className={`mx-auto mt-2 ${isMobileLayout ? 'h-28 w-28' : 'h-36 w-36'} rounded-xl border-[2px] border-[#142a45]/20 bg-white`}
-                      />
-                    </div>
-                    <div className="rounded-2xl border-[3px] border-[#142a45]/20 bg-white p-3 text-center">
-                      <p className="text-xs font-semibold text-[#142a45]/70">VK</p>
-                      <img
-                        src="/qr-code_VK.png"
-                        alt="QR код VK"
-                        className={`mx-auto mt-2 ${isMobileLayout ? 'h-28 w-28' : 'h-36 w-36'} rounded-xl border-[2px] border-[#142a45]/20 bg-white`}
-                      />
-                      <a
-                        href="https://vk.com/vecherinkach"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-2 inline-block text-xs font-semibold text-[#142a45] underline underline-offset-4"
-                      >
-                        vk.com/vecherinkach
-                      </a>
-                    </div>
-                  </div>
                 </div>
                 <div className={`relative rounded-2xl border-[3px] border-dashed border-[#142a45]/50 bg-[#fff6da] ${
                   isCompactLayout ? 'px-3 py-2 text-xs' : 'px-4 py-3 text-sm'
                 }`}>
                   <p className="font-semibold">На связи</p>
                   <p className="text-[#142a45]/70">
-                    Подписывайтесь на канал в Telegram и сообщество ВК — там новости, обновления пакетов и быстрые ответы на вопросы.
+                    Контакт для связи: Telegram @Al_ivStudio.
                   </p>
+                </div>
+                  </div>
                 </div>
               </div>
             </section>

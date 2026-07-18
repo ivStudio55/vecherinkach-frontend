@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useState, useEffect, Suspense } from 'react';
 import type { CSSProperties } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { GameConnectionGuide } from '@/components/GameConnectionGuide';
 import { createJokesterRoom, joinJokesterRoom, fetchJokesterPlayers, fetchJokesterRoom, jokesterStorage } from '@/lib/jokester/api';
 import type { JokesterRole } from '@/lib/jokester/types';
 
@@ -253,6 +254,14 @@ function JokesterEntryPage() {
             🎮 Присоединиться
           </button>
         </div>
+
+        <GameConnectionGuide
+          gameName="Пошутикач"
+          variant="light"
+          hostScreenText="Откройте экран ведущего на отдельном устройстве, лучше на ноутбуке, телевизоре или проекторе. Там будут дуэли, вопросы, результаты голосования и общий ход игры."
+          playerText="Основные игроки заходят с телефонов, выбирают аватар и отвечают на свои вопросы. Не используйте телефон ведущего для игры."
+          spectatorText="Зрители тоже подключаются со своих телефонов в роли «Зритель»: они смотрят раунд и голосуют за лучшие ответы и вопросы."
+        />
 
         {/* ─── Create ─── */}
         {tab === 'create' && (

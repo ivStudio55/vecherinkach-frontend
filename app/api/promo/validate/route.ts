@@ -1,37 +1,26 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseAdminClient } from '@/lib/supabaseAdmin.server';
+import { NextRequest } from 'next/server';
+import { queryOne } from '@/lib/db.server';
+import {
+  applyPromoDiscount,
+  buildPromoLabel,
+  FALLBACK_GAME_PRICES,
+  normalizePromoCode,
+  type PromoCodeRow,
+  type SupportedPaidGame,
+} from '@/lib/payments/pricing';
+import { json, jsonError } from '@/lib/server/api';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const FALLBACK_PRICES: Record<string, number> = {
-  vecherinkach: 300,
-  jokester: 200,
-  creativach: 200,
+const SUPPORTED_GAMES = new Set<SupportedPaidGame>(['vecherinkach', 'jokester', 'creativach', 'draw']);
+const PACK_TABLE_BY_GAME: Record<SupportedPaidGame, string> = {
+  vecherinkach: 'question_packs',
+  jokester: 'jokester_question_packs',
+  creativach: 'question_packs',
+  draw: 'draw_packs',
 };
 
-// 5-minute price cache (same pattern as payment/create)
-let priceCache: { prices: Record<string, number>; expiresAt: number } | null = null;
-
-async function getGamePrice(game: string): Promise<number> {
-  const now = Date.now();
-  if (!priceCache || priceCache.expiresAt < now) {
-    try {
-      const supabase = getSupabaseAdminClient();
-      const { data } = await supabase.from('game_prices').select('game, price');
-      if (data && data.length > 0) {
-        const prices: Record<string, number> = { ...FALLBACK_PRICES };
-        for (const row of data) prices[row.game] = row.price;
-        priceCache = { prices, expiresAt: now + 5 * 60 * 1000 };
-      }
-    } catch {
-      // fall through to fallback
-    }
-  }
-  return priceCache?.prices[game] ?? FALLBACK_PRICES[game] ?? 300;
-}
-
-// Simple in-memory rate limiting (10 requests per IP per minute)
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 
 function isRateLimited(ip: string): boolean {
@@ -42,84 +31,76 @@ function isRateLimited(ip: string): boolean {
     return false;
   }
   if (entry.count >= 10) return true;
-  entry.count++;
+  entry.count += 1;
   return false;
 }
 
 export async function POST(req: NextRequest) {
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
   if (isRateLimited(ip)) {
-    return NextResponse.json({ valid: false, error: 'Слишком много попыток, подождите минуту' }, { status: 429 });
+    return jsonError('Слишком много попыток, подождите минуту', 429, { valid: false });
   }
 
   let body: { code?: string; game?: string; pack_id?: string };
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ valid: false, error: 'Invalid request' }, { status: 400 });
+    return jsonError('Invalid request', 400, { valid: false });
   }
 
   const { code, game, pack_id } = body;
-  if (!code || !game || !pack_id) {
-    return NextResponse.json({ valid: false, error: 'Промокод недействителен' });
+  if (!code || !game || !pack_id || !SUPPORTED_GAMES.has(game as SupportedPaidGame)) {
+    return json({ valid: false, error: 'Промокод недействителен' });
   }
 
-  const normalizedCode = code.toUpperCase().trim();
-  const supabase = getSupabaseAdminClient();
+  const normalizedGame = game as SupportedPaidGame;
+  const normalizedCode = normalizePromoCode(code);
 
-  const packTable = game === 'jokester' ? 'jokester_question_packs' : 'question_packs';
-  const [{ data }, packRow, gameDefaultPrice] = await Promise.all([
-    supabase
-      .from('promo_codes')
-      .select('discount_pct, discount_fixed, max_uses, used_count, expires_at, game, pack_id')
-      .eq('code', normalizedCode)
-      .eq('is_active', true)
-      .single(),
-    supabase.from(packTable).select('price').eq('id', pack_id).single(),
-    getGamePrice(game),
+  const [promoData, packData, gamePrice] = await Promise.all([
+    queryOne<PromoCodeRow>(
+      `select id, discount_pct, discount_fixed, used_count, max_uses, expires_at, game, pack_id
+       from promo_codes
+       where code = $1 and is_active = true`,
+      [normalizedCode],
+    ),
+    queryOne<{ price: number | null }>(
+      `select price
+       from ${PACK_TABLE_BY_GAME[normalizedGame]}
+       where id = $1`,
+      [pack_id],
+    ),
+    queryOne<{ price: number }>(
+      `select price
+       from game_prices
+       where game = $1`,
+      [normalizedGame],
+    ),
   ]);
 
-  const basePrice = (packRow.data?.price != null) ? packRow.data.price : gameDefaultPrice;
-
-  if (!data) {
-    return NextResponse.json({ valid: false, error: 'Промокод недействителен' });
+  if (!promoData) {
+    return json({ valid: false, error: 'Промокод недействителен' });
+  }
+  if (promoData.expires_at && new Date(promoData.expires_at) <= new Date()) {
+    return json({ valid: false, error: 'Срок действия промокода истёк' });
+  }
+  if (promoData.max_uses !== null && promoData.used_count >= promoData.max_uses) {
+    return json({ valid: false, error: 'Промокод уже использован максимальное количество раз' });
+  }
+  if (promoData.game && promoData.game !== normalizedGame) {
+    return json({ valid: false, error: 'Промокод недействителен для этой игры' });
+  }
+  if (promoData.pack_id && promoData.pack_id !== pack_id) {
+    return json({ valid: false, error: 'Промокод недействителен для этого пакета' });
   }
 
-  if (data.expires_at && new Date(data.expires_at) <= new Date()) {
-    return NextResponse.json({ valid: false, error: 'Срок действия промокода истёк' });
-  }
+  const basePrice = packData?.price ?? gamePrice?.price ?? FALLBACK_GAME_PRICES[normalizedGame];
+  const finalPrice = applyPromoDiscount(basePrice, promoData);
 
-  if (data.max_uses !== null && data.used_count >= data.max_uses) {
-    return NextResponse.json({ valid: false, error: 'Промокод уже использован максимальное количество раз' });
-  }
-
-  if (data.game && data.game !== game) {
-    return NextResponse.json({ valid: false, error: 'Промокод недействителен для этой игры' });
-  }
-
-  if (data.pack_id && data.pack_id !== pack_id) {
-    return NextResponse.json({ valid: false, error: 'Промокод недействителен для этого пакета' });
-  }
-
-  const afterPct = Math.round(basePrice * (1 - data.discount_pct / 100));
-  const finalPrice = Math.max(0, afterPct - data.discount_fixed);
-
-  let label = '';
-  if (finalPrice === 0) {
-    label = 'Бесплатно! 🎁';
-  } else if (data.discount_pct > 0 && data.discount_fixed > 0) {
-    label = `Скидка ${data.discount_pct}% + ${data.discount_fixed} ₽ — итого ${finalPrice} ₽`;
-  } else if (data.discount_pct > 0) {
-    label = `Скидка ${data.discount_pct}% — итого ${finalPrice} ₽`;
-  } else {
-    label = `Скидка ${data.discount_fixed} ₽ — итого ${finalPrice} ₽`;
-  }
-
-  return NextResponse.json({
+  return json({
     valid: true,
-    discount_pct: data.discount_pct,
-    discount_fixed: data.discount_fixed,
+    discount_pct: promoData.discount_pct,
+    discount_fixed: promoData.discount_fixed,
     final_price: finalPrice,
-    label,
+    label: buildPromoLabel(promoData, finalPrice),
   });
 }

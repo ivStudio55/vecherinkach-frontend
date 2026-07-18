@@ -14,6 +14,7 @@ import {
   fetchActiveDuel,
   fetchPack,
   setRoomStatus,
+  fetchLastDuelMode,
   updatePlayer,
   updatePlayers,
   loadPackQuestions,
@@ -46,7 +47,7 @@ import {
   TOTAL_CELLS,
   MEMORY_COLORS,
 } from '@/lib/survivach/board';
-import { getRandomMode } from '@/lib/survivach/gameModes';
+import { getRandomMode, getRandomDuelMode } from '@/lib/survivach/gameModes';
 import {
   SurvivachAudio,
   LOBBY_THEME,
@@ -60,6 +61,7 @@ import {
   BET_WORKED_POOL,
   BET_MIX_POOL,
   BET_UNWORKED_POOL,
+  ZOMBIE_ALL_POOL,
   DRAW_POOL,
   SUMMONED_WON_POOL,
   CALLER_WON_POOL,
@@ -91,6 +93,7 @@ import type {
   PlayerRoundResult,
   RoundResultsData,
   BetResultsData,
+  BetOption,
   MathProblem,
   InterpreterQuestion,
 } from '@/lib/survivach/types';
@@ -127,7 +130,7 @@ function checkTextAnswer(input: string, acceptList: string[]): boolean {
 }
 
 function hasAdjacentTarget(player: SurvivachPlayer, allPlayers: SurvivachPlayer[]): boolean {
-  return allPlayers.some(p => !p.is_host && p.id !== player.id && Math.abs(p.position - player.position) === 1);
+  return allPlayers.some(p => !p.is_host && p.id !== player.id && p.position === player.position + 1);
 }
 
 /* ─── Board mini-view ─── */
@@ -150,7 +153,7 @@ function BoardView({ players, leaderPosition }: { players: SurvivachPlayer[]; le
   }, {} as Record<number, SurvivachPlayer[]>);
 
   return (
-    <div className="relative w-full bg-[#1c082b] rounded-2xl md:rounded-[2rem] border-4 border-[#ff0055] min-h-[140px] shadow-[8px_8px_0_#4a044e,0_0_50px_rgba(255,0,85,0.4)] overflow-hidden p-3 md:p-8 max-w-[1500px] mx-auto my-4 isolate">
+    <div className="relative w-full bg-[#1c082b] rounded-2xl md:rounded-[1.5rem] border-4 border-[#ff0055] min-h-[100px] shadow-[8px_8px_0_#4a044e,0_0_50px_rgba(255,0,85,0.4)] overflow-hidden p-3 md:p-4 max-w-[1500px] mx-auto my-2 isolate">
       {/* Comic Book Halftone & Magic Grunge Background */}
       <div 
         className="absolute inset-0 pointer-events-none opacity-20" 
@@ -164,7 +167,7 @@ function BoardView({ players, leaderPosition }: { players: SurvivachPlayer[]; le
       <div className="absolute -bottom-10 -right-10 w-56 h-56 bg-[#059669] blur-[100px] pointer-events-none opacity-30" />
 
       {/* Grid Container Base */}
-      <div className="relative w-full aspect-[4/1] md:aspect-[13/2.2] z-10">
+      <div className="relative w-full aspect-[4/1] md:aspect-[13/1.6] z-10">
         {/* COMIC CELLS */}
         {cells.map(cell => {
           const pos = getCellPos(cell);
@@ -253,7 +256,7 @@ function BoardView({ players, leaderPosition }: { players: SurvivachPlayer[]; le
                 <img
                   src={getAvatarUrl(p.avatar, p.lives)}
                   alt={p.name}
-                  className={`w-10 h-10 md:w-16 md:h-16 object-contain pointer-events-none transition-transform duration-300 drop-shadow-[0_0_15px_rgba(255,255,255,0.4)] ${p.is_zombie ? 'saturate-[2] brightness-110 hue-rotate-[100deg]' : ''}`}
+                  className={`w-8 h-8 md:w-12 md:h-12 object-contain pointer-events-none transition-transform duration-300 drop-shadow-[0_0_15px_rgba(255,255,255,0.4)] ${p.is_zombie ? 'saturate-[2] brightness-110 hue-rotate-[100deg]' : ''}`}
                 />
                 
                 {/* Status badges with comic border */}
@@ -337,7 +340,7 @@ function PlayerCard({ player, rank, showKarma = true, hasAnswered = false }: {
 /* ══════════════════════════════════════════
    Ghost Component
    ══════════════════════════════════════════ */
-function GhostAnim({ p }: { p: { id: string, name: string, avatar: string, key?: number } }) {
+function GhostAnim({ p, onDone }: { p: { id: string, name: string, avatar: string, key?: number }; onDone?: () => void }) {
   const [done, setDone] = useState(false);
   const [params] = useState(() => ({
     x: Math.random() * 600 - 300,
@@ -350,7 +353,7 @@ function GhostAnim({ p }: { p: { id: string, name: string, avatar: string, key?:
     <div 
       className="absolute bottom-[10vh] left-1/2 -translate-x-1/2 flex flex-col items-center ghost-anim will-change-transform pointer-events-none"
       style={{ marginLeft: `${params.x}px`, animationDelay: `${params.delay}s` }}
-      onAnimationEnd={() => setDone(true)}
+      onAnimationEnd={() => { setDone(true); onDone?.(); }}
     >
       <div className="relative">
          <div className="absolute inset-0 bg-purple-500 blur-[30px] rounded-full opacity-60 mix-blend-screen scale-150" />
@@ -366,6 +369,18 @@ function GhostAnim({ p }: { p: { id: string, name: string, avatar: string, key?:
    ══════════════════════════════════════════ */
 function FinishedView({ ranked, onExit }: { ranked: ReturnType<typeof rankPlayers>; onExit: () => void }) {
   const [phase, setPhase] = useState<'intro' | 'podium' | 'credits'>('intro');
+  const [ghostKeys, setGhostKeys] = useState<Record<string, number>>({});
+
+  const lastSurvivorMode = ranked.length > 1 && ranked.filter(p => !p.is_zombie).length === 1;
+  const winner = ranked[0];
+  const ghostPlayers = ranked.slice(1);
+
+  const respawnGhost = useCallback((playerId: string) => {
+    const gap = 1500 + Math.random() * 2500;
+    setTimeout(() => {
+      setGhostKeys(prev => ({ ...prev, [playerId]: (prev[playerId] ?? 0) + 1 }));
+    }, gap);
+  }, []);
 
   useEffect(() => {
     const finalAudio = new Audio('https://storage.yandexcloud.net/vecherinkach/json/survivach/final_track/last_theme.mp3');
@@ -404,7 +419,7 @@ function FinishedView({ ranked, onExit }: { ranked: ReturnType<typeof rankPlayer
       )}
 
       {/* Phase: PODIUM */}
-      {phase === 'podium' && (
+      {phase === 'podium' && !lastSurvivorMode && (
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-8 animate-[fadeIn_1.5s_ease-out]">
           <h2 className="text-5xl font-black mb-12 text-yellow-400 tracking-widest drop-shadow-[0_0_20px_rgba(234,179,8,0.5)]">
             ВЕЛИКОЛЕПНАЯ ТРОЙКА
@@ -447,6 +462,41 @@ function FinishedView({ ranked, onExit }: { ranked: ReturnType<typeof rankPlayer
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Phase: PODIUM — Last Survivor Mode */}
+      {phase === 'podium' && lastSurvivorMode && winner && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-8 animate-[fadeIn_1.5s_ease-out]">
+          {/* Flying ghosts in background */}
+          <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+            {ghostPlayers.map(p => (
+              <GhostAnim
+                key={`${p.id}-${ghostKeys[p.id] ?? 0}`}
+                p={p}
+                onDone={() => respawnGhost(p.id)}
+              />
+            ))}
+          </div>
+
+          <h2 className="relative z-10 text-5xl font-black mb-10 text-purple-300 tracking-widest drop-shadow-[0_0_20px_rgba(168,85,247,0.7)] text-center">
+            ВЫЖИЛ ТОЛЬКО ЭТОТ ИГРОК
+          </h2>
+
+          <div className="relative z-10 flex flex-col items-center animate-[slideUp_1s_ease-out_both]" style={{ animationDelay: '1s' }}>
+            <div className="relative mb-6">
+              <div className="absolute inset-0 bg-yellow-400/30 blur-[60px] rounded-full scale-150" />
+              <div className="absolute -top-16 left-1/2 -translate-x-1/2 text-8xl animate-bounce">👑</div>
+              <img
+                src={getAvatarUrl(winner.avatar, winner.lives)}
+                alt={winner.name}
+                className="w-64 h-64 object-contain drop-shadow-[0_0_60px_rgba(250,204,21,0.9)] relative"
+              />
+            </div>
+            <span className="text-5xl font-black text-yellow-300 uppercase tracking-widest drop-shadow-[0_0_20px_rgba(250,204,21,0.7)]">
+              {winner.name}
+            </span>
           </div>
         </div>
       )}
@@ -508,7 +558,7 @@ function FinishedView({ ranked, onExit }: { ranked: ReturnType<typeof rankPlayer
             onClick={onExit}
             className="absolute bottom-8 right-8 z-30 px-8 py-4 bg-white/10 hover:bg-white/20 active:scale-95 transition-all backdrop-blur-md rounded-2xl border border-white/20 text-white font-bold tracking-widest uppercase shadow-2xl"
           >
-            Выход в панель
+            Вернуться на экран создания комнаты
           </button>
         </div>
       )}
@@ -574,12 +624,15 @@ export default function SurvivachHostPage() {
   const laughedAnswerIds = useRef(new Set<string>());
   const isProcessingResultsRef = useRef(false);
   const potatoExplosionInProgressRef = useRef(false);
+  const potatoResultAdvanceStartedRef = useRef(false);
   const duelResolvingRef = useRef(false);
 
   /* ─── Mode history (anti-repeat random selection) ─── */
   // Tracks the sequence of pre-blitz modes played this session.
   // getRandomMode() uses this to avoid back-to-back repeats.
   const usedModesHistoryRef = useRef<RoundMode[]>([]);
+  // Tracks the last duel mode played — prevents the same duel mode 2× in a row.
+  const usedDuelModesHistoryRef = useRef<DuelMode | null>(null);
 
   /* ─── Blitz state ─── */
   const blitzTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -735,15 +788,15 @@ export default function SurvivachHostPage() {
 
     if (st === 'duel_setup') {
       // Stage 1 duel_setup background music looping
-      bgAudio.current.play(randomFromPool(PLAYER_ACTIONS_POOL, 3), true);
+      bgAudio.current.play(randomFromPool(PLAYER_ACTIONS_POOL, 2), true);
       // Mode-specific crowd/setup music plays once on top
       const duelMode = duel?.mode;
       if (duelMode === 'minesweeper') {
-        fxAudio.current.play(randomFromPool(DUEL_AUDIO.minesweeper.setup, 5), false);
+        fxAudio.current.play(randomFromPool(DUEL_AUDIO.minesweeper.setup, 3), false);
       } else if (duelMode === 'arithmetic_mean') {
-        fxAudio.current.play(randomFromPool(DUEL_AUDIO.arithmetic_mean.crowd, 5), false);
+        fxAudio.current.play(randomFromPool(DUEL_AUDIO.arithmetic_mean.crowd, 3), false);
       } else if (duelMode === 'crowd_forecast') {
-        fxAudio.current.play(randomFromPool(DUEL_AUDIO.crowd_forecast.crowd, 5), false);
+        fxAudio.current.play(randomFromPool(DUEL_AUDIO.crowd_forecast.crowd, 3), false);
       }
     }
 
@@ -753,11 +806,11 @@ export default function SurvivachHostPage() {
       // Mode-specific duelists music plays once
       const duelMode = duel?.mode;
       if (duelMode === 'minesweeper') {
-        fxAudio.current.play(randomFromPool(DUEL_AUDIO.minesweeper.duelists, 5), false);
+        fxAudio.current.play(randomFromPool(DUEL_AUDIO.minesweeper.duelists, 3), false);
       } else if (duelMode === 'arithmetic_mean') {
-        fxAudio.current.play(randomFromPool(DUEL_AUDIO.arithmetic_mean.duelists, 5), false);
+        fxAudio.current.play(randomFromPool(DUEL_AUDIO.arithmetic_mean.duelists, 3), false);
       } else if (duelMode === 'crowd_forecast') {
-        fxAudio.current.play(randomFromPool(DUEL_AUDIO.crowd_forecast.duelists, 5), false);
+        fxAudio.current.play(randomFromPool(DUEL_AUDIO.crowd_forecast.duelists, 3), false);
       }
     }
 
@@ -795,7 +848,7 @@ export default function SurvivachHostPage() {
       setDuelEligibleCallers([]);
       return;
     }
-    if (!['moving', 'round_intro', 'round_playing'].includes(room.status)) {
+    if (room.status !== 'moving') {
       setDuelEligibleCallers([]);
       return;
     }
@@ -805,7 +858,7 @@ export default function SurvivachHostPage() {
     }
     const gamePlayers = players.filter(p => !p.is_host);
     setDuelEligibleCallers(
-      gamePlayers.filter(p => p.karma >= 3 && !p.is_zombie && hasAdjacentTarget(p, gamePlayers))
+      gamePlayers.filter(p => p.karma >= 3 && hasAdjacentTarget(p, gamePlayers))
     );
   }, [room?.status, players, room?.current_round, duel?.id]);
 
@@ -825,6 +878,67 @@ export default function SurvivachHostPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room?.status, duel?.id]);
+
+  /* ─── blitz_intro: play audio then auto-start first blitz round after 4s ─── */
+  useEffect(() => {
+    if (room?.status !== 'blitz_intro' || !room) return;
+    const roomId = room.id;
+    const currentRound = room.current_round;
+
+    new Audio(randomFromPool(BLITZ_START_POOL, 5)).play().catch(() => {});
+    bgAudio.current.play(BLITZ_THEME, true);
+
+    const timeoutId = setTimeout(async () => {
+      const freshRoom = await fetchRoomById(roomId);
+      if (freshRoom?.status !== 'blitz_intro') return;
+
+      let qBank = blitzQBankRef.current;
+      if (!qBank) {
+        qBank = await loadPackQuestions(
+          'https://storage.yandexcloud.net/vecherinkach/json/survivach', 'blitz'
+        ) as Array<{ id: number; question: string; options: string[]; correct_index: number }>;
+        blitzQBankRef.current = qBank;
+      }
+      const available = qBank.filter(q => !usedBlitzQIds.current.has(q.id));
+      const pool = available.length > 0 ? available : qBank;
+      const q = pool[Math.floor(Math.random() * pool.length)];
+      if (!q) return;
+      usedBlitzQIds.current.add(q.id);
+
+      const gamePlayers = await fetchPlayers(roomId);
+      const nonHostPlayers = gamePlayers.filter(p => !p.is_host);
+      const leaderPlayer = rankPlayers(nonHostPlayers)[0] ?? null;
+      const leaderPos = getLeaderPosition(nonHostPlayers);
+
+      const removeIdx = q.correct_index === 3 ? 2 : 3;
+      const leaderOptions = q.options.filter((_, i) => i !== removeIdx);
+      const leaderCorrectIndex = q.correct_index > removeIdx ? q.correct_index - 1 : q.correct_index;
+
+      const questionData = {
+        mode: 'blitz',
+        id: q.id,
+        question: q.question,
+        options: q.options,
+        correct_index: q.correct_index,
+        leader_options: leaderOptions,
+        leader_correct_index: leaderCorrectIndex,
+        leader_player_id: leaderPlayer?.id ?? null,
+      };
+      setCurrentQ(questionData);
+      await setRoomStatus(roomId, 'round_playing', {
+        current_round: currentRound,
+        leader_position: leaderPos,
+        current_mode: 'blitz',
+        question_data: questionData,
+        timer_started_at: new Date().toISOString(),
+        timer_duration_sec: 30,
+      });
+    }, 4000);
+    return () => {
+      clearTimeout(timeoutId);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room?.status]);
 
   /* ─── Real-time laugh on correct answer ─── */
   useEffect(() => {
@@ -1055,6 +1169,36 @@ export default function SurvivachHostPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room?.status, room?.round_results_data]);
 
+    /* ─── Hot Potato result fallback auto-advance ─── */
+    useEffect(() => {
+      if (room?.status !== 'potato_result') {
+        potatoResultAdvanceStartedRef.current = false;
+        return;
+      }
+      if (potatoResultAdvanceStartedRef.current) return;
+      potatoResultAdvanceStartedRef.current = true;
+      const timeoutId = setTimeout(() => {
+        void tryAdvanceAfterBetReveal();
+      }, 3500);
+      return () => clearTimeout(timeoutId);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [room?.status]);
+
+    async function tryAdvanceAfterBetReveal(perfectRound = false) {
+      const maxAttempts = 6;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          await advanceAfterBetReveal(perfectRound);
+          return;
+        } catch (error) {
+          if (attempt === maxAttempts) throw error;
+          const delayMs = Math.min(1500 * attempt, 5000);
+          console.warn(`[ADVANCE] Attempt ${attempt} failed, retry in ${delayMs}ms`, error);
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+      }
+    }
+
   const handlePotatoExplosion = async (loserId: string) => {
     if (!room) return;
     if (potatoExplosionInProgressRef.current) return;
@@ -1089,7 +1233,7 @@ export default function SurvivachHostPage() {
       const failPool = isZombie ? HOT_POTATO_FAIL_Z_POOL : HOT_POTATO_FAIL_POOL;
       bgAudio.current.play(randomFromPool(failPool, 3), false, () => {
         potatoExplosionInProgressRef.current = false;
-        advanceAfterBetReveal();
+        void tryAdvanceAfterBetReveal();
       });
     } catch (error) {
       potatoExplosionInProgressRef.current = false;
@@ -1414,7 +1558,22 @@ export default function SurvivachHostPage() {
 
     // FIX STAGE 1: Explicitly fetch final answers to prevent race condition
     const finalAnswers = await fetchAnswers(room.id, room.current_round);
-    
+    // FIX: Fetch bets directly to avoid stale closure (bets state may be empty)
+    const finalBets = await fetchBets(room.id, room.current_round);
+
+    // Re-evaluate text answers on host side for interpreter and art_historian modes.
+    // This ensures all correct answers are accepted regardless of client-side evaluation.
+    if ((mode === 'interpreter' || mode === 'art_historian') && currentQ) {
+      const acceptList = (currentQ as { accept_answer?: string[] }).accept_answer;
+      if (acceptList && Array.isArray(acceptList)) {
+        for (const ans of finalAnswers) {
+          if (typeof ans.answer_text === 'string' && ans.answer_text.length > 0) {
+            ans.is_correct = checkTextAnswer(ans.answer_text, acceptList);
+          }
+        }
+      }
+    }
+
     const nonHostPlayers = players.filter(p => !p.is_host);
     const results: PlayerRoundResult[] = [];
     let firstCorrectFound = false;
@@ -1666,29 +1825,60 @@ export default function SurvivachHostPage() {
 
     // FIX STAGE 2: Apply bet modifications AND reset Zombie Bomb
     const anyCorrect = results.some(r => r.is_correct);
-    const resolvedBets: BetResultsData['bets'] = bets.map(b => {
+
+    // ── Bet condition evaluation ──
+    // Use alivePlayers (non-zombie, non-host) BEFORE this round's results are applied.
+    const aliveNonHost = alivePlayers; // already computed above as nonHostPlayers.filter(!is_zombie)
+    const aliveCount = aliveNonHost.length;
+    const aliveCorrectCount = aliveNonHost.filter(p => results.find(r => r.player_id === p.id)?.is_correct).length;
+
+    // Leader = highest position among alive players before this round
+    const leaderPos = aliveNonHost.length > 0
+      ? Math.max(...aliveNonHost.map(p => p.position))
+      : -1;
+    const leaderIds = new Set(aliveNonHost.filter(p => p.position === leaderPos).map(p => p.id));
+    const leaderMistake = leaderIds.size > 0
+      && [...leaderIds].some(lid => !(results.find(r => r.player_id === lid)?.is_correct ?? true));
+
+    const conditionMet: Record<BetOption, boolean> = {
+      all_correct:       aliveCount > 0 && aliveCorrectCount === aliveCount,
+      majority_correct:  aliveCount > 0 && aliveCorrectCount / aliveCount > 0.5,
+      leader_mistake:    leaderMistake,
+      all_wrong:         aliveCount > 0 && aliveCorrectCount === 0,
+    };
+
+    const resolvedBets: BetResultsData['bets'] = finalBets.map(b => {
       const r = results.find(x => x.player_id === b.player_id);
-      if (!r) return { player_id: b.player_id, bet_type: b.bet_type, won: false };
-      const won = !anyCorrect; // bet "nobody answers" - won if nobody got it right
+      if (!r) return { player_id: b.player_id, bet_type: b.bet_type, bet_option: (b.bet_option ?? 'all_wrong') as BetOption, won: false };
+      const betOption: BetOption = (b.bet_option ?? 'all_wrong') as BetOption;
+      const won = conditionMet[betOption] ?? false;
       if (won) {
         if (b.bet_type === 'karma') {
-          // Double karma if they win the bet
-          r.karma_change += 1; 
-          r.new_karma += 1;
+          // Double karma
+          const karmaBonus = r.new_karma; // add as much as current → ×2
+          r.karma_change += karmaBonus;
+          r.new_karma += karmaBonus;
+        } else if (b.bet_type === 'life') {
+          // Don't give extra life to a player who just became a zombie this round
+          if (!r.is_zombie_now) {
+            r.lives_change += 1;
+            r.new_lives += 1;
+          }
         }
       } else {
-        if (b.bet_type === 'life') {
-          // On loss, player loses a life. Because 'is_correct' false already took 1 life locally for this round, we take ANOTHER ONE.
-          r.lives_change -= 1; 
-          r.new_lives = Math.max(0, r.new_lives - 1); 
+        if (b.bet_type === 'karma') {
+          // Halve karma (floor), min 0
+          const halved = Math.floor(r.new_karma / 2);
+          const lost = r.new_karma - halved;
+          r.karma_change -= lost;
+          r.new_karma = halved;
+        } else if (b.bet_type === 'life') {
+          r.lives_change -= 1;
+          r.new_lives = Math.max(0, r.new_lives - 1);
           if (r.new_lives === 0) r.is_zombie_now = true;
-        } else if (b.bet_type === 'karma') {
-          // Need to remove the karma they bet
-          r.karma_change -= 1;
-          r.new_karma = Math.max(0, r.new_karma - 1);
         }
       }
-      return { player_id: b.player_id, bet_type: b.bet_type, won };
+      return { player_id: b.player_id, bet_type: b.bet_type, bet_option: betOption, won };
     });
 
     // Reset Zombie Bomb if it was active
@@ -1825,7 +2015,7 @@ export default function SurvivachHostPage() {
         player_results: results,
         perfect_round: perfectRound,
       },
-      bet_results_data: bets.length > 0 ? betResultsForSave : null,
+      bet_results_data: finalBets.length > 0 ? betResultsForSave : null,
       ...(shouldResetBomb ? { zombie_bomb_active: false, zombie_bomb_player_id: null } : {})
     });
 
@@ -1833,17 +2023,37 @@ export default function SurvivachHostPage() {
       // After results audio → apply changes and move to next phase
       try {
         await applyResults(results);
-        if (bets.length > 0) {
+
+        // ─── Zombie Apocalypse: все игроки стали зомби → воскресить всех ───
+        const allZombies = results.length > 0 && results.every(r => r.is_zombie_now);
+        if (allZombies) {
+          await new Promise<void>(resolve => {
+            bgAudio.current.play(randomFromPool(ZOMBIE_ALL_POOL, 3), false, () => resolve());
+          });
+          await updatePlayers(results.map(r => ({
+            id: r.player_id,
+            position: 1,
+            lives: 3,
+            is_zombie: false,
+          })));
+        }
+
+        if (finalBets.length > 0) {
           await setRoomStatus(room.id, 'bet_reveal', {});
+          const allWon = resolvedBets.length > 0 && resolvedBets.every(b => b.won);
+          const allLost = resolvedBets.length > 0 && resolvedBets.every(b => !b.won);
+          const betAudio = allWon
+            ? randomFromPool(BET_WORKED_POOL, 3)
+            : allLost
+            ? `${BET_UNWORKED_POOL}3.mp3`
+            : randomFromPool(BET_MIX_POOL, 3);
           bgAudio.current.play(
-            anyCorrect
-              ? resolvedBets.every(b => !b.won) ? randomFromPool(BET_UNWORKED_POOL, 5) : randomFromPool(BET_MIX_POOL, 5)
-              : randomFromPool(BET_WORKED_POOL, 5),
+            betAudio,
             false,
-            () => advanceAfterBetReveal(perfectRound),
+            () => { void tryAdvanceAfterBetReveal(perfectRound); },
           );
         } else {
-          await advanceAfterBetReveal(perfectRound);
+          await tryAdvanceAfterBetReveal(perfectRound);
         }
       } finally {
         isProcessingResultsRef.current = false;
@@ -1976,7 +2186,8 @@ export default function SurvivachHostPage() {
     const freshRoom = await fetchRoomById(room.id);
     if (!freshRoom) return;
     if (freshRoom.current_round === 999) return;
-    if (freshRoom.status !== 'round_results' && freshRoom.status !== 'bet_reveal') return;
+    const isPotatoResultFlow = freshRoom.status === 'potato_result';
+    if (freshRoom.status !== 'round_results' && freshRoom.status !== 'bet_reveal' && !isPotatoResultFlow) return;
     
     // TEST MODE: In test mode (round 999), don't advance - stay on results screen
     if (room.current_round === 999) return;
@@ -2029,7 +2240,7 @@ export default function SurvivachHostPage() {
       'roundResults': roundResults.map(r => ({ player_id: r.player_id, is_correct: r.is_correct })),
     });
 
-    if (isPerfect && isCurrentRoundData && !isAlreadyPotatoFlow && aliveGamePlayers.length >= 2) {
+    if (!isPotatoResultFlow && isPerfect && isCurrentRoundData && !isAlreadyPotatoFlow && aliveGamePlayers.length >= 2) {
       console.log('[HOT POTATO] Trigger condition MET! Starting potato_intro');
       // Pick a random alive player to get the bomb
       const randomStartId = aliveGamePlayers[Math.floor(Math.random() * aliveGamePlayers.length)].id;
@@ -2069,13 +2280,15 @@ export default function SurvivachHostPage() {
     if (!room || !pack) return;
     const freshRoom = await fetchRoomById(room.id);
     if (!freshRoom) return;
-    if ((freshRoom as unknown as { duel_initiated_in_round?: number | null }).duel_initiated_in_round === freshRoom.current_round) return;
+    const activeDuel = await fetchActiveDuel(room.id, freshRoom.current_round);
+    if (activeDuel) return;
+    if (freshRoom.status !== 'moving') return;
     const freshPlayers = await fetchPlayers(room.id);
     const gamePlayers = freshPlayers.filter(p => !p.is_host);
     const challenger = gamePlayers.find(p => p.id === challengerId);
     const challenged = gamePlayers.find(p => p.id === challengedId);
     if (!challenger || !challenged) return;
-    if (challenger.karma < 3 || challenger.is_zombie) return;
+    if (challenger.karma < 3) return;
     if (Math.abs(challenger.position - challenged.position) !== 1) return;
     if (!hasAdjacentTarget(challenger, gamePlayers)) return;
 
@@ -2086,17 +2299,9 @@ export default function SurvivachHostPage() {
       blitzTimerRef.current = null;
     }
 
-    if (freshRoom.status === 'round_intro' || freshRoom.status === 'round_playing') {
-      setPendingRoundData({
-        current_mode: freshRoom.current_mode,
-        question_data: (freshRoom.question_data as Record<string, unknown> | null) ?? null,
-        timer_duration_sec: freshRoom.timer_duration_sec ?? null,
-      });
-    } else {
-      setPendingRoundData(null);
-    }
+    setPendingRoundData(null);
 
-    const tileCount = 9; // Fixed 3x3 grid
+    const tileCount = gamePlayers.length + 2; // tiles = player count + 2
     let initialDuelData: Record<string, unknown> = {};
     if (duelMode === 'minesweeper') {
       initialDuelData = { mode: 'minesweeper', tile_count: tileCount, mined_tiles: {}, challenger_picks: [], challenged_picks: [], exploded_challenger: false, exploded_challenged: false };
@@ -2118,11 +2323,18 @@ export default function SurvivachHostPage() {
       room.id, room.current_round, duelMode,
       challengerId, challengedId, initialDuelData as unknown as import('@/lib/survivach/types').DuelData,
     );
+    usedDuelModesHistoryRef.current = duelMode;
     await setRoomStatus(room.id, 'duel_intro', {
       duel_data: initialDuelData,
-      duel_initiated_in_round: freshRoom.current_round,
     });
     setDuel(newDuel);
+  };
+
+  const handleHostDuelTrigger = async (callerId: string, targetId: string) => {
+    if (!room) return;
+    const lastMode = usedDuelModesHistoryRef.current ?? await fetchLastDuelMode(room.id);
+    const duelMode = getRandomDuelMode(lastMode);
+    await handleInitiateDuel(callerId, targetId, duelMode);
   };
 
   const handleDuelResult = async (winnerId: string | null) => {
@@ -2131,8 +2343,10 @@ export default function SurvivachHostPage() {
       winner_id: winnerId,
       duel_data: { ...((duel.duel_data ?? {}) as unknown as Record<string, unknown>), winner_id: winnerId } as unknown as import('@/lib/survivach/types').DuelData,
     });
-    const challenger = players.find(p => p.id === duel.challenger_id);
-    const challenged = players.find(p => p.id === duel.challenged_id);
+    const freshGamePlayers = await fetchPlayers(room.id);
+    const allGamePlayers = freshGamePlayers.filter(p => !p.is_host);
+    const challenger = allGamePlayers.find(p => p.id === duel.challenger_id);
+    const challenged = allGamePlayers.find(p => p.id === duel.challenged_id);
     if (!challenger || !challenged) return;
 
     // Cache the duel payload so it can be passed temporarily or maintained
@@ -2153,8 +2367,8 @@ export default function SurvivachHostPage() {
       if (challenged.is_zombie) {
         // Zombie summoned won! Resurrects (gets 1 life). Challenger loses 1 life (and might become zombie).
         const newChallengerLives = Math.max(0, challenger.lives - 1);
-        const zombiesAtChallengedPos = players.filter(
-          p => !p.is_host && p.is_zombie && p.id !== challenged.id && p.position === challenged.position
+        const zombiesAtChallengedPos = allGamePlayers.filter(
+          p => p.is_zombie && p.id !== challenged.id && p.position === challenged.position
         );
         const newChallengerIsZombie = newChallengerLives === 0 || challenger.is_zombie || zombiesAtChallengedPos.length > 0;
         const finalChallengerLives = newChallengerIsZombie ? 0 : newChallengerLives;
@@ -2167,9 +2381,8 @@ export default function SurvivachHostPage() {
         // Zombie challenger lost duel. Nothing happens.
         winnerPool = SUMMONED_WON_POOL;
       } else {
-        // Both alive: challenged takes 3 karma from challenger, positions stay same
+        // Both alive: challenged gains 3 karma. Challenger already paid at challenge initiation.
         await updatePlayers([
-          { id: challenger.id, karma: Math.max(0, challenger.karma - 3) },
           { id: challenged.id, karma: challenged.karma + 3 },
         ]);
         winnerPool = SUMMONED_WON_POOL;
@@ -2179,8 +2392,8 @@ export default function SurvivachHostPage() {
       if (challenger.is_zombie) {
         // Zombie challenger won! Resurrects (gets 1 life). Challenged loses 1 life (and might become zombie).
         const newChallengedLives = Math.max(0, challenged.lives - 1);
-        const zombiesAtChallengerPos = players.filter(
-          p => !p.is_host && p.is_zombie && p.id !== challenger.id && p.position === challenger.position
+        const zombiesAtChallengerPos = allGamePlayers.filter(
+          p => p.is_zombie && p.id !== challenger.id && p.position === challenger.position
         );
         const newChallengedIsZombie = newChallengedLives === 0 || challenged.is_zombie || zombiesAtChallengerPos.length > 0;
         const finalChallengedLives = newChallengedIsZombie ? 0 : newChallengedLives;
@@ -2245,7 +2458,6 @@ export default function SurvivachHostPage() {
         current_mode: resume.current_mode,
         question_data: resume.question_data,
         timer_duration_sec: resume.timer_duration_sec ?? room.timer_duration_sec,
-        duel_initiated_in_round: room.current_round,
       });
       return;
     }
@@ -2258,7 +2470,7 @@ export default function SurvivachHostPage() {
     setDuel(null);
     setDuelQ(null);
 
-    await setRoomStatus(room.id, 'moving', { current_round: newRound, leader_position: newLeaderPos, duel_initiated_in_round: null });
+    await setRoomStatus(room.id, 'moving', { current_round: newRound, leader_position: newLeaderPos });
   };
 
   /* ─── Force-advance to next phase (host manual skip) ─── */
@@ -2387,7 +2599,7 @@ export default function SurvivachHostPage() {
 
       {/* --- PERSISTENT BOARD VIEW --- */}
       {!["lobby", "rules", "finished"].includes(room.status) && (
-        <div className="shrink-0 w-full z-[100] bg-[#0c0418]/80 backdrop-blur-3xl shadow-[0_10px_50px_rgba(0,0,0,0.9)] border-b border-white/10 relative pt-2 px-2 md:pt-4 md:px-4">
+        <div className="shrink-0 w-full z-[100] bg-[#0c0418]/80 backdrop-blur-3xl shadow-[0_10px_50px_rgba(0,0,0,0.9)] border-b border-white/10 relative pt-1 px-2 md:pt-2 md:px-4">
           <BoardView players={players.filter(p => !p.is_host)} leaderPosition={room.leader_position} />
         </div>
       )}
@@ -2396,7 +2608,7 @@ export default function SurvivachHostPage() {
       <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden relative flex flex-col">
       {/* ─── LOBBY ─── */}
       {room.status === 'lobby' && (
-        <div onClick={() => fxAudio.current.play('')} className="relative min-h-full h-full bg-[radial-gradient(ellipse_at_bottom,_var(--tw-gradient-stops))] from-indigo-900 via-purple-950 to-[#0c0418] text-white overflow-hidden select-none">
+        <div onClick={() => fxAudio.current.play('')} className="flex-1 min-h-0 h-full relative bg-[radial-gradient(ellipse_at_bottom,_var(--tw-gradient-stops))] from-indigo-900 via-purple-950 to-[#0c0418] text-white overflow-hidden select-none">
           <style dangerouslySetInnerHTML={{ __html: `
             @keyframes ghostFly {
               0% { transform: translateY(0) scale(0.8) rotate(0deg); opacity: 0; filter: brightness(1.2) hue-rotate(90deg) contrast(1.5); }
@@ -2452,7 +2664,7 @@ export default function SurvivachHostPage() {
               {"ВЫЖИВАЧ".split('').map((char, i) => (
                 <span 
                   key={i} 
-                  className="glow-char-anim text-5xl sm:text-6xl md:text-[5rem] lg:text-[6.5rem] font-black tracking-widest text-transparent"
+                  className="glow-char-anim text-5xl sm:text-6xl md:text-[4rem] lg:text-[5.5rem] font-black tracking-widest text-transparent"
                   style={{ animationDelay: `${i * 0.25}s` }}
                 >
                   {char}
@@ -2460,7 +2672,7 @@ export default function SurvivachHostPage() {
               ))}
             </div>
 
-            <div className="relative w-[340px] h-[600px] bg-[linear-gradient(180deg,#312e81_0%,#1e1b4b_100%)] rounded-t-[10rem] border-[12px] border-[#0c0418] border-b-0 shadow-[inset_0_20px_50px_rgba(0,0,0,0.5),_0_0_100px_rgba(88,28,135,0.4)] flex flex-col pt-12 p-8 relative overflow-hidden transition-all duration-1000">
+            <div className="relative w-[340px] flex-1 min-h-0 max-h-[600px] bg-[linear-gradient(180deg,#312e81_0%,#1e1b4b_100%)] rounded-t-[10rem] border-[12px] border-[#0c0418] border-b-0 shadow-[inset_0_20px_50px_rgba(0,0,0,0.5),_0_0_100px_rgba(88,28,135,0.4)] flex flex-col pt-8 md:pt-12 p-6 md:p-8 relative overflow-hidden transition-all duration-1000">
               {/* Inner detail text */}
               <div className="flex justify-center mb-2 px-2 opacity-50 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
                 <span className="text-5xl filter grayscale">💀</span>
@@ -2494,7 +2706,7 @@ export default function SurvivachHostPage() {
             {/* Zombie Hand Animation at the base of the gravestone */}
             {showZombieHand && (
               <div className="absolute bottom-[5vh] left-1/2 -translate-x-1/2 w-64 h-64 zombie-hand-anim pointer-events-none z-40 flex items-end justify-center">
-                <div className="text-[12rem] filter hue-rotate-[240deg] contrast-150 saturate-200 drop-shadow-[0_0_40px_rgba(34,197,94,0.4)] leading-none -mb-8">
+                <div className="text-[8rem] md:text-[10rem] filter hue-rotate-[240deg] contrast-150 saturate-200 drop-shadow-[0_0_40px_rgba(34,197,94,0.4)] leading-none -mb-8">
                   🧟‍♂️
                 </div>
               </div>
@@ -2684,11 +2896,11 @@ export default function SurvivachHostPage() {
 
       {/* ─── RULES ─── */}
       {room.status === 'rules' && !testMode && (
-        <div className="min-h-full h-full flex flex-col items-center justify-center p-8 bg-[url('/img/lava-bg.jpg')] bg-cover bg-center bg-gray-950 relative overflow-hidden transition-all duration-1000">
+        <div className="flex-1 min-h-0 h-full flex flex-col items-center justify-center p-4 md:p-6 bg-[url('/img/lava-bg.jpg')] bg-cover bg-center bg-gray-950 relative overflow-hidden transition-all duration-1000">
           <div className="absolute inset-0 bg-gradient-to-b from-[#0c0418]/90 via-[#2e1065]/70 to-[#3b0764]/90 z-0"></div>
           
           <div className="z-10 flex flex-col items-center w-full max-w-4xl relative">
-            <h2 className="text-5xl font-black mb-8 text-transparent bg-clip-text bg-gradient-to-r from-purple-200 via-yellow-100 to-purple-200 drop-shadow-[0_0_20px_rgba(168,85,247,0.5)] uppercase tracking-widest animate-pulse">
+            <h2 className="text-4xl md:text-5xl font-black mb-4 md:mb-6 text-transparent bg-clip-text bg-gradient-to-r from-purple-200 via-yellow-100 to-purple-200 drop-shadow-[0_0_20px_rgba(168,85,247,0.5)] uppercase tracking-widest animate-pulse">
               📜 Правила выживания
             </h2>
             
@@ -2704,7 +2916,7 @@ export default function SurvivachHostPage() {
                 <div
                   key={rule.id}
                   onClick={() => setSelectedRule(rule.id)}
-                  className={`cursor-pointer ${rule.bg} border ${rule.color} rounded-2xl p-5 hover:scale-[1.02] hover:bg-white/10 transition-all duration-300 backdrop-blur-md shadow-lg flex flex-col justify-center`}
+                  className={`cursor-pointer ${rule.bg} border ${rule.color} rounded-2xl p-3 md:p-4 hover:scale-[1.02] hover:bg-white/10 transition-all duration-300 backdrop-blur-md shadow-lg flex flex-col justify-center`}
                   style={{ animation: `floating 4s ease-in-out infinite ${idx * 0.2}s` }}
                 >
                   <h3 className="text-xl font-bold mb-2 text-white/90">{rule.title}</h3>
@@ -2713,13 +2925,7 @@ export default function SurvivachHostPage() {
               ))}
             </div>
 
-            <div className="flex flex-col gap-2 mt-12">
-              <button
-                onClick={() => setTestMode('select')}
-                className="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 border border-blue-400/30 rounded-full text-white transition-all uppercase tracking-widest text-sm font-bold shadow-[0_0_30px_rgba(59,130,246,0.3)] active:scale-95"
-              >
-                🧪 Тестирование режимов
-              </button>
+            <div className="flex flex-col gap-2 mt-6 md:mt-8">
               <button
                 onClick={skipRulesFlow}
                 className="px-8 py-3 bg-white/10 hover:bg-white/20 border border-white/20 rounded-full text-white/80 transition-all uppercase tracking-widest text-sm font-bold shadow-[0_0_30px_rgba(255,255,255,0.1)] active:scale-95"
@@ -2768,7 +2974,7 @@ export default function SurvivachHostPage() {
 
       {/* ─── MOVING ─── */}
       {room.status === 'moving' && (
-        <div className="min-h-full h-full flex flex-col p-6 gap-6 relative z-10">
+        <div className="flex-1 min-h-0 h-full flex flex-col p-4 md:p-6 gap-4 md:gap-6 relative z-10">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(76,29,149,0.15),_transparent_70%)] pointer-events-none -z-10" />
           
           <div className="flex flex-wrap items-center gap-4">
@@ -2815,7 +3021,7 @@ export default function SurvivachHostPage() {
             </div>
           )}
 
-          {duelEligibleCallers.length > 0 && (room as unknown as { duel_initiated_in_round?: number | null }).duel_initiated_in_round !== room.current_round && (
+          {duelEligibleCallers.length > 0 && room.duel_initiated_in_round !== room.current_round && (
             <div className="bg-yellow-900/20 border border-yellow-500/40 rounded-xl p-3">
               <p className="text-yellow-400 font-bold text-sm mb-2">⚔️ Дуэль доступна сейчас</p>
               <div className="flex flex-wrap gap-2">
@@ -2824,11 +3030,7 @@ export default function SurvivachHostPage() {
                   return targets.map(target => (
                     <button
                       key={`${caller.id}-${target.id}`}
-                      onClick={() => {
-                        const modes: Array<'minesweeper' | 'arithmetic_mean' | 'crowd_forecast'> = ['minesweeper', 'arithmetic_mean', 'crowd_forecast'];
-                        const duelMode = modes[Math.floor(Math.random() * modes.length)];
-                        handleInitiateDuel(caller.id, target.id, duelMode);
-                      }}
+                      onClick={() => { void handleHostDuelTrigger(caller.id, target.id); }}
                       className="px-3 py-2 rounded-lg bg-yellow-700 hover:bg-yellow-600 text-white text-xs font-bold"
                     >
                       {caller.name} → {target.name}
@@ -2839,8 +3041,10 @@ export default function SurvivachHostPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
-            {ranked.map((p, i) => <PlayerCard key={p.id} player={p} rank={i + 1} />)}
+          <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-2 mt-2">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {ranked.map((p, i) => <PlayerCard key={p.id} player={p} rank={i + 1} />)}
+            </div>
           </div>
         </div>
       )}
@@ -2850,12 +3054,12 @@ export default function SurvivachHostPage() {
         <div className="min-h-full h-full flex flex-col items-center justify-center gap-6 relative z-10 overflow-hidden">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(255,255,255,0.05),_transparent_80%)] pointer-events-none -z-10" />
           
-          <div className="text-[10rem] font-black drop-shadow-[0_0_50px_rgba(255,255,255,0.2)] animate-[float_4s_ease-in-out_infinite] leading-none mb-4">
+          <div className="text-[6rem] md:text-[8rem] font-black drop-shadow-[0_0_50px_rgba(255,255,255,0.2)] animate-[float_4s_ease-in-out_infinite] leading-none mb-4">
             {MODE_LABELS[room.current_mode as RoundMode]?.split(' ')[0] ?? '🎮'}
           </div>
           
           <h2 
-            className="text-5xl md:text-7xl font-black tracking-widest uppercase drop-shadow-[0_4px_10px_rgba(0,0,0,1)] text-center px-4" 
+            className="text-4xl md:text-6xl font-black tracking-widest uppercase drop-shadow-[0_4px_10px_rgba(0,0,0,1)] text-center px-4" 
             style={{ 
               color: MODE_COLORS[room.current_mode as RoundMode],
               textShadow: `0 0 30px ${MODE_COLORS[room.current_mode as RoundMode]}60`
@@ -2874,7 +3078,7 @@ export default function SurvivachHostPage() {
             </div>
           )}
 
-          {duelEligibleCallers.length > 0 && (room as unknown as { duel_initiated_in_round?: number | null }).duel_initiated_in_round !== room.current_round && (
+          {duelEligibleCallers.length > 0 && room.duel_initiated_in_round !== room.current_round && (
             <div className="mt-4 bg-yellow-900/20 border border-yellow-500/40 rounded-xl p-3 w-full max-w-3xl">
               <p className="text-yellow-400 font-bold text-sm mb-2 text-center">⚔️ Можно прервать раунд и запустить дуэль</p>
               <div className="flex flex-wrap justify-center gap-2">
@@ -2883,11 +3087,7 @@ export default function SurvivachHostPage() {
                   return targets.map(target => (
                     <button
                       key={`${caller.id}-${target.id}`}
-                      onClick={() => {
-                        const modes: Array<'minesweeper' | 'arithmetic_mean' | 'crowd_forecast'> = ['minesweeper', 'arithmetic_mean', 'crowd_forecast'];
-                        const duelMode = modes[Math.floor(Math.random() * modes.length)];
-                        handleInitiateDuel(caller.id, target.id, duelMode);
-                      }}
+                      onClick={() => { void handleHostDuelTrigger(caller.id, target.id); }}
                       className="px-3 py-2 rounded-lg bg-yellow-700 hover:bg-yellow-600 text-white text-xs font-bold"
                     >
                       {caller.name} → {target.name}
@@ -2904,8 +3104,8 @@ export default function SurvivachHostPage() {
 
       {/* ─── ROUND PLAYING ─── */}
       {room.status === 'round_playing' && currentQ && (
-        <div className="flex-1 h-full min-h-0 flex flex-col p-6 gap-4 overflow-hidden">
-          <div className="flex items-center gap-4 flex-nowrap shrink-0 bg-white/5 backdrop-blur-md border border-white/10 px-6 py-3 rounded-2xl shadow-md w-full">
+        <div className="flex-1 h-full min-h-0 flex flex-col p-4 md:p-6 gap-2 md:gap-4 overflow-hidden">
+          <div className="flex items-center gap-4 flex-nowrap shrink-0 bg-white/5 backdrop-blur-md border border-white/10 px-4 py-2 rounded-2xl shadow-md w-full">
             <span className="text-lg font-bold shrink-0 whitespace-nowrap" style={{ color: MODE_COLORS[room.current_mode as RoundMode] }}>
               {MODE_LABELS[room.current_mode as RoundMode]}
             </span>
@@ -2934,7 +3134,7 @@ export default function SurvivachHostPage() {
             </div>
           </div>
 
-          {duelEligibleCallers.length > 0 && (room as unknown as { duel_initiated_in_round?: number | null }).duel_initiated_in_round !== room.current_round && (
+          {duelEligibleCallers.length > 0 && room.duel_initiated_in_round !== room.current_round && (
             <div className="bg-yellow-900/20 border border-yellow-500/40 rounded-xl p-3 shrink-0">
               <p className="text-yellow-400 font-bold text-sm mb-2">⚔️ Дуэль может прервать текущий вопрос</p>
               <div className="flex flex-wrap gap-2">
@@ -2943,11 +3143,7 @@ export default function SurvivachHostPage() {
                   return targets.map(target => (
                     <button
                       key={`${caller.id}-${target.id}`}
-                      onClick={() => {
-                        const modes: Array<'minesweeper' | 'arithmetic_mean' | 'crowd_forecast'> = ['minesweeper', 'arithmetic_mean', 'crowd_forecast'];
-                        const duelMode = modes[Math.floor(Math.random() * modes.length)];
-                        handleInitiateDuel(caller.id, target.id, duelMode);
-                      }}
+                      onClick={() => { void handleHostDuelTrigger(caller.id, target.id); }}
                       className="px-3 py-2 rounded-lg bg-yellow-700 hover:bg-yellow-600 text-white text-xs font-bold"
                     >
                       {caller.name} → {target.name}
@@ -2966,12 +3162,12 @@ export default function SurvivachHostPage() {
               <div className="flex-1 flex flex-row gap-4 lg:gap-6 min-h-0 w-full">
                 
                 {/* ВАРИАНТЫ ОТВЕТА (Левая колонка) */}
-                <div className="flex-1 bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 p-4 flex flex-col shadow-[inset_0_4px_30px_rgba(255,255,255,0.02)] relative overflow-hidden min-h-0">
+                <div className="flex-1 bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 p-3 lg:p-4 flex flex-col shadow-[inset_0_4px_30px_rgba(255,255,255,0.02)] relative overflow-hidden min-h-0">
                   <span className="text-white/40 uppercase tracking-widest text-xs font-bold mb-3 px-2">Варианты ответа</span>
                   <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
                     <div className="grid grid-cols-2 gap-3 content-start">
                       {((currentQ as { options: string[] }).options ?? []).map((opt, i) => (
-                        <div key={i} className={`relative group px-4 py-2 bg-black/40 backdrop-blur-md border ${room.current_mode === 'blitz' ? 'border-red-500/30 hover:border-red-400' : 'border-white/10 hover:border-indigo-400/50'} rounded-xl flex items-center shadow-[0_4px_24px_rgba(0,0,0,0.2)] overflow-hidden transition-all duration-300`}>
+                        <div key={i} className={`relative group px-3 py-1.5 md:px-4 md:py-2 bg-black/40 backdrop-blur-md border ${room.current_mode === 'blitz' ? 'border-red-500/30 hover:border-red-400' : 'border-white/10 hover:border-indigo-400/50'} rounded-xl flex items-center shadow-[0_4px_24px_rgba(0,0,0,0.2)] overflow-hidden transition-all duration-300`}>
                           <div className="absolute inset-0 bg-gradient-to-r from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                           <span className={`text-xl font-black mr-3 drop-shadow-md flex-shrink-0 ${room.current_mode === 'blitz' ? 'text-red-500/50 group-hover:text-red-400' : 'text-white/30 group-hover:text-indigo-300'} transition-colors duration-300`}>
                             {String.fromCharCode(65 + i)}
@@ -2986,7 +3182,7 @@ export default function SurvivachHostPage() {
                 </div>
 
                 {/* РЕЙТИНГ И ИГРОКИ (Правая колонка) */}
-                <div className="flex-1 bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 p-4 flex flex-col shadow-[inset_0_4px_30px_rgba(255,255,255,0.02)] relative overflow-hidden min-h-0">
+                <div className="flex-1 bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 p-3 lg:p-4 flex flex-col shadow-[inset_0_4px_30px_rgba(255,255,255,0.02)] relative overflow-hidden min-h-0">
                   <div className="flex items-center justify-between mb-3 px-2">
                     <span className="text-white/40 uppercase tracking-widest text-xs font-bold shrink-0">Рейтинг / Ответили</span>
                     <span className="text-indigo-300 font-black text-xs bg-indigo-900/40 border border-indigo-500/30 px-3 py-1 rounded-full shrink-0 shadow-[0_0_10px_rgba(79,70,229,0.3)]">
@@ -3161,8 +3357,8 @@ export default function SurvivachHostPage() {
             <div className="flex-1 flex flex-col items-center justify-center p-8 relative min-h-full">
               <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-pink-900/30 via-transparent to-transparent pointer-events-none" />
 
-              <div className="bg-black/60 border border-pink-500/30 p-8 md:p-12 rounded-[2rem] shadow-[0_0_100px_rgba(236,72,153,0.15)] flex flex-col items-center gap-8 backdrop-blur-xl relative z-10 w-full max-w-4xl">
-                <h2 className="text-5xl md:text-7xl font-black bg-gradient-to-r from-pink-400 via-purple-400 to-pink-400 bg-clip-text text-transparent drop-shadow-[0_0_20px_rgba(236,72,153,0.6)] uppercase tracking-tight text-center">
+              <div className="bg-black/60 border border-pink-500/30 p-6 md:p-8 rounded-[2rem] shadow-[0_0_100px_rgba(236,72,153,0.15)] flex flex-col items-center gap-4 md:gap-6 backdrop-blur-xl relative z-10 w-full max-w-4xl">
+                <h2 className="text-4xl md:text-6xl font-black bg-gradient-to-r from-pink-400 via-purple-400 to-pink-400 bg-clip-text text-transparent drop-shadow-[0_0_20px_rgba(236,72,153,0.6)] uppercase tracking-tight text-center">
                   Дневник Памяти
                 </h2>
                 
@@ -3226,7 +3422,7 @@ export default function SurvivachHostPage() {
                     <span className={`text-[10px] uppercase font-mono tracking-[0.2em] ${room.zombie_bomb_active ? 'text-green-400' : 'text-cyan-400'}`}>Tactical HUD Active </span>
                   </div>
                   
-                  <h2 className={`text-5xl md:text-7xl font-black bg-gradient-to-r bg-clip-text text-transparent uppercase tracking-tighter mb-4 transition-all duration-700 ${
+                  <h2 className={`text-4xl md:text-6xl font-black bg-gradient-to-r bg-clip-text text-transparent uppercase tracking-tighter mb-4 transition-all duration-700 ${
                     room.zombie_bomb_active 
                       ? 'from-green-400 to-emerald-300 drop-shadow-[0_0_20px_rgba(52,211,153,0.4)]' 
                       : 'from-blue-400 to-cyan-300 drop-shadow-[0_0_20px_rgba(34,211,238,0.3)]'
@@ -3540,29 +3736,75 @@ export default function SurvivachHostPage() {
       )}
 
       {/* ─── BET REVEAL ─── */}
-      {room.status === 'bet_reveal' && betResultsData && (
-        <div className="min-h-full h-full flex flex-col items-center justify-center gap-6 p-6">
-          <h2 className="text-4xl font-black">🎰 Они сделали ставку!</h2>
-          <div className="flex gap-4 flex-wrap justify-center">
-            {betResultsData.bets.map(b => {
+      {room.status === 'bet_reveal' && (betResultsData ?? room.bet_results_data) && (() => {
+        const activeBetData = betResultsData ?? room.bet_results_data!;
+        return (
+        <div className="min-h-full h-full flex flex-col items-center justify-center gap-8 p-8 relative overflow-hidden">
+          {/* Background glow */}
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(250,204,21,0.08),_transparent_70%)] pointer-events-none" />
+
+          <h2 className="text-5xl font-black tracking-wide drop-shadow-[0_0_20px_rgba(250,204,21,0.5)]">🎰 Ставки вскрыты!</h2>
+
+          {/* Per-player cards */}
+          <div className="flex gap-6 flex-wrap justify-center">
+            {activeBetData.bets.map(b => {
               const p = players.find(x => x.id === b.player_id);
               if (!p) return null;
+              const betOptionLabel =
+                b.bet_option === 'all_correct'      ? { emoji: '🌟', label: 'Все угадают' } :
+                b.bet_option === 'majority_correct'  ? { emoji: '👥', label: 'Большинство' } :
+                b.bet_option === 'leader_mistake'    ? { emoji: '👑', label: 'Ошибка лидера' } :
+                                                      { emoji: '💀', label: 'Все ошибутся' };
+              const stakeLabel = b.bet_type === 'karma' ? '✨ Карма' : '❤️ Жизнь';
+              const rewardLabel = b.won
+                ? b.bet_type === 'karma' ? '×2 ✨' : '+1 ❤️'
+                : b.bet_type === 'karma' ? '÷2 ✨' : '−1 ❤️';
               return (
-                <div key={b.player_id} className={`flex flex-col items-center gap-2 p-4 rounded-2xl border ${
-                  b.won ? 'border-green-500 bg-green-900/20' : 'border-red-500 bg-red-900/20'
-                }`}>
-                  <img src={getAvatarUrl(p.avatar, p.lives)} alt="" className="w-16 h-16 object-contain" />
-                  <span className="font-bold">{p.name}</span>
-                  <span className="text-sm">{b.bet_type === 'karma' ? '✨ Карма' : '❤️ Жизнь'}</span>
-                  <span className={`text-2xl font-black ${b.won ? 'text-green-400' : 'text-red-400'}`}>
-                    {b.won ? '✅ СЫГРАЛО' : '❌ НЕТ'}
+                <div
+                  key={b.player_id}
+                  className={`relative flex flex-col items-center gap-3 p-5 rounded-3xl border-2 backdrop-blur-md transition-all ${
+                    b.won
+                      ? 'border-yellow-400/70 bg-yellow-900/20 shadow-[0_0_30px_rgba(250,204,21,0.3)]'
+                      : 'border-gray-600/50 bg-gray-900/40'
+                  }`}
+                >
+                  {/* Win/loss badge */}
+                  <div className={`absolute -top-3 -right-3 w-8 h-8 rounded-full flex items-center justify-center text-lg font-black shadow-lg ${
+                    b.won ? 'bg-green-500' : 'bg-red-600'
+                  }`}>
+                    {b.won ? '✓' : '✗'}
+                  </div>
+                  <img src={getAvatarUrl(p.avatar, p.lives)} alt="" className="w-20 h-20 object-contain drop-shadow-lg" />
+                  <span className="font-black text-lg text-white">{p.name}</span>
+                  <div className="flex flex-col items-center gap-1">
+                    <span className="text-sm text-gray-300">{betOptionLabel.emoji} {betOptionLabel.label}</span>
+                    <span className="text-xs text-gray-400">{stakeLabel}</span>
+                  </div>
+                  <span className={`text-xl font-black px-3 py-1 rounded-xl ${
+                    b.won ? 'text-yellow-300 bg-yellow-900/40' : 'text-red-300 bg-red-900/40'
+                  }`}>
+                    {rewardLabel}
                   </span>
                 </div>
               );
             })}
           </div>
+
+          {/* Summary line */}
+          {(() => {
+            const won = activeBetData.bets.filter(b => b.won).length;
+            const total = activeBetData.bets.length;
+            return (
+              <p className="text-gray-400 text-xl">
+                {won === total ? '🎉 Все ставки сыграли!' :
+                 won === 0 ? '💸 Все ставки проиграли' :
+                 `${won} из ${total} ставок сыграли`}
+              </p>
+            );
+          })()}
         </div>
-      )}
+        );
+      })()}
 
       {/* ─── DUEL INTRO ─── */}
       {room.status === 'duel_intro' && duel && (
@@ -3603,7 +3845,7 @@ export default function SurvivachHostPage() {
             
             {/* The VS Splash */}
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none z-20 animate-[zoomIn_0.5s_ease-out_1s_both]">
-               <div className="text-8xl md:text-[10rem] italic font-black text-white drop-shadow-[0_0_60px_rgba(255,255,255,0.8)]" style={{ textShadow: '0 0 40px #fff, 0 0 80px #facc15, 0 0 120px #ef4444' }}>
+               <div className="text-6xl md:text-8xl italic font-black text-white drop-shadow-[0_0_60px_rgba(255,255,255,0.8)]" style={{ textShadow: '0 0 40px #fff, 0 0 80px #facc15, 0 0 120px #ef4444' }}>
                  VS
                </div>
             </div>
@@ -4472,64 +4714,13 @@ export default function SurvivachHostPage() {
             Забег на выживание! Правильный ответ → +1 клетка. Последний ответивший — штраф!<br />
             🧟 Зомби преследуют — каждый вопрос они идут вперёд.
           </p>
-          <button onClick={async () => {
-            // Play random start audio
-            new Audio(randomFromPool(BLITZ_START_POOL, 5)).play().catch(() => {});
-            // Start looped blitz BGM
-            bgAudio.current.play(BLITZ_THEME, true);
-
-            // Load blitz questions
-            let qBank = blitzQBankRef.current;
-            if (!qBank) {
-              qBank = await loadPackQuestions(
-                'https://storage.yandexcloud.net/vecherinkach/json/survivach', 'blitz'
-              ) as Array<{ id: number; question: string; options: string[]; correct_index: number }>;
-              blitzQBankRef.current = qBank;
-            }
-            const available = qBank.filter(q => !usedBlitzQIds.current.has(q.id));
-            const pool = available.length > 0 ? available : qBank;
-            const q = pool[Math.floor(Math.random() * pool.length)];
-            if (!q) return;
-            usedBlitzQIds.current.add(q.id);
-
-            const gamePlayers = await fetchPlayers(room.id);
-            const nonHostPlayers = gamePlayers.filter(p => !p.is_host);
-            const leaderPlayer = rankPlayers(nonHostPlayers)[0] ?? null;
-            const leaderPos = getLeaderPosition(nonHostPlayers);
-
-            // Leader sees 3 options (remove last wrong option)
-            const removeIdx = q.correct_index === 3 ? 2 : 3;
-            const leaderOptions = q.options.filter((_, i) => i !== removeIdx);
-            const leaderCorrectIndex = q.correct_index > removeIdx ? q.correct_index - 1 : q.correct_index;
-
-            const questionData = {
-              mode: 'blitz',
-              id: q.id,
-              question: q.question,
-              options: q.options,
-              correct_index: q.correct_index,
-              leader_options: leaderOptions,
-              leader_correct_index: leaderCorrectIndex,
-              leader_player_id: leaderPlayer?.id ?? null,
-            };
-            setCurrentQ(questionData);
-            await setRoomStatus(room.id, 'round_playing', {
-              current_round: room.current_round,
-              leader_position: leaderPos,
-              current_mode: 'blitz',
-              question_data: questionData,
-              timer_started_at: new Date().toISOString(),
-              timer_duration_sec: 30,
-            });
-          }} className="px-12 py-5 bg-red-600 hover:bg-red-500 rounded-2xl text-2xl font-black">
-            ⚡ ПОГНАЛИ!
-          </button>
+          <p className="text-gray-400 animate-pulse text-xl">Запуск...</p>
         </div>
       )}
 
       {/* ─── FINISHED ─── */}
       {room.status === 'finished' && (
-        <FinishedView ranked={ranked} onExit={() => router.push('/ctrl-8f2q9z')} />
+        <FinishedView ranked={ranked} onExit={() => router.push('/survivach')} />
       )}
 
       </div>

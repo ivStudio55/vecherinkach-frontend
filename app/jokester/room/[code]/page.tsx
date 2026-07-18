@@ -4,7 +4,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import type { CSSProperties } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import {
   fetchJokesterRoom,
   fetchJokesterPlayers,
@@ -59,6 +59,7 @@ function categoryLabel(categoryId?: string | null, categories: JokesterCategory[
 /* ════════════════════════════════════════════════════ */
 export default function JokesterPlayerPage() {
   const params = useParams();
+  const router = useRouter();
   const roomCode = params.code as string;
 
   const [room, setRoom] = useState<JokesterRoom | null>(null);
@@ -188,6 +189,18 @@ export default function JokesterPlayerPage() {
   });
   const currentTarget = pendingTargets[0] || null;
 
+  useEffect(() => {
+    if (!room || !me || me.role !== 'spectator') return;
+    jokesterStorage.setSession({
+      roomId: room.id,
+      roomCode: room.code,
+      playerId: me.id,
+      playerName: me.name,
+      role: 'spectator',
+    });
+    router.replace(`/jokester/spectator/${roomCode}`);
+  }, [room?.id, room?.code, me?.id, me?.role, roomCode, router]);
+
   /* ─── Reset ANSWER state when player's target duel changes ─── */
   useEffect(() => {
     setAnswer1('');
@@ -303,6 +316,27 @@ export default function JokesterPlayerPage() {
   }, [room?.status, room?.voting_phase, room?.current_duel_index, currentTarget?.duel.id, currentTarget?.qIndex]);
 
   /* ═══════════════════ Render ═══════════════════ */
+
+  if (room && myId && players.length > 0 && !me) {
+    return (
+      <div className="min-h-screen bg-[#1f6ac6] flex items-center justify-center p-4">
+        <div className="cartoon-panel p-6 text-center space-y-4 max-w-sm">
+          <div className="text-6xl">🚪</div>
+          <h1 className="text-2xl font-black text-black">Вы удалены из комнаты</h1>
+          <p className="text-gray-800 font-bold">Ведущий убрал это подключение до начала игры.</p>
+          <button
+            onClick={() => {
+              jokesterStorage.clear();
+              router.replace('/jokester');
+            }}
+            className="cartoon-button-blue w-full py-3"
+          >
+            Вернуться к подключению
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!room || !me) {
     return (

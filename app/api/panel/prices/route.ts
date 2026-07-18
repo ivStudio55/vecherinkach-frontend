@@ -1,38 +1,37 @@
 import { requirePanelAuth } from '@/lib/panelAuth';
-import { getSupabaseAdminClient } from '@/lib/supabaseAdmin.server';
+import { query, queryOne } from '@/lib/db.server';
+import { FALLBACK_GAME_PRICES } from '@/lib/payments/pricing';
+import { json, jsonError } from '@/lib/server/api';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const FALLBACK_PRICES: Record<string, number> = {
-  vecherinkach: 300,
-  jokester: 200,
-  creativach: 200,
+type GamePriceRow = {
+  game: keyof typeof FALLBACK_GAME_PRICES;
+  price: number;
+  updated_at: string | null;
 };
 
-// GET — list all game prices
 export async function GET(request: Request) {
   const authErr = requirePanelAuth(request);
   if (authErr) return authErr;
 
-  const supabase = getSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from('game_prices')
-    .select('*')
-    .order('game');
-
-  if (error) return Response.json({ error: error.message }, { status: 500 });
-
-  // Ensure all games are present (fill missing with fallback)
-  const result = { ...FALLBACK_PRICES };
-  for (const row of data ?? []) {
-    result[row.game] = row.price;
+  try {
+    const data = await query<GamePriceRow>(
+      `select game, price, updated_at
+       from game_prices
+       order by game asc`
+    );
+    const result = { ...FALLBACK_GAME_PRICES };
+    for (const row of data) {
+      result[row.game] = row.price;
+    }
+    return json(result);
+  } catch (error) {
+    return jsonError(error instanceof Error ? error.message : 'Failed to load prices', 500);
   }
-
-  return Response.json(result);
 }
 
-// PUT — update game price
 export async function PUT(request: Request) {
   const authErr = requirePanelAuth(request);
   if (authErr) return authErr;
@@ -41,20 +40,26 @@ export async function PUT(request: Request) {
   const game = String(body.game || '').trim();
   const price = Number(body.price);
 
-  if (!game || !FALLBACK_PRICES.hasOwnProperty(game)) {
-    return Response.json({ error: 'Неизвестная игра' }, { status: 400 });
+  if (!game || !(game in FALLBACK_GAME_PRICES)) {
+    return jsonError('Неизвестная игра', 400);
   }
   if (!Number.isInteger(price) || price < 0 || price > 100000) {
-    return Response.json({ error: 'Цена: целое число 0–100000' }, { status: 400 });
+    return jsonError('Цена: целое число 0–100000', 400);
   }
 
-  const supabase = getSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from('game_prices')
-    .upsert({ game, price, updated_at: new Date().toISOString() }, { onConflict: 'game' })
-    .select()
-    .single();
-
-  if (error) return Response.json({ error: error.message }, { status: 500 });
-  return Response.json({ ok: true, row: data });
+  try {
+    const data = await queryOne<GamePriceRow>(
+      `insert into game_prices (game, price, updated_at)
+       values ($1, $2, $3)
+       on conflict (game)
+       do update set
+         price = excluded.price,
+         updated_at = excluded.updated_at
+       returning game, price, updated_at`,
+      [game, price, new Date().toISOString()],
+    );
+    return json({ ok: true, row: data });
+  } catch (error) {
+    return jsonError(error instanceof Error ? error.message : 'Failed to update price', 500);
+  }
 }

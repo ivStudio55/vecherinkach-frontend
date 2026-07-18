@@ -8,7 +8,7 @@
 //   4. Add rendering in host and player screens
 //   The core selection algorithm (getRandomMode) never needs to change.
 
-import type { RoundMode, ModeCategory } from './types';
+import type { RoundMode, ModeCategory, DuelMode } from './types';
 
 // ─── Category ────────────────────────────────────────────────────────────────
 
@@ -154,4 +154,11 @@ export function getModeDescriptor(id: RoundMode): GameModeDescriptor | undefined
  */
 export function getModeDuration(id: RoundMode): number {
   return getModeDescriptor(id)?.timerSec ?? 30;
+}
+
+const DUEL_MODES: DuelMode[] = ['minesweeper', 'arithmetic_mean', 'crowd_forecast'];
+
+export function getRandomDuelMode(lastMode: DuelMode | null): DuelMode {
+  const candidates = lastMode ? DUEL_MODES.filter(m => m !== lastMode) : DUEL_MODES;
+  return candidates[Math.floor(Math.random() * candidates.length)] ?? DUEL_MODES[0];
 }

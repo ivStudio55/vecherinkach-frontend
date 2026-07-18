@@ -1,0 +1,1 @@
+console.log(require(s).readFileSync(pp/page.tsx, utf8))

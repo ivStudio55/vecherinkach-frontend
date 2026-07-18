@@ -1,44 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdminClient } from '@/lib/supabaseAdmin.server';
+import {
+  applyPromoDiscount,
+  getBasePriceForPack,
+  getPackRow,
+  getPromoCodeRow,
+  getPromoValidationError,
+  normalizePromoCode,
+  type SupportedPaidGame,
+} from '@/lib/payments/pricing';
+import { jsonError } from '@/lib/server/api';
 
 const SHOP_ID = process.env.YUKASSA_SHOP_ID;
 const SECRET_KEY = process.env.YUKASSA_SECRET_KEY;
 const BASE_URL = 'https://vecherinkach.ru';
 
-const GAME_NAMES: Record<string, string> = {
+const GAME_NAMES: Record<SupportedPaidGame, string> = {
   vecherinkach: 'Вечеринкач — игровая сессия',
   jokester: 'Пошутикач — игровая сессия',
   creativach: 'Креативач — игровая сессия',
+  draw: 'Рисункач — игровая сессия',
 };
-
-const FALLBACK_PRICES: Record<string, number> = {
-  vecherinkach: 300,
-  jokester: 200,
-  creativach: 200,
-};
-
-// In-memory price cache (5-minute TTL)
-let priceCache: { prices: Record<string, number>; expiresAt: number } | null = null;
-
-async function getGamePrice(game: string): Promise<number> {
-  const now = Date.now();
-  if (!priceCache || priceCache.expiresAt < now) {
-    try {
-      const supabase = getSupabaseAdminClient();
-      const { data } = await supabase.from('game_prices').select('game, price');
-      if (data && data.length > 0) {
-        const prices: Record<string, number> = { ...FALLBACK_PRICES };
-        for (const row of data) prices[row.game] = row.price;
-        priceCache = { prices, expiresAt: now + 5 * 60 * 1000 };
-      }
-    } catch {
-      // fall through to fallback
-    }
-  }
-  return priceCache?.prices[game] ?? FALLBACK_PRICES[game] ?? 0;
-}
-
-// --- Room creation helpers (mirrored from payment/success) ---
 
 function generateGameCode(): string {
   return String(Math.floor(1000 + Math.random() * 9000));
@@ -56,7 +38,7 @@ async function createVecherinkachRoom(packId: string) {
 
 async function createJokesterRoom(packId: string) {
   const supabase = getSupabaseAdminClient();
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 10; i += 1) {
     const code = generateGameCode();
     const { data: room, error } = await supabase
       .from('jokester_rooms')
@@ -80,84 +62,89 @@ async function createJokesterRoom(packId: string) {
   throw new Error('Could not generate unique jokester code');
 }
 
-// ---
+async function createDrawRoom(packId: string) {
+  const supabase = getSupabaseAdminClient();
+  for (let i = 0; i < 10; i += 1) {
+    const code = generateGameCode();
+    const { data: room, error } = await supabase
+      .from('draw_rooms')
+      .insert({ code, status: 'lobby', mode: 'russian', pack_id: packId })
+      .select('id, code')
+      .single();
+    if (error) {
+      if ((error as { code?: string }).code === '23505') continue;
+      throw new Error(`draw_rooms insert: ${error.message}`);
+    }
+    if (!room) continue;
+    const { data: player, error: pe } = await supabase
+      .from('draw_players')
+      .insert({ room_id: room.id, name: 'Ведущий', is_host: true, seat: 1 })
+      .select('id')
+      .single();
+    if (pe || !player) throw new Error(`draw_players insert: ${pe?.message}`);
+    await supabase.from('draw_rooms').update({ host_id: player.id }).eq('id', room.id);
+    return { id: room.id as string, code: room.code as string };
+  }
+  throw new Error('Could not generate unique draw code');
+}
+
+async function createPaidRoom(game: SupportedPaidGame, packId: string) {
+  if (game === 'jokester') return createJokesterRoom(packId);
+  if (game === 'draw') return createDrawRoom(packId);
+  return createVecherinkachRoom(packId);
+}
 
 export async function POST(req: NextRequest) {
   let body: { game?: string; email?: string; pack_id?: string; promo_code?: string };
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+    return jsonError('Invalid request body', 400);
   }
 
   const { game, email, pack_id, promo_code } = body;
+  const normalizedGame = game as SupportedPaidGame | undefined;
 
-  if (!game || !GAME_NAMES[game]) {
-    return NextResponse.json({ error: 'Unknown game' }, { status: 400 });
+  if (!normalizedGame || !(normalizedGame in GAME_NAMES)) {
+    return jsonError('Unknown game', 400);
   }
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return NextResponse.json({ error: 'Invalid email' }, { status: 400 });
+    return jsonError('Invalid email', 400);
   }
   if (!pack_id) {
-    return NextResponse.json({ error: 'Pack not selected' }, { status: 400 });
+    return jsonError('Pack not selected', 400);
   }
 
   const supabase = getSupabaseAdminClient();
-
-  // Validate pack exists, is active, and is private (paid)
-  const packTable = game === 'jokester' ? 'jokester_question_packs' : 'question_packs';
-  const { data: packRow, error: packErr } = await supabase
-    .from(packTable)
-    .select('id, label, is_public, is_active, price')
-    .eq('id', pack_id)
-    .single();
+  const { data: packRow, error: packErr } = await getPackRow(supabase, normalizedGame, pack_id);
 
   if (packErr || !packRow) {
-    return NextResponse.json({ error: 'Пакет не найден' }, { status: 400 });
+    return jsonError('Пакет не найден', 400);
   }
   if (!packRow.is_active) {
-    return NextResponse.json({ error: 'Пакет недоступен' }, { status: 400 });
+    return jsonError('Пакет недоступен', 400);
   }
   if (packRow.is_public) {
-    return NextResponse.json({ error: 'Этот пакет бесплатный' }, { status: 400 });
+    return jsonError('Этот пакет бесплатный', 400);
   }
 
-  // Pack-specific price takes priority over game-level price
-  const originalPrice = packRow.price != null ? packRow.price : await getGamePrice(game);
-  const packName = `${GAME_NAMES[game]}: ${packRow.label}`;
+  const originalPrice = await getBasePriceForPack(supabase, normalizedGame, packRow.price);
+  const packName = `${GAME_NAMES[normalizedGame]}: ${packRow.label}`;
 
-  // --- Promo code ---
   let finalPrice = originalPrice;
   let appliedPromoCode: string | null = null;
 
   if (promo_code) {
-    const normalizedCode = promo_code.toUpperCase().trim();
+    const normalizedCode = normalizePromoCode(promo_code);
+    const { data: promoRow, error: promoFetchErr } = await getPromoCodeRow(supabase, normalizedCode);
+    const promoError = promoFetchErr
+      ? 'Промокод недействителен'
+      : getPromoValidationError(promoRow, normalizedGame, pack_id);
 
-    // Fetch promo code directly (avoid unreliable PostgREST RPC for write ops)
-    const { data: promoRow, error: promoFetchErr } = await supabase
-      .from('promo_codes')
-      .select('id, discount_pct, discount_fixed, used_count, max_uses, expires_at, game, pack_id')
-      .eq('code', normalizedCode)
-      .eq('is_active', true)
-      .single();
-
-    if (promoFetchErr || !promoRow) {
-      return NextResponse.json({ error: 'Промокод недействителен' }, { status: 400 });
-    }
-    if (promoRow.expires_at && new Date(promoRow.expires_at) <= new Date()) {
-      return NextResponse.json({ error: 'Срок действия промокода истёк' }, { status: 400 });
-    }
-    if (promoRow.max_uses !== null && promoRow.used_count >= promoRow.max_uses) {
-      return NextResponse.json({ error: 'Промокод уже использован максимальное количество раз' }, { status: 400 });
-    }
-    if (promoRow.game && promoRow.game !== game) {
-      return NextResponse.json({ error: 'Промокод недействителен для этой игры' }, { status: 400 });
-    }
-    if (promoRow.pack_id && promoRow.pack_id !== pack_id) {
-      return NextResponse.json({ error: 'Промокод недействителен для этого пакета' }, { status: 400 });
+    if (promoError || !promoRow) {
+      return jsonError(promoError ?? 'Промокод недействителен', 400);
     }
 
-    // Increment used_count with optimistic concurrency check
     const { error: updateErr } = await supabase
       .from('promo_codes')
       .update({ used_count: promoRow.used_count + 1 })
@@ -166,25 +153,21 @@ export async function POST(req: NextRequest) {
 
     if (updateErr) {
       console.error('[payment/create] promo increment error:', updateErr);
-      return NextResponse.json({ error: 'Промокод уже использован' }, { status: 400 });
+      return jsonError('Промокод уже использован', 400);
     }
 
-    const afterPct = Math.round(originalPrice * (1 - promoRow.discount_pct / 100));
-    finalPrice = Math.max(0, afterPct - (promoRow.discount_fixed ?? 0));
+    finalPrice = applyPromoDiscount(originalPrice, promoRow);
     appliedPromoCode = normalizedCode;
   }
 
-  // --- Free order (Variant B or 100% discount) ---
   if (finalPrice <= 0) {
     try {
-      const roomInfo = game === 'jokester'
-        ? await createJokesterRoom(pack_id)
-        : await createVecherinkachRoom(pack_id);
+      const roomInfo = await createPaidRoom(normalizedGame, pack_id);
 
       const { data: order, error: dbErr } = await supabase
         .from('orders')
         .insert({
-          game,
+          game: normalizedGame,
           pack_id,
           pack_name: packName,
           amount: 0,
@@ -200,19 +183,18 @@ export async function POST(req: NextRequest) {
 
       if (dbErr || !order) {
         console.error('[payment/create] free order DB error:', dbErr);
-        return NextResponse.json({ error: 'Ошибка создания заказа' }, { status: 500 });
+        return jsonError('Ошибка создания заказа', 500);
       }
 
       return NextResponse.json({ free: true, orderId: order.id });
     } catch (err) {
       console.error('[payment/create] free room creation error:', err);
-      return NextResponse.json({ error: 'Ошибка создания комнаты' }, { status: 500 });
+      return jsonError('Ошибка создания комнаты', 500);
     }
   }
 
-  // --- Paid order (ЮKassa) ---
   if (!SHOP_ID || !SECRET_KEY) {
-    return NextResponse.json({ error: 'Payment not configured' }, { status: 503 });
+    return jsonError('Payment not configured', 503);
   }
 
   const priceStr = finalPrice.toFixed(2);
@@ -220,7 +202,7 @@ export async function POST(req: NextRequest) {
   const { data: order, error: dbError } = await supabase
     .from('orders')
     .insert({
-      game,
+      game: normalizedGame,
       pack_id,
       pack_name: packName,
       amount: finalPrice,
@@ -234,13 +216,12 @@ export async function POST(req: NextRequest) {
 
   if (dbError || !order) {
     console.error('[payment/create] DB error:', dbError);
-    return NextResponse.json({ error: 'Ошибка создания заказа' }, { status: 500 });
+    return jsonError('Ошибка создания заказа', 500);
   }
 
   const orderId: string = order.id;
-
-  // Create payment at YuKassa
   const credentials = Buffer.from(`${SHOP_ID}:${SECRET_KEY}`).toString('base64');
+
   let yukassaRes: Response;
   try {
     yukassaRes = await fetch('https://api.yookassa.ru/v3/payments', {
@@ -276,18 +257,17 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     console.error('[payment/create] YuKassa fetch error:', err);
-    return NextResponse.json({ error: 'Ошибка платёжного сервиса' }, { status: 502 });
+    return jsonError('Ошибка платёжного сервиса', 502);
   }
 
   if (!yukassaRes.ok) {
     const errData = await yukassaRes.json().catch(() => ({}));
     console.error('[payment/create] YuKassa error:', errData);
-    return NextResponse.json({ error: 'Ошибка платёжного сервиса' }, { status: 502 });
+    return jsonError('Ошибка платёжного сервиса', 502);
   }
 
   const payment = await yukassaRes.json();
 
-  // Save YuKassa payment ID
   await supabase
     .from('orders')
     .update({ yukassa_payment_id: payment.id })

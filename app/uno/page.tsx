@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { createUnoRoom, joinUnoRoom } from '@/lib/uno/api';
 import type { UnoMode } from '@/lib/uno/types';
+import { GameConnectionGuide } from '@/components/GameConnectionGuide';
 
 const modes = [
   {
@@ -125,13 +126,20 @@ export default function UnoPage() {
             </button>
           </div>
           <div className="flex flex-col gap-2">
-            <p className="comic-font-thin text-sm tracking-widest text-gray-500 font-bold">МИНИ-ИГРА</p>
+            <p className="comic-font-thin text-sm tracking-widest text-gray-500 font-bold">ПОЛНОЦЕННАЯ ИГРА</p>
             <h1 className="comic-font text-5xl sm:text-6xl text-red-500 drop-shadow-[3px_3px_0_#000]">UNO ДЛЯ ВЕЧЕРИНКИ</h1>
           </div>
           <p className="mt-4 text-lg comic-font-thin font-bold text-gray-800">
             Четыре режима: классический, классика+глаголы, «Все формы» и «Угадай глагол». Мультиплеер через Supabase Realtime.
           </p>
         </header>
+
+        <GameConnectionGuide
+          gameName="UNO"
+          variant="comic"
+          hostScreenText="Если играете компанией, откройте комнату на отдельном общем экране, чтобы всем было видно ход партии, очередность и текущую карту."
+          playerText="Каждый игрок подключается со своего телефона, вводит код комнаты и играет своими картами на личном экране."
+        />
 
         {/* Mode cards */}
         <section className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">

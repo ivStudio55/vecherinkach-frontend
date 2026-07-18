@@ -1,26 +1,24 @@
-import { getSupabaseAdminClient } from '@/lib/supabaseAdmin.server';
+import { queryOne } from '@/lib/db.server';
+import { json } from '@/lib/server/api';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const supabase = getSupabaseAdminClient();
   const startedAt = Date.now();
-
-  const { error } = await supabase.from('rooms').select('id', { count: 'exact', head: true }).limit(1);
-
   const latencyMs = Date.now() - startedAt;
 
-  if (error) {
-    return Response.json(
+  try {
+    await queryOne('select id from rooms limit 1');
+    return json({ ok: true, latencyMs, time: new Date().toISOString() });
+  } catch (error) {
+    return json(
       {
         ok: false,
         latencyMs,
-        error: error.message ?? 'Supabase check failed',
+        error: error instanceof Error ? error.message : 'Database check failed',
         time: new Date().toISOString(),
       },
       { status: 500 }
     );
   }
-
-  return Response.json({ ok: true, latencyMs, time: new Date().toISOString() });
 }

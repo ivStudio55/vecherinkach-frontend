@@ -5,6 +5,8 @@
 
 import { supabase } from '../supabase';
 import { subscribeChannel } from '../centrifuge';
+import localArithmeticMeanQuestions from '../../../app/draw/survivach/arithmetic_mean_questions.json';
+import localCrowdForecastQuestions from '../../../app/draw/survivach/crowd_forecast_questions.json';
 import type {
   SurvivachRoom,
   SurvivachPlayer,
@@ -18,7 +20,9 @@ import type {
   RoundResultsData,
   BetResultsData,
   DuelData,
+  DuelMode,
   SurvivachSession,
+  BetOption,
 } from './types';
 
 /* ══════════════════════════════════════════
@@ -247,6 +251,7 @@ export async function submitBet(
   playerId: string,
   round: number,
   betType: 'karma' | 'life',
+  betOption: 'all_correct' | 'majority_correct' | 'leader_mistake' | 'all_wrong',
 ) {
   const { error } = await supabase
     .from('survivach_bets')
@@ -255,6 +260,7 @@ export async function submitBet(
       player_id: playerId,
       round,
       bet_type: betType,
+      bet_option: betOption,
       resolved: false,
     }, { onConflict: 'room_id,player_id,round' });
   if (error) throw error;
@@ -355,6 +361,38 @@ export async function fetchActiveDuel(roomId: string, round: number): Promise<Su
   return data as SurvivachDuel;
 }
 
+export async function fetchLastDuelMode(roomId: string): Promise<DuelMode | null> {
+  const { data, error } = await supabase
+    .from('survivach_duels')
+    .select('mode')
+    .eq('room_id', roomId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) return null;
+  return (data.mode as DuelMode) ?? null;
+}
+
+export async function tryLockDuelForRound(roomId: string, round: number): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('survivach_rooms')
+    .update({ duel_initiated_in_round: round, updated_at: new Date().toISOString() })
+    .eq('id', roomId)
+    .or(`duel_initiated_in_round.is.null,duel_initiated_in_round.neq.${round}`)
+    .select('id')
+    .maybeSingle();
+  if (error || !data) return false;
+  return true;
+}
+
+export async function releaseDuelLockForRound(roomId: string, round: number): Promise<void> {
+  await supabase
+    .from('survivach_rooms')
+    .update({ duel_initiated_in_round: null, updated_at: new Date().toISOString() })
+    .eq('id', roomId)
+    .eq('duel_initiated_in_round', round);
+}
+
 /* ══════════════════════════════════════════
    Packs
    ══════════════════════════════════════════ */
@@ -416,11 +454,10 @@ export async function loadDuelQuestions(
   try {
     const url = `${packBaseUrl}/json/${fileMap[duelMode]}`;
     const res = await fetch(url);
-    if (!res.ok) return null;
-    return await res.json();
-  } catch {
-    return null;
-  }
+    if (res.ok) return await res.json();
+  } catch { /* fall through to local fallback */ }
+  // Fallback to locally bundled question banks
+  return duelMode === 'arithmetic_mean' ? localArithmeticMeanQuestions : localCrowdForecastQuestions;
 }
 
 /* ══════════════════════════════════════════

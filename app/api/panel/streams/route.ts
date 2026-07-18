@@ -1,22 +1,31 @@
-import { NextResponse } from 'next/server';
 import { requirePanelAuth } from '@/lib/panelAuth';
-import { getSupabaseAdminClient } from '@/lib/supabaseAdmin.server';
+import { execute, query } from '@/lib/db.server';
+import { json, jsonError } from '@/lib/server/api';
+
+type PanelStreamRow = {
+  id: string;
+  title: string;
+  url: string;
+  scheduled_at: string;
+  is_live: boolean;
+  created_at: string;
+  updated_at: string;
+};
 
 export async function GET(request: Request) {
   const authErr = requirePanelAuth(request);
   if (authErr) return authErr;
 
-  const db = getSupabaseAdminClient();
-  const { data, error } = await db
-    .from('streams')
-    .select('*')
-    .order('scheduled_at', { ascending: false });
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  try {
+    const data = await query<PanelStreamRow>(
+      `select id, title, url, scheduled_at, is_live, created_at, updated_at
+       from streams
+       order by scheduled_at desc`
+    );
+    return json(data);
+  } catch (error) {
+    return jsonError(error instanceof Error ? error.message : 'Failed to load streams', 500);
   }
-
-  return NextResponse.json(data ?? []);
 }
 
 export async function POST(request: Request) {
@@ -27,19 +36,19 @@ export async function POST(request: Request) {
   const { title, url, scheduled_at, is_live } = body;
 
   if (!title || !url || !scheduled_at) {
-    return NextResponse.json({ error: 'title, url, scheduled_at обязательны' }, { status: 400 });
+    return jsonError('title, url, scheduled_at обязательны', 400);
   }
 
-  const db = getSupabaseAdminClient();
-  const { error } = await db
-    .from('streams')
-    .insert({ title, url, scheduled_at, is_live: is_live ?? false });
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  try {
+    await execute(
+      `insert into streams (title, url, scheduled_at, is_live)
+       values ($1, $2, $3, $4)`,
+      [title, url, scheduled_at, is_live ?? false],
+    );
+    return json({ ok: true }, { status: 201 });
+  } catch (error) {
+    return jsonError(error instanceof Error ? error.message : 'Failed to create stream', 500);
   }
-
-  return NextResponse.json({ ok: true }, { status: 201 });
 }
 
 export async function PUT(request: Request) {
@@ -50,7 +59,7 @@ export async function PUT(request: Request) {
   const { id, title, url, scheduled_at, is_live } = body;
 
   if (!id) {
-    return NextResponse.json({ error: 'id обязателен' }, { status: 400 });
+    return jsonError('id обязателен', 400);
   }
 
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -59,17 +68,16 @@ export async function PUT(request: Request) {
   if (scheduled_at !== undefined) updates.scheduled_at = scheduled_at;
   if (is_live !== undefined) updates.is_live = is_live;
 
-  const db = getSupabaseAdminClient();
-  const { error } = await db
-    .from('streams')
-    .update(updates)
-    .eq('id', id);
+  const fields = Object.entries(updates);
+  const assignments = fields.map(([key], index) => `"${key}" = $${index + 2}`).join(', ');
+  const values = [id, ...fields.map(([, value]) => value)];
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  try {
+    await execute(`update streams set ${assignments} where id = $1`, values);
+    return json({ ok: true });
+  } catch (error) {
+    return jsonError(error instanceof Error ? error.message : 'Failed to update stream', 500);
   }
-
-  return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(request: Request) {
@@ -80,15 +88,13 @@ export async function DELETE(request: Request) {
   const id = searchParams.get('id');
 
   if (!id) {
-    return NextResponse.json({ error: 'id обязателен' }, { status: 400 });
+    return jsonError('id обязателен', 400);
   }
 
-  const db = getSupabaseAdminClient();
-  const { error } = await db.from('streams').delete().eq('id', id);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  try {
+    await execute('delete from streams where id = $1', [id]);
+    return json({ ok: true });
+  } catch (error) {
+    return jsonError(error instanceof Error ? error.message : 'Failed to delete stream', 500);
   }
-
-  return NextResponse.json({ ok: true });
 }

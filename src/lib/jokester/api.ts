@@ -22,6 +22,12 @@ import { MAX_PLAYERS } from './types';
 
 const LS_PREFIX = 'jokester_';
 
+function getBrowserStorage(): Storage | null {
+  if (typeof globalThis === 'undefined') return null;
+  if (!('localStorage' in globalThis)) return null;
+  return globalThis.localStorage ?? null;
+}
+
 export const jokesterStorage = {
   setSession(data: {
     roomId: string;
@@ -30,29 +36,44 @@ export const jokesterStorage = {
     playerName: string;
     role: JokesterRole;
   }) {
-    localStorage.setItem(`${LS_PREFIX}roomId`, data.roomId);
-    localStorage.setItem(`${LS_PREFIX}roomCode`, data.roomCode);
-    localStorage.setItem(`${LS_PREFIX}playerId`, data.playerId);
-    localStorage.setItem(`${LS_PREFIX}playerName`, data.playerName);
-    localStorage.setItem(`${LS_PREFIX}role`, data.role);
+    const storage = getBrowserStorage();
+    if (!storage) return;
+    storage.setItem(`${LS_PREFIX}roomId`, data.roomId);
+    storage.setItem(`${LS_PREFIX}roomCode`, data.roomCode);
+    storage.setItem(`${LS_PREFIX}playerId`, data.playerId);
+    storage.setItem(`${LS_PREFIX}playerName`, data.playerName);
+    storage.setItem(`${LS_PREFIX}role`, data.role);
   },
   get() {
+    const storage = getBrowserStorage();
+    if (!storage) {
+      return {
+        roomId: '',
+        roomCode: '',
+        playerId: '',
+        playerName: '',
+        role: 'player' as JokesterRole,
+      };
+    }
+
     return {
-      roomId: localStorage.getItem(`${LS_PREFIX}roomId`) || '',
-      roomCode: localStorage.getItem(`${LS_PREFIX}roomCode`) || '',
-      playerId: localStorage.getItem(`${LS_PREFIX}playerId`) || '',
-      playerName: localStorage.getItem(`${LS_PREFIX}playerName`) || '',
-      role: (localStorage.getItem(`${LS_PREFIX}role`) || 'player') as JokesterRole,
+      roomId: storage.getItem(`${LS_PREFIX}roomId`) || '',
+      roomCode: storage.getItem(`${LS_PREFIX}roomCode`) || '',
+      playerId: storage.getItem(`${LS_PREFIX}playerId`) || '',
+      playerName: storage.getItem(`${LS_PREFIX}playerName`) || '',
+      role: (storage.getItem(`${LS_PREFIX}role`) || 'player') as JokesterRole,
     };
   },
   clear() {
+    const storage = getBrowserStorage();
+    if (!storage) return;
     [
       'roomId',
       'roomCode',
       'playerId',
       'playerName',
       'role',
-    ].forEach(k => localStorage.removeItem(`${LS_PREFIX}${k}`));
+    ].forEach(k => storage.removeItem(`${LS_PREFIX}${k}`));
   },
 };
 

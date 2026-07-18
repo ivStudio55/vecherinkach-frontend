@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 
 /* ===== Types ===== */
-type GameKey = 'vecherinkach' | 'jokester' | 'creativach' | 'draw' | 'uno';
+type GameKey = 'vecherinkach' | 'jokester' | 'creativach' | 'draw' | 'uno' | 'survivach';
 
 interface Totals {
   vecherinkach: { rooms: number; players: number; answers: number };
@@ -11,6 +11,7 @@ interface Totals {
   creativach: { rooms: number; players: number; answers: number };
   draw: { rooms: number; players: number };
   uno: { rooms: number; players: number };
+  survivach: { rooms: number; players: number; answers: number };
 }
 
 interface RoomRow {
@@ -32,6 +33,8 @@ interface RoomDetail {
   duels?: Record<string, unknown>[];
   votes?: Record<string, unknown>[];
   chains?: Record<string, unknown>[];
+  bets?: Record<string, unknown>[];
+  survivachDuels?: Record<string, unknown>[];
 }
 
 interface StreamRow {
@@ -50,6 +53,7 @@ const GAME_LABELS: Record<GameKey, string> = {
   creativach: '🎨 Креативач',
   draw: '✏️ Рисункач',
   uno: '🃏 UNO',
+  survivach: '🧟 Выживач',
 };
 
 const GAME_COLORS: Record<GameKey, string> = {
@@ -58,6 +62,7 @@ const GAME_COLORS: Record<GameKey, string> = {
   creativach: 'from-green-500 to-teal-600',
   draw: 'from-blue-500 to-cyan-600',
   uno: 'from-red-500 to-rose-600',
+  survivach: 'from-lime-600 to-green-800',
 };
 
 /* ===== Helpers ===== */
@@ -151,7 +156,13 @@ export default function PanelDashboard() {
     setSelectedRoom(roomId);
     setRoomDetail(null);
     const data = await apiFetch(`/api/panel/room-detail?game=${activeGame}&roomId=${roomId}`);
-    if (data) setRoomDetail(data);
+    if (data) {
+      if (activeGame === 'survivach' && data.duels) {
+        data.survivachDuels = data.duels;
+        delete data.duels;
+      }
+      setRoomDetail(data);
+    }
   }, [activeGame, apiFetch]);
 
   // Room actions
@@ -298,6 +309,9 @@ export default function PanelDashboard() {
           <button onClick={() => router.push('/ctrl-8f2q9z/jokester-packs')} className="px-4 py-2 bg-amber-600/80 hover:bg-amber-500 rounded-lg text-sm font-bold transition-colors">
             🤡 Пакеты Пошутикач
           </button>
+          <button onClick={() => router.push('/ctrl-8f2q9z/draw-packs')} className="px-4 py-2 bg-cyan-600/80 hover:bg-cyan-500 rounded-lg text-sm font-bold transition-colors">
+            🎨 Пакеты Рисункач
+          </button>
           <button onClick={() => router.push('/ctrl-8f2q9z/categories')} className="px-4 py-2 bg-orange-600/80 hover:bg-orange-500 rounded-lg text-sm font-bold transition-colors">
             🎭 Категории Р4
           </button>
@@ -321,6 +335,7 @@ export default function PanelDashboard() {
           <KpiCard label="Всего игроков" value={totalPlayers} gradient="from-emerald-600 to-green-700" />
           {totals && <KpiCard label="Ответов (Вечеринкач)" value={totals.vecherinkach.answers} gradient="from-pink-600 to-rose-700" />}
           {totals && <KpiCard label="Дуэлей (Пошутикач)" value={totals.jokester.duels} gradient="from-amber-600 to-orange-700" />}
+          {totals && <KpiCard label="Комнат Выживач" value={totals.survivach.rooms} sub={`${totals.survivach.players} игроков`} gradient="from-lime-600 to-green-800" />}
         </div>
 
         {/* Per-game KPIs */}
@@ -535,6 +550,60 @@ export default function PanelDashboard() {
                         <div key={i} className="text-xs bg-gray-800/50 px-2 py-1 rounded flex gap-2">
                           <span className="text-gray-500">R{String(c.round)} #{String(c.chain_index)}</span>
                           <span className="text-gray-300">«{String(c.original_word)}»</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Survivach answers */}
+                {roomDetail.answers && roomDetail.answers.length > 0 && activeGame === 'survivach' && (
+                  <div className="px-4 py-3 border-b border-gray-800">
+                    <h3 className="text-sm font-bold text-gray-300 mb-2">📝 Ответы ({roomDetail.answers.length})</h3>
+                    <div className="space-y-1 max-h-40 overflow-y-auto">
+                      {roomDetail.answers.map((a, i) => (
+                        <div key={i} className="text-xs bg-gray-800/50 px-2 py-1 rounded flex gap-2">
+                          <span className="text-gray-500">R{String(a.round)}</span>
+                          <span className="text-gray-300 break-all">{String(a.answer_text ?? a.answer_index ?? '—')}</span>
+                          {a.is_correct !== undefined && (
+                            <span className={a.is_correct ? 'text-green-400' : 'text-red-400'}>{a.is_correct ? '✅' : '❌'}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Survivach bets */}
+                {roomDetail.bets && roomDetail.bets.length > 0 && (
+                  <div className="px-4 py-3 border-b border-gray-800">
+                    <h3 className="text-sm font-bold text-gray-300 mb-2">🎰 Ставки ({roomDetail.bets.length})</h3>
+                    <div className="space-y-1 max-h-40 overflow-y-auto">
+                      {roomDetail.bets.map((b, i) => (
+                        <div key={i} className="text-xs bg-gray-800/50 px-2 py-1 rounded flex gap-2">
+                          <span className="text-gray-500">R{String(b.round)}</span>
+                          <span className="text-gray-300">{String(b.bet_type)}</span>
+                          {!!b.resolved && (
+                            <span className={b.won ? 'text-green-400' : 'text-red-400'}>{b.won ? '✅ выиграл' : '❌ проиграл'}</span>
+                          )}
+                          {!b.resolved && <span className="text-gray-500">ожидает</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Survivach duels */}
+                {roomDetail.survivachDuels && roomDetail.survivachDuels.length > 0 && (
+                  <div className="px-4 py-3 border-b border-gray-800">
+                    <h3 className="text-sm font-bold text-gray-300 mb-2">⚔️ Дуэли Выживач ({roomDetail.survivachDuels.length})</h3>
+                    <div className="space-y-1 max-h-40 overflow-y-auto">
+                      {roomDetail.survivachDuels.map((d, i) => (
+                        <div key={i} className="text-xs bg-gray-800/50 px-2 py-1 rounded flex gap-2">
+                          <span className="text-gray-500">R{String(d.round)}</span>
+                          <span className="text-gray-300">{String(d.mode)}</span>
+                          <StatusBadge status={String(d.status)} />
+                          {!!d.winner_id && <span className="text-yellow-400">🏆</span>}
                         </div>
                       ))}
                     </div>

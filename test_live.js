@@ -1,0 +1,1 @@
+const https = require('https'); https.get('https://vecherinkach.ru/', (r) => { let d=''; r.on('data', c=>d+=c); r.on('end', () => console.log(d.match(/_next\/static\/chunks\/[a-zA-Z0-9_-]+\.js/g))) })

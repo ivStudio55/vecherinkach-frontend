@@ -1,16 +1,23 @@
-import { NextResponse } from 'next/server';
-import { getSupabaseAdminClient } from '@/lib/supabaseAdmin.server';
+import { query } from '@/lib/db.server';
+import { json, jsonError } from '@/lib/server/api';
+
+type StreamRow = {
+  id: string;
+  title: string;
+  url: string;
+  scheduled_at: string;
+  is_live: boolean;
+};
 
 export async function GET() {
-  const db = getSupabaseAdminClient();
-  const { data, error } = await db
-    .from('streams')
-    .select('id, title, url, scheduled_at, is_live')
-    .order('scheduled_at', { ascending: true });
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  try {
+    const data = await query<StreamRow>(
+      `select id, title, url, scheduled_at, is_live
+       from streams
+       order by scheduled_at asc`
+    );
+    return json(data);
+  } catch (error) {
+    return jsonError(error instanceof Error ? error.message : 'Failed to load streams', 500);
   }
-
-  return NextResponse.json(data ?? []);
 }

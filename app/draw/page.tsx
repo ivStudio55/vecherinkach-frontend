@@ -3,9 +3,10 @@
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { createDrawRoom, joinDrawRoom } from '@/lib/draw/api';
+import { joinDrawRoom } from '@/lib/draw/api';
 import type { DrawGameMode } from '@/lib/draw/types';
 import ComicBackground from '@/components/draw/ComicBackground';
+import { GameConnectionGuide } from '@/components/GameConnectionGuide';
 
 export default function DrawPage() {
   const router = useRouter();
@@ -28,16 +29,7 @@ export default function DrawPage() {
   };
 
   const handleCreate = async () => {
-    setPending(true);
-    setError('');
-    try {
-      const { room } = await createDrawRoom(hostName, mode);
-      router.push(`/draw/host/${room.code}`);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось создать комнату');
-    } finally {
-      setPending(false);
-    }
+    router.push('/pricing');
   };
 
   const handleJoin = async () => {
@@ -71,7 +63,7 @@ export default function DrawPage() {
         {/* Header */}
         <header className="text-center">
           <div className="inline-block bg-[#FF69B4] border-[4px] border-black px-4 py-1 -rotate-2 mb-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-            <p className="uppercase text-sm font-black tracking-widest text-white">мини-игра</p>
+            <p className="uppercase text-sm font-black tracking-widest text-white">коллекция игр</p>
           </div>
           <h1 className="text-5xl sm:text-7xl font-bangers tracking-wider text-white drop-shadow-[4px_4px_0_#000] mb-4" style={{ WebkitTextStroke: '2px black' }}>
             🎨 РИСУНКАЧ
@@ -106,6 +98,13 @@ export default function DrawPage() {
             <span className="text-xl">⭐ БАЛЛЫ:</span> +50 за правильную догадку, +50 если твой рисунок угадали, +25 за каждый голос.
           </div>
         </section>
+
+        <GameConnectionGuide
+          gameName="Рисункач"
+          variant="comic"
+          hostScreenText="Экран ведущего лучше открыть на отдельном большом устройстве. Там будут видны цепочки рисунков, переходы между раундами, голосование и итоги."
+          playerText="Игроки подключаются со своих телефонов, получают слово, рисуют на экране телефона и угадывают рисунки других игроков."
+        />
 
         {/* Create / Join */}
         <section className="bg-[#B266FF] border-[6px] border-black p-6 sm:p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] rotate-1">
@@ -169,7 +168,7 @@ export default function DrawPage() {
                 className="mt-6 w-full bg-[#00BFFF] hover:bg-[#0099CC] text-white border-[4px] border-black py-4 text-2xl font-bangers tracking-widest shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ WebkitTextStroke: '1px black' }}
               >
-                {pending ? 'СОЗДАЕМ...' : 'СОЗДАТЬ КОМНАТУ'}
+                {pending ? 'СОЗДАЕМ...' : 'КУПИТЬ ДОСТУП'}
               </button>
             </div>
 

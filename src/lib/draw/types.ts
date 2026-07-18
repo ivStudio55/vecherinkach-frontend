@@ -17,6 +17,7 @@ export type DrawRoom = {
   step_duration: number;
   voting_chain_index: number;
   host_id: string | null;
+  pack_id?: string | null;
   created_at: string;
   updated_at: string;
 };

@@ -11,12 +11,15 @@ import type {
   SurvivachBet,
   SurvivachDuel,
   RoundMode,
+  DuelMode,
   MathProblem,
+  BetOption,
 } from '@/lib/survivach/types';
 import {
   fetchRoomByCode,
   fetchPlayers,
   fetchActiveDuel,
+  fetchLastDuelMode,
   joinSurvivachRoom,
   submitAnswer,
   submitBet,
@@ -46,6 +49,7 @@ import {
   rankPlayers,
 } from '@/lib/survivach/board';
 import { SurvivachAudio, randomFromPool, SCREAM_POOL } from '@/lib/survivach/audio';
+import { getRandomDuelMode } from '@/lib/survivach/gameModes';
 
 /* ── Types ── */
 type JoinPhase = 'choose_avatar' | 'enter_name' | 'waiting';
@@ -314,6 +318,7 @@ export default function SurvivachRoomPage() {
   const [duel, setDuel] = useState<SurvivachDuel | null>(null);
   const [myAnswer, setMyAnswer] = useState<SurvivachAnswer | null>(null);
   const [myBet, setMyBet] = useState<SurvivachBet | null>(null);
+  const [pendingBetOption, setPendingBetOption] = useState<BetOption | null>(null);
   const [loading, setLoading] = useState(true);
 
   /* ── Join flow ── */
@@ -333,6 +338,7 @@ export default function SurvivachRoomPage() {
   const [arithmeticInput, setArithmeticInput] = useState('');
   const [duelChallenging, setDuelChallenging] = useState(false);
   const [duelTargets, setDuelTargets] = useState<SurvivachPlayer[]>([]);
+  const usedDuelModesHistoryRef = useRef<DuelMode | null>(null);
   const passTimeout = useRef<NodeJS.Timeout | null>(null);
   const prevBombHolderRef = useRef<string | null>(null);
   const gestureCountRef = useRef(0);
@@ -435,9 +441,13 @@ export default function SurvivachRoomPage() {
           setTextAnswer('');
           setChoiceAnswer(null);
           setMyAnswer(null);
-          setMyBet(null);
           setPuzzleSolved(false);
           setShowSequence(false);
+          if (roundChanged) {
+            setMyBet(null);
+            setPendingBetOption(null);
+            setDuel(null);
+          }
         }
         prevRoundRef.current = r.current_round;
         prevStatusRef.current = r.status;
@@ -490,7 +500,7 @@ export default function SurvivachRoomPage() {
       return;
     }
     const freshMe = players.find(p => p.id === me.id);
-    if (!freshMe || freshMe.karma < 3 || freshMe.is_zombie || room.current_round === 999 || !!duel) {
+    if (!freshMe || freshMe.karma < 3 || room.current_round === 999 || !!duel) {
       setDuelTargets([]);
       return;
     }
@@ -498,7 +508,7 @@ export default function SurvivachRoomPage() {
       !p.is_host &&
       p.id !== freshMe.id &&
       !p.is_zombie &&
-      Math.abs(p.position - freshMe.position) === 1
+      p.position === freshMe.position + 1
     );
     setDuelTargets(targets);
   }, [players, room?.current_round, me?.id, duel]);
@@ -569,9 +579,9 @@ export default function SurvivachRoomPage() {
   };
 
   const handleBet = async (betType: 'life' | 'karma') => {
-    if (!room || !me || myBet) return;
-    await submitBet(room.id, me.id, room.current_round, betType);
-    setMyBet({ id: '', room_id: room.id, player_id: me.id, round: room.current_round, bet_type: betType, resolved: false, won: null, created_at: '' });
+    if (!room || !me || myBet || !pendingBetOption) return;
+    await submitBet(room.id, me.id, room.current_round, betType, pendingBetOption);
+    setMyBet({ id: '', room_id: room.id, player_id: me.id, round: room.current_round, bet_type: betType, bet_option: pendingBetOption, resolved: false, won: null, created_at: '' });
   };
 
   /* ── Duel handlers ── */
@@ -650,20 +660,22 @@ export default function SurvivachRoomPage() {
 
   const handleInitiateDuelChallenge = async (challengedId: string) => {
     if (!room || !me || duelChallenging) return;
+    if (room.status !== 'moving') return;
     const freshMe = players.find(p => p.id === me.id);
-    if (!freshMe || freshMe.karma < 3) return;
-    if (Math.abs((players.find(p => p.id === challengedId)?.position ?? -999) - freshMe.position) !== 1) return;
+    if (!freshMe || (!freshMe.is_zombie && freshMe.karma < 3)) return;
+    if ((players.find(p => p.id === challengedId)?.position ?? -999) !== freshMe.position + 1) return;
     // 1-per-round lock: check no existing duel
     const existing = await fetchActiveDuel(room.id, room.current_round);
     if (existing) return;
     setDuelChallenging(true);
     try {
-      const modes = ['minesweeper', 'arithmetic_mean', 'crowd_forecast'] as const;
-      const duelMode = modes[Math.floor(Math.random() * modes.length)];
+      const lastMode = usedDuelModesHistoryRef.current ?? await fetchLastDuelMode(room.id);
+      const duelMode = getRandomDuelMode(lastMode);
       const BASE_URL = 'https://storage.yandexcloud.net/vecherinkach/json/survivach';
+      const nonHostCount = players.filter(p => !p.is_host).length;
       let initialDuelData: Record<string, unknown> = {};
       if (duelMode === 'minesweeper') {
-        initialDuelData = { mode: 'minesweeper', tile_count: 9, mined_tiles: {}, challenger_picks: [], challenged_picks: [], exploded_challenger: false, exploded_challenged: false };
+        initialDuelData = { mode: 'minesweeper', tile_count: nonHostCount + 2, mined_tiles: {}, challenger_picks: [], challenged_picks: [], exploded_challenger: false, exploded_challenged: false };
       } else if (duelMode === 'arithmetic_mean') {
         const qBank = await loadDuelQuestions(BASE_URL, 'arithmetic_mean');
         const list = (qBank as { questions: unknown[] })?.questions ?? [];
@@ -675,12 +687,18 @@ export default function SurvivachRoomPage() {
         const q = list[Math.floor(Math.random() * list.length)] as Record<string, unknown>;
         initialDuelData = { mode: 'crowd_forecast', question: q?.question ?? '', options: q?.options ?? [], player_votes: {}, majority_index: null, challenger_prediction: null, challenged_prediction: null };
       }
+      // Best-effort pre-deduct: if policy/network blocks this update, still allow duel init.
+      try {
+        if (!freshMe.is_zombie) await updatePlayer(freshMe.id, { karma: freshMe.karma - 3 });
+      } catch (karmaErr) {
+        console.warn('[DUEL] Karma pre-deduct failed, continuing duel init', karmaErr);
+      }
       const newDuel = await createDuel(
         room.id, room.current_round, duelMode,
         freshMe.id, challengedId,
         initialDuelData as unknown as import('@/lib/survivach/types').DuelData,
       );
-      await updatePlayer(freshMe.id, { karma: freshMe.karma - 3 });
+      usedDuelModesHistoryRef.current = duelMode;
       setDuel(newDuel);
       await setRoomStatus(room.id, 'duel_intro', { duel_data: initialDuelData });
     } catch (err) {
@@ -775,8 +793,7 @@ export default function SurvivachRoomPage() {
   /* ─── Status: me is set, render game view ─── */
   const isDuelist = me && duel && (duel.challenger_id === me.id || duel.challenged_id === me.id);
   const qData = room.question_data as Record<string, unknown> | null;
-  const actionStatuses = new Set(['round_playing', 'duel_setup', 'duel_playing', 'potato_playing']);
-  const showPersistentDuelPanel = !!me && me.karma >= 3 && !duel && duelTargets.length > 0 && !actionStatuses.has(room.status);
+  const showPersistentDuelPanel = !!me && me.karma >= 3 && !duel && duelTargets.length > 0 && room.status === 'moving';
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col">
@@ -920,25 +937,64 @@ export default function SurvivachRoomPage() {
                 <h2 className="text-2xl font-bold text-center">Ответ отправлен!</h2>
                 <p className="text-gray-500">Ждите результатов...</p>
 
-                {/* Bet button (if not already bet and answer submitted) */}
-                {!myBet && !me?.is_zombie && (
-                  <div className="mt-4 text-center">
-                    <p className="text-gray-400 text-sm mb-2">🎰 Ставка на зеро — никто не ответил правильно?</p>
-                    <div className="flex gap-2 justify-center">
-                      <button
-                        onClick={() => handleBet('life')}
-                        className="px-4 py-2 bg-red-700 hover:bg-red-600 rounded-lg text-sm font-bold"
-                      >❤️ Ставка жизнью</button>
-                      {me && me.karma >= 1 && (
+                {/* Bet panel (if not already bet and answer submitted, not blitz) */}
+                {!myBet && !me?.is_zombie && room.current_mode !== 'blitz' && (
+                  <div className="mt-4 w-full max-w-sm mx-auto">
+                    <p className="text-center text-gray-300 text-sm font-semibold mb-3 tracking-wide uppercase">🎰 Сделать ставку</p>
+
+                    {/* Step 1: pick prediction */}
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                      {([
+                        { id: 'all_correct' as BetOption, emoji: '🌟', label: 'Все угадают' },
+                        { id: 'majority_correct' as BetOption, emoji: '👥', label: 'Большинство' },
+                        { id: 'leader_mistake' as BetOption, emoji: '👑', label: 'Ошибка лидера' },
+                        { id: 'all_wrong' as BetOption, emoji: '💀', label: 'Все ошибутся' },
+                      ] as const).map(opt => (
                         <button
-                          onClick={() => handleBet('karma')}
-                          className="px-4 py-2 bg-yellow-700 hover:bg-yellow-600 rounded-lg text-sm font-bold"
-                        >✨ Ставка кармой</button>
-                      )}
+                          key={opt.id}
+                          onClick={() => setPendingBetOption(opt.id)}
+                          className={`flex flex-col items-center gap-1 px-3 py-3 rounded-2xl border text-sm font-bold transition-all duration-200 active:scale-95 ${
+                            pendingBetOption === opt.id
+                              ? 'border-yellow-400 bg-yellow-400/20 text-yellow-300 shadow-[0_0_16px_rgba(250,204,21,0.4)]'
+                              : 'border-white/10 bg-white/5 text-gray-300 hover:border-white/30'
+                          }`}
+                        >
+                          <span className="text-2xl">{opt.emoji}</span>
+                          <span>{opt.label}</span>
+                        </button>
+                      ))}
                     </div>
+
+                    {/* Step 2: pick stake (only if prediction selected) */}
+                    {pendingBetOption && (
+                      <div className="flex gap-2 justify-center animate-[fadeIn_0.2s_ease-out]">
+                        <button
+                          onClick={() => handleBet('life')}
+                          className="flex-1 px-4 py-3 bg-red-700/80 hover:bg-red-600 border border-red-500/50 rounded-2xl text-sm font-bold transition-all active:scale-95"
+                        >❤️ Жизнь</button>
+                        {me && me.karma >= 2 && (
+                          <button
+                            onClick={() => handleBet('karma')}
+                            className="flex-1 px-4 py-3 bg-yellow-700/80 hover:bg-yellow-600 border border-yellow-500/50 rounded-2xl text-sm font-bold transition-all active:scale-95"
+                          >✨ Карма ×2</button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
-                {myBet && <p className="text-yellow-400 font-bold">🎰 Ставка сделана: {myBet.bet_type === 'life' ? '❤️ жизнь' : '✨ карма'}</p>}
+                {myBet && room.current_mode !== 'blitz' && (
+                  <div className="mt-4 flex flex-col items-center gap-1">
+                    <p className="text-yellow-400 font-bold text-sm">🎰 Ставка принята!</p>
+                    <p className="text-gray-400 text-xs">
+                      {myBet.bet_option === 'all_correct' ? '🌟 Все угадают' :
+                       myBet.bet_option === 'majority_correct' ? '👥 Большинство угадает' :
+                       myBet.bet_option === 'leader_mistake' ? '👑 Ошибка лидера' :
+                       '💀 Все ошибутся'}
+                      {' · '}
+                      {myBet.bet_type === 'life' ? '❤️ жизнь' : '✨ карма'}
+                    </p>
+                  </div>
+                )}
               </div>
             ) : (
               <>
@@ -1236,18 +1292,33 @@ export default function SurvivachRoomPage() {
         {/* ────────── BET REVEAL ────────── */}
         {room.status === 'bet_reveal' && (
           <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6">
-            <h2 className="text-3xl font-black">🎰 Ставки</h2>
+            <h2 className="text-3xl font-black">🎰 Итоги ставок</h2>
             {myBet && me && room.bet_results_data && (
               (() => {
-                const myBetResult = (room.bet_results_data.bets as Array<{ player_id: string; won: boolean; bet_type: string }>)?.find(b => b.player_id === me.id);
+                const myBetResult = (room.bet_results_data.bets as Array<{ player_id: string; won: boolean; bet_type: string; bet_option: string }>)?.find(b => b.player_id === me.id);
                 if (!myBetResult) return null;
+                const optionLabel =
+                  myBet.bet_option === 'all_correct' ? '🌟 Все угадают' :
+                  myBet.bet_option === 'majority_correct' ? '👥 Большинство угадает' :
+                  myBet.bet_option === 'leader_mistake' ? '👑 Ошибка лидера' : '💀 Все ошибутся';
+                const stakeLabel = myBet.bet_type === 'life' ? '❤️ Жизнь' : '✨ Карма';
+                const wonLabel = myBetResult.won
+                  ? myBet.bet_type === 'life' ? '+1 ❤️' : '× 2 ✨'
+                  : myBet.bet_type === 'life' ? '−1 ❤️' : '÷ 2 ✨';
                 return (
-                  <div className={`flex flex-col items-center gap-3 p-6 rounded-2xl border ${
-                    myBetResult.won ? 'border-green-500 bg-green-900/20' : 'border-red-500 bg-red-900/20'
+                  <div className={`flex flex-col items-center gap-3 p-6 rounded-2xl border w-full max-w-xs ${
+                    myBetResult.won
+                      ? 'border-green-500/60 bg-green-900/20 shadow-[0_0_30px_rgba(34,197,94,0.2)]'
+                      : 'border-red-500/60 bg-red-900/20 shadow-[0_0_30px_rgba(239,68,68,0.2)]'
                   }`}>
-                    <span className="text-4xl">{myBetResult.won ? '✅' : '❌'}</span>
-                    <span className="font-bold text-xl">{myBetResult.won ? 'Ставка сыграла!' : 'Ставка не сыграла'}</span>
-                    <span className="text-gray-400">{myBet.bet_type === 'life' ? '❤️ Жизнь' : '✨ Карма'}</span>
+                    <span className="text-5xl">{myBetResult.won ? '🎉' : '💸'}</span>
+                    <span className={`font-black text-2xl ${myBetResult.won ? 'text-green-400' : 'text-red-400'}`}>
+                      {myBetResult.won ? 'Ставка сыграла!' : 'Ставка не сыграла'}
+                    </span>
+                    <span className="text-gray-300 text-sm">{optionLabel}</span>
+                    <span className={`font-bold text-lg px-4 py-1 rounded-full ${myBetResult.won ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300'}`}>
+                      {stakeLabel} → {wonLabel}
+                    </span>
                   </div>
                 );
               })()

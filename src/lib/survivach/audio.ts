@@ -30,6 +30,9 @@ export const BET_WORKED_POOL = `${BASE}/bet_worked/`;
 export const BET_MIX_POOL = `${BASE}/bet_mix/`;
 export const BET_UNWORKED_POOL = `${BASE}/bet_unworked/`;
 
+/* ─── Zombie Apocalypse (all players become zombies → resurrection) ─── */
+export const ZOMBIE_ALL_POOL = `${BASE}/zombie_all/`;
+
 /* ─── Duel outcomes ─── */
 export const DRAW_POOL = `${BASE}/draw/`;
 export const SUMMONED_WON_POOL = `${BASE}/summoned_won/`;
@@ -142,10 +145,20 @@ export const POOL_COUNTS: Record<string, number> = {
   [`${BASE}/zombie_won/`]: 3,
   // Duel ratings reveal
   [`${BASE}/duelists_actions/`]: 2,
-  [`${BASE}/player_actions/`]: 3,
+  [`${BASE}/player_actions/`]: 2,
+  [`${BASE}/minesweeper/`]: 3,
+  [`${BASE}/minesweeper/for_duelists/`]: 3,
+  [`${BASE}/crowd_forecast/`]: 3,
+  [`${BASE}/crowd_forecast/for_duelists/`]: 3,
   // Arithmetic mean mode
   [`${BASE}/arithmetic_mean/`]: 3,
   [`${BASE}/arithmetic_mean/for_duelists/`]: 3,
+  // Bet outcomes
+  [`${BASE}/bet_worked/`]: 3,
+  [`${BASE}/bet_mix/`]: 3,
+  [`${BASE}/bet_unworked/`]: 3,
+  // Zombie Apocalypse
+  [`${BASE}/zombie_all/`]: 3,
 };
 
 /* ─── Helper: pick random file from a pool directory (numbered 1.mp3, 2.mp3, …) ─── */
